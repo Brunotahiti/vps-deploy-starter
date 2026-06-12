@@ -1,0 +1,19 @@
+# syntax=docker/dockerfile:1.7
+# Python 3.13 — FastAPI / Django / Flask
+FROM python:3.13-slim AS base
+WORKDIR /app
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PORT=__APP_PORT__
+
+# Dependencies
+COPY requirements.txt pyproject.toml* uv.lock* poetry.lock* ./
+RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/* && \
+  if [ -f uv.lock ]; then pip install uv && uv sync --frozen --no-dev; \
+  elif [ -f poetry.lock ]; then pip install poetry && poetry install --no-root --only main; \
+  else pip install --no-cache-dir -r requirements.txt; fi
+
+# App
+COPY . .
+
+# Default: uvicorn FastAPI. Override CMD in docker-compose if Django/Flask.
+EXPOSE __APP_PORT__
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "__APP_PORT__"]

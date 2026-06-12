@@ -1,0 +1,19 @@
+# syntax=docker/dockerfile:1.7
+# Node.js générique — Express, Fastify, NestJS, etc.
+FROM node:22-alpine AS deps
+WORKDIR /app
+COPY package.json package-lock.json* pnpm-lock.yaml* yarn.lock* ./
+RUN \
+  if [ -f pnpm-lock.yaml ]; then corepack enable pnpm && pnpm i --frozen-lockfile --prod; \
+  elif [ -f yarn.lock ]; then yarn install --frozen-lockfile --production; \
+  else npm ci --no-audit --no-fund --omit=dev; fi
+
+FROM node:22-alpine AS runner
+WORKDIR /app
+ENV NODE_ENV=production PORT=__APP_PORT__
+RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 nodeapp
+COPY --from=deps /app/node_modules ./node_modules
+COPY --chown=nodeapp:nodejs . .
+USER nodeapp
+EXPOSE __APP_PORT__
+CMD ["node", "index.js"]

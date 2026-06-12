@@ -1,0 +1,43 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: __APP_NAME__:latest
+    container_name: __APP_NAME__
+    restart: unless-stopped
+    env_file:
+      - .env
+    networks:
+      - traefik
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik"
+
+      # HTTP → HTTPS redirect
+      - "traefik.http.routers.__APP_NAME__-http.rule=Host(`__PUBLIC_HOST__`)"
+      - "traefik.http.routers.__APP_NAME__-http.entrypoints=web"
+      - "traefik.http.routers.__APP_NAME__-http.middlewares=__APP_NAME__-https-redirect"
+      - "traefik.http.middlewares.__APP_NAME__-https-redirect.redirectscheme.scheme=https"
+      - "traefik.http.middlewares.__APP_NAME__-https-redirect.redirectscheme.permanent=true"
+
+      # HTTPS router
+      - "traefik.http.routers.__APP_NAME__.rule=Host(`__PUBLIC_HOST__`)"
+      - "traefik.http.routers.__APP_NAME__.entrypoints=websecure"
+      - "traefik.http.routers.__APP_NAME__.tls=true"
+      - "traefik.http.routers.__APP_NAME__.tls.certresolver=letsencrypt"
+      - "traefik.http.services.__APP_NAME__.loadbalancer.server.port=__APP_PORT__"
+
+      # Security headers
+      - "traefik.http.middlewares.__APP_NAME__-headers.headers.stsSeconds=31536000"
+      - "traefik.http.middlewares.__APP_NAME__-headers.headers.stsIncludeSubdomains=true"
+      - "traefik.http.middlewares.__APP_NAME__-headers.headers.stsPreload=true"
+      - "traefik.http.middlewares.__APP_NAME__-headers.headers.contentTypeNosniff=true"
+      - "traefik.http.middlewares.__APP_NAME__-headers.headers.browserXssFilter=true"
+      - "traefik.http.middlewares.__APP_NAME__-headers.headers.referrerPolicy=strict-origin-when-cross-origin"
+      - "traefik.http.routers.__APP_NAME__.middlewares=__APP_NAME__-headers"
+
+networks:
+  traefik:
+    external: true
+    name: traefik
