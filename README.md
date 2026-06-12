@@ -25,8 +25,25 @@ Le script te demande :
 - **Domaine ou sous-domaine** (ex: `monprojet.pf` ou `srv1565699.hstgr.cloud`)
 - **Port interne** de l'app (3000 par défaut)
 - **Framework** (next / node / python / static)
+- **Postgres ?** (ajoute un container Postgres 16 + scripts backup/restore)
 
 Il génère/adapte automatiquement tous les fichiers.
+
+### 🗄️ Si tu choisis Postgres
+
+- Service `db` (Postgres 16-alpine) ajouté au `docker-compose.yml`
+- Réseau interne dédié (la DB n'est pas exposée publiquement)
+- Mot de passe aléatoire généré (`POSTGRES_PASSWORD` dans `.env`)
+- Variable `DATABASE_URL` pré-remplie
+- Scripts `db-backup.sh` (gzip + rétention 14 jours) et `db-restore.sh`
+- Volume Docker nommé pour la persistance
+
+Active la sauvegarde quotidienne sur le VPS :
+```bash
+crontab -e
+# Ajouter :
+0 3 * * * /opt/MON_PROJET/scripts/db-backup.sh
+```
 
 ### 3. Coder ton app
 
