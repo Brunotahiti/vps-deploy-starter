@@ -8,6 +8,14 @@ services:
     restart: unless-stopped
     env_file:
       - .env
+    # Limite RAM : évite qu'une fuite mémoire fasse swapper tout le VPS
+    mem_limit: ${APP_MEM_LIMIT:-1g}
+    # Rotation des logs : sans ça, les fichiers *-json.log grossissent à l'infini
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     networks:
       - traefik
     labels:

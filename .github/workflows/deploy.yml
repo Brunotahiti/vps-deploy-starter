@@ -51,6 +51,8 @@ jobs:
             docker compose build app
             docker compose up -d
             docker image prune -f
+            # Le cache de build n'est pas couvert par image prune : on purge > 7 jours
+            docker builder prune -f --filter until=168h
             docker compose ps
           EOF
 

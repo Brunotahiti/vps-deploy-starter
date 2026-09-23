@@ -67,6 +67,8 @@ FILES_TO_PATCH=(
   "scripts/setup-ci.sh"
   "scripts/db-backup.sh"
   "scripts/db-restore.sh"
+  "scripts/vps-diagnose.sh"
+  "scripts/vps-cleanup.sh"
   ".github/workflows/deploy.yml"
 )
 

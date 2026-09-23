@@ -96,6 +96,29 @@ Si tu utilises un autre VPS, change `VPS_HOST` dans `init.sh` ou en variable d'e
 
 ---
 
+## 🐢 Le VPS devient lent ?
+
+Diagnostic (lecture seule) depuis ta machine :
+```bash
+ssh root@TON_VPS 'bash -s' < scripts/vps-diagnose.sh
+```
+
+Il affiche : charge CPU, RAM/swap, disque, taille des logs Docker, conso par conteneur, processus tués par manque de RAM, et le *steal time* (VPS surchargé côté Hostinger).
+
+Nettoyage (images/cache de build inutilisés, gros logs ; **les volumes et bases de données ne sont pas touchés**) :
+```bash
+ssh root@TON_VPS 'bash -s' < scripts/vps-cleanup.sh
+# ou en cron hebdo sur le VPS :
+0 4 * * 0 /opt/MON_PROJET/scripts/vps-cleanup.sh
+```
+
+Protections déjà incluses dans le template :
+- rotation des logs Docker (3 × 10 Mo par conteneur)
+- limite RAM par app (`APP_MEM_LIMIT`, défaut `1g`, modifiable dans `.env`)
+- purge du cache de build à chaque déploiement
+
+---
+
 ## 📂 Structure générée
 
 ```

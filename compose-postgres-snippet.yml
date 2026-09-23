@@ -10,6 +10,11 @@
     volumes:
       - __APP_NAME__-pgdata:/var/lib/postgresql/data
       - ./db-init:/docker-entrypoint-initdb.d:ro
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     networks:
       - internal
     healthcheck:
