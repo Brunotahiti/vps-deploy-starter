@@ -10,8 +10,25 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  check:
+    name: Secrets configurés ?
+    runs-on: ubuntu-latest
+    outputs:
+      configured: ${{ steps.c.outputs.configured }}
+    steps:
+      - id: c
+        run: |
+          if [ -n "${{ secrets.VPS_SSH_KEY }}" ] && [ -n "${{ secrets.VPS_HOST }}" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Déploiement ignoré : secrets VPS non configurés (lancer scripts/setup-ci.sh une fois)."
+          fi
+
   deploy:
     name: SSH → VPS rebuild
+    needs: check
+    if: needs.check.outputs.configured == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
