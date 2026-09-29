@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { LayoutDashboard, UtensilsCrossed, Map, Receipt, Wallet, Users, Settings, ScrollText, Building2, Moon, Sun, LogOut, Menu, X, MonitorSmartphone, ChefHat, Boxes, CalendarDays, Heart, QrCode } from "lucide-react";
+import { LayoutDashboard, UtensilsCrossed, Map, Receipt, Wallet, Users, Settings, ScrollText, Building2, Moon, Sun, LogOut, Menu, X, MonitorSmartphone, ChefHat, Boxes, CalendarDays, Heart, QrCode, BarChart3, Clock } from "lucide-react";
 import { useSession } from "@/hooks/use-session";
 import { useRealtime } from "@/hooks/use-realtime";
 import { useTheme } from "@/hooks/use-theme";
@@ -31,15 +31,16 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
     { href: "/admin/floor", label: "Plan de salle", icon: Map, show: can("floor.manage") },
     { href: "/admin/orders", label: "Commandes", icon: Receipt, show: can("orders.view_history") },
     { href: "/admin/cash", label: "Caisse", icon: Wallet, show: can("reports.view") },
+    { href: "/admin/reports", label: "Rapports & exports", icon: BarChart3, show: can("reports.view") },
     { href: "/admin/users", label: "Utilisateurs", icon: Users, show: can("users.manage") },
     { href: "/admin/settings", label: "Paramètres", icon: Settings, show: can("settings.manage") },
     { href: "/admin/audit", label: "Journal d'audit", icon: ScrollText, show: can("audit.view") },
     { href: "/kds", label: "Écran cuisine", icon: ChefHat, show: can("kds.use") },
     { href: "/admin/stock", label: "Stocks & achats", icon: Boxes, show: can("stock.view"), match: "/admin/stock" },
+    { href: "/admin/staff", label: "Personnel", icon: Clock, show: can("staff.manage"), match: "/admin/staff" },
     { href: "/admin/establishments", label: "Établissements", icon: Building2, show: can("establishments.manage") || (me?.establishments?.length ?? 0) > 1 },
   ].filter((n) => n.show);
   const later = [
-    { label: "Personnel", icon: CalendarDays, phase: 5 },
     { label: "Réservations", icon: CalendarDays, phase: 6 }, { label: "Fidélité & clients", icon: Heart, phase: 6 }, { label: "QR & en ligne", icon: QrCode, phase: 6 },
   ];
 

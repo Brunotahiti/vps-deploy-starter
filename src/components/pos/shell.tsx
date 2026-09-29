@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { LayoutGrid, ListOrdered, Wallet, Settings, Moon, Sun, LogOut, Wifi, WifiOff, RefreshCw, ChefHat, Download, Menu, X, ChevronRight } from "lucide-react";
+import { LayoutGrid, ListOrdered, Wallet, Settings, Moon, Sun, LogOut, Wifi, WifiOff, RefreshCw, ChefHat, Download, Menu, X, ChevronRight, Clock } from "lucide-react";
 import { useSession } from "@/hooks/use-session";
 import { useRealtime } from "@/hooks/use-realtime";
 import { useTheme } from "@/hooks/use-theme";
@@ -48,6 +48,7 @@ export function PosShell({ children }: { children: React.ReactNode }) {
     { href: "/pos", label: "Salle", icon: LayoutGrid },
     { href: "/pos/orders", label: "Commandes", icon: ListOrdered },
     { href: "/pos/cash", label: "Caisse", icon: Wallet },
+    { href: "/pos/clock", label: "Pointage", icon: Clock },
   ];
   const isActive = (href: string) => (href === "/pos" ? pathname === "/pos" || pathname.startsWith("/pos/order/") : pathname.startsWith(href));
 

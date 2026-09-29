@@ -1,4 +1,4 @@
-# API ManaResto (Phases 1–4)
+# API ManaResto (Phases 1–5)
 
 Toutes les réponses sont `{ "data": … }` ou `{ "error": { "code", "message", "details" } }`. Authentification par cookie de session. Les mutations sensibles acceptent `managerPin` (autorisation ponctuelle) et renvoient `403 PIN_REQUIRED` sinon. Les créations de commandes / articles / envois / paiements acceptent l'en-tête `Idempotency-Key` (rejeu sûr après reconnexion).
 
@@ -26,6 +26,9 @@ Toutes les réponses sont `{ "data": … }` ou `{ "error": { "code", "message", 
 | GET/POST/PATCH | `/api/purchase-orders[/:id]` · POST `/:id/send`, `/:id/receive` `{lines:[{lineId, receivedQty}]}`, `/:id/cancel` | stock.view / stock.manage |
 | POST | `/api/payments/:id/refund` | pos.refund |
 | GET/POST | `/api/cash`, `/api/cash/current`, `/api/cash/open`, `/api/cash/:id`, `/:id/movements`, `/:id/close`, `/:id/report` | cash.open / cash.movement / cash.correct / cash.close |
-| GET | `/api/reports/daily?day=`, `/range?from&to`, `/overview` | reports.view / reports.view_global |
+| GET | `/api/reports/daily?day=`, `/range?from&to`, `/overview` · `/api/reports/period?from&to` (comparaison incluse) | reports.view / reports.view_global |
+| GET | `/api/reports/export?type=period|products|orders|staff&format=csv|xlsx|pdf&from&to` | reports.view / orders.view_history / staff.manage |
+| GET/POST/PATCH/DELETE | `/api/staff/employees[/:id]` · POST `/from-users` · `/api/staff/shifts[/:id]` (`?from&to`) · `/api/staff/entries[/:id]` (`?from&to&employeeId`, corrections motivées) · GET `/api/staff/summary?from&to` | staff.manage |
+| POST | `/api/staff/clock/identify` `{pin}` · `/api/staff/clock` `{pin, kind: CLOCK_IN|BREAK_START|BREAK_END|CLOCK_OUT}` · GET `/api/staff/present` | session (tout membre connecté) |
 | GET | `/api/audit` | audit.view |
 | GET | `/api/realtime` (SSE) · `/api/health` | — |

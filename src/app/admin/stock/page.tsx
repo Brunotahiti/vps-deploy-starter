@@ -58,7 +58,7 @@ export default function StockPage() {
       </div>
       {alerts.data && alerts.data.productsUnavailable.length > 0 ? <p className="mb-3 rounded-xl bg-red-500/10 px-3 py-2 text-sm text-red-700 dark:text-red-300"><b>Indisponibles en caisse (rupture) :</b> {alerts.data.productsUnavailable.map((p) => p.name).join(", ")}</p> : null}
       <div className="mb-3 flex flex-wrap items-center gap-2">
-        <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Rechercher…" className="w-56" />
+        <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Rechercher…" className="w-56!" />
         <Toggle checked={onlyAlerts} onChange={setOnlyAlerts} label="Sous le seuil uniquement" />
       </div>
       {q.isLoading ? <div className="flex justify-center py-10"><Spinner /></div> : (

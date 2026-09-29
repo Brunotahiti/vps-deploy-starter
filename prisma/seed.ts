@@ -125,6 +125,40 @@ async function main() {
   await mkUser("bar@manaresto.pf", "Manu", "Bar", "bartender", "4000", "#06B6D4");
   await mkUser("compta@manaresto.pf", "Léa", "Comptable", "accountant", "5000", "#64748B");
 
+  console.log("→ Personnel : fiches, planning, pointages…");
+  const staffRows: { userId: string; first: string; last: string; job: string; cost: number }[] = [
+    { userId: manager.id, first: "Hinatea", last: "Tehei", job: "Manager", cost: 2600 },
+    ...serverNames.map(([f, l], i) => ({ userId: servers[i].id, first: f, last: l, job: "Serveur", cost: 1650 + i * 50 })),
+  ];
+  const cuisineUser = await prisma.user.findUniqueOrThrow({ where: { email: "cuisine@manaresto.pf" } });
+  const barUser = await prisma.user.findUniqueOrThrow({ where: { email: "bar@manaresto.pf" } });
+  staffRows.push({ userId: cuisineUser.id, first: "Rai", last: "Cuisine", job: "Chef de cuisine", cost: 2400 }, { userId: barUser.id, first: "Manu", last: "Bar", job: "Barman", cost: 1800 });
+  const employees: { id: string; job: string }[] = [];
+  for (const r of staffRows) employees.push({ id: (await prisma.employee.create({ data: { establishmentId: est.id, userId: r.userId, firstName: r.first, lastName: r.last, jobTitle: r.job, hourlyCost: r.cost } })).id, job: r.job });
+  employees.push({ id: (await prisma.employee.create({ data: { establishmentId: est.id, firstName: "Tehani", lastName: "Extra", jobTitle: "Plonge (extra)", hourlyCost: 1400, pinHash: await hashPassword("7777") } })).id, job: "Plonge" });
+  const seedToday = localDay(new Date(), TZ);
+  const atLocal = (day: string, h: number, m = 0) => new Date(startOfLocalDay(day, TZ).getTime() + (h * 60 + m) * 60000);
+  for (let d = 7; d >= 0; d--) {
+    const day = addDays(seedToday, -d);
+    const dow = new Date(day + "T12:00:00Z").getUTCDay();
+    for (const [i, e] of employees.entries()) {
+      if (dow === 0 && i % 2 === 0) continue; // repos
+      const lunch = i % 3 !== 2, dinner = i % 3 !== 1;
+      if (lunch) await prisma.shift.create({ data: { establishmentId: est.id, employeeId: e.id, startsAt: atLocal(day, 10, 30), endsAt: atLocal(day, 15), notes: "Midi" } });
+      if (dinner) await prisma.shift.create({ data: { establishmentId: est.id, employeeId: e.id, startsAt: atLocal(day, 17, 30), endsAt: atLocal(day, 22, 30), notes: "Soir" } });
+      if (d === 0) continue; // aujourd'hui : pointages réalisés plus bas
+      const jitter = () => between(-8, 12);
+      if (lunch) { await prisma.timeEntry.create({ data: { establishmentId: est.id, employeeId: e.id, kind: "CLOCK_IN", at: atLocal(day, 10, 30 + jitter()) } }); await prisma.timeEntry.create({ data: { establishmentId: est.id, employeeId: e.id, kind: "BREAK_START", at: atLocal(day, 13, 0 + jitter()) } }); await prisma.timeEntry.create({ data: { establishmentId: est.id, employeeId: e.id, kind: "BREAK_END", at: atLocal(day, 13, 25 + jitter()) } }); await prisma.timeEntry.create({ data: { establishmentId: est.id, employeeId: e.id, kind: "CLOCK_OUT", at: atLocal(day, 15, 5 + jitter()) } }); }
+      if (dinner) { await prisma.timeEntry.create({ data: { establishmentId: est.id, employeeId: e.id, kind: "CLOCK_IN", at: atLocal(day, 17, 30 + jitter()) } }); await prisma.timeEntry.create({ data: { establishmentId: est.id, employeeId: e.id, kind: "CLOCK_OUT", at: atLocal(day, 22, 35 + jitter()) } }); }
+    }
+  }
+  // Aujourd'hui : quelques employés déjà pointés (en service ou en pause)
+  const nowMs = Date.now();
+  for (const [i, e] of employees.slice(0, 5).entries()) {
+    await prisma.timeEntry.create({ data: { establishmentId: est.id, employeeId: e.id, kind: "CLOCK_IN", at: new Date(nowMs - (150 + i * 12) * 60000) } });
+    if (i === 2) await prisma.timeEntry.create({ data: { establishmentId: est.id, employeeId: e.id, kind: "BREAK_START", at: new Date(nowMs - 10 * 60000) } });
+  }
+
   console.log("→ Salles et tables…");
   const salle = await prisma.room.create({ data: { establishmentId: est.id, name: "Salle", kind: "INDOOR", sortOrder: 0, width: 1200, height: 800 } });
   const terrasse = await prisma.room.create({ data: { establishmentId: est.id, name: "Terrasse", kind: "TERRACE", sortOrder: 1, width: 1200, height: 700 } });
