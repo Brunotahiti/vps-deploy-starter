@@ -5,6 +5,7 @@ import { hashPassword } from "../src/server/auth/password";
 import { ensureSystemRoles } from "../src/server/services/roles";
 import { createEstablishmentDefaults } from "../src/server/services/establishments";
 import { computeLine, computeOrderTotals } from "../src/lib/order-calc";
+import crypto from "node:crypto";
 import { addDays, endOfLocalDay, localDay, startOfLocalDay } from "../src/lib/dates";
 
 const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL! }) });
@@ -157,6 +158,32 @@ async function main() {
   for (const [i, e] of employees.slice(0, 5).entries()) {
     await prisma.timeEntry.create({ data: { establishmentId: est.id, employeeId: e.id, kind: "CLOCK_IN", at: new Date(nowMs - (150 + i * 12) * 60000) } });
     if (i === 2) await prisma.timeEntry.create({ data: { establishmentId: est.id, employeeId: e.id, kind: "BREAK_START", at: new Date(nowMs - 10 * 60000) } });
+  }
+
+  console.log("→ Clients, fidélité, réglages digitaux…");
+  await prisma.establishment.update({ where: { id: est.id }, data: { settings: { courses: ["APÉRITIFS", "ENTRÉES", "PLATS", "DESSERTS"], digital: { qrMode: "ORDER", online: { enabled: true, pickup: true, delivery: true, pickupLeadMin: 20, deliveryFee: 500, deliveryMinOrder: 3000, deliveryZones: ["Punaauia", "Paea", "Faa'a"], message: "Commandes en ligne de 11 h à 13 h 30 et de 18 h à 21 h. Paiement sur place." }, kiosk: { enabled: true, dineIn: true, takeaway: true } }, loyalty: { enabled: true, pointsPer100: 1, rewardPoints: 100, rewardValue: 1000 } } } });
+  const CUSTOMERS: [string, string, string, string | null, string | null, number, number, number][] = [
+    ["Teiki", "Faatau", "+689 87 11 22 33", "teiki@mail.pf", null, 14, 186500, 165], ["Hina", "Tetuanui", "+689 87 44 55 66", "hina.t@mail.pf", "Fruits de mer", 9, 98200, 82], ["Marc", "Dupont", "+689 89 12 34 56", null, null, 4, 41300, 41],
+    ["Vaimiti", "Pambrun", "+689 87 99 88 77", "vaimiti@mail.pf", "Gluten", 21, 312400, 12], ["Sophie", "Martin", "+689 87 65 43 21", "sophie.m@mail.pf", null, 2, 12800, 128], ["Tama", "Ariipeu", "+689 89 00 11 22", null, null, 6, 54700, 47],
+  ];
+  const customerIds: string[] = [];
+  for (const [f, l, phone, email, allergies, visits, spent, points] of CUSTOMERS) {
+    const c = await prisma.customer.create({ data: { organizationId: org.id, firstName: f, lastName: l, phone, email, allergies, visitCount: visits, totalSpent: spent } });
+    customerIds.push(c.id);
+    const acc = await prisma.loyaltyAccount.create({ data: { establishmentId: est.id, customerId: c.id, points } });
+    await prisma.loyaltyTransaction.create({ data: { accountId: acc.id, points: points + (visits > 10 ? 100 : 0), reason: "Historique des visites" } });
+    if (visits > 10) await prisma.loyaltyTransaction.create({ data: { accountId: acc.id, points: -100, reason: "Récompense utilisée" } });
+  }
+  console.log("→ Réservations…");
+  const resDay = localDay(new Date(), TZ);
+  const resAt = (day: string, h: number, m = 0) => new Date(startOfLocalDay(day, TZ).getTime() + (h * 60 + m) * 60000);
+  const RES: [string, number, string, number, number, string, string | null][] = [
+    ["Teiki Faatau", 0, resDay, 12, 0, "CONFIRMED", null], ["Famille Pambrun", 3, resDay, 12, 30, "CONFIRMED", "Gluten"], ["Sophie Martin", 4, resDay, 19, 30, "PENDING", null], ["Anniversaire Hina", 1, resDay, 20, 0, "CONFIRMED", "Fruits de mer"],
+    ["Marc Dupont", 2, addDays(resDay, 1), 12, 15, "CONFIRMED", null], ["Séminaire Wing Chong", 5, addDays(resDay, 1), 19, 0, "PENDING", null], ["Tama Ariipeu", 5, addDays(resDay, -1), 19, 30, "COMPLETED", null], ["Client sans nom", 2, addDays(resDay, -1), 20, 0, "NO_SHOW", null],
+  ];
+  const partySizes = [2, 6, 2, 8, 2, 12, 4, 2];
+  for (const [i, [name, ci, day, h, m, status, allergies]] of RES.entries()) {
+    await prisma.reservation.create({ data: { establishmentId: est.id, customerId: customerIds[ci], name, phone: CUSTOMERS[ci][2], startsAt: resAt(day, h, m), partySize: partySizes[i], status: status as "CONFIRMED", allergies, notes: i === 3 ? "Gâteau à apporter, table près de la mer" : null } });
   }
 
   console.log("→ Salles et tables…");
@@ -364,6 +391,21 @@ async function main() {
   for (let i = 0; i < 6; i++) await mkOrder(today, Math.max(0, nowLocalHour - 2), between(0, 40), between(0, 19), true, between(0, 4), todaySession.id);
   const openTables = [0, 3, 5, 14, 16];
   for (const [i, t] of openTables.entries()) await mkOrder(today, Math.max(0, nowLocalHour - (i % 2)), between(0, 30), t, false, i % 5, todaySession.id);
+
+  console.log("→ Commandes en ligne et borne en attente…");
+  const mkOnline = async (type: "ONLINE" | "DELIVERY" | "KIOSK", ci: number | null, picks: typeof plats, meta: Record<string, unknown>, accepted: boolean) => {
+    const n = `${today.replace(/-/g, "")}-${String(counter + 1).padStart(4, "0")}`; counter++;
+    const o = await prisma.order.create({ data: { establishmentId: est.id, number: n, type, serverId: owner.id, covers: 1, customerId: ci !== null ? customerIds[ci] : null, customerName: ci !== null ? `${CUSTOMERS[ci][0]} ${CUSTOMERS[ci][1]}` : (meta.name as string) ?? null, status: accepted ? "SENT" : "OPEN", publicToken: crypto.randomUUID(), channelMeta: { ...meta, channel: type === "KIOSK" ? "KIOSK" : type === "DELIVERY" ? "DELIVERY" : "PICKUP", awaitingAcceptance: !accepted }, acceptedAt: accepted ? new Date(Date.now() - 6 * 60000) : null, openedAt: new Date(Date.now() - 9 * 60000), courses: { create: [{ name: "COMMANDE", sortOrder: 0, status: accepted ? "SENT" : "PENDING" }] } } });
+    const course = await prisma.course.findFirstOrThrow({ where: { orderId: o.id } });
+    const lines = picks.map((p) => computeLine({ quantity: 1, unitPrice: p.priceTtc, modifiersTotal: 0, discountAmount: 0, taxRateBps: p.taxRateBps }));
+    for (const [i, p] of picks.entries()) await prisma.orderItem.create({ data: { orderId: o.id, courseId: course.id, productId: p.id, kitchenStationId: p.stationId, name: p.name, quantity: 1, unitPrice: p.priceTtc, lineTotal: lines[i].lineTotal, taxRateBps: p.taxRateBps, taxRateName: p.taxRateName, taxAmount: lines[i].taxAmount, costPrice: p.costPrice, sortOrder: i, status: accepted ? "SENT" : "PENDING", sentAt: accepted ? new Date(Date.now() - 6 * 60000) : null } });
+    const totals = computeOrderTotals(lines.map((l, i) => ({ quantity: 1, unitPrice: picks[i].priceTtc, modifiersTotal: 0, discountAmount: 0, taxRateBps: picks[i].taxRateBps, taxRateName: picks[i].taxRateName })), 0);
+    await prisma.order.update({ where: { id: o.id }, data: { subtotal: totals.subtotal, taxTotal: totals.taxTotal, total: totals.total } });
+    if (accepted) await prisma.kitchenTicket.create({ data: { orderId: o.id, courseId: course.id, stationId: picks[0].stationId, status: "IN_PROGRESS", createdAt: new Date(Date.now() - 6 * 60000), acceptedAt: new Date(Date.now() - 5 * 60000), startedAt: new Date(Date.now() - 4 * 60000), items: { connect: [] } } });
+  };
+  await mkOnline("ONLINE", 1, [plats[0], entrees[1], boissons[0]], { name: "Hina Tetuanui", phone: "+689 87 44 55 66", when: "12:30", lang: "fr" }, false);
+  await mkOnline("DELIVERY", 3, [plats[2], plats[6], desserts[0], boissons[2]], { name: "Vaimiti Pambrun", phone: "+689 87 99 88 77", when: "Dès que possible", address: "PK 15,8 côté montagne, portail vert", zone: "Punaauia", deliveryFee: 500, lang: "fr" }, false);
+  await mkOnline("KIOSK", null, [plats[1], boissons[1]], { name: "Moe", mode: "TAKEAWAY", payAtCounter: true, lang: "en" }, true);
 
   await prisma.auditLog.create({ data: { organizationId: org.id, establishmentId: est.id, userId: owner.id, action: "demo.seed", entityType: "establishment", entityId: est.id, newValue: { orders: counter } } });
   console.log(`✓ Démo créée : ${counter} commandes. Connexion : demo@manaresto.pf / demo1234 (PIN 1234)`);

@@ -17,7 +17,7 @@ test("toutes les pages se chargent sans erreur JavaScript", async ({ page }) => 
   page.on("pageerror", (e) => errors.push(e.message));
   page.on("console", (m) => { if (m.type() === "error" && !/favicon|404|Failed to load resource/.test(m.text())) errors.push(m.text()); });
   await login(page);
-  const pages = ["/admin", "/admin/catalog/products", "/admin/catalog/categories", "/admin/catalog/modifiers", "/admin/catalog/menus", "/admin/catalog/tax-rates", "/admin/catalog/import", "/admin/floor", "/admin/orders", "/admin/cash", "/admin/users", "/admin/settings", "/admin/audit", "/admin/establishments", "/admin/stock", "/admin/stock/inventory", "/admin/stock/recipes", "/admin/stock/suppliers", "/admin/stock/orders", "/admin/stock/report", "/admin/staff", "/admin/staff/shifts", "/admin/staff/entries", "/admin/staff/summary", "/admin/reports", "/onboarding", "/kds", "/pos/clock", "/pos", "/pos/orders", "/pos/cash"];
+  const pages = ["/admin", "/admin/catalog/products", "/admin/catalog/categories", "/admin/catalog/modifiers", "/admin/catalog/menus", "/admin/catalog/tax-rates", "/admin/catalog/import", "/admin/floor", "/admin/orders", "/admin/cash", "/admin/users", "/admin/settings", "/admin/audit", "/admin/establishments", "/admin/stock", "/admin/stock/inventory", "/admin/stock/recipes", "/admin/stock/suppliers", "/admin/stock/orders", "/admin/stock/report", "/admin/staff", "/admin/staff/shifts", "/admin/staff/entries", "/admin/staff/summary", "/admin/reports", "/admin/customers", "/admin/digital", "/pos/reservations", "/onboarding", "/kds", "/pos/clock", "/pos", "/pos/orders", "/pos/cash"];
   for (const p of pages) {
     await page.goto(p);
     await expect(page.locator("body")).not.toContainText(/Application error|Unhandled/);

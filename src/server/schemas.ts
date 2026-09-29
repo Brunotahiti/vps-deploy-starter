@@ -122,3 +122,25 @@ export const clockIdentifySchema = z.object({ pin: z.string().regex(/^\d{4,6}$/)
 export const timeEntrySchema = z.object({ employeeId: uuid.optional(), kind: z.enum(["CLOCK_IN", "BREAK_START", "BREAK_END", "CLOCK_OUT"]).optional(), at: z.string().datetime({ offset: true }), reason: z.string().min(1).max(200) });
 export const periodQuery = z.object({ from: daySchema, to: daySchema });
 export const exportQuery = z.object({ type: z.enum(["period", "products", "orders", "staff"]), format: z.enum(["csv", "xlsx", "pdf"]), from: daySchema, to: daySchema });
+
+// Digital (Phase 6)
+const modSel = z.array(z.object({ modifierId: uuid, quantity: z.number().int().min(1).max(20).optional() })).optional();
+export const publicLineSchema = z.object({ id: uuid, productId: uuid.optional(), menuId: uuid.optional(), variantId: uuid.nullable().optional(), quantity: z.number().int().min(1).max(50), modifiers: modSel, menuSelections: z.array(z.object({ sectionId: uuid, productId: uuid, modifiers: modSel })).optional(), notes: z.string().max(200).nullable().optional() });
+export const tableOrderSchema = z.object({ id: uuid, lines: z.array(publicLineSchema).min(1).max(60), covers: z.number().int().min(1).max(50).optional(), notes: z.string().max(300).nullable().optional() });
+export const callWaiterSchema = z.object({ reason: z.string().max(120).nullable().optional() });
+export const onlineOrderSchema = z.object({ id: uuid, mode: z.enum(["PICKUP", "DELIVERY"]), name: z.string().min(2).max(80), phone: z.string().min(6).max(30), email: z.string().email().max(160).nullable().optional().or(z.literal("")), when: z.string().max(40).nullable().optional(), address: z.string().max(300).nullable().optional(), zone: z.string().max(80).nullable().optional(), notes: z.string().max(300).nullable().optional(), lines: z.array(publicLineSchema).min(1).max(60), lang: z.enum(["fr", "en", "ty"]).optional() });
+export const kioskOrderSchema = z.object({ id: uuid, mode: z.enum(["DINE_IN", "TAKEAWAY"]), name: z.string().max(40).nullable().optional(), lines: z.array(publicLineSchema).min(1).max(60), lang: z.enum(["fr", "en", "ty"]).optional() });
+export const publicReservationSchema = z.object({ name: z.string().min(2).max(80), phone: z.string().min(6).max(30), email: z.string().email().max(160).nullable().optional().or(z.literal("")), startsAt: z.string().datetime({ offset: true }), partySize: z.number().int().min(1).max(50), notes: z.string().max(300).nullable().optional(), allergies: z.string().max(200).nullable().optional() });
+export const reservationSchema = z.object({ name: z.string().min(1).max(80), phone: z.string().max(30).nullable().optional(), email: z.string().max(160).nullable().optional(), startsAt: z.string().datetime({ offset: true }), partySize: z.number().int().min(1).max(50), tableId: uuid.nullable().optional(), notes: z.string().max(300).nullable().optional(), allergies: z.string().max(200).nullable().optional(), status: z.enum(["PENDING", "CONFIRMED", "ARRIVED", "SEATED", "COMPLETED", "CANCELLED", "NO_SHOW"]).optional(), customerId: uuid.nullable().optional() });
+export const reservationStatusSchema = z.object({ status: z.enum(["PENDING", "CONFIRMED", "ARRIVED", "SEATED", "COMPLETED", "CANCELLED", "NO_SHOW"]), tableId: uuid.nullable().optional() });
+export const customerSchema = z.object({ firstName: z.string().max(80).nullable().optional(), lastName: z.string().max(80).nullable().optional(), phone: z.string().max(30).nullable().optional(), email: z.string().email().max(160).nullable().optional().or(z.literal("")), notes: z.string().max(1000).nullable().optional(), allergies: z.string().max(300).nullable().optional() });
+export const attachCustomerSchema = z.object({ customerId: uuid.nullable() });
+export const redeemSchema = z.object({ rewards: z.number().int().min(1).max(10).optional() });
+export const adjustPointsSchema = z.object({ points: z.number().int().min(-100000).max(100000), reason: z.string().min(1).max(200) });
+export const rejectSchema = z.object({ reason: z.string().min(1).max(200) });
+export const digitalSettingsSchema = z.object({
+  qrMode: z.enum(["MENU", "MENU_CALL", "ORDER", "ORDER_DIRECT"]).optional(),
+  online: z.object({ enabled: z.boolean(), pickup: z.boolean(), delivery: z.boolean(), pickupLeadMin: z.number().int().min(0).max(240), deliveryFee: money, deliveryMinOrder: money, deliveryZones: z.array(z.string().min(1).max(80)).max(50), message: z.string().max(300) }).partial().optional(),
+  kiosk: z.object({ enabled: z.boolean(), dineIn: z.boolean(), takeaway: z.boolean() }).partial().optional(),
+  loyalty: z.object({ enabled: z.boolean(), pointsPer100: z.number().int().min(0).max(100), rewardPoints: z.number().int().min(1).max(100000), rewardValue: money }).partial().optional(),
+});

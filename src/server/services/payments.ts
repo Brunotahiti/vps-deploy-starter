@@ -5,6 +5,7 @@ import { publish } from "@/server/realtime/bus";
 import type { PaymentMethod } from "@/generated/prisma/client";
 import { closeOrderIfPaid, getOrder, recalcOrder, type Actor } from "./orders";
 import { findOpenSession } from "./cash";
+import { earnLoyalty } from "./customers";
 
 export type PaymentInput = {
   id?: string;
@@ -62,6 +63,7 @@ export async function addPayments(actor: Actor, orderId: string, inputs: Payment
     }
     await recalcOrder(tx, orderId);
     await closeOrderIfPaid(tx, actor.establishmentId, orderId);
+    await earnLoyalty(tx, actor.establishmentId, orderId); // Phase 6 : points de fidélité, visites, dépenses
     return out;
   });
   const updated = await getOrder(actor.establishmentId, orderId);

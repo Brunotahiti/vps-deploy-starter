@@ -38,10 +38,13 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
     { href: "/kds", label: "Écran cuisine", icon: ChefHat, show: can("kds.use") },
     { href: "/admin/stock", label: "Stocks & achats", icon: Boxes, show: can("stock.view"), match: "/admin/stock" },
     { href: "/admin/staff", label: "Personnel", icon: Clock, show: can("staff.manage"), match: "/admin/staff" },
+    { href: "/admin/customers", label: "Clients & fidélité", icon: Heart, show: can("customers.manage") },
+    { href: "/pos/reservations", label: "Réservations", icon: CalendarDays, show: can("pos.use") },
+    { href: "/admin/digital", label: "Digital : QR, en ligne, borne", icon: QrCode, show: can("settings.manage") },
     { href: "/admin/establishments", label: "Établissements", icon: Building2, show: can("establishments.manage") || (me?.establishments?.length ?? 0) > 1 },
   ].filter((n) => n.show);
   const later = [
-    { label: "Réservations", icon: CalendarDays, phase: 6 }, { label: "Fidélité & clients", icon: Heart, phase: 6 }, { label: "QR & en ligne", icon: QrCode, phase: 6 },
+    { label: "API publique, TPE, imprimantes réseau", icon: Boxes, phase: 7 },
   ];
 
   const switchEst = async (id: string) => { await api.post("/api/auth/switch-establishment", { establishmentId: id }); qc.clear(); router.refresh(); qc.invalidateQueries(); };
