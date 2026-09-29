@@ -39,11 +39,12 @@ test("intégrations : créer une clé API et interroger l'API publique", async (
   // Webhook : création, secret affiché une fois, test (URL injoignable → échec journalisé)
   await page.getByRole("button", { name: "Webhooks" }).click();
   await page.getByRole("button", { name: "Nouveau webhook" }).click();
-  await field(page, "URL (https)").fill("https://127.0.0.1:9/manaresto-e2e");
+  const hookUrl = `https://127.0.0.1:9/manaresto-e2e-${Date.now()}`;
+  await field(page, "URL (https)").fill(hookUrl);
   await page.getByRole("button", { name: "Créer" }).click();
   await expect(page.locator("code", { hasText: /^whsec_/ })).toBeVisible();
   await page.keyboard.press("Escape");
-  await expect(page.getByText("https://127.0.0.1:9/manaresto-e2e")).toBeVisible();
+  await expect(page.getByText(hookUrl)).toBeVisible();
 
   // Révocation de la clé
   await page.getByRole("button", { name: "Clés API" }).click();
