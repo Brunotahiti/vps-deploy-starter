@@ -36,12 +36,12 @@ export function Dashboard() {
       {daily.isLoading || !d ? <div className="flex justify-center py-20"><Spinner /></div> : (
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
-            <Stat label="Chiffre d'affaires" value={<Money amount={d.revenue} />} delta={d.previous ? pct(d.revenue, d.previous.revenue) : null} />
-            <Stat label="Tickets" value={d.tickets} delta={d.previous ? pct(d.tickets, d.previous.tickets) : null} />
-            <Stat label="Panier moyen" value={<Money amount={d.avgTicket} />} hint="par ticket" />
-            <Stat label="Couverts" value={d.covers} delta={d.previous ? pct(d.covers, d.previous.covers) : null} />
+            <Stat label="Chiffre d'affaires" value={<Money amount={d.revenue} />} delta={d.previous ? pct(d.revenue, d.previous.revenue) : null} accent="#14aaa3" />
+            <Stat label="Tickets" value={d.tickets} delta={d.previous ? pct(d.tickets, d.previous.tickets) : null} accent="#3b82f6" />
+            <Stat label="Panier moyen" value={<Money amount={d.avgTicket} />} hint="par ticket" accent="#8b5cf6" />
+            <Stat label="Couverts" value={d.covers} delta={d.previous ? pct(d.covers, d.previous.covers) : null} accent="#f97c3c" />
             <Stat label="CA / couvert" value={<Money amount={d.avgPerCover} />} hint={`HT ${formatMoney(d.revenueHt, currency)}`} />
-            <Stat label="Commandes ouvertes" value={d.openOrders} hint="en direct" />
+            <Stat label="Commandes ouvertes" value={d.openOrders} hint="en direct" accent="#22c55e" />
           </div>
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
             <Stat label="Remises" value={<Money amount={d.discounts} />} />

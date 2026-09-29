@@ -19,11 +19,11 @@ export function Modal({ open, onClose, title, children, size = "md", footer }: {
   if (!open) return null;
   const width = { sm: "max-w-md", md: "max-w-xl", lg: "max-w-3xl", xl: "max-w-5xl", full: "max-w-[96vw]" }[size];
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-4" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className={`surface flex max-h-[95vh] w-full ${width} flex-col rounded-t-2xl border shadow-2xl sm:rounded-2xl`}>
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-nuit-950/55 p-0 backdrop-blur-[2px] sm:items-center sm:p-4" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+      <div className={`surface rise flex max-h-[95vh] w-full ${width} flex-col rounded-t-3xl border shadow-2xl sm:rounded-3xl`}>
         {title ? (
           <div className="flex items-center justify-between border-b border-line px-5 py-3">
-            <h2 className="text-lg font-bold">{title}</h2>
+            <h2 className="text-lg font-extrabold tracking-tight">{title}</h2>
             <button className="touch rounded-lg p-2 hover:surface-2" onClick={onClose} aria-label="Fermer"><X className="h-5 w-5" /></button>
           </div>
         ) : null}

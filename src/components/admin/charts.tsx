@@ -38,11 +38,12 @@ export function HBars({ data, currency = "XPF", color = "#0ea5a4", valueLabel }:
   );
 }
 
-export function Stat({ label, value, delta, hint }: { label: string; value: React.ReactNode; delta?: number | null; hint?: string }) {
+export function Stat({ label, value, delta, hint, accent = "#14aaa3" }: { label: string; value: React.ReactNode; delta?: number | null; hint?: string; accent?: string }) {
   return (
-    <div className="surface rounded-2xl border p-4">
-      <p className="text-xs font-semibold uppercase tracking-wide text-muted">{label}</p>
-      <p className="mt-1 text-2xl font-extrabold tabular-nums">{value}</p>
+    <div className="card relative overflow-hidden p-4 pl-5">
+      <span className="absolute inset-y-3 left-0 w-1 rounded-r-full" style={{ background: accent }} />
+      <p className="text-[11px] font-bold uppercase tracking-wider text-muted">{label}</p>
+      <p className="mt-1.5 text-2xl font-extrabold tabular-nums tracking-tight">{value}</p>
       {delta !== undefined && delta !== null ? <p className={`text-xs font-semibold ${delta >= 0 ? "text-green-600" : "text-red-600"}`}>{delta >= 0 ? "+" : ""}{delta.toFixed(1)} % vs J-7</p> : hint ? <p className="text-xs text-muted">{hint}</p> : null}
     </div>
   );
