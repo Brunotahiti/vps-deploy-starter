@@ -80,9 +80,10 @@ export async function getFloorStatus(establishmentId: string) {
   const rooms = await listRooms(establishmentId);
   const openOrders = await prisma.order.findMany({
     where: { establishmentId, status: { in: ["OPEN", "SENT", "BILL_REQUESTED"] }, tableId: { not: null } },
-    select: { id: true, tableId: true, status: true, covers: true, total: true, paidTotal: true, openedAt: true, serverId: true, server: { select: { firstName: true, displayName: true } }, _count: { select: { items: true } } },
+    select: { id: true, tableId: true, status: true, covers: true, total: true, paidTotal: true, openedAt: true, serverId: true, server: { select: { firstName: true, displayName: true } }, _count: { select: { items: true } }, items: { where: { status: "READY" }, select: { id: true } } },
   });
-  const byTable = new Map(openOrders.map((o) => [o.tableId!, o]));
+  // readyCount : plats marqués PRÊT par la cuisine et pas encore servis (Phase 3)
+  const byTable = new Map(openOrders.map((o) => [o.tableId!, { ...o, items: undefined, readyCount: o.items.length }]));
   return {
     rooms: rooms.map((room) => ({
       ...room,

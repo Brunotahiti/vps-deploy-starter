@@ -34,10 +34,11 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
     { href: "/admin/users", label: "Utilisateurs", icon: Users, show: can("users.manage") },
     { href: "/admin/settings", label: "Paramètres", icon: Settings, show: can("settings.manage") },
     { href: "/admin/audit", label: "Journal d'audit", icon: ScrollText, show: can("audit.view") },
+    { href: "/kds", label: "Écran cuisine", icon: ChefHat, show: can("kds.use") },
     { href: "/admin/establishments", label: "Établissements", icon: Building2, show: can("establishments.manage") || (me?.establishments?.length ?? 0) > 1 },
   ].filter((n) => n.show);
   const later = [
-    { label: "Cuisine (KDS)", icon: ChefHat, phase: 3, href: "/kds" }, { label: "Stocks & achats", icon: Boxes, phase: 4 }, { label: "Personnel", icon: CalendarDays, phase: 5 },
+    { label: "Stocks & achats", icon: Boxes, phase: 4 }, { label: "Personnel", icon: CalendarDays, phase: 5 },
     { label: "Réservations", icon: CalendarDays, phase: 6 }, { label: "Fidélité & clients", icon: Heart, phase: 6 }, { label: "QR & en ligne", icon: QrCode, phase: 6 },
   ];
 
@@ -58,7 +59,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
           return <Link key={n.href} href={n.href} onClick={() => setOpen(false)} className={`mb-1 flex h-11 items-center gap-3 rounded-xl px-3 text-sm font-semibold transition ${active ? "bg-brand text-white shadow-glow" : "text-muted hover:surface-2 hover:text-[var(--text)]"}`}><span className={`flex h-7 w-7 items-center justify-center rounded-lg ${active ? "bg-white/15" : "surface-2"}`}><n.icon className="h-4 w-4" /></span>{n.label}</Link>;
         })}
         <p className="mt-4 px-3 text-[10px] font-bold uppercase tracking-wider text-muted">Prochaines phases</p>
-        {later.map((n) => n.href ? <Link key={n.label} href={n.href} className="flex h-9 items-center gap-3 rounded-lg px-3 text-sm text-muted hover:surface-2"><n.icon className="h-4 w-4" />{n.label}<span className="ml-auto rounded bg-slate-500/15 px-1.5 text-[10px] font-bold">P{n.phase}</span></Link> : <span key={n.label} className="flex h-9 items-center gap-3 rounded-lg px-3 text-sm text-muted opacity-70"><n.icon className="h-4 w-4" />{n.label}<span className="ml-auto rounded bg-slate-500/15 px-1.5 text-[10px] font-bold">P{n.phase}</span></span>)}
+        {later.map((n) => <span key={n.label} className="flex h-9 items-center gap-3 rounded-lg px-3 text-sm text-muted opacity-70"><n.icon className="h-4 w-4" />{n.label}<span className="ml-auto rounded bg-slate-500/15 px-1.5 text-[10px] font-bold">P{n.phase}</span></span>)}
       </nav>
       <div className="border-t border-line p-2">
         {canInstall ? <button onClick={install} className="mb-1 flex h-10 w-full items-center gap-3 rounded-lg surface-2 px-3 text-sm font-semibold"><MonitorSmartphone className="h-4 w-4" />Installer l&apos;application</button> : null}

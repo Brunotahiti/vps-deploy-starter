@@ -294,7 +294,7 @@ export function OrderScreen({ orderId: orderIdProp }: { orderId: string }) {
             <div className="mt-2 flex gap-1 overflow-x-auto no-scrollbar">
               {o.courses.map((c) => (
                 <button key={c.id} onClick={() => setCourseId(c.id)} className={`touch relative h-9 shrink-0 rounded-full px-3 text-[11px] font-bold transition ${courseId === c.id ? "bg-brand text-white shadow-glow" : "surface-2 text-muted"}`}>
-                  {c.name}{c.status === "SENT" || c.status === "FIRE" ? " ✓" : c.status === "HOLD" ? " ⏸" : c.status === "SERVED" ? " ✔✔" : ""}
+                  {c.name}{c.status === "SENT" || c.status === "FIRE" ? " ✓" : c.status === "HOLD" ? " ⏸" : c.status === "READY" ? " 🔔" : c.status === "SERVED" ? " ✔✔" : ""}
                   {pendingInCourse(c.id) > 0 ? <span className="ml-1 rounded-full bg-corail-500 px-1.5 text-[10px] text-white">{pendingInCourse(c.id)}</span> : null}
                 </button>
               ))}
@@ -311,13 +311,13 @@ export function OrderScreen({ orderId: orderIdProp }: { orderId: string }) {
               <div key={c.id}>
                 {o.courses.length > 1 ? (
                   <div className="flex items-center justify-between surface-2 px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-muted">
-                    <span>{c.name} {c.status === "HOLD" ? "· en attente" : c.status === "FIRE" ? "· faire marcher" : c.status === "SENT" ? "· envoyé" : c.status === "SERVED" ? "· servi" : ""}</span>
+                    <span>{c.name} {c.status === "HOLD" ? "· en attente" : c.status === "FIRE" ? "· faire marcher" : c.status === "SENT" ? "· envoyé" : c.status === "READY" ? "· prêt en cuisine" : c.status === "SERVED" ? "· servi" : ""}</span>
                     {!closed ? (
                       <span className="flex gap-1">
                         {c.status === "PENDING" && pendingInCourse(c.id) > 0 ? <button title="Ne pas envoyer immédiatement" onClick={() => setCourseStatus(c.id, "HOLD")} className="touch rounded p-1 hover:surface"><PauseCircle className="h-4 w-4" /></button> : null}
                         {c.status === "HOLD" ? <button title="Réactiver" onClick={() => setCourseStatus(c.id, "PENDING")} className="touch rounded p-1 text-orange-500"><PauseCircle className="h-4 w-4" /></button> : null}
                         {(c.status === "SENT" || c.status === "PENDING" || c.status === "HOLD") && items.some((i) => i.status !== "PENDING" || c.status !== "SENT") ? <button title="Faire marcher (urgent)" onClick={() => setCourseStatus(c.id, "FIRE")} className="touch rounded p-1 text-corail-500 hover:surface"><Flame className="h-4 w-4" /></button> : null}
-                        {c.status === "SENT" || c.status === "FIRE" ? <button title="Marquer servi" onClick={() => setCourseStatus(c.id, "SERVED")} className="touch rounded p-1 text-green-600 hover:surface"><CheckCircle2 className="h-4 w-4" /></button> : null}
+                        {c.status === "SENT" || c.status === "FIRE" || c.status === "READY" ? <button title="Marquer servi" onClick={() => setCourseStatus(c.id, "SERVED")} className="touch rounded p-1 text-green-600 hover:surface"><CheckCircle2 className="h-4 w-4" /></button> : null}
                       </span>
                     ) : null}
                   </div>
