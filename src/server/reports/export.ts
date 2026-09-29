@@ -8,7 +8,7 @@ import { staffSummary } from "@/server/services/staff";
  * Exports CSV / Excel / PDF (Phase 5) : rapport de période, ventes par produit,
  * liste des commandes, heures et coût du personnel.
  */
-export type ExportType = "period" | "products" | "orders" | "staff";
+export type ExportType = "period" | "products" | "orders" | "staff" | "accounting";
 export type ExportFormat = "csv" | "xlsx" | "pdf";
 
 const METHOD: Record<string, string> = { CASH: "Espèces", CARD: "Carte bancaire", CHECK: "Chèque", TRANSFER: "Virement", MEAL_VOUCHER: "Ticket restaurant", COMPLIMENTARY: "Offert", OTHER: "Autre" };
@@ -50,6 +50,7 @@ export async function buildExport(establishmentId: string, type: ExportType, fro
     const rows = orders.map((o) => [o.number, formatDateTime(o.openedAt, timezone), o.closedAt ? formatDateTime(o.closedAt, timezone) : "", TYPE[o.type] ?? o.type, o.table?.name ?? "", o.covers, o.server?.displayName || o.server?.firstName || "", STATUS[o.status] ?? o.status, o.subtotal, o.discountTotal, o.taxTotal, o.total, o.tipTotal, o.payments.filter((p) => p.status !== "VOIDED").map((p) => `${METHOD[p.method] ?? p.method} ${p.amount}`).join(" + "), o.cancelReason ?? ""]);
     return { title: `Commandes ${period}`, sheets: [{ name: "Commandes", head: ["N°", "Ouverte", "Clôturée", "Type", "Table", "Couverts", "Serveur", "Statut", "Sous-total", "Remise", "TVA", "Total TTC", "Pourboire", "Paiements", "Motif annulation"], rows }] };
   }
+  if (type === "accounting") return buildAccountingExport(establishmentId, fromDay, toDay, timezone);
   const s = await staffSummary(establishmentId, fromDay, toDay, timezone);
   const rows = s.rows.map((r) => [`${r.firstName} ${r.lastName}`, r.jobTitle ?? "", r.hours, r.breakHours, r.plannedHours, r.variance, r.hourlyCost ?? "", r.cost]);
   rows.push(["TOTAL", "", s.totalHours, "", s.totalPlannedHours, "", "", s.totalCost]);
@@ -113,4 +114,46 @@ export async function toPdf(sheets: Sheet[], title: string, establishmentName: s
   doc.fontSize(7).fillColor("#64748b").text(strip(`Généré par ManaResto le ${formatDate(new Date())}`), 36, 810);
   doc.end();
   return done;
+}
+
+/**
+ * Export comptable (Phase 7) — Polynésie française (plan comptable général) :
+ *  - Ventes par jour et par taux de TVA (HT, TVA, TTC), remises et pourboires ;
+ *  - Encaissements par jour et moyen de paiement (net des remboursements) ;
+ *  - Écritures de journal (format import comptable : date, journal, compte, libellé, débit, crédit) :
+ *    707 ventes HT par taux, 4457 TVA collectée, 53 caisse / 512 banque / 467 titres-restaurant, 6 remboursements.
+ */
+const ACCOUNTS: Record<string, [string, string]> = { CASH: ["530000", "Caisse"], CARD: ["512000", "Banque (CB)"], CHECK: ["512100", "Banque (chèques)"], TRANSFER: ["512200", "Banque (virements)"], MEAL_VOUCHER: ["467000", "Titres-restaurant"], COMPLIMENTARY: ["658000", "Offerts"], OTHER: ["471000", "Compte d'attente"] };
+
+export async function buildAccountingExport(establishmentId: string, fromDay: string, toDay: string, timezone: string): Promise<{ title: string; sheets: Sheet[] }> {
+  const est = await prisma.establishment.findUniqueOrThrow({ where: { id: establishmentId }, select: { name: true, legalName: true, tahitiNumber: true } });
+  const orders = await prisma.order.findMany({ where: { establishmentId, status: "PAID", closedAt: { gte: startOfLocalDay(fromDay, timezone), lt: endOfLocalDay(toDay, timezone) } }, orderBy: { closedAt: "asc" }, include: { items: { where: { status: { not: "VOIDED" } }, select: { lineTotal: true, taxAmount: true, taxRateBps: true, taxRateName: true } }, payments: { where: { status: { not: "VOIDED" } } } } });
+  const dayFmt = new Intl.DateTimeFormat("en-CA", { timeZone: timezone, year: "numeric", month: "2-digit", day: "2-digit" });
+  const byDayRate = new Map<string, { ht: number; tax: number; ttc: number }>();
+  const byDayMethod = new Map<string, { amount: number; count: number; tips: number; refunded: number }>();
+  const dayTotals = new Map<string, { ttc: number; discounts: number; tips: number; tickets: number }>();
+  for (const o of orders) {
+    const day = dayFmt.format(o.closedAt!);
+    const ratio = o.subtotal > 0 ? o.total / o.subtotal : 1; // remise globale répartie au prorata
+    for (const it of o.items) {
+      const ttc = Math.round(it.lineTotal * ratio), tax = Math.round(it.taxAmount * ratio);
+      const k = `${day}|${it.taxRateBps}|${it.taxRateName ?? ""}`;
+      const e = byDayRate.get(k) ?? { ht: 0, tax: 0, ttc: 0 }; e.ttc += ttc; e.tax += tax; e.ht += ttc - tax; byDayRate.set(k, e);
+    }
+    for (const p of o.payments) { const k = `${day}|${p.method}`; const e = byDayMethod.get(k) ?? { amount: 0, count: 0, tips: 0, refunded: 0 }; e.amount += p.amount - p.refundedAmount; e.count++; e.tips += p.tipAmount; e.refunded += p.refundedAmount; byDayMethod.set(k, e); }
+    const d = dayTotals.get(day) ?? { ttc: 0, discounts: 0, tips: 0, tickets: 0 }; d.ttc += o.total; d.discounts += o.discountTotal; d.tips += o.tipTotal; d.tickets++; dayTotals.set(day, d);
+  }
+  const sales: Sheet = { name: "Ventes par taux TVA", head: ["Jour", "Taux", "Libellé TVA", "HT", "TVA", "TTC"], rows: [...byDayRate.entries()].sort().map(([k, v]) => { const [day, bps, name] = k.split("|"); return [day, `${Number(bps) / 100} %`, name, v.ht, v.tax, v.ttc]; }) };
+  const receipts: Sheet = { name: "Encaissements", head: ["Jour", "Moyen", "Compte", "Montant net", "Nombre", "Pourboires", "Remboursé"], rows: [...byDayMethod.entries()].sort().map(([k, v]) => { const [day, m] = k.split("|"); return [day, METHOD[m] ?? m, ACCOUNTS[m]?.[0] ?? "", v.amount, v.count, v.tips, v.refunded]; }) };
+  const days: Sheet = { name: "Journal de caisse", head: ["Jour", "Tickets", "CA TTC", "Remises", "Pourboires"], rows: [...dayTotals.entries()].sort().map(([day, v]) => [day, v.tickets, v.ttc, v.discounts, v.tips]) };
+  // Écritures : par jour, débit des comptes d'encaissement, crédit 707 (HT par taux) et 4457 (TVA)
+  const entries: Sheet = { name: "Écritures", head: ["Date", "Journal", "Compte", "Libellé", "Débit", "Crédit"], rows: [] };
+  for (const [day] of [...dayTotals.entries()].sort()) {
+    for (const [k, v] of [...byDayMethod.entries()].filter(([k]) => k.startsWith(day + "|"))) { const m = k.split("|")[1]; const [acc, label] = ACCOUNTS[m] ?? ["471000", m]; if (v.amount + v.tips) entries.rows.push([day, "VT", acc, `${label} — ventes ${day}`, v.amount + v.tips, 0]); }
+    for (const [k, v] of [...byDayRate.entries()].filter(([k]) => k.startsWith(day + "|"))) { const [, bps, name] = k.split("|"); entries.rows.push([day, "VT", `7070${String(Math.round(Number(bps) / 100)).padStart(2, "0")}`, `Ventes HT ${name || bps + " bps"} ${day}`, 0, v.ht]); if (v.tax) entries.rows.push([day, "VT", "445710", `TVA collectée ${name || bps + " bps"} ${day}`, 0, v.tax]); }
+    const tips = dayTotals.get(day)!.tips; if (tips) entries.rows.push([day, "VT", "421000", `Pourboires ${day}`, 0, tips]);
+  }
+  const period = `${fromDay} → ${toDay}`;
+  const header: Sheet = { name: "Entête", head: ["Champ", "Valeur"], rows: [["Établissement", est.name], ["Raison sociale", est.legalName ?? ""], ["N° Tahiti", est.tahitiNumber ?? ""], ["Période", period], ["Devise", "XPF (F CFP), sans décimales"], ["Généré le", new Date().toISOString()]] };
+  return { title: `Export comptable ${period}`, sheets: [header, days, sales, receipts, entries] };
 }

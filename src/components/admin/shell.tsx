@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { LayoutDashboard, UtensilsCrossed, Map, Receipt, Wallet, Users, Settings, ScrollText, Building2, Moon, Sun, LogOut, Menu, X, MonitorSmartphone, ChefHat, Boxes, CalendarDays, Heart, QrCode, BarChart3, Clock } from "lucide-react";
+import { LayoutDashboard, UtensilsCrossed, Map, Receipt, Wallet, Users, Settings, ScrollText, Building2, Moon, Sun, LogOut, Menu, X, MonitorSmartphone, ChefHat, Boxes, CalendarDays, Heart, QrCode, BarChart3, Clock, Plug, Network } from "lucide-react";
 import { useSession } from "@/hooks/use-session";
 import { useRealtime } from "@/hooks/use-realtime";
 import { useTheme } from "@/hooks/use-theme";
@@ -42,10 +42,10 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
     { href: "/pos/reservations", label: "Réservations", icon: CalendarDays, show: can("pos.use") },
     { href: "/admin/digital", label: "Digital : QR, en ligne, borne", icon: QrCode, show: can("settings.manage") },
     { href: "/admin/establishments", label: "Établissements", icon: Building2, show: can("establishments.manage") || (me?.establishments?.length ?? 0) > 1 },
+    { href: "/admin/organization", label: "Multi-sites", icon: Network, show: can("reports.view_global") },
+    { href: "/admin/integrations", label: "Intégrations : API, webhooks, imprimantes, TPE", icon: Plug, show: can("settings.manage") },
   ].filter((n) => n.show);
-  const later = [
-    { label: "API publique, TPE, imprimantes réseau", icon: Boxes, phase: 7 },
-  ];
+  const later: { label: string; icon: typeof Boxes; phase: number }[] = [];
 
   const switchEst = async (id: string) => { await api.post("/api/auth/switch-establishment", { establishmentId: id }); qc.clear(); router.refresh(); qc.invalidateQueries(); };
   const logout = async () => { await api.post("/api/auth/logout"); qc.clear(); router.replace("/login"); };

@@ -59,6 +59,7 @@ export default function ReportsPage() {
               <ExportRow type="products" label="Ventes par produit" from={from} to={to} />
               {can("orders.view_history") ? <ExportRow type="orders" label="Liste des commandes" from={from} to={to} /> : null}
               {can("staff.manage") ? <ExportRow type="staff" label="Heures et coût du personnel" from={from} to={to} /> : null}
+              {can("audit.view") ? <ExportRow type="accounting" label="Export comptable (ventes par TVA, encaissements, écritures)" from={from} to={to} /> : null}
               <p className="mt-2 text-xs text-muted">CSV (séparateur « ; », compatible Excel), classeur Excel multi-feuilles, PDF A4 de synthèse.</p>
             </Card>
           </div>

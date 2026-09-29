@@ -121,7 +121,7 @@ export const clockSchema = z.object({ pin: z.string().regex(/^\d{4,6}$/), kind: 
 export const clockIdentifySchema = z.object({ pin: z.string().regex(/^\d{4,6}$/) });
 export const timeEntrySchema = z.object({ employeeId: uuid.optional(), kind: z.enum(["CLOCK_IN", "BREAK_START", "BREAK_END", "CLOCK_OUT"]).optional(), at: z.string().datetime({ offset: true }), reason: z.string().min(1).max(200) });
 export const periodQuery = z.object({ from: daySchema, to: daySchema });
-export const exportQuery = z.object({ type: z.enum(["period", "products", "orders", "staff"]), format: z.enum(["csv", "xlsx", "pdf"]), from: daySchema, to: daySchema });
+export const exportQuery = z.object({ type: z.enum(["period", "products", "orders", "staff", "accounting"]), format: z.enum(["csv", "xlsx", "pdf"]), from: daySchema, to: daySchema });
 
 // Digital (Phase 6)
 const modSel = z.array(z.object({ modifierId: uuid, quantity: z.number().int().min(1).max(20).optional() })).optional();
@@ -144,3 +144,13 @@ export const digitalSettingsSchema = z.object({
   kiosk: z.object({ enabled: z.boolean(), dineIn: z.boolean(), takeaway: z.boolean() }).partial().optional(),
   loyalty: z.object({ enabled: z.boolean(), pointsPer100: z.number().int().min(0).max(100), rewardPoints: z.number().int().min(1).max(100000), rewardValue: money }).partial().optional(),
 });
+
+// Avancé (Phase 7)
+export const apiKeySchema = z.object({ name: z.string().min(1).max(80), scopes: z.array(z.string()).min(1).max(10) });
+export const webhookSchema = z.object({ url: z.string().url().max(500), events: z.array(z.string()).min(1).max(20), description: z.string().max(200).nullable().optional(), isActive: z.boolean().optional() });
+export const printerSchema = z.object({ name: z.string().min(1).max(60), kind: z.enum(["RECEIPT", "KITCHEN"]), driver: z.enum(["escpos-network", "agent", "browser"]), connection: z.object({ host: z.string().max(80).optional(), port: z.number().int().min(1).max(65535).optional(), agentUrl: z.string().max(300).optional(), timeoutMs: z.number().int().min(500).max(30000).optional() }).optional(), paperWidthMm: z.number().int().min(40).max(112).optional(), stationId: uuid.nullable().optional(), isActive: z.boolean().optional() });
+export const printSchema = z.object({ printerId: uuid, kind: z.enum(["receipt", "kitchen", "test"]), orderId: uuid.optional(), ticketId: uuid.optional() });
+export const terminalChargeSchema = z.object({ orderId: uuid, amount: z.number().int().min(1) });
+export const terminalSettingsSchema = z.object({ adapter: z.enum(["manual", "bridge"]), url: z.string().url().max(300).optional().or(z.literal("")), apiKey: z.string().max(200).optional(), terminalId: z.string().max(80).optional(), timeoutMs: z.number().int().min(5000).max(300000).optional() });
+export const copyCatalogSchema = z.object({ fromId: uuid, products: z.boolean().optional(), menus: z.boolean().optional() });
+export const apiOrdersQuery = z.object({ from: daySchema.optional(), to: daySchema.optional(), status: z.string().optional(), take: z.coerce.number().int().min(1).max(500).optional(), skip: z.coerce.number().int().min(0).optional() });

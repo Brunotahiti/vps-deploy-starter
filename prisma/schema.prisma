@@ -28,6 +28,8 @@ model Organization {
   customers      Customer[]
   auditLogs      AuditLog[]
 
+    apiKeys       ApiKey[]
+
   @@map("organizations")
 }
 
@@ -72,6 +74,8 @@ model Establishment {
   taxRates         TaxRate[]
   kitchenStations  KitchenStation[]
   printers         Printer[]
+  apiKeys          ApiKey[]
+  webhooks         Webhook[]
   paymentMethods   PaymentMethodConfig[]
   orders           Order[]
   payments         Payment[]
@@ -1212,6 +1216,68 @@ model TimeEntry {
   @@index([establishmentId, at])
   @@index([employeeId, at])
   @@map("time_entries")
+}
+
+// ---------------------------------------------------------------------------
+// API PUBLIQUE, WEBHOOKS (Phase 7)
+// ---------------------------------------------------------------------------
+
+model ApiKey {
+  id              String    @id @default(uuid()) @db.Uuid
+  organizationId  String    @map("organization_id") @db.Uuid
+  establishmentId String    @map("establishment_id") @db.Uuid
+  name            String
+  prefix          String    // 12 premiers caractères visibles (mr_live_xxxx)
+  keyHash         String    @unique @map("key_hash")
+  scopes          String[]  @default([]) // orders:read, catalog:read, reports:read, stock:read, orders:write
+  lastUsedAt      DateTime? @map("last_used_at")
+  isActive        Boolean   @default(true) @map("is_active")
+  createdById     String?   @map("created_by_id") @db.Uuid
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  organization  Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  establishment Establishment @relation(fields: [establishmentId], references: [id], onDelete: Cascade)
+
+  @@index([establishmentId])
+  @@map("api_keys")
+}
+
+model Webhook {
+  id              String    @id @default(uuid()) @db.Uuid
+  establishmentId String    @map("establishment_id") @db.Uuid
+  url             String
+  secret          String
+  events          String[]  @default([]) // order.created, order.updated, order.closed, kitchen.updated, table.updated, cash.updated, product.availability, catalog.updated, floor.updated ; "*" = tous
+  description     String?
+  isActive        Boolean   @default(true) @map("is_active")
+  failures        Int       @default(0)
+  lastStatus      Int?      @map("last_status")
+  lastError       String?   @map("last_error")
+  lastAt          DateTime? @map("last_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  establishment Establishment     @relation(fields: [establishmentId], references: [id], onDelete: Cascade)
+  deliveries    WebhookDelivery[]
+
+  @@index([establishmentId])
+  @@map("webhooks")
+}
+
+model WebhookDelivery {
+  id         String   @id @default(uuid()) @db.Uuid
+  webhookId  String   @map("webhook_id") @db.Uuid
+  event      String
+  payload    Json
+  status     Int?
+  error      String?
+  attempts   Int      @default(0)
+  durationMs Int?     @map("duration_ms")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  webhook Webhook @relation(fields: [webhookId], references: [id], onDelete: Cascade)
+
+  @@index([webhookId, createdAt])
+  @@map("webhook_deliveries")
 }
 
 // ---------------------------------------------------------------------------

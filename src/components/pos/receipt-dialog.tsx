@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Mail, Printer, FileDown, Check } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
@@ -19,6 +20,20 @@ export function ReceiptDialog({ orderId, orderNumber, open, onClose, title = "Re
   const [email, setEmail] = useState("");
   const [sending, setSending] = useState(false);
   const [sentTo, setSentTo] = useState<string | null>(null);
+  const printers = useQuery({ queryKey: ["printers"], queryFn: () => api.get<{ id: string; name: string; kind: string; driver: string; isActive: boolean }[]>("/api/printers"), enabled: open, staleTime: 300_000 });
+  const receiptPrinters = (printers.data ?? []).filter((p) => p.kind === "RECEIPT" && p.isActive && p.driver !== "browser");
+  const [printing, setPrinting] = useState(false);
+  /** Phase 7 : impression ESC/POS sur une imprimante réseau (serveur) ou via l'agent local (navigateur). */
+  const printThermal = async (printerId: string) => {
+    setPrinting(true);
+    try {
+      const r = await api.post<{ delivered: boolean; error?: string; agentUrl?: string; payloadBase64?: string }>("/api/print", { printerId, kind: "receipt", orderId });
+      if (r.delivered) toast("Ticket envoyé à l'imprimante", "success");
+      else if (r.agentUrl && r.payloadBase64) { await fetch(r.agentUrl, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ payloadBase64: r.payloadBase64 }) }); toast("Ticket transmis à l'agent d'impression", "success"); }
+      else toast(r.error ?? "Impression impossible", "error");
+    } catch (e) { toast(e instanceof ApiClientError ? e.message : "Agent d'impression injoignable", "error"); }
+    finally { setPrinting(false); }
+  };
 
   const send = async () => {
     setSending(true);
@@ -39,7 +54,7 @@ export function ReceiptDialog({ orderId, orderNumber, open, onClose, title = "Re
     <Modal open={open} onClose={onClose} title={afterPayment ? "Commande soldée" : title} size="sm">
       {afterPayment ? <div className="mb-4 flex items-center gap-3 rounded-2xl bg-lagon-500/10 p-3 text-sm"><span className="flex h-9 w-9 items-center justify-center rounded-full bg-brand text-white"><Check className="h-5 w-5" /></span><span><strong>Paiement enregistré.</strong> Que faire du reçu{orderNumber ? ` n° ${orderNumber.split("-")[1]}` : ""} ?</span></div> : null}
       <div className="grid grid-cols-2 gap-2">
-        <a href={`/api/orders/${orderId}/receipt?print=1`} target="_blank" rel="noreferrer" className="touch card flex h-20 flex-col items-center justify-center gap-1 text-sm font-bold shadow-none hover:surface-2"><Printer className="h-5 w-5 text-muted" />Imprimer</a>
+        {receiptPrinters.length ? <button disabled={printing} onClick={() => printThermal(receiptPrinters[0].id)} className="touch card flex h-20 flex-col items-center justify-center gap-1 text-sm font-bold shadow-none hover:surface-2 disabled:opacity-60"><Printer className="h-5 w-5 text-brand" />{receiptPrinters[0].name}</button> : <a href={`/api/orders/${orderId}/receipt?print=1`} target="_blank" rel="noreferrer" className="touch card flex h-20 flex-col items-center justify-center gap-1 text-sm font-bold shadow-none hover:surface-2"><Printer className="h-5 w-5 text-muted" />Imprimer</a>}
         <a href={`/api/orders/${orderId}/receipt?format=pdf`} target="_blank" rel="noreferrer" className="touch card flex h-20 flex-col items-center justify-center gap-1 text-sm font-bold shadow-none hover:surface-2"><FileDown className="h-5 w-5 text-muted" />PDF</a>
       </div>
       <div className="mt-3 rounded-2xl surface-2 p-3">

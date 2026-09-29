@@ -1,4 +1,6 @@
-# API ManaResto (Phases 1–6)
+# API ManaResto (Phases 1–7)
+
+API publique par clé : voir `docs/API-PUBLIQUE.md` (`/api/v1/*`).
 
 Toutes les réponses sont `{ "data": … }` ou `{ "error": { "code", "message", "details" } }`. Authentification par cookie de session. Les mutations sensibles acceptent `managerPin` (autorisation ponctuelle) et renvoient `403 PIN_REQUIRED` sinon. Les créations de commandes / articles / envois / paiements acceptent l'en-tête `Idempotency-Key` (rejeu sûr après reconnexion).
 
@@ -39,4 +41,9 @@ Toutes les réponses sont `{ "data": … }` ou `{ "error": { "code", "message", 
 | GET/POST/PATCH | `/api/customers[/:id]` (`?search=`) · POST `/:id/points` · POST `/api/orders/:id/customer` `{customerId}` · POST `/api/orders/:id/loyalty` `{rewards}` | customers.manage / pos.use |
 | GET/POST/PATCH | `/api/reservations[/:id]` (`?day=`) · POST `/:id/status` `{status, tableId?}` | pos.use / customers.manage |
 | GET/PATCH | `/api/digital/settings` (QR, en ligne, borne, fidélité) | settings.manage |
+| GET/POST/DELETE | `/api/integrations/api-keys[/:id]` · `/api/integrations/webhooks[/:id]` (+ PATCH, POST `/:id/test`) | settings.manage |
+| GET/POST/PATCH/DELETE | `/api/printers[/:id]` · POST `/api/print` `{printerId, kind: receipt|kitchen|test, orderId?, ticketId?}` | pos.use / settings.manage |
+| GET/PATCH/POST | `/api/payments/terminal/settings` · `/api/payments/terminal/charge` `{orderId, amount}` | pos.use / settings.manage |
+| GET/POST | `/api/organization/overview?from&to` · `/api/establishments/:id/copy-catalog` `{fromId}` | reports.view_global / establishments.manage |
+| GET | `/api/reports/export?type=accounting` (export comptable) | audit.view |
 | GET | `/api/realtime` (SSE) · `/api/health` | — |

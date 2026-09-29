@@ -1,6 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { api, ApiClientError } from "@/lib/api-client";
+import { useToast } from "@/components/ui/toast";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { NumPad } from "@/components/ui/numpad";
@@ -29,6 +32,19 @@ export function PaymentModal({ order, methods, open, onClose, onPay }: { order: 
   const [splitKind, setSplitKind] = useState<"equal" | "seat" | "items" | "custom">("equal");
   const [parts, setParts] = useState(Math.max(2, order.covers));
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
+  const { toast } = useToast();
+  const terminal = useQuery({ queryKey: ["terminal-settings"], queryFn: () => api.get<{ connected: boolean }>("/api/payments/terminal/settings"), staleTime: 300_000 });
+  const [tpeBusy, setTpeBusy] = useState(false);
+  /** Phase 7 : envoie le montant au TPE connecté, puis enregistre le paiement carte avec la référence renvoyée. */
+  const payWithTerminal = async () => {
+    setTpeBusy(true);
+    try {
+      const r = await api.post<{ providerRef: string | null; amount: number }>("/api/payments/terminal/charge", { orderId: order.id, amount: amount + tip });
+      await onPay([{ method: "CARD", amount, tipAmount: tip || undefined, reference: r.providerRef ?? "TPE", splitLabel: label }]);
+      setReference("");
+    } catch (e) { toast(e instanceof ApiClientError ? e.message : "Transaction TPE impossible", "error"); }
+    finally { setTpeBusy(false); }
+  };
 
 
   const amount = Math.min(Number(amountStr || 0), remaining);
@@ -158,6 +174,7 @@ export function PaymentModal({ order, methods, open, onClose, onPay }: { order: 
               </div>
             ) : null}
             {["CARD", "CHECK", "TRANSFER", "OTHER"].includes(method) ? <input value={reference} onChange={(e) => setReference(e.target.value)} placeholder="Référence (n° chèque, TPE…)" className="h-11 w-full rounded-xl border border-line surface px-3 text-sm" /> : null}
+            {method === "CARD" && terminal.data?.connected ? <Button variant="accent" size="lg" className="w-full" loading={tpeBusy} disabled={amount <= 0} onClick={payWithTerminal}>Envoyer <Money amount={amount + tip} /> au TPE</Button> : null}
             {method === "COMPLIMENTARY" ? <p className="rounded-lg bg-orange-500/10 px-3 py-2 text-xs text-orange-700 dark:text-orange-300">« Offert » vaut remise totale : autorisation manager requise.</p> : null}
             {order.payments.length > 0 ? (
               <div className="rounded-xl border border-line p-3 text-sm">
