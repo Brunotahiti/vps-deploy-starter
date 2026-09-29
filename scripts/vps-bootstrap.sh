@@ -1,35 +1,20 @@
 #!/usr/bin/env bash
-# Prépare un VPS Ubuntu/Debian (Hostinger) pour ManaResto. Idempotent : peut être relancé.
-# À exécuter EN ROOT SUR LE VPS (lancé automatiquement par scripts/deploy-vps.sh).
-#   - Docker Engine + Compose plugin
-#   - réseau Docker "traefik" et Traefik v3 avec certificats Let's Encrypt
-#   - pare-feu UFW (22, 80, 443) si disponible
+# Vérifications préalables sur le VPS avant de déployer ManaResto. Idempotent, en lecture seule
+# sur l'infrastructure : ce script n'installe ni ne modifie JAMAIS Traefik, le pare-feu ou
+# d'autres services du serveur. Il constate, et s'arrête avec un message clair si un prérequis manque.
+# À exécuter en root sur le VPS (lancé par scripts/deploy-vps.sh).
 set -euo pipefail
-APP_DIR="${APP_DIR:-/opt/manaresto}"
-ACME_EMAIL="${ACME_EMAIL:-}"
 
-if ! command -v docker >/dev/null 2>&1; then
-  echo "→ Installation de Docker…"
-  curl -fsSL https://get.docker.com | sh
-fi
-docker compose version >/dev/null 2>&1 || { echo "Le plugin docker compose est requis (docker-compose-plugin)."; exit 1; }
-systemctl enable --now docker >/dev/null 2>&1 || true
+fail() { echo "✗ $1"; echo "  $2"; exit 1; }
 
-docker network inspect traefik >/dev/null 2>&1 || docker network create traefik
+command -v docker >/dev/null 2>&1 || fail "Docker n'est pas installé sur ce serveur." "Installez Docker Engine + le plugin compose, puis relancez le déploiement."
+docker compose version >/dev/null 2>&1 || fail "Le plugin docker compose est absent." "Installez docker-compose-plugin, puis relancez."
+docker info >/dev/null 2>&1 || fail "Le démon Docker ne répond pas." "Démarrez Docker (systemctl start docker), puis relancez."
 
-if ! docker ps --format '{{.Names}}' | grep -qx traefik; then
-  [ -n "$ACME_EMAIL" ] || { echo "ACME_EMAIL est requis pour démarrer Traefik (certificats Let's Encrypt)."; exit 1; }
-  echo "→ Démarrage de Traefik (HTTPS automatique)…"
-  mkdir -p "$APP_DIR/deploy/traefik"
-  echo "ACME_EMAIL=$ACME_EMAIL" > "$APP_DIR/deploy/traefik/.env"
-  docker compose --project-directory "$APP_DIR/deploy/traefik" -f "$APP_DIR/deploy/traefik/docker-compose.yml" up -d
-else
-  echo "→ Traefik déjà en service"
+docker network inspect traefik >/dev/null 2>&1 || fail "Le réseau Docker « traefik » n'existe pas." "ManaResto se branche sur le Traefik existant du serveur via ce réseau. Créez-le avec votre Traefik (docker network create traefik) et attachez-y Traefik."
+
+if ! docker ps --format '{{.Names}} {{.Image}}' | grep -qi traefik; then
+  fail "Aucun conteneur Traefik en cours d'exécution." "ManaResto ne démarre pas de reverse proxy : démarrez votre Traefik (réseau « traefik », entrypoints web/websecure, certresolver « letsencrypt »), puis relancez."
 fi
 
-if command -v ufw >/dev/null 2>&1; then
-  ufw allow 22/tcp >/dev/null 2>&1 || true
-  ufw allow 80/tcp >/dev/null 2>&1 || true
-  ufw allow 443/tcp >/dev/null 2>&1 || true
-fi
-echo "✓ VPS prêt (Docker, réseau traefik, Traefik)"
+echo "✓ Prérequis présents : Docker, réseau « traefik », Traefik en service (non modifiés)"

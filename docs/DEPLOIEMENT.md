@@ -6,11 +6,11 @@
 cd manaresto && bash scripts/deploy-vps.sh
 ```
 
-Le script demande trois choses : le **nom de domaine** (ex. `manaresto.pf`, ou le nom fourni par Hostinger du type `srv1565699.hstgr.cloud`), un **email** pour les certificats HTTPS Let's Encrypt, et s'il faut charger la **démo**. Il fait ensuite tout le reste :
+Le script demande deux choses : le **nom de domaine** (ex. `manaresto.pf`, ou le nom fourni par Hostinger du type `srv1565699.hstgr.cloud`) et s'il faut charger la **démo**. Il fait ensuite tout le reste :
 
 1. crée une clé SSH dédiée et la copie sur le VPS (mot de passe root demandé une seule fois) ;
 2. envoie le code dans `/opt/manaresto` (rsync) ;
-3. installe Docker si besoin, crée le réseau `traefik` et démarre **Traefik v3** (HTTPS automatique) s'il n'est pas déjà là ;
+3. **vérifie** que Docker, le réseau `traefik` et le Traefik du serveur sont présents, sans rien modifier (ManaResto ne démarre ni ne reconfigure jamais Traefik : il se branche sur celui qui existe) ;
 4. crée le fichier `.env` de production avec des mots de passe **générés** (jamais écrasés ensuite) ;
 5. construit les images et démarre : PostgreSQL → migrations (+ démo) → application ;
 6. programme la **sauvegarde quotidienne** à 3 h (`scripts/db-backup.sh`, rétention 14 jours) ;
@@ -21,7 +21,7 @@ Relancer la même commande met à jour l'application (le `.env` et la base sont 
 ### Avant de lancer
 
 - Le domaine doit pointer vers l'IP du VPS (enregistrement DNS **A** → `187.127.105.242`). Avec le nom `*.hstgr.cloud` fourni par Hostinger, rien à faire.
-- Les ports 80 et 443 du VPS doivent être ouverts (le script règle UFW s'il est présent ; vérifier aussi le pare-feu du panneau Hostinger).
+- Le VPS doit déjà avoir Docker et **son Traefik** (réseau Docker `traefik`, entrypoints `web` / `websecure`, certresolver `letsencrypt`), comme fourni par le starter. Le script s'arrête avec un message clair si l'un des trois manque et ne touche pas au pare-feu.
 - VPS visé par défaut : `root@187.127.105.242` (modifiable : `VPS_HOST=... VPS_USER=... bash scripts/deploy-vps.sh`).
 
 ## Déploiement automatique à chaque `git push` (facultatif)

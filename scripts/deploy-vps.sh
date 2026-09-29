@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # Déploiement de ManaResto sur le VPS Hostinger, depuis le Mac, en une commande.
 #   bash scripts/deploy-vps.sh
-# Variables facultatives : VPS_HOST (défaut 187.127.105.242), VPS_USER (root), PUBLIC_HOST (domaine), ACME_EMAIL, SEED_DEMO (true/false)
+# Variables facultatives : VPS_HOST (défaut 187.127.105.242), VPS_USER (root), PUBLIC_HOST (domaine), SEED_DEMO (true/false)
+# Le serveur doit déjà disposer de Docker et de son propre Traefik (réseau « traefik », certresolver « letsencrypt »).
+# Ce script ne modifie jamais Traefik ni la configuration du serveur : il déploie uniquement les conteneurs ManaResto.
 # Prérequis Mac : ssh, rsync (inclus dans macOS). Le mot de passe root du VPS est demandé au premier accès (ssh-copy-id).
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -17,16 +19,12 @@ echo "=============================================="
 if [ -z "${PUBLIC_HOST:-}" ]; then
   read -rp "Nom de domaine de l'application (ex. manaresto.pf ou srv1565699.hstgr.cloud) : " PUBLIC_HOST
 fi
-if [ -z "${ACME_EMAIL:-}" ]; then
-  read -rp "Email pour les certificats HTTPS Let's Encrypt : " ACME_EMAIL
-fi
 if [ -z "${SEED_DEMO:-}" ]; then
   read -rp "Charger le restaurant de démonstration « Le Mana Beach » ? [Y/n] : " SD
   SEED_DEMO=$([ "${SD:-Y}" = "n" ] || [ "${SD:-Y}" = "N" ] && echo false || echo true)
 fi
 echo ""
 echo "  Domaine  : $PUBLIC_HOST   (doit pointer vers $VPS_HOST — enregistrement DNS A)"
-echo "  Email    : $ACME_EMAIL"
 echo "  Démo     : $SEED_DEMO"
 echo ""
 
@@ -41,15 +39,15 @@ if ! ssh -i "$KEY" -o BatchMode=yes -o ConnectTimeout=8 "$TARGET" true 2>/dev/nu
 fi
 SSH="ssh -i $KEY -o StrictHostKeyChecking=accept-new $TARGET"
 
-# 2. Préparation du VPS (Docker, Traefik)
+# 2. Vérification des prérequis du VPS (Docker et Traefik existants — jamais modifiés)
 $SSH "mkdir -p $VPS_PATH"
 echo "→ Envoi du code…"
 rsync -az --delete -e "ssh -i $KEY" \
   --exclude node_modules --exclude .next --exclude .git --exclude .github --exclude .env --exclude .env.local \
   --exclude src/generated --exclude playwright-report --exclude test-results --exclude .DS_Store \
   ./ "$TARGET:$VPS_PATH/"
-echo "→ Préparation du VPS…"
-$SSH "APP_DIR=$VPS_PATH ACME_EMAIL=$ACME_EMAIL bash $VPS_PATH/scripts/vps-bootstrap.sh"
+echo "→ Vérification des prérequis du VPS…"
+$SSH "bash $VPS_PATH/scripts/vps-bootstrap.sh"
 
 # 3. Fichier .env de production (créé une seule fois, mots de passe générés sur le VPS)
 $SSH "cd $VPS_PATH && if [ ! -f .env ]; then
@@ -67,8 +65,8 @@ fi"
 echo "→ Construction des images et démarrage (2 à 5 minutes la première fois)…"
 $SSH "cd $VPS_PATH && set -a && . ./.env && set +a && docker compose build migrate app && docker compose up -d && docker image prune -f >/dev/null && docker compose ps"
 
-# 5. Sauvegarde quotidienne (3 h du matin)
-$SSH "chmod +x $VPS_PATH/scripts/db-backup.sh; (crontab -l 2>/dev/null | grep -v db-backup.sh; echo '0 3 * * * $VPS_PATH/scripts/db-backup.sh >> /var/log/manaresto-backup.log 2>&1') | crontab -"
+# 5. Sauvegarde quotidienne (3 h du matin) — uniquement la ligne ManaResto de la crontab
+$SSH "chmod +x $VPS_PATH/scripts/db-backup.sh; (crontab -l 2>/dev/null | grep -v '$VPS_PATH/scripts/db-backup.sh'; echo '0 3 * * * $VPS_PATH/scripts/db-backup.sh >> /var/log/manaresto-backup.log 2>&1') | crontab -"
 
 # 6. Vérification
 echo "→ Vérification…"
@@ -83,7 +81,7 @@ if [ "$STATUS" = "200" ]; then
   [ "$SEED_DEMO" = "true" ] && echo "   Démo : demo@manaresto.pf / demo1234 (PIN 1234) — pensez à changer le mot de passe."
 else
   echo "⚠️  https://$PUBLIC_HOST/api/health répond $STATUS. Le certificat HTTPS peut prendre 1 à 2 minutes."
-  echo "   Vérifiez que le DNS de $PUBLIC_HOST pointe vers $VPS_HOST, puis : ssh -i $KEY $TARGET 'cd $VPS_PATH && docker compose logs --tail=100 app migrate traefik'"
+  echo "   Vérifiez que le DNS de $PUBLIC_HOST pointe vers $VPS_HOST, puis : ssh -i $KEY $TARGET 'cd $VPS_PATH && docker compose logs --tail=100 app migrate'"
 fi
 echo ""
 echo "Commandes utiles :"
