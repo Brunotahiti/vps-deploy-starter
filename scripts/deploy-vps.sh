@@ -43,8 +43,8 @@ SSH="ssh -i $KEY -o StrictHostKeyChecking=accept-new $TARGET"
 $SSH "mkdir -p $VPS_PATH"
 echo "→ Envoi du code…"
 rsync -az --delete -e "ssh -i $KEY" \
-  --exclude node_modules --exclude .next --exclude .git --exclude .github --exclude .env --exclude .env.local \
-  --exclude src/generated --exclude playwright-report --exclude test-results --exclude .DS_Store \
+  --exclude /node_modules --exclude /.next --exclude /.git --exclude /.github --exclude /.env --exclude /.env.local \
+  --exclude /src/generated --exclude /playwright-report --exclude /test-results --exclude .DS_Store \
   ./ "$TARGET:$VPS_PATH/"
 echo "→ Vérification des prérequis du VPS…"
 $SSH "bash $VPS_PATH/scripts/vps-bootstrap.sh"
@@ -71,7 +71,7 @@ $SSH "chmod +x $VPS_PATH/scripts/db-backup.sh; (crontab -l 2>/dev/null | grep -v
 # 6. Vérification
 echo "→ Vérification…"
 for i in 1 2 3 4 5 6; do
-  STATUS=$(curl -s -o /dev/null -w "%{http_code}" "https://$PUBLIC_HOST/api/health" || echo 000)
+  STATUS=$(curl -s -o /dev/null -w "%{http_code}" "https://$PUBLIC_HOST/api/health") || STATUS=000
   [ "$STATUS" = "200" ] && break
   sleep 10
 done
@@ -80,8 +80,19 @@ if [ "$STATUS" = "200" ]; then
   echo "✅ ManaResto est en ligne : https://$PUBLIC_HOST"
   [ "$SEED_DEMO" = "true" ] && echo "   Démo : demo@manaresto.pf / demo1234 (PIN 1234) — pensez à changer le mot de passe."
 else
-  echo "⚠️  https://$PUBLIC_HOST/api/health répond $STATUS. Le certificat HTTPS peut prendre 1 à 2 minutes."
-  echo "   Vérifiez que le DNS de $PUBLIC_HOST pointe vers $VPS_HOST, puis : ssh -i $KEY $TARGET 'cd $VPS_PATH && docker compose logs --tail=100 app migrate'"
+  echo "⚠️  https://$PUBLIC_HOST/api/health répond $STATUS depuis cette machine."
+  # Diagnostic depuis le VPS : l'application répond-elle, et Traefik connaît-il le routeur ?
+  APP_OK=$($SSH "docker exec manaresto wget -qO- http://127.0.0.1:3000/api/health >/dev/null 2>&1 && echo oui || echo non")
+  ROUTE=$($SSH "curl -s -o /dev/null -w '%{http_code}' -H 'Host: $PUBLIC_HOST' http://127.0.0.1/api/health || echo 000")
+  DNS_IP=$(dig +short "$PUBLIC_HOST" 2>/dev/null | tail -n1)
+  echo "   Application démarrée sur le VPS : $APP_OK"
+  echo "   Routeur Traefik pour $PUBLIC_HOST : HTTP $ROUTE (30x = routeur en place, 404 = routeur absent)"
+  echo "   DNS vu depuis cette machine : ${DNS_IP:-aucune réponse} (attendu : $VPS_HOST)"
+  if [ "$APP_OK" = "oui" ] && [ "$ROUTE" != "404" ] && [ "$ROUTE" != "000" ]; then
+    echo "   → Tout est en place côté serveur : le DNS se propage ou le certificat est en cours d'émission. Réessayez dans 1 à 2 minutes."
+  else
+    echo "   → Journaux : ssh -i $KEY $TARGET 'cd $VPS_PATH && docker compose logs --tail=100 app migrate'"
+  fi
 fi
 echo ""
 echo "Commandes utiles :"
