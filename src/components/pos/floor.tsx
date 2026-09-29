@@ -110,11 +110,11 @@ export function FloorPlan() {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-line px-3 py-2">
+      <div className="flex shrink-0 flex-wrap items-center gap-2 px-3 py-3 sm:px-4">
         <div className="flex gap-1 overflow-x-auto no-scrollbar">
           {rooms.map((r) => (
-            <button key={r.id} onClick={() => setRoomId(r.id)} className={`touch h-11 shrink-0 rounded-xl px-4 text-sm font-bold ${r.id === room.id ? "bg-lagon-600 text-white" : "surface-2"}`}>
-              {r.name} <span className="ml-1 opacity-70">{r.tables.filter((t) => t.order).length}/{r.tables.length}</span>
+            <button key={r.id} onClick={() => setRoomId(r.id)} className={`touch h-11 shrink-0 rounded-full px-5 text-sm font-bold transition ${r.id === room.id ? "bg-brand text-white shadow-glow" : "card text-muted hover:text-[var(--text)]"}`}>
+              {r.name} <span className={`ml-1.5 rounded-full px-2 py-0.5 text-xs ${r.id === room.id ? "bg-white/20" : "surface-2"}`}>{r.tables.filter((t) => t.order).length}/{r.tables.length}</span>
             </button>
           ))}
         </div>
@@ -124,8 +124,8 @@ export function FloorPlan() {
           <Button variant="accent" size="lg" loading={busy} onClick={() => openOrder({ type: "TAKEAWAY" })}><ShoppingBag className="h-5 w-5" /> À emporter</Button>
         </div>
       </div>
-      <div className="relative min-h-0 flex-1 overflow-auto p-3">
-        <div className="relative mx-auto rounded-2xl border border-dashed border-line surface-2" style={{ width: "min(100%, 1000px)", aspectRatio: `${room.width} / ${room.height}` }}>
+      <div className="relative min-h-0 flex-1 overflow-auto px-3 pb-3 sm:px-4">
+        <div className="card relative mx-auto overflow-hidden" style={{ width: "min(100%, 1000px)", aspectRatio: `${room.width} / ${room.height}`, backgroundImage: "radial-gradient(circle, color-mix(in srgb, var(--muted) 22%, transparent) 1px, transparent 1px)", backgroundSize: "28px 28px" }}>
           {room.tables.map((t) => {
             const color = TABLE_STATUS_COLOR[t.status];
             const w = t.width * scaleW, h = t.height * scaleW;
@@ -133,21 +133,22 @@ export function FloorPlan() {
               <button
                 key={t.id}
                 onClick={() => onTable(t)}
-                className="touch absolute flex flex-col items-center justify-center text-white shadow-md transition active:scale-95"
+                className={`touch absolute flex flex-col items-center justify-center text-white transition hover:brightness-105 active:scale-95 ${t.order ? "shadow-lift" : "shadow-soft"}`}
                 style={{
                   left: `${(t.x / room.width) * 100}%`, top: `${(t.y / room.height) * 100}%`, width: `${(t.width / room.width) * 100}%`, height: `${(t.height / room.height) * 100}%`,
-                  background: color, borderRadius: t.shape === "ROUND" ? "9999px" : "14px", transform: `rotate(${t.rotation}deg)`, minWidth: 64, minHeight: 64, fontSize: Math.max(11, Math.min(w, h) / 6),
+                  background: `linear-gradient(145deg, color-mix(in srgb, ${color} 82%, white), ${color} 55%, color-mix(in srgb, ${color} 80%, black))`, borderRadius: t.shape === "ROUND" ? "9999px" : "18px", transform: `rotate(${t.rotation}deg)`, minWidth: 64, minHeight: 64, fontSize: Math.max(11, Math.min(w, h) / 6),
+                  outline: t.status === "BILL" ? "3px solid rgb(168 85 247 / 0.35)" : undefined, outlineOffset: 4,
                 }}
                 title={TABLE_STATUS_LABEL[t.status]}
               >
-                <span className="text-lg font-extrabold leading-tight">{t.name}</span>
+                <span className="text-lg font-extrabold leading-tight drop-shadow-sm">{t.name}</span>
                 {t.order ? (
                   <>
-                    <span className="text-xs font-semibold opacity-90">{formatElapsed(t.order.openedAt)} · {t.order.covers} cvts</span>
+                    <span className="mt-0.5 rounded-full bg-black/15 px-2 py-0.5 text-[11px] font-semibold">{formatElapsed(t.order.openedAt)} · {t.order.covers} cvts</span>
                     <span className="text-xs font-bold"><Money amount={t.order.total} /></span>
                   </>
                 ) : (
-                  <span className="text-xs opacity-90">{t.status === "FREE" ? `${t.seats} pl.` : TABLE_STATUS_LABEL[t.status]}</span>
+                  <span className="text-xs font-medium opacity-90">{t.status === "FREE" ? `${t.seats} places` : TABLE_STATUS_LABEL[t.status]}</span>
                 )}
               </button>
             );
@@ -155,9 +156,9 @@ export function FloorPlan() {
           {room.tables.length === 0 ? <div className="absolute inset-0 flex items-center justify-center text-sm text-muted">Aucune table dans cette salle</div> : null}
         </div>
       </div>
-      <div className="no-print flex shrink-0 flex-wrap gap-3 border-t border-line px-3 py-2 text-xs">
+      <div className="no-print flex shrink-0 flex-wrap gap-2 px-3 pb-3 text-xs sm:px-4">
         {(Object.keys(TABLE_STATUS_LABEL) as FloorTable["status"][]).map((s) => (
-          <span key={s} className="flex items-center gap-1"><span className="h-3 w-3 rounded-full" style={{ background: TABLE_STATUS_COLOR[s] }} />{TABLE_STATUS_LABEL[s]}</span>
+          <span key={s} className="flex items-center gap-1.5 rounded-full surface-2 px-2.5 py-1 font-medium text-muted"><span className="h-2.5 w-2.5 rounded-full" style={{ background: TABLE_STATUS_COLOR[s] }} />{TABLE_STATUS_LABEL[s]}</span>
         ))}
       </div>
 
@@ -165,7 +166,7 @@ export function FloorPlan() {
         <p className="mb-3 text-sm text-muted"><Sparkles className="mr-1 inline h-4 w-4" />Nombre de couverts</p>
         <div className="grid grid-cols-4 gap-2">
           {Array.from({ length: 12 }, (_, i) => i + 1).map((n) => (
-            <button key={n} disabled={busy} onClick={() => coversFor && openOrder({ tableId: coversFor.id, covers: n, type: "DINE_IN" })} className={`touch h-16 rounded-xl text-2xl font-bold ${n === coversFor?.seats ? "bg-lagon-600 text-white" : "surface-2"}`}>{n}</button>
+            <button key={n} disabled={busy} onClick={() => coversFor && openOrder({ tableId: coversFor.id, covers: n, type: "DINE_IN" })} className={`touch h-16 rounded-2xl text-2xl font-bold transition active:scale-95 ${n === coversFor?.seats ? "bg-brand text-white shadow-glow" : "surface-2 hover:surface-3"}`}>{n}</button>
           ))}
         </div>
       </Modal>

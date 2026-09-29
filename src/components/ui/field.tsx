@@ -10,7 +10,7 @@ export function Field({ label, children, hint, className = "" }: { label: string
   );
 }
 
-export const inputClass = "h-11 w-full rounded-xl border border-line surface px-3 text-sm outline-none focus:border-lagon-500 focus:ring-2 focus:ring-lagon-500/30 disabled:opacity-60";
+export const inputClass = "h-11 w-full rounded-xl border border-line surface px-3.5 text-sm outline-none transition focus:border-lagon-500 focus:ring-4 focus:ring-lagon-500/15 disabled:opacity-60";
 
 export function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
   return <input {...props} className={`${inputClass} ${props.className ?? ""}`} />;

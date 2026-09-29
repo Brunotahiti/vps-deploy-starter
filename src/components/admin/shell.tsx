@@ -45,8 +45,8 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   const logout = async () => { await api.post("/api/auth/logout"); qc.clear(); router.replace("/login"); };
 
   const Sidebar = (
-    <aside className="flex h-full w-64 flex-col border-r border-line surface">
-      <div className="flex h-14 items-center justify-between px-4"><Logo size={30} /><button className="touch rounded-lg p-2 lg:hidden" onClick={() => setOpen(false)}><X className="h-5 w-5" /></button></div>
+    <aside className="flex h-full w-[268px] flex-col border-r border-line surface">
+      <div className="flex h-16 items-center justify-between px-5"><Logo size={34} /><button className="touch rounded-lg p-2 lg:hidden" onClick={() => setOpen(false)}><X className="h-5 w-5" /></button></div>
       {me?.establishments && me.establishments.length > 1 ? (
         <select value={me.establishment?.id ?? ""} onChange={(e) => switchEst(e.target.value)} className="mx-3 mb-2 h-10 rounded-lg border border-line surface-2 px-2 text-sm font-semibold">
           {me.establishments.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
@@ -55,14 +55,14 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
       <nav className="flex-1 overflow-y-auto px-2">
         {nav.map((n) => {
           const active = n.match ? pathname.startsWith(n.match) : pathname === n.href;
-          return <Link key={n.href} href={n.href} onClick={() => setOpen(false)} className={`mb-0.5 flex h-10 items-center gap-3 rounded-lg px-3 text-sm font-semibold ${active ? "bg-lagon-600 text-white" : "hover:surface-2"}`}><n.icon className="h-4 w-4" />{n.label}</Link>;
+          return <Link key={n.href} href={n.href} onClick={() => setOpen(false)} className={`mb-1 flex h-11 items-center gap-3 rounded-xl px-3 text-sm font-semibold transition ${active ? "bg-brand text-white shadow-glow" : "text-muted hover:surface-2 hover:text-[var(--text)]"}`}><span className={`flex h-7 w-7 items-center justify-center rounded-lg ${active ? "bg-white/15" : "surface-2"}`}><n.icon className="h-4 w-4" /></span>{n.label}</Link>;
         })}
         <p className="mt-4 px-3 text-[10px] font-bold uppercase tracking-wider text-muted">Prochaines phases</p>
         {later.map((n) => n.href ? <Link key={n.label} href={n.href} className="flex h-9 items-center gap-3 rounded-lg px-3 text-sm text-muted hover:surface-2"><n.icon className="h-4 w-4" />{n.label}<span className="ml-auto rounded bg-slate-500/15 px-1.5 text-[10px] font-bold">P{n.phase}</span></Link> : <span key={n.label} className="flex h-9 items-center gap-3 rounded-lg px-3 text-sm text-muted opacity-70"><n.icon className="h-4 w-4" />{n.label}<span className="ml-auto rounded bg-slate-500/15 px-1.5 text-[10px] font-bold">P{n.phase}</span></span>)}
       </nav>
       <div className="border-t border-line p-2">
         {canInstall ? <button onClick={install} className="mb-1 flex h-10 w-full items-center gap-3 rounded-lg surface-2 px-3 text-sm font-semibold"><MonitorSmartphone className="h-4 w-4" />Installer l&apos;application</button> : null}
-        <Link href="/pos" className="flex h-10 items-center gap-3 rounded-lg bg-corail-500/15 px-3 text-sm font-bold text-corail-600"><MonitorSmartphone className="h-4 w-4" />Ouvrir la caisse</Link>
+        <Link href="/pos" className="bg-accent flex h-11 items-center gap-3 rounded-xl px-3 text-sm font-bold text-white shadow-[0_8px_24px_-8px_rgb(249_124_60/0.5)]"><MonitorSmartphone className="h-4 w-4" />Ouvrir la caisse</Link>
         <div className="mt-2 flex items-center gap-2 px-1">
           <span className="flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold text-white" style={{ background: me?.user?.color ?? "#0ea5a4" }}>{(me?.user?.firstName ?? "?").slice(0, 1)}</span>
           <span className="min-w-0 flex-1 truncate text-sm font-semibold">{me?.user?.firstName} {me?.user?.lastName}<span className="block text-xs font-normal text-muted">{me?.roleKey}</span></span>
@@ -78,8 +78,8 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
       <div className="hidden lg:block">{Sidebar}</div>
       {open ? <div className="fixed inset-0 z-40 flex lg:hidden"><div className="absolute inset-0 bg-black/50" onClick={() => setOpen(false)} /><div className="relative z-10">{Sidebar}</div></div> : null}
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-14 shrink-0 items-center gap-3 border-b border-line surface px-4 lg:hidden"><button className="touch rounded-lg p-2" onClick={() => setOpen(true)}><Menu className="h-5 w-5" /></button><Logo size={28} /></header>
-        <main className="min-h-0 flex-1 overflow-y-auto p-4 lg:p-6">{children}</main>
+        <header className="glass flex h-14 shrink-0 items-center gap-3 border-b px-4 lg:hidden"><button className="touch rounded-lg p-2" onClick={() => setOpen(true)}><Menu className="h-5 w-5" /></button><Logo size={28} /></header>
+        <main className="min-h-0 flex-1 overflow-y-auto p-4 lg:p-8">{children}</main>
       </div>
     </div>
   );

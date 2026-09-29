@@ -36,7 +36,7 @@ function PinLogin() {
 
   if (me && !me.terminal) {
     return (
-      <div className="surface w-full max-w-sm space-y-4 rounded-2xl border p-6 text-center shadow-xl">
+      <div className="card rise w-full max-w-sm space-y-4 p-7 text-center">
         <Logo size={44} />
         <p className="text-sm text-muted">Cet appareil n&apos;est pas encore enregistré comme terminal de caisse. Un manager doit se connecter avec son email puis enregistrer l&apos;appareil dans <strong>Administration → Paramètres → Terminaux</strong>.</p>
         <Link href="/login" className="block rounded-xl bg-lagon-600 px-4 py-3 font-semibold text-white">Connexion par email</Link>
@@ -45,7 +45,7 @@ function PinLogin() {
   }
 
   return (
-    <div className="surface w-full max-w-sm space-y-5 rounded-2xl border p-6 shadow-xl">
+    <div className="card rise w-full max-w-sm space-y-5 p-7">
       <div className="text-center">
         <Logo size={44} />
         {me?.terminal ? <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-muted">Terminal · {me.terminal.name}</p> : null}
@@ -65,7 +65,7 @@ function PinLogin() {
 
 export default function PosLoginPage() {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-lagon-50 via-[var(--bg)] to-sable-100 p-4 dark:from-nuit-900 dark:via-nuit-800 dark:to-nuit-950">
+    <main className="flex min-h-screen items-center justify-center p-4">
       <Suspense><PinLogin /></Suspense>
     </main>
   );

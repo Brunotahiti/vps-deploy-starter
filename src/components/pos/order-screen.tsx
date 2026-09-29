@@ -173,43 +173,48 @@ export function OrderScreen({ orderId: orderIdProp }: { orderId: string }) {
   return (
     <div className="flex h-full">
       {/* Catégories */}
-      <aside className="no-print flex w-28 shrink-0 flex-col border-r border-line surface sm:w-36">
-        <button onClick={() => router.push("/pos")} className="touch flex h-12 items-center justify-center gap-1 border-b border-line text-sm font-bold"><ArrowLeft className="h-4 w-4" /> Salle</button>
-        <div className="flex-1 overflow-y-auto no-scrollbar p-1.5">
-          {catalog.data.categories.filter((c) => !c.parentId).map((c) => (
-            <button key={c.id} onClick={() => { setCategoryId(c.id); setSearch(""); }} className={`touch mb-1.5 flex h-16 w-full items-center justify-center rounded-xl px-2 text-center text-sm font-bold leading-tight transition ${categoryId === c.id && !search ? "text-white shadow" : "surface-2"}`} style={categoryId === c.id && !search ? { background: c.color } : { borderLeft: `4px solid ${c.color}` }}>
-              {c.name}
-            </button>
-          ))}
-          {showFormules ? <button onClick={() => { setCategoryId(FORMULES); setSearch(""); }} className={`touch mb-1.5 flex h-16 w-full items-center justify-center rounded-xl px-2 text-sm font-bold ${categoryId === FORMULES && !search ? "bg-lagon-600 text-white" : "surface-2 border-l-4 border-lagon-500"}`}>Formules</button> : null}
+      <aside className="no-print flex w-32 shrink-0 flex-col sm:w-40">
+        <button onClick={() => router.push("/pos")} className="touch mx-2 mt-2 flex h-11 items-center justify-center gap-1.5 rounded-xl text-sm font-bold text-muted hover:surface-2"><ArrowLeft className="h-4 w-4" /> Salle</button>
+        <div className="flex-1 space-y-1.5 overflow-y-auto no-scrollbar p-2">
+          {catalog.data.categories.filter((c) => !c.parentId).map((c) => {
+            const active = categoryId === c.id && !search;
+            return (
+              <button key={c.id} onClick={() => { setCategoryId(c.id); setSearch(""); }} className={`touch flex h-16 w-full flex-col items-start justify-center gap-1 rounded-2xl px-3 text-left text-sm font-bold leading-tight transition active:scale-[0.98] ${active ? "text-white shadow-lift" : "card hover:surface-2"}`} style={active ? { background: `linear-gradient(140deg, ${c.color}, color-mix(in srgb, ${c.color} 70%, black))` } : undefined}>
+                <span className="h-2 w-6 rounded-full" style={{ background: active ? "rgb(255 255 255 / 0.7)" : c.color }} />
+                <span className="line-clamp-2">{c.name}</span>
+              </button>
+            );
+          })}
+          {showFormules ? <button onClick={() => { setCategoryId(FORMULES); setSearch(""); }} className={`touch flex h-16 w-full flex-col items-start justify-center gap-1 rounded-2xl px-3 text-left text-sm font-bold transition ${categoryId === FORMULES && !search ? "bg-brand text-white shadow-lift" : "card hover:surface-2"}`}><span className={`h-2 w-6 rounded-full ${categoryId === FORMULES && !search ? "bg-white/70" : "bg-lagon-500"}`} />Formules</button> : null}
         </div>
       </aside>
 
       {/* Produits */}
       <section className="no-print flex min-w-0 flex-1 flex-col">
-        <div className="flex h-12 shrink-0 items-center gap-2 border-b border-line px-2">
+        <div className="card mx-2 mt-2 flex h-11 shrink-0 items-center gap-2 px-3 shadow-none">
           <Search className="h-4 w-4 text-muted" />
-          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Rechercher un produit, un code…" className="h-9 flex-1 bg-transparent text-sm outline-none" />
-          {search ? <button onClick={() => setSearch("")} className="text-xs font-semibold text-muted">Effacer</button> : null}
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Rechercher un produit, un code…" className="h-9 flex-1 bg-transparent text-sm outline-none placeholder:text-muted" />
+          {search ? <button onClick={() => setSearch("")} className="rounded-full surface-2 px-2 py-0.5 text-xs font-semibold text-muted">Effacer</button> : null}
         </div>
-        <div className="grid flex-1 auto-rows-min grid-cols-2 gap-2 overflow-y-auto p-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+        <div className="grid flex-1 auto-rows-min grid-cols-2 gap-2.5 overflow-y-auto p-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
           {categoryId === FORMULES && !search
             ? catalog.data.menus.map((m) => (
-                <button key={m.id} disabled={closed} onClick={() => setMenuOpen(m)} className="touch flex h-24 flex-col justify-between rounded-xl border-l-4 border-lagon-500 surface p-2 text-left shadow-sm transition active:scale-95 disabled:opacity-50">
-                  <span className="line-clamp-2 text-sm font-bold">{m.name}</span>
-                  <span className="text-sm font-semibold text-lagon-600"><Money amount={m.priceTtc} /></span>
+                <button key={m.id} disabled={closed} onClick={() => setMenuOpen(m)} className="touch card flex h-28 flex-col justify-between overflow-hidden p-3 text-left transition hover:-translate-y-0.5 hover:shadow-lift active:scale-[0.98] disabled:opacity-50">
+                  <span className="inline-flex w-fit rounded-full bg-lagon-500/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-lagon-700 dark:text-lagon-300">Formule</span>
+                  <span className="line-clamp-2 text-sm font-bold leading-tight">{m.name}</span>
+                  <span className="text-sm font-extrabold text-brand"><Money amount={m.priceTtc} /></span>
                 </button>
               ))
             : products.map((p) => {
                 const off = !p.isAvailable || p.autoUnavailable;
                 const cat = catalog.data!.categories.find((c) => c.id === p.categoryId);
                 return (
-                  <button key={p.id} disabled={closed} onClick={() => onProduct(p)} className={`touch relative flex ${p.imageUrl ? "h-36" : "h-24"} flex-col overflow-hidden rounded-xl surface text-left shadow-sm transition active:scale-95 disabled:opacity-50 ${off ? "opacity-50" : ""}`} style={{ borderLeft: `4px solid ${p.color ?? cat?.color ?? "#94a3b8"}` }}>
+                  <button key={p.id} disabled={closed} onClick={() => onProduct(p)} className={`touch card relative flex ${p.imageUrl ? "h-40" : "h-28"} flex-col overflow-hidden text-left transition hover:-translate-y-0.5 hover:shadow-lift active:scale-[0.98] disabled:opacity-50 ${off ? "opacity-50 grayscale" : ""}`}>
                     {/* eslint-disable-next-line @next/next/no-img-element -- images du catalogue (URL libre), non optimisables */}
-                    {p.imageUrl ? <img src={p.imageUrl} alt="" loading="lazy" className="h-16 w-full shrink-0 object-cover" /> : null}
-                    <span className="flex min-h-0 flex-1 flex-col justify-between p-2">
-                      <span className="line-clamp-2 text-sm font-bold leading-tight">{p.name}</span>
-                      <span className="flex items-center justify-between"><span className="text-sm font-semibold"><Money amount={p.priceTtc} /></span>{p.modifierGroups.length ? <span className="text-[10px] font-semibold uppercase text-muted">options</span> : null}</span>
+                    {p.imageUrl ? <img src={p.imageUrl} alt="" loading="lazy" className="h-[86px] w-full shrink-0 object-cover" /> : <span className="h-1.5 w-full shrink-0" style={{ background: p.color ?? cat?.color ?? "#94a3b8" }} />}
+                    <span className="flex min-h-0 flex-1 flex-col justify-between p-2.5">
+                      <span className="line-clamp-2 text-[13px] font-bold leading-tight">{p.name}</span>
+                      <span className="flex items-center justify-between gap-1"><span className="rounded-full surface-2 px-2 py-0.5 text-xs font-extrabold"><Money amount={p.priceTtc} /></span>{p.modifierGroups.length ? <span className="text-[10px] font-bold uppercase tracking-wide text-muted">options</span> : null}</span>
                     </span>
                     {off ? <span className="absolute inset-x-0 top-1/2 -translate-y-1/2 bg-red-600/90 py-0.5 text-center text-[11px] font-bold uppercase text-white">Indisponible</span> : null}
                   </button>
@@ -220,8 +225,8 @@ export function OrderScreen({ orderId: orderIdProp }: { orderId: string }) {
       </section>
 
       {/* Ticket */}
-      <aside className="flex w-[340px] shrink-0 flex-col overflow-hidden border-l border-line surface xl:w-[400px]">
-        <div className="border-b border-line px-3 py-2">
+      <aside className="card m-2 ml-0 flex w-[340px] shrink-0 flex-col overflow-hidden xl:w-[400px]">
+        <div className="border-b border-line px-4 py-3">
           <div className="flex items-center justify-between">
             <button onClick={() => !closed && setDialog("covers")} className="touch text-left">
               <p className="text-lg font-extrabold leading-tight">{o.table ? `Table ${o.table.name}` : ORDER_TYPE_LABEL[o.type]}{o.customerName ? ` · ${o.customerName}` : ""}</p>
@@ -231,14 +236,14 @@ export function OrderScreen({ orderId: orderIdProp }: { orderId: string }) {
           </div>
           {!closed && o.type === "DINE_IN" ? (
             <div className="mt-2 flex gap-1 overflow-x-auto no-scrollbar">
-              <button onClick={() => setSeat(null)} className={`touch h-8 shrink-0 rounded-lg px-2 text-xs font-bold ${seat === null ? "bg-nuit-800 text-white dark:bg-lagon-600" : "surface-2"}`}>Table</button>
-              {Array.from({ length: o.covers }, (_, i) => i + 1).map((n) => <button key={n} onClick={() => setSeat(n)} className={`touch h-8 w-10 shrink-0 rounded-lg text-xs font-bold ${seat === n ? "bg-nuit-800 text-white dark:bg-lagon-600" : "surface-2"}`}>C{n}</button>)}
+              <button onClick={() => setSeat(null)} className={`touch h-8 shrink-0 rounded-full px-3 text-xs font-bold transition ${seat === null ? "bg-nuit-800 text-white dark:bg-lagon-500 dark:text-nuit-950" : "surface-2 text-muted"}`}>Table</button>
+              {Array.from({ length: o.covers }, (_, i) => i + 1).map((n) => <button key={n} onClick={() => setSeat(n)} className={`touch h-8 w-10 shrink-0 rounded-full text-xs font-bold transition ${seat === n ? "bg-nuit-800 text-white dark:bg-lagon-500 dark:text-nuit-950" : "surface-2 text-muted"}`}>C{n}</button>)}
             </div>
           ) : null}
           {!closed && o.courses.length > 1 ? (
             <div className="mt-2 flex gap-1 overflow-x-auto no-scrollbar">
               {o.courses.map((c) => (
-                <button key={c.id} onClick={() => setCourseId(c.id)} className={`touch relative h-9 shrink-0 rounded-lg px-2.5 text-[11px] font-bold ${courseId === c.id ? "bg-lagon-600 text-white" : "surface-2"}`}>
+                <button key={c.id} onClick={() => setCourseId(c.id)} className={`touch relative h-9 shrink-0 rounded-full px-3 text-[11px] font-bold transition ${courseId === c.id ? "bg-brand text-white shadow-glow" : "surface-2 text-muted"}`}>
                   {c.name}{c.status === "SENT" || c.status === "FIRE" ? " ✓" : c.status === "HOLD" ? " ⏸" : c.status === "SERVED" ? " ✔✔" : ""}
                   {pendingInCourse(c.id) > 0 ? <span className="ml-1 rounded-full bg-corail-500 px-1.5 text-[10px] text-white">{pendingInCourse(c.id)}</span> : null}
                 </button>
@@ -271,8 +276,8 @@ export function OrderScreen({ orderId: orderIdProp }: { orderId: string }) {
                   const comps = o.items.filter((x) => x.parentItemId === i.id);
                   const voided = i.status === "VOIDED";
                   return (
-                    <button key={i.id} disabled={closed} onClick={() => setItemOpen(i)} className={`touch flex w-full items-start gap-2 border-b border-line px-3 py-2 text-left hover:surface-2 ${voided ? "opacity-40 line-through" : ""}`}>
-                      <span className={`mt-0.5 min-w-[26px] rounded-md px-1.5 py-0.5 text-center text-xs font-bold ${i.status === "PENDING" ? "bg-corail-500/15 text-corail-600" : "bg-lagon-500/15 text-lagon-700 dark:text-lagon-300"}`}>{i.quantity}</span>
+                    <button key={i.id} disabled={closed} onClick={() => setItemOpen(i)} className={`touch flex w-full items-start gap-2.5 border-b border-line px-4 py-2.5 text-left transition hover:surface-2 ${voided ? "opacity-40 line-through" : ""}`}>
+                      <span className={`mt-0.5 flex h-7 min-w-[28px] items-center justify-center rounded-lg px-1.5 text-xs font-extrabold ${i.status === "PENDING" ? "bg-corail-500/15 text-corail-600" : "bg-lagon-500/15 text-lagon-700 dark:text-lagon-300"}`}>{i.quantity}</span>
                       <span className="min-w-0 flex-1">
                         <span className="flex items-center gap-1 text-sm font-semibold leading-tight">{i.isUrgent ? <AlertTriangle className="h-3.5 w-3.5 text-corail-500" /> : null}{i.name}</span>
                         {i.modifiers.length ? <span className="block text-xs text-muted">{i.modifiers.map((m) => m.name).join(", ")}</span> : null}
@@ -289,17 +294,17 @@ export function OrderScreen({ orderId: orderIdProp }: { orderId: string }) {
           })}
         </div>
 
-        <div className="border-t border-line px-3 py-2 text-sm">
+        <div className="surface-2 px-4 py-3 text-sm">
           <div className="flex justify-between text-muted"><span>Sous-total</span><Money amount={o.subtotal} /></div>
           {o.discountTotal > 0 ? <div className="flex justify-between text-corail-500"><span>Remise{o.discountReason ? ` (${o.discountReason})` : ""}</span><span>−<Money amount={o.discountTotal} /></span></div> : null}
           <div className="flex justify-between text-muted"><span>dont TVA</span><Money amount={o.taxTotal} /></div>
-          <div className="flex justify-between text-xl font-extrabold"><span>Total</span><Money amount={o.total} /></div>
+          <div className="mt-1 flex items-baseline justify-between border-t border-line pt-2 text-xl font-extrabold"><span>Total</span><Money amount={o.total} className="text-2xl" /></div>
           {o.paidTotal > 0 ? <div className="flex justify-between font-semibold text-lagon-600"><span>Payé</span><Money amount={o.paidTotal} /></div> : null}
           {o.paidTotal > 0 && remaining > 0 ? <div className="flex justify-between font-bold text-corail-500"><span>Reste</span><Money amount={remaining} /></div> : null}
         </div>
 
         {!closed ? (
-          <div className="no-print space-y-2 border-t border-line p-2">
+          <div className="no-print space-y-2 p-3 pt-0">
             <div className="relative flex gap-2">
               <Button size="lg" variant={pendingCount > 0 ? "accent" : "secondary"} className="min-w-0 flex-1 px-2!" disabled={pendingCount === 0} onClick={() => (o.courses.length > 1 ? setSendMenu((s) => !s) : send({ all: true }))}>
                 <Send className="h-5 w-5 shrink-0" /><span className="truncate">Envoyer{pendingCount > 0 ? ` (${pendingCount})` : ""}</span>{o.courses.length > 1 ? <ChevronDown className="h-4 w-4 shrink-0" /> : null}
@@ -314,14 +319,14 @@ export function OrderScreen({ orderId: orderIdProp }: { orderId: string }) {
               <Button size="lg" className="min-w-0 flex-1 px-2!" disabled={activeItems.length === 0} onClick={() => setPayOpen(true)}><CreditCard className="h-5 w-5 shrink-0" /><span className="truncate">Payer</span></Button>
             </div>
             <div className="grid grid-cols-4 gap-1">
-              <button onClick={() => setDialog("discount")} className="touch flex h-11 flex-col items-center justify-center rounded-lg surface-2 text-[10px] font-bold uppercase"><Percent className="h-4 w-4" />Remise</button>
-              <button onClick={() => setDialog("transfer")} disabled={!can("pos.transfer_table")} className="touch flex h-11 flex-col items-center justify-center rounded-lg surface-2 text-[10px] font-bold uppercase disabled:opacity-40"><ArrowRightLeft className="h-4 w-4" />Transf.</button>
-              <a href={`/api/orders/${o.id}/receipt`} target="_blank" rel="noreferrer" className="touch flex h-11 flex-col items-center justify-center rounded-lg surface-2 text-[10px] font-bold uppercase"><Printer className="h-4 w-4" />Ticket</a>
-              <button onClick={() => setDialog("cancel")} className="touch flex h-11 flex-col items-center justify-center rounded-lg bg-red-500/10 text-[10px] font-bold uppercase text-red-600"><XCircle className="h-4 w-4" />Annuler</button>
+              <button onClick={() => setDialog("discount")} className="touch flex h-12 flex-col items-center justify-center gap-0.5 rounded-xl surface-2 text-[10px] font-bold uppercase text-muted hover:surface-3"><Percent className="h-4 w-4" />Remise</button>
+              <button onClick={() => setDialog("transfer")} disabled={!can("pos.transfer_table")} className="touch flex h-12 flex-col items-center justify-center gap-0.5 rounded-xl surface-2 text-[10px] font-bold uppercase text-muted hover:surface-3 disabled:opacity-40"><ArrowRightLeft className="h-4 w-4" />Transf.</button>
+              <a href={`/api/orders/${o.id}/receipt`} target="_blank" rel="noreferrer" className="touch flex h-12 flex-col items-center justify-center gap-0.5 rounded-xl surface-2 text-[10px] font-bold uppercase text-muted hover:surface-3"><Printer className="h-4 w-4" />Ticket</a>
+              <button onClick={() => setDialog("cancel")} className="touch flex h-12 flex-col items-center justify-center gap-0.5 rounded-xl bg-red-500/10 text-[10px] font-bold uppercase text-red-600 hover:bg-red-500/15"><XCircle className="h-4 w-4" />Annuler</button>
             </div>
           </div>
         ) : (
-          <div className="no-print flex gap-2 border-t border-line p-2">
+          <div className="no-print flex gap-2 p-3">
             <a href={`/api/orders/${o.id}/receipt`} target="_blank" rel="noreferrer" className="touch flex h-12 flex-1 items-center justify-center gap-2 rounded-xl surface-2 text-sm font-bold"><Printer className="h-4 w-4" /> Ticket</a>
             <Button size="lg" variant="secondary" className="flex-1" onClick={() => router.push("/pos")}>Retour salle</Button>
           </div>

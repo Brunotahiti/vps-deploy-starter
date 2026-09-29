@@ -6,7 +6,7 @@ import Link from "next/link";
 import { api, ApiClientError } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/field";
-import { Logo } from "@/components/brand";
+import { Logo, BrandPanel } from "@/components/brand";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -30,10 +30,13 @@ export default function SignupPage() {
   };
 
   return (
-    <main className="flex min-h-screen items-center justify-center p-4">
-      <form onSubmit={submit} className="surface w-full max-w-lg space-y-4 rounded-2xl border p-6 shadow-xl">
-        <div className="flex justify-center"><Logo size={44} /></div>
-        <h1 className="text-center text-xl font-bold">Créer votre espace ManaResto</h1>
+    <main className="grid min-h-screen lg:grid-cols-[1.1fr_1fr]">
+      <BrandPanel />
+      <section className="flex items-center justify-center p-6 sm:p-10">
+      <form onSubmit={submit} className="rise w-full max-w-lg space-y-4">
+        <Logo size={44} />
+        <h1 className="text-2xl font-extrabold tracking-tight">Créer votre espace ManaResto</h1>
+        <p className="text-sm text-muted">Entreprise, premier établissement et compte propriétaire. Vous pourrez ajouter d&apos;autres restaurants ensuite.</p>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Entreprise" className="sm:col-span-2"><Input required value={form.organizationName} onChange={set("organizationName")} placeholder="Ma société SARL" /></Field>
           <Field label="Nom du restaurant" className="sm:col-span-2"><Input required value={form.establishmentName} onChange={set("establishmentName")} placeholder="Le Mana Beach" /></Field>
@@ -46,6 +49,7 @@ export default function SignupPage() {
         <Button type="submit" size="lg" className="w-full" loading={loading}>Créer mon compte</Button>
         <p className="text-center text-sm"><Link href="/login" className="text-lagon-600 hover:underline">Déjà un compte ? Se connecter</Link></p>
       </form>
+      </section>
     </main>
   );
 }
