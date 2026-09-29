@@ -1,0 +1,350 @@
+"use client";
+
+import { useCallback, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { ArrowLeft, Search, Send, Receipt, CreditCard, Percent, XCircle, ArrowRightLeft, Printer, Flame, PauseCircle, CheckCircle2, AlertTriangle, ChevronDown } from "lucide-react";
+import { api, ApiClientError } from "@/lib/api-client";
+import { Button } from "@/components/ui/button";
+import { Modal } from "@/components/ui/modal";
+import { Spinner } from "@/components/ui/misc";
+import { useToast } from "@/components/ui/toast";
+import { Money } from "@/components/money";
+import { formatElapsed } from "@/lib/dates";
+import { useSession } from "@/hooks/use-session";
+import { usePosCatalog } from "./use-catalog";
+import { ProductModal, type ProductChoice } from "./product-modal";
+import { ItemModal } from "./item-modal";
+import { PaymentModal, type PaymentPayload } from "./payment-modal";
+import { PinModal, withPin, type PinRequest } from "./pin-modal";
+import { useFloor } from "./floor";
+import { ORDER_TYPE_LABEL, type Order, type OrderItem, type PosMenu, type PosProduct } from "./types";
+import { NumPad } from "@/components/ui/numpad";
+
+const FORMULES = "__menus__";
+
+export function OrderScreen({ orderId }: { orderId: string }) {
+  const router = useRouter();
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  const { can } = useSession();
+  const catalog = usePosCatalog();
+  const order = useQuery({ queryKey: ["order", orderId], queryFn: () => api.get<Order>(`/api/orders/${orderId}`), refetchInterval: 15_000 });
+  const [search, setSearch] = useState("");
+  const [seat, setSeat] = useState<number | null>(null);
+  const [productOpen, setProductOpen] = useState<PosProduct | null>(null);
+  const [menuOpen, setMenuOpen] = useState<PosMenu | null>(null);
+  const [itemOpen, setItemOpen] = useState<OrderItem | null>(null);
+  const [payOpen, setPayOpen] = useState(false);
+  const [pin, setPin] = useState<PinRequest>(null);
+  const [dialog, setDialog] = useState<"discount" | "cancel" | "transfer" | "covers" | null>(null);
+  const [sendMenu, setSendMenu] = useState(false);
+
+  const o = order.data;
+  const [courseSel, setCourseSel] = useState<string | null>(null);
+  const [categorySel, setCategorySel] = useState<string | null>(null);
+  const courseId = courseSel ?? (o ? (o.courses.find((c) => c.status === "PENDING") ?? o.courses[0])?.id ?? null : null);
+  const categoryId = categorySel ?? catalog.data?.categories[0]?.id ?? null;
+  const setCourseId = setCourseSel;
+  const setCategoryId = setCategorySel;
+
+  const setOrder = useCallback((next: Order) => qc.setQueryData(["order", orderId], next), [qc, orderId]);
+  const invalidate = useCallback(() => { qc.invalidateQueries({ queryKey: ["order", orderId] }); qc.invalidateQueries({ queryKey: ["floor"] }); qc.invalidateQueries({ queryKey: ["orders"] }); }, [qc, orderId]);
+
+  const onError = (e: unknown) => {
+    if (e instanceof ApiClientError && e.code === "QUEUED") toast("Hors ligne : opération enregistrée, elle sera synchronisée", "info");
+    else if (!(e instanceof ApiClientError && e.isPinRequired)) toast(e instanceof ApiClientError ? e.message : "Erreur", "error");
+  };
+
+  const addItem = useMutation({
+    mutationFn: async (choice: ProductChoice) => {
+      const id = crypto.randomUUID();
+      return api.post<Order>(`/api/orders/${orderId}/items`, { id, ...choice, courseId, seatNumber: seat }, { idempotencyKey: id, queueIfOffline: true });
+    },
+    onMutate: async (choice) => {
+      // Ajout immédiat (optimiste) dans le ticket
+      const current = qc.getQueryData<Order>(["order", orderId]);
+      if (!current || !catalog.data) return;
+      const p = choice.productId ? catalog.data.products.find((x) => x.id === choice.productId) : null;
+      const m = choice.menuId ? catalog.data.menus.find((x) => x.id === choice.menuId) : null;
+      const name = p?.name ?? m?.name ?? "…";
+      const unitPrice = p ? (choice.variantId ? (p.variants.find((v) => v.id === choice.variantId)?.priceTtc ?? p.priceTtc) : p.priceTtc) : (m?.priceTtc ?? 0);
+      const modsTotal = p ? p.modifierGroups.flatMap((g) => g.modifiers).filter((x) => choice.modifiers?.some((s) => s.modifierId === x.id)).reduce((a, x) => a + x.priceDelta, 0) : 0;
+      const temp: OrderItem = { id: `tmp-${Date.now()}`, orderId, courseId, productId: p?.id ?? null, variantId: choice.variantId ?? null, menuId: m?.id ?? null, parentItemId: null, kitchenStationId: null, kitchenTicketId: null, name, quantity: choice.quantity, unitPrice, modifiersTotal: modsTotal, discountAmount: 0, lineTotal: (unitPrice + modsTotal) * choice.quantity, taxRateBps: 0, taxRateName: null, taxAmount: 0, costPrice: 0, seatNumber: seat, notes: choice.notes ?? null, isUrgent: false, status: "PENDING", sentAt: null, readyAt: null, servedAt: null, voidedAt: null, voidReason: null, sortOrder: current.items.length, createdAt: new Date(), updatedAt: new Date(), modifiers: [] };
+      setOrder({ ...current, items: [...current.items, temp], total: current.total + temp.lineTotal, subtotal: current.subtotal + temp.lineTotal });
+    },
+    onSuccess: (data) => setOrder(data),
+    onError: (e) => { onError(e); invalidate(); },
+    onSettled: () => qc.invalidateQueries({ queryKey: ["floor"] }),
+  });
+
+  const run = async (fn: () => Promise<Order>) => { try { setOrder(await fn()); } catch (e) { onError(e); invalidate(); } };
+  const updateItem = (itemId: string, patch: Record<string, unknown>) => run(() => api.patch<Order>(`/api/orders/${orderId}/items/${itemId}`, patch, { queueIfOffline: true }));
+  const removeItem = async (item: OrderItem, reason: string | null) => {
+    await withPin(setPin, "pos.void_item", (managerPin) => api.delete<Order>(`/api/orders/${orderId}/items/${item.id}`, { reason, managerPin }).then(setOrder)).catch(onError);
+    setItemOpen(null);
+  };
+  const send = (opts: { courseId?: string | null; all?: boolean }) => { setSendMenu(false); return run(() => api.post<Order>(`/api/orders/${orderId}/send`, opts, { idempotencyKey: crypto.randomUUID(), queueIfOffline: true })).then(() => toast("Envoyé en cuisine", "success")); };
+  const setCourseStatus = (cid: string, status: "PENDING" | "HOLD" | "FIRE" | "SERVED") => run(() => api.post<Order>(`/api/orders/${orderId}/courses/${cid}`, { status }));
+  const requestBill = () => run(() => api.post<Order>(`/api/orders/${orderId}/bill`)).then(() => toast("Addition demandée", "success"));
+  const pay = async (payments: PaymentPayload[]) => {
+    await withPin(setPin, "pos.discount", async (managerPin) => {
+      const res = await api.post<{ order: Order }>(`/api/orders/${orderId}/payments`, { payments: payments.map((p) => ({ ...p, id: crypto.randomUUID() })), managerPin }, { idempotencyKey: crypto.randomUUID() });
+      setOrder(res.order);
+      if (res.order.status === "PAID") { setPayOpen(false); toast("Commande soldée ✓", "success"); qc.invalidateQueries({ queryKey: ["floor"] }); qc.invalidateQueries({ queryKey: ["cash"] }); router.push(res.order.tableId ? "/pos" : "/pos/orders"); }
+      else toast("Paiement enregistré", "success");
+    }).catch(onError);
+  };
+
+  const products = useMemo(() => {
+    if (!catalog.data) return [];
+    const q = search.trim().toLowerCase();
+    if (q) return catalog.data.products.filter((p) => p.name.toLowerCase().includes(q) || p.sku?.toLowerCase().includes(q) || p.barcode === q);
+    return catalog.data.products.filter((p) => p.categoryId === categoryId);
+  }, [catalog.data, categoryId, search]);
+
+  const onProduct = (p: PosProduct) => {
+    if (!p.isAvailable || p.autoUnavailable) return toast(`${p.name} est indisponible`, "error");
+    if (p.modifierGroups.length > 0 || p.variants.length > 0) setProductOpen(p);
+    else addItem.mutate({ productId: p.id, quantity: 1 });
+  };
+
+  if (order.isLoading || catalog.isLoading) return <div className="flex h-full items-center justify-center"><Spinner /></div>;
+  if (!o || !catalog.data) return <div className="p-6 text-center text-muted">Commande introuvable. <button className="text-lagon-600 underline" onClick={() => router.push("/pos")}>Retour</button></div>;
+
+  const closed = o.status === "PAID" || o.status === "CANCELLED";
+  const activeItems = o.items.filter((i) => i.status !== "VOIDED");
+  const pendingCount = activeItems.filter((i) => i.status === "PENDING").length;
+  const pendingInCourse = (cid: string | null) => activeItems.filter((i) => i.status === "PENDING" && i.courseId === cid && !i.parentItemId).length;
+  const remaining = o.total - o.paidTotal;
+  const showFormules = catalog.data.menus.length > 0;
+  const rootItems = o.items.filter((i) => !i.parentItemId);
+  const currentCourse = o.courses.find((c) => c.id === courseId);
+
+  return (
+    <div className="flex h-full">
+      {/* Catégories */}
+      <aside className="no-print flex w-28 shrink-0 flex-col border-r border-line surface sm:w-36">
+        <button onClick={() => router.push("/pos")} className="touch flex h-12 items-center justify-center gap-1 border-b border-line text-sm font-bold"><ArrowLeft className="h-4 w-4" /> Salle</button>
+        <div className="flex-1 overflow-y-auto no-scrollbar p-1.5">
+          {catalog.data.categories.filter((c) => !c.parentId).map((c) => (
+            <button key={c.id} onClick={() => { setCategoryId(c.id); setSearch(""); }} className={`touch mb-1.5 flex h-16 w-full items-center justify-center rounded-xl px-2 text-center text-sm font-bold leading-tight transition ${categoryId === c.id && !search ? "text-white shadow" : "surface-2"}`} style={categoryId === c.id && !search ? { background: c.color } : { borderLeft: `4px solid ${c.color}` }}>
+              {c.name}
+            </button>
+          ))}
+          {showFormules ? <button onClick={() => { setCategoryId(FORMULES); setSearch(""); }} className={`touch mb-1.5 flex h-16 w-full items-center justify-center rounded-xl px-2 text-sm font-bold ${categoryId === FORMULES && !search ? "bg-lagon-600 text-white" : "surface-2 border-l-4 border-lagon-500"}`}>Formules</button> : null}
+        </div>
+      </aside>
+
+      {/* Produits */}
+      <section className="no-print flex min-w-0 flex-1 flex-col">
+        <div className="flex h-12 shrink-0 items-center gap-2 border-b border-line px-2">
+          <Search className="h-4 w-4 text-muted" />
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Rechercher un produit, un code…" className="h-9 flex-1 bg-transparent text-sm outline-none" />
+          {search ? <button onClick={() => setSearch("")} className="text-xs font-semibold text-muted">Effacer</button> : null}
+        </div>
+        <div className="grid flex-1 auto-rows-min grid-cols-2 gap-2 overflow-y-auto p-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+          {categoryId === FORMULES && !search
+            ? catalog.data.menus.map((m) => (
+                <button key={m.id} disabled={closed} onClick={() => setMenuOpen(m)} className="touch flex h-24 flex-col justify-between rounded-xl border-l-4 border-lagon-500 surface p-2 text-left shadow-sm transition active:scale-95 disabled:opacity-50">
+                  <span className="line-clamp-2 text-sm font-bold">{m.name}</span>
+                  <span className="text-sm font-semibold text-lagon-600"><Money amount={m.priceTtc} /></span>
+                </button>
+              ))
+            : products.map((p) => {
+                const off = !p.isAvailable || p.autoUnavailable;
+                const cat = catalog.data!.categories.find((c) => c.id === p.categoryId);
+                return (
+                  <button key={p.id} disabled={closed} onClick={() => onProduct(p)} className={`touch relative flex h-24 flex-col justify-between overflow-hidden rounded-xl surface p-2 text-left shadow-sm transition active:scale-95 disabled:opacity-50 ${off ? "opacity-50" : ""}`} style={{ borderLeft: `4px solid ${p.color ?? cat?.color ?? "#94a3b8"}` }}>
+                    {/* eslint-disable-next-line @next/next/no-img-element -- images externes du catalogue, non optimisables */}
+                    {p.imageUrl ? <img src={p.imageUrl} alt="" className="absolute inset-0 h-full w-full object-cover opacity-30" /> : null}
+                    <span className="relative line-clamp-2 text-sm font-bold leading-tight">{p.name}</span>
+                    <span className="relative flex items-center justify-between"><span className="text-sm font-semibold"><Money amount={p.priceTtc} /></span>{p.modifierGroups.length ? <span className="text-[10px] font-semibold uppercase text-muted">options</span> : null}</span>
+                    {off ? <span className="absolute inset-x-0 top-1/2 -translate-y-1/2 bg-red-600/90 py-0.5 text-center text-[11px] font-bold uppercase text-white">Indisponible</span> : null}
+                  </button>
+                );
+              })}
+          {products.length === 0 && categoryId !== FORMULES ? <p className="col-span-full py-10 text-center text-sm text-muted">Aucun produit</p> : null}
+        </div>
+      </section>
+
+      {/* Ticket */}
+      <aside className="flex w-[340px] shrink-0 flex-col overflow-hidden border-l border-line surface xl:w-[400px]">
+        <div className="border-b border-line px-3 py-2">
+          <div className="flex items-center justify-between">
+            <button onClick={() => !closed && setDialog("covers")} className="touch text-left">
+              <p className="text-lg font-extrabold leading-tight">{o.table ? `Table ${o.table.name}` : ORDER_TYPE_LABEL[o.type]}{o.customerName ? ` · ${o.customerName}` : ""}</p>
+              <p className="text-xs text-muted">{o.covers} couvert{o.covers > 1 ? "s" : ""} · {formatElapsed(o.openedAt)} · {o.server?.displayName || o.server?.firstName} · n° {o.number.split("-")[1]}</p>
+            </button>
+            {closed ? <span className={`rounded-lg px-2 py-1 text-xs font-bold ${o.status === "PAID" ? "bg-green-500/15 text-green-600" : "bg-red-500/15 text-red-600"}`}>{o.status === "PAID" ? "PAYÉE" : "ANNULÉE"}</span> : null}
+          </div>
+          {!closed && o.type === "DINE_IN" ? (
+            <div className="mt-2 flex gap-1 overflow-x-auto no-scrollbar">
+              <button onClick={() => setSeat(null)} className={`touch h-8 shrink-0 rounded-lg px-2 text-xs font-bold ${seat === null ? "bg-nuit-800 text-white dark:bg-lagon-600" : "surface-2"}`}>Table</button>
+              {Array.from({ length: o.covers }, (_, i) => i + 1).map((n) => <button key={n} onClick={() => setSeat(n)} className={`touch h-8 w-10 shrink-0 rounded-lg text-xs font-bold ${seat === n ? "bg-nuit-800 text-white dark:bg-lagon-600" : "surface-2"}`}>C{n}</button>)}
+            </div>
+          ) : null}
+          {!closed && o.courses.length > 1 ? (
+            <div className="mt-2 flex gap-1 overflow-x-auto no-scrollbar">
+              {o.courses.map((c) => (
+                <button key={c.id} onClick={() => setCourseId(c.id)} className={`touch relative h-9 shrink-0 rounded-lg px-2.5 text-[11px] font-bold ${courseId === c.id ? "bg-lagon-600 text-white" : "surface-2"}`}>
+                  {c.name}{c.status === "SENT" || c.status === "FIRE" ? " ✓" : c.status === "HOLD" ? " ⏸" : c.status === "SERVED" ? " ✔✔" : ""}
+                  {pendingInCourse(c.id) > 0 ? <span className="ml-1 rounded-full bg-corail-500 px-1.5 text-[10px] text-white">{pendingInCourse(c.id)}</span> : null}
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          {rootItems.length === 0 ? <p className="p-6 text-center text-sm text-muted">Appuyez sur un produit pour l&apos;ajouter</p> : null}
+          {o.courses.map((c) => {
+            const items = rootItems.filter((i) => i.courseId === c.id);
+            if (items.length === 0) return null;
+            return (
+              <div key={c.id}>
+                {o.courses.length > 1 ? (
+                  <div className="flex items-center justify-between surface-2 px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-muted">
+                    <span>{c.name} {c.status === "HOLD" ? "· en attente" : c.status === "FIRE" ? "· faire marcher" : c.status === "SENT" ? "· envoyé" : c.status === "SERVED" ? "· servi" : ""}</span>
+                    {!closed ? (
+                      <span className="flex gap-1">
+                        {c.status === "PENDING" && pendingInCourse(c.id) > 0 ? <button title="Ne pas envoyer immédiatement" onClick={() => setCourseStatus(c.id, "HOLD")} className="touch rounded p-1 hover:surface"><PauseCircle className="h-4 w-4" /></button> : null}
+                        {c.status === "HOLD" ? <button title="Réactiver" onClick={() => setCourseStatus(c.id, "PENDING")} className="touch rounded p-1 text-orange-500"><PauseCircle className="h-4 w-4" /></button> : null}
+                        {(c.status === "SENT" || c.status === "PENDING" || c.status === "HOLD") && items.some((i) => i.status !== "PENDING" || c.status !== "SENT") ? <button title="Faire marcher (urgent)" onClick={() => setCourseStatus(c.id, "FIRE")} className="touch rounded p-1 text-corail-500 hover:surface"><Flame className="h-4 w-4" /></button> : null}
+                        {c.status === "SENT" || c.status === "FIRE" ? <button title="Marquer servi" onClick={() => setCourseStatus(c.id, "SERVED")} className="touch rounded p-1 text-green-600 hover:surface"><CheckCircle2 className="h-4 w-4" /></button> : null}
+                      </span>
+                    ) : null}
+                  </div>
+                ) : null}
+                {items.map((i) => {
+                  const comps = o.items.filter((x) => x.parentItemId === i.id);
+                  const voided = i.status === "VOIDED";
+                  return (
+                    <button key={i.id} disabled={closed || i.id.startsWith("tmp-")} onClick={() => setItemOpen(i)} className={`touch flex w-full items-start gap-2 border-b border-line px-3 py-2 text-left hover:surface-2 ${voided ? "opacity-40 line-through" : ""}`}>
+                      <span className={`mt-0.5 min-w-[26px] rounded-md px-1.5 py-0.5 text-center text-xs font-bold ${i.status === "PENDING" ? "bg-corail-500/15 text-corail-600" : "bg-lagon-500/15 text-lagon-700 dark:text-lagon-300"}`}>{i.quantity}</span>
+                      <span className="min-w-0 flex-1">
+                        <span className="flex items-center gap-1 text-sm font-semibold leading-tight">{i.isUrgent ? <AlertTriangle className="h-3.5 w-3.5 text-corail-500" /> : null}{i.name}</span>
+                        {i.modifiers.length ? <span className="block text-xs text-muted">{i.modifiers.map((m) => m.name).join(", ")}</span> : null}
+                        {comps.map((cmp) => <span key={cmp.id} className="block text-xs text-muted">↳ {cmp.name}{cmp.modifiers.length ? ` (${cmp.modifiers.map((m) => m.name).join(", ")})` : ""}{cmp.unitPrice > 0 ? ` +${cmp.unitPrice}` : ""}</span>)}
+                        {i.notes ? <span className="block text-xs italic text-corail-500">« {i.notes} »</span> : null}
+                        <span className="mt-0.5 flex gap-1 text-[10px] font-semibold uppercase text-muted">{i.seatNumber ? <span className="rounded bg-slate-500/15 px-1">Client {i.seatNumber}</span> : null}<span>{i.status === "PENDING" ? "à envoyer" : i.status === "SENT" ? "envoyé" : i.status === "PREPARING" ? "en préparation" : i.status === "READY" ? "prêt" : i.status === "SERVED" ? "servi" : "annulé"}</span></span>
+                      </span>
+                      <span className="text-sm font-bold"><Money amount={i.lineTotal + comps.reduce((a, c) => a + c.lineTotal, 0)} /></span>
+                    </button>
+                  );
+                })}
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="border-t border-line px-3 py-2 text-sm">
+          <div className="flex justify-between text-muted"><span>Sous-total</span><Money amount={o.subtotal} /></div>
+          {o.discountTotal > 0 ? <div className="flex justify-between text-corail-500"><span>Remise{o.discountReason ? ` (${o.discountReason})` : ""}</span><span>−<Money amount={o.discountTotal} /></span></div> : null}
+          <div className="flex justify-between text-muted"><span>dont TVA</span><Money amount={o.taxTotal} /></div>
+          <div className="flex justify-between text-xl font-extrabold"><span>Total</span><Money amount={o.total} /></div>
+          {o.paidTotal > 0 ? <div className="flex justify-between font-semibold text-lagon-600"><span>Payé</span><Money amount={o.paidTotal} /></div> : null}
+          {o.paidTotal > 0 && remaining > 0 ? <div className="flex justify-between font-bold text-corail-500"><span>Reste</span><Money amount={remaining} /></div> : null}
+        </div>
+
+        {!closed ? (
+          <div className="no-print space-y-2 border-t border-line p-2">
+            <div className="relative flex gap-2">
+              <Button size="lg" variant={pendingCount > 0 ? "accent" : "secondary"} className="min-w-0 flex-1 px-2!" disabled={pendingCount === 0} onClick={() => (o.courses.length > 1 ? setSendMenu((s) => !s) : send({ all: true }))}>
+                <Send className="h-5 w-5 shrink-0" /><span className="truncate">Envoyer{pendingCount > 0 ? ` (${pendingCount})` : ""}</span>{o.courses.length > 1 ? <ChevronDown className="h-4 w-4 shrink-0" /> : null}
+              </Button>
+              {sendMenu ? (
+                <div className="absolute bottom-full left-0 z-20 mb-1 w-full overflow-hidden rounded-xl border border-line surface shadow-xl">
+                  {o.courses.filter((c) => pendingInCourse(c.id) > 0).map((c) => <button key={c.id} onClick={() => send({ courseId: c.id })} className="touch flex w-full justify-between px-4 py-3 text-sm font-semibold hover:surface-2">Envoyer {c.name}<span className="text-muted">{pendingInCourse(c.id)}</span></button>)}
+                  <button onClick={() => send({ all: true })} className="touch w-full border-t border-line px-4 py-3 text-sm font-bold text-lagon-600 hover:surface-2">Tout envoyer</button>
+                </div>
+              ) : null}
+              <Button size="lg" variant="secondary" className="w-14 shrink-0 px-0!" title="Demander l'addition" disabled={activeItems.length === 0 || o.status === "BILL_REQUESTED"} onClick={requestBill}><Receipt className="h-5 w-5" /></Button>
+              <Button size="lg" className="min-w-0 flex-1 px-2!" disabled={activeItems.length === 0} onClick={() => setPayOpen(true)}><CreditCard className="h-5 w-5 shrink-0" /><span className="truncate">Payer</span></Button>
+            </div>
+            <div className="grid grid-cols-4 gap-1">
+              <button onClick={() => setDialog("discount")} className="touch flex h-11 flex-col items-center justify-center rounded-lg surface-2 text-[10px] font-bold uppercase"><Percent className="h-4 w-4" />Remise</button>
+              <button onClick={() => setDialog("transfer")} disabled={!can("pos.transfer_table")} className="touch flex h-11 flex-col items-center justify-center rounded-lg surface-2 text-[10px] font-bold uppercase disabled:opacity-40"><ArrowRightLeft className="h-4 w-4" />Transf.</button>
+              <a href={`/api/orders/${o.id}/receipt`} target="_blank" rel="noreferrer" className="touch flex h-11 flex-col items-center justify-center rounded-lg surface-2 text-[10px] font-bold uppercase"><Printer className="h-4 w-4" />Ticket</a>
+              <button onClick={() => setDialog("cancel")} className="touch flex h-11 flex-col items-center justify-center rounded-lg bg-red-500/10 text-[10px] font-bold uppercase text-red-600"><XCircle className="h-4 w-4" />Annuler</button>
+            </div>
+          </div>
+        ) : (
+          <div className="no-print flex gap-2 border-t border-line p-2">
+            <a href={`/api/orders/${o.id}/receipt`} target="_blank" rel="noreferrer" className="touch flex h-12 flex-1 items-center justify-center gap-2 rounded-xl surface-2 text-sm font-bold"><Printer className="h-4 w-4" /> Ticket</a>
+            <Button size="lg" variant="secondary" className="flex-1" onClick={() => router.push("/pos")}>Retour salle</Button>
+          </div>
+        )}
+      </aside>
+
+      {productOpen ? <ProductModal product={productOpen} onClose={() => setProductOpen(null)} onAdd={async (c) => { addItem.mutate(c); }} /> : null}
+      {menuOpen ? <ProductModal menu={menuOpen} products={catalog.data.products} onClose={() => setMenuOpen(null)} onAdd={async (c) => { addItem.mutate(c); }} /> : null}
+      {itemOpen ? <ItemModal order={o} item={o.items.find((i) => i.id === itemOpen.id) ?? itemOpen} onClose={() => setItemOpen(null)} onUpdate={updateItem} onRemove={removeItem} /> : null}
+      {payOpen ? <PaymentModal key={o.paidTotal} order={o} methods={catalog.data.paymentMethods} open onClose={() => setPayOpen(false)} onPay={pay} /> : null}
+      <PinModal request={pin} onClose={() => setPin(null)} />
+      <DiscountDialog open={dialog === "discount"} order={o} onClose={() => setDialog(null)} onApply={(body) => withPin(setPin, "pos.discount", (managerPin) => api.post<Order>(`/api/orders/${orderId}/discount`, { ...body, managerPin }).then(setOrder)).then(() => setDialog(null)).catch(onError)} />
+      <CancelDialog open={dialog === "cancel"} onClose={() => setDialog(null)} onConfirm={(reason) => withPin(setPin, "pos.cancel_order", (managerPin) => api.post<Order>(`/api/orders/${orderId}/cancel`, { reason, managerPin }).then(setOrder)).then(() => { setDialog(null); toast("Commande annulée"); router.push("/pos"); }).catch(onError)} />
+      <TransferDialog open={dialog === "transfer"} currentTableId={o.tableId} onClose={() => setDialog(null)} onPick={(tableId) => run(() => api.post<Order>(`/api/orders/${orderId}/transfer`, { tableId })).then(() => { setDialog(null); toast("Table transférée", "success"); })} />
+      {dialog === "covers" ? <CoversDialog key={`${o.covers}-${o.customerName ?? ""}`} open order={o} onClose={() => setDialog(null)} onSave={(body) => run(() => api.patch<Order>(`/api/orders/${orderId}`, body)).then(() => setDialog(null))} /> : null}
+      {currentCourse?.status === "HOLD" ? <div className="pointer-events-none fixed bottom-24 right-4 rounded-lg bg-orange-500 px-3 py-1 text-xs font-bold text-white">Service « {currentCourse.name} » en attente</div> : null}
+    </div>
+  );
+}
+
+function DiscountDialog({ open, order, onClose, onApply }: { open: boolean; order: Order; onClose: () => void; onApply: (b: { amount?: number; percentBps?: number; reason: string }) => Promise<unknown> }) {
+  const [mode, setMode] = useState<"pct" | "amt">("pct");
+  const [val, setVal] = useState("");
+  const [reason, setReason] = useState("");
+  const [loading, setLoading] = useState(false);
+  const submit = async () => { setLoading(true); try { await onApply(mode === "pct" ? { percentBps: Number(val) * 100, reason } : { amount: Number(val), reason }); setVal(""); setReason(""); } finally { setLoading(false); } };
+  return (
+    <Modal open={open} onClose={onClose} title="Remise" size="sm">
+      <div className="mb-3 flex gap-2"><button onClick={() => { setMode("pct"); setVal(""); }} className={`touch h-10 flex-1 rounded-lg text-sm font-bold ${mode === "pct" ? "bg-lagon-600 text-white" : "surface-2"}`}>%</button><button onClick={() => { setMode("amt"); setVal(""); }} className={`touch h-10 flex-1 rounded-lg text-sm font-bold ${mode === "amt" ? "bg-lagon-600 text-white" : "surface-2"}`}>Montant</button></div>
+      {mode === "pct" ? <div className="mb-3 grid grid-cols-4 gap-2">{[5, 10, 15, 20, 25, 50, 100].map((p) => <button key={p} onClick={() => setVal(String(p))} className={`touch h-11 rounded-lg text-sm font-bold ${val === String(p) ? "bg-lagon-600 text-white" : "surface-2"}`}>{p} %</button>)}</div> : null}
+      <p className="mb-2 text-center text-2xl font-bold">{mode === "pct" ? `${val || 0} %` : <Money amount={Number(val || 0)} />}</p>
+      <NumPad value={val} onChange={setVal} maxLength={mode === "pct" ? 3 : 8} />
+      <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Motif (obligatoire)" className="mt-3 h-11 w-full rounded-xl border border-line surface px-3 text-sm" />
+      <div className="mt-3 flex gap-2"><Button variant="secondary" className="flex-1" onClick={() => onApply({ amount: 0, reason: "Remise retirée" })} disabled={order.discountTotal === 0}>Retirer</Button><Button className="flex-1" loading={loading} disabled={!val || !reason || (mode === "pct" && Number(val) > 100)} onClick={submit}>Appliquer</Button></div>
+    </Modal>
+  );
+}
+
+function CancelDialog({ open, onClose, onConfirm }: { open: boolean; onClose: () => void; onConfirm: (reason: string) => Promise<unknown> }) {
+  const [reason, setReason] = useState("");
+  const [loading, setLoading] = useState(false);
+  return (
+    <Modal open={open} onClose={onClose} title="Annuler la commande" size="sm">
+      <p className="mb-3 text-sm text-muted">L&apos;annulation est tracée dans le journal d&apos;audit. Une commande partiellement payée doit d&apos;abord être remboursée.</p>
+      <div className="mb-3 grid grid-cols-2 gap-2">{["Erreur de saisie", "Client parti", "Test / formation", "Doublon"].map((r) => <button key={r} onClick={() => setReason(r)} className={`touch h-11 rounded-lg text-sm font-semibold ${reason === r ? "bg-lagon-600 text-white" : "surface-2"}`}>{r}</button>)}</div>
+      <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Motif" className="h-11 w-full rounded-xl border border-line surface px-3 text-sm" />
+      <Button variant="danger" className="mt-3 w-full" size="lg" loading={loading} disabled={!reason} onClick={async () => { setLoading(true); try { await onConfirm(reason); } finally { setLoading(false); } }}>Confirmer l&apos;annulation</Button>
+    </Modal>
+  );
+}
+
+function TransferDialog({ open, currentTableId, onClose, onPick }: { open: boolean; currentTableId: string | null; onClose: () => void; onPick: (tableId: string) => Promise<unknown> }) {
+  const floor = useFloor();
+  return (
+    <Modal open={open} onClose={onClose} title="Transférer vers une table" size="lg">
+      {(floor.data?.rooms ?? []).map((r) => (
+        <div key={r.id} className="mb-3"><p className="mb-1 text-xs font-bold uppercase text-muted">{r.name}</p>
+          <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">{r.tables.map((t) => <button key={t.id} disabled={!!t.order || t.id === currentTableId} onClick={() => onPick(t.id)} className="touch h-14 rounded-xl surface-2 text-sm font-bold disabled:opacity-30">{t.name}<br /><span className="text-xs text-muted">{t.seats} pl.</span></button>)}</div>
+        </div>
+      ))}
+    </Modal>
+  );
+}
+
+function CoversDialog({ open, order, onClose, onSave }: { open: boolean; order: Order; onClose: () => void; onSave: (b: { covers: number; customerName: string | null }) => Promise<unknown> }) {
+  const [covers, setCovers] = useState(order.covers);
+  const [name, setName] = useState(order.customerName ?? "");
+  return (
+    <Modal open={open} onClose={onClose} title="Commande" size="sm">
+      <p className="mb-1 text-xs font-bold uppercase text-muted">Couverts</p>
+      <div className="mb-3 grid grid-cols-6 gap-2">{Array.from({ length: 12 }, (_, i) => i + 1).map((n) => <button key={n} onClick={() => setCovers(n)} className={`touch h-12 rounded-lg text-lg font-bold ${covers === n ? "bg-lagon-600 text-white" : "surface-2"}`}>{n}</button>)}</div>
+      <p className="mb-1 text-xs font-bold uppercase text-muted">Nom du client (comptoir / à emporter)</p>
+      <input value={name} onChange={(e) => setName(e.target.value)} className="h-11 w-full rounded-xl border border-line surface px-3 text-sm" />
+      <Button className="mt-3 w-full" size="lg" onClick={() => onSave({ covers, customerName: name || null })}>Enregistrer</Button>
+    </Modal>
+  );
+}

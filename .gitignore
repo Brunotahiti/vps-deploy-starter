@@ -2,6 +2,7 @@ node_modules
 .next
 dist
 build
+out
 .env
 .env.local
 .env.production
@@ -9,9 +10,10 @@ build
 !.env.vps.example
 .DS_Store
 *.log
-__pycache__
-*.pyc
-.venv
-venv
+*.tsbuildinfo
+next-env.d.ts
+src/generated
+playwright-report
+test-results
 .vscode
 .idea

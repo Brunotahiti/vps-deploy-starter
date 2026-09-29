@@ -1,127 +1,54 @@
-# 🚀 VPS Deploy Starter
+# ManaResto — La gestion complète de votre restaurant
 
-Template clé-en-main pour déployer n'importe quel projet sur **VPS Hostinger + Docker + Traefik** via **GitHub Actions** (auto-deploy au `git push`).
+Caisse (POS) et back-office SaaS/PWA pour les restaurants, snacks, roulottes, bars et hôtels de **Polynésie française** : F CFP sans décimales, TVA configurable, N° Tahiti, mode hors ligne, multi-établissements.
 
-## ⚡ Utilisation
+> État : **Phase 1 (socle) et Phase 2 (caisse) livrées** — voir `docs/ROADMAP.md`. Les phases suivantes (KDS, stock, personnel, digital, avancé) sont annoncées dans l'interface, jamais simulées.
 
-### 1. Créer un nouveau repo depuis ce template
-
-**Sur GitHub** : clique sur **Use this template → Create a new repository**
-ou en CLI :
+## Démarrage local
 
 ```bash
-gh repo create mon-nouveau-projet --template Brunotahiti/vps-deploy-starter --private --clone
-cd mon-nouveau-projet
+pnpm install
+cp .env.example .env            # DATABASE_URL, SESSION_SECRET
+pnpm db:migrate                 # crée le schéma (prisma migrate dev)
+pnpm db:seed                    # restaurant de démonstration « Le Mana Beach »
+pnpm dev                        # http://localhost:3000
 ```
 
-### 2. Lancer l'initialisation interactive
+Comptes de démonstration (mot de passe `demo1234`) :
+
+| Rôle | Email | PIN caisse |
+|---|---|---|
+| Propriétaire | demo@manaresto.pf | 1234 |
+| Manager | manager@manaresto.pf | 2000 |
+| Serveurs | moana@ / vaiana@ / tamatoa@ / poema@ / heimana@manaresto.pf | 1001 … 1005 |
+| Cuisine / Bar / Comptable | cuisine@ / bar@ / compta@manaresto.pf | 3000 / 4000 / 5000 |
+
+Pour la **connexion par PIN** : un manager enregistre l'appareil dans *Administration → Paramètres → Terminaux*, puis l'écran `/pos/login` accepte les PIN du personnel.
+
+## Scripts
+
+| Commande | Rôle |
+|---|---|
+| `pnpm typecheck` / `pnpm lint` | TypeScript strict / ESLint |
+| `pnpm test` | Vitest : unitaires (TVA, monnaie, partage, totaux, permissions) + intégration (base `manaresto_test`) |
+| `pnpm test:e2e` | Playwright contre un serveur démarré (`E2E_BASE_URL`, défaut :3100) |
+| `pnpm build` / `pnpm start` | Build production standalone |
+| `pnpm db:deploy` | `prisma migrate deploy` (production) |
+
+## Déploiement VPS (Hostinger, Docker + Traefik)
 
 ```bash
-bash init.sh
+cp .env.vps.example .env        # sur le VPS : mots de passe, SESSION_SECRET, PUBLIC_HOST
+docker compose build migrate app
+docker compose up -d            # db → migrate (migrations + seed optionnel) → app
 ```
 
-Le script te demande :
-- **Nom du projet** (kebab-case, ex: `mon-projet`)
-- **Domaine ou sous-domaine** (ex: `monprojet.pf` ou `srv1565699.hstgr.cloud`)
-- **Port interne** de l'app (3000 par défaut)
-- **Framework** (next / node / python / static)
-- **Postgres ?** (ajoute un container Postgres 16 + scripts backup/restore)
+Le workflow GitHub Actions `deploy.yml` fait la même chose à chaque push sur `main` (voir `scripts/setup-ci.sh`). Sauvegardes : `scripts/db-backup.sh` (gzip, chiffrement AES si `BACKUP_PASSPHRASE`, rétention `RETENTION_DAYS`), restauration `scripts/db-restore.sh`.
 
-Il génère/adapte automatiquement tous les fichiers.
+## Documentation
 
-### 🗄️ Si tu choisis Postgres
-
-- Service `db` (Postgres 16-alpine) ajouté au `docker-compose.yml`
-- Réseau interne dédié (la DB n'est pas exposée publiquement)
-- Mot de passe aléatoire généré (`POSTGRES_PASSWORD` dans `.env`)
-- Variable `DATABASE_URL` pré-remplie
-- Scripts `db-backup.sh` (gzip + rétention 14 jours) et `db-restore.sh`
-- Volume Docker nommé pour la persistance
-
-Active la sauvegarde quotidienne sur le VPS :
-```bash
-crontab -e
-# Ajouter :
-0 3 * * * /opt/MON_PROJET/scripts/db-backup.sh
-```
-
-### 3. Coder ton app
-
-Mets ton code dans le projet (le `Dockerfile` est déjà adapté au framework choisi).
-
-### 4. Configurer la clé SSH + secrets GitHub (UNE FOIS)
-
-```bash
-bash scripts/setup-ci.sh
-```
-
-Le script génère une clé SSH dédiée, la copie sur le VPS, et configure les 5 secrets GitHub :
-`VPS_SSH_KEY`, `VPS_HOST`, `VPS_USER`, `VPS_PATH`, `PUBLIC_HOST`.
-
-### 5. Premier push → premier déploiement
-
-```bash
-git add -A
-git commit -m "Initial deploy"
-git push
-gh run watch
-```
-
-→ ~2-3 minutes plus tard, ton app est live sur HTTPS avec certificat Let's Encrypt auto.
-
----
-
-## 🔄 Workflow définitif
-
-```bash
-git add -A && git commit -m "fix: ..." && git push
-# ✨ GitHub Actions déploie tout seul
-```
-
-Ou déclenche manuellement depuis GitHub Web / Mobile :
-**Actions → Deploy to VPS → Run workflow**.
-
----
-
-## 🛠️ Pré-requis VPS (déjà fait sur srv1565699.hstgr.cloud)
-
-- Ubuntu 24.04
-- Docker + Docker Compose
-- Traefik en container avec :
-  - Réseau Docker externe `traefik`
-  - Certresolver Let's Encrypt configuré (`letsencrypt`)
-  - Entrypoints `web` (80) et `websecure` (443)
-
-Si tu utilises un autre VPS, change `VPS_HOST` dans `init.sh` ou en variable d'env.
-
----
-
-## 📂 Structure générée
-
-```
-.
-├── .github/workflows/deploy.yml    # Auto-deploy au push
-├── .dockerignore
-├── Dockerfile                       # Adapté au framework choisi
-├── docker-compose.yml               # Labels Traefik HTTPS auto
-├── .env.vps.example                 # Template variables d'env
-├── scripts/
-│   ├── setup-ci.sh                  # Configure SSH + GitHub secrets (1x)
-│   └── sync-to-vps.sh               # Push manuel de fallback
-└── init.sh                          # Initialisation interactive
-```
-
----
-
-## 🔐 Sécurité
-
-- HTTPS forcé (HSTS preload, X-Frame-Options DENY, Referrer-Policy strict)
-- Container en `restart: unless-stopped`
-- Aucun secret dans le code (toujours dans `.env` sur le VPS, jamais commité)
-- GitHub Actions : SSH key dédiée par projet, scope limité
-
----
-
-## 📜 Licence
-
-MIT.
+- `docs/01-architecture-existante.md` — analyse du starter d'origine
+- `docs/02-architecture-cible.md` — stack, organisation, multi-tenant, flux caisse, sécurité
+- `docs/03-modele-de-donnees.md` — tables et règles de calcul
+- `docs/API.md` — routes REST et permissions
+- `docs/ROADMAP.md` — phases 1 à 7 et leur état

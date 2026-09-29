@@ -1,0 +1,49 @@
+"use client";
+
+import { useState } from "react";
+import { Modal } from "@/components/ui/modal";
+import { NumPad } from "@/components/ui/numpad";
+import { ApiClientError } from "@/lib/api-client";
+import { PERMISSIONS, type PermissionKey } from "@/lib/permissions";
+
+export type PinRequest = { permission: PermissionKey; run: (managerPin: string) => Promise<unknown> } | null;
+
+/** Demande de PIN manager pour une opération sensible, puis relance l'opération. */
+export function PinModal({ request, onClose }: { request: PinRequest; onClose: () => void }) {
+  const [pin, setPin] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const submit = async () => {
+    if (!request || pin.length < 4) return;
+    setLoading(true);
+    setError(null);
+    try {
+      await request.run(pin);
+      setPin("");
+      onClose();
+    } catch (e) {
+      setError(e instanceof ApiClientError ? e.message : "Erreur");
+      setPin("");
+    } finally {
+      setLoading(false);
+    }
+  };
+  return (
+    <Modal open={!!request} onClose={() => { setPin(""); setError(null); onClose(); }} title="Autorisation manager" size="sm">
+      <p className="mb-3 text-sm text-muted">Opération : <strong>{request ? PERMISSIONS[request.permission].description : ""}</strong>. Un manager doit saisir son PIN.</p>
+      <div className="mb-3 flex justify-center gap-3">{[0, 1, 2, 3, 4, 5].map((i) => <span key={i} className={`h-3.5 w-3.5 rounded-full ${i < pin.length ? "bg-lagon-500" : "bg-slate-400/30"}`} />)}</div>
+      {error ? <p className="mb-2 rounded-lg bg-red-500/10 px-3 py-2 text-center text-sm text-red-600">{error}</p> : null}
+      <NumPad value={pin} onChange={(v) => setPin(v.slice(0, 6))} onSubmit={submit} submitLabel="Autoriser" maxLength={6} disabled={loading} />
+    </Modal>
+  );
+}
+
+/** Exécute une opération ; si le serveur exige un PIN manager, délègue à la modale. */
+export function withPin(setRequest: (r: PinRequest) => void, permission: PermissionKey, run: (managerPin?: string) => Promise<unknown>) {
+  return run().catch((e) => {
+    if (e instanceof ApiClientError && e.isPinRequired) {
+      return new Promise((resolve, reject) => setRequest({ permission, run: (pin) => run(pin).then(resolve, (err) => { reject(err); throw err; }) }));
+    }
+    throw e;
+  });
+}

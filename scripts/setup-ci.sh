@@ -5,8 +5,8 @@ set -euo pipefail
 
 VPS_HOST="${VPS_HOST:-187.127.105.242}"
 VPS_USER="${VPS_USER:-root}"
-APP_NAME="__APP_NAME__"
-PUBLIC_HOST="__PUBLIC_HOST__"
+APP_NAME="manaresto"
+PUBLIC_HOST="manaresto.pf"
 VPS_PATH="/opt/$APP_NAME"
 KEY_PATH="$HOME/.ssh/${APP_NAME}_deploy"
 
