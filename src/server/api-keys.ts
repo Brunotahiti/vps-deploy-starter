@@ -2,6 +2,7 @@ import { createHash, randomBytes } from "node:crypto";
 import type { NextRequest } from "next/server";
 import { prisma } from "@/server/db";
 import { ApiError } from "@/server/errors";
+import { rateLimit, clientIp } from "@/server/rate-limit";
 import { audit } from "@/server/audit";
 import type { Actor } from "@/server/services/orders";
 
@@ -39,9 +40,11 @@ export type ApiContext = { keyId: string; organizationId: string; establishmentI
 export async function requireApiKey(req: NextRequest, scope: ApiScope): Promise<ApiContext> {
   const auth = req.headers.get("authorization") ?? "";
   const key = auth.startsWith("Bearer ") ? auth.slice(7).trim() : (req.nextUrl.searchParams.get("api_key") ?? "");
+  rateLimit(`api-ip:${clientIp(req)}`, 120);
   if (!key.startsWith("mr_live_")) throw new ApiError(401, "UNAUTHORIZED", "Clé API manquante (en-tête Authorization: Bearer mr_live_…)");
   const row = await prisma.apiKey.findUnique({ where: { keyHash: hash(key) }, include: { establishment: { select: { id: true, name: true, timezone: true, currency: true, isActive: true } } } });
   if (!row || !row.isActive || !row.establishment.isActive) throw new ApiError(401, "UNAUTHORIZED", "Clé API invalide ou révoquée");
+  rateLimit(`api-key:${row.id}`, 300);
   if (!row.scopes.includes(scope)) throw new ApiError(403, "FORBIDDEN", `Portée requise : ${scope}`);
   prisma.apiKey.update({ where: { id: row.id }, data: { lastUsedAt: new Date() } }).catch(() => {});
   return { keyId: row.id, organizationId: row.organizationId, establishmentId: row.establishmentId, scopes: row.scopes, establishment: row.establishment };

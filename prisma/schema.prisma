@@ -716,6 +716,7 @@ model Order {
   @@unique([establishmentId, number])
   @@index([establishmentId, status])
   @@index([establishmentId, openedAt])
+  @@index([establishmentId, closedAt])
   @@index([tableId])
   @@map("orders")
 }
