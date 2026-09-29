@@ -113,3 +113,12 @@ export const purchaseOrderSchema = z.object({ supplierId: uuid, expectedAt: z.st
 export const purchaseOrderUpdateSchema = z.object({ expectedAt: z.string().nullable().optional(), notes: z.string().max(1000).nullable().optional(), lines: z.array(poLine).max(200).optional() });
 export const receiveSchema = z.object({ lines: z.array(z.object({ lineId: uuid, receivedQty: qty })).min(1) });
 export const stockReportQuery = z.object({ from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/) });
+
+// Personnel (Phase 5)
+export const employeeSchema = z.object({ userId: uuid.nullable().optional(), firstName: z.string().min(1).max(80), lastName: z.string().min(1).max(80), jobTitle: z.string().max(80).nullable().optional(), hourlyCost: money.nullable().optional(), pin: z.string().regex(/^\d{4,6}$/).nullable().optional(), isActive: z.boolean().optional() });
+export const shiftSchema = z.object({ employeeId: uuid, startsAt: z.string().datetime({ offset: true }), endsAt: z.string().datetime({ offset: true }), notes: z.string().max(200).nullable().optional() });
+export const clockSchema = z.object({ pin: z.string().regex(/^\d{4,6}$/), kind: z.enum(["CLOCK_IN", "BREAK_START", "BREAK_END", "CLOCK_OUT"]) });
+export const clockIdentifySchema = z.object({ pin: z.string().regex(/^\d{4,6}$/) });
+export const timeEntrySchema = z.object({ employeeId: uuid.optional(), kind: z.enum(["CLOCK_IN", "BREAK_START", "BREAK_END", "CLOCK_OUT"]).optional(), at: z.string().datetime({ offset: true }), reason: z.string().min(1).max(200) });
+export const periodQuery = z.object({ from: daySchema, to: daySchema });
+export const exportQuery = z.object({ type: z.enum(["period", "products", "orders", "staff"]), format: z.enum(["csv", "xlsx", "pdf"]), from: daySchema, to: daySchema });

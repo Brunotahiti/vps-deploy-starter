@@ -110,3 +110,94 @@ export async function getOrganizationOverview(organizationId: string, day: strin
   }
   return rows;
 }
+
+// ---------------------------------------------------------------------------
+// Phase 5 — Rapport périodique et comparaison
+// ---------------------------------------------------------------------------
+export type PeriodReport = {
+  from: string; to: string; days: number;
+  revenue: number; revenueHt: number; tax: number; tickets: number; covers: number; avgTicket: number; avgPerCover: number;
+  discounts: number; cancellations: number; tips: number; refunds: number;
+  foodCost: number; foodCostPct: number | null;
+  byDay: { day: string; revenue: number; tickets: number; covers: number }[];
+  byWeekday: { weekday: number; label: string; revenue: number; tickets: number }[];
+  byHour: { hour: number; revenue: number; tickets: number }[];
+  byCategory: { name: string; revenue: number; quantity: number; share: number }[];
+  byProduct: { name: string; revenue: number; quantity: number }[];
+  byServer: { name: string; revenue: number; tickets: number; avgTicket: number }[];
+  byMethod: { method: string; amount: number; count: number }[];
+  byType: { type: string; revenue: number; tickets: number }[];
+  previous: { from: string; to: string; revenue: number; revenueHt: number; tickets: number; covers: number; avgTicket: number; foodCostPct: number | null } | null;
+};
+
+const WEEKDAYS = ["Dimanche", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"];
+
+export async function getPeriodReport(establishmentId: string, fromDay: string, toDay: string, timezone: string, withPrevious = true): Promise<PeriodReport> {
+  const from = startOfLocalDay(fromDay, timezone), to = endOfLocalDay(toDay, timezone);
+  const orders = await prisma.order.findMany({
+    where: { establishmentId, closedAt: { gte: from, lt: to }, status: { in: ["PAID", "CANCELLED"] } },
+    include: { items: { include: { product: { select: { category: { select: { name: true } } } } } }, payments: { include: { refunds: true } }, server: { select: { firstName: true, lastName: true, displayName: true } } },
+  });
+  const paid = orders.filter((o) => o.status === "PAID");
+  const revenue = paid.reduce((a, o) => a + o.total, 0);
+  const tax = paid.reduce((a, o) => a + o.taxTotal, 0);
+  const covers = paid.reduce((a, o) => a + o.covers, 0);
+  const dayFmt = new Intl.DateTimeFormat("en-CA", { timeZone: timezone, year: "numeric", month: "2-digit", day: "2-digit" });
+  const hourFmt = new Intl.DateTimeFormat("en-US", { timeZone: timezone, hour: "numeric", hourCycle: "h23" });
+  const byDay = new Map<string, { revenue: number; tickets: number; covers: number }>();
+  for (let d = fromDay; d <= toDay; d = addDays(d, 1)) byDay.set(d, { revenue: 0, tickets: 0, covers: 0 });
+  const byWeekday = new Map<number, { revenue: number; tickets: number }>();
+  const byHour = new Map<number, { revenue: number; tickets: number }>();
+  const byCategory = new Map<string, { revenue: number; quantity: number }>();
+  const byProduct = new Map<string, { revenue: number; quantity: number }>();
+  const byServer = new Map<string, { revenue: number; tickets: number }>();
+  const byMethod = new Map<string, { amount: number; count: number }>();
+  const byType = new Map<string, { revenue: number; tickets: number }>();
+  let foodCost = 0, refunds = 0;
+  for (const o of paid) {
+    const day = dayFmt.format(o.closedAt!);
+    const d = byDay.get(day); if (d) { d.revenue += o.total; d.tickets++; d.covers += o.covers; }
+    const wd = new Date(o.closedAt!.toLocaleString("en-US", { timeZone: timezone })).getDay();
+    const w = byWeekday.get(wd) ?? { revenue: 0, tickets: 0 }; w.revenue += o.total; w.tickets++; byWeekday.set(wd, w);
+    const hour = Number(hourFmt.format(o.closedAt!));
+    const h = byHour.get(hour) ?? { revenue: 0, tickets: 0 }; h.revenue += o.total; h.tickets++; byHour.set(hour, h);
+    const serverName = o.server ? o.server.displayName || `${o.server.firstName} ${o.server.lastName}` : "—";
+    const s = byServer.get(serverName) ?? { revenue: 0, tickets: 0 }; s.revenue += o.total; s.tickets++; byServer.set(serverName, s);
+    const t = byType.get(o.type) ?? { revenue: 0, tickets: 0 }; t.revenue += o.total; t.tickets++; byType.set(o.type, t);
+    for (const it of o.items) {
+      if (it.status === "VOIDED") continue;
+      foodCost += it.costPrice * it.quantity;
+      if (it.parentItemId) continue;
+      const cat = it.product?.category?.name ?? (it.menuId ? "Formules" : "Sans catégorie");
+      const c = byCategory.get(cat) ?? { revenue: 0, quantity: 0 }; c.revenue += it.lineTotal; c.quantity += it.quantity; byCategory.set(cat, c);
+      const p = byProduct.get(it.name) ?? { revenue: 0, quantity: 0 }; p.revenue += it.lineTotal; p.quantity += it.quantity; byProduct.set(it.name, p);
+    }
+    for (const pay of o.payments) {
+      const m = byMethod.get(pay.method) ?? { amount: 0, count: 0 }; m.amount += pay.amount - pay.refundedAmount; m.count++; byMethod.set(pay.method, m);
+      refunds += pay.refundedAmount;
+    }
+  }
+  const days = Math.round((to.getTime() - from.getTime()) / 86400_000);
+  let previous: PeriodReport["previous"] = null;
+  if (withPrevious) {
+    const prevTo = addDays(fromDay, -1), prevFrom = addDays(prevTo, -(days - 1));
+    const p = await getPeriodReport(establishmentId, prevFrom, prevTo, timezone, false);
+    previous = { from: prevFrom, to: prevTo, revenue: p.revenue, revenueHt: p.revenueHt, tickets: p.tickets, covers: p.covers, avgTicket: p.avgTicket, foodCostPct: p.foodCostPct };
+  }
+  return {
+    from: fromDay, to: toDay, days,
+    revenue, revenueHt: revenue - tax, tax, tickets: paid.length, covers,
+    avgTicket: paid.length ? Math.round(revenue / paid.length) : 0, avgPerCover: covers ? Math.round(revenue / covers) : 0,
+    discounts: paid.reduce((a, o) => a + o.discountTotal, 0), cancellations: orders.filter((o) => o.status === "CANCELLED").length, tips: paid.reduce((a, o) => a + o.tipTotal, 0), refunds,
+    foodCost, foodCostPct: revenue > 0 ? Math.round((foodCost / revenue) * 1000) / 10 : null,
+    byDay: [...byDay.entries()].map(([day, v]) => ({ day, ...v })),
+    byWeekday: [1, 2, 3, 4, 5, 6, 0].map((wd) => ({ weekday: wd, label: WEEKDAYS[wd], ...(byWeekday.get(wd) ?? { revenue: 0, tickets: 0 }) })),
+    byHour: [...byHour.entries()].map(([hour, v]) => ({ hour, ...v })).sort((a, b) => a.hour - b.hour),
+    byCategory: [...byCategory.entries()].map(([name, v]) => ({ name, ...v, share: revenue > 0 ? Math.round((v.revenue / revenue) * 1000) / 10 : 0 })).sort((a, b) => b.revenue - a.revenue),
+    byProduct: [...byProduct.entries()].map(([name, v]) => ({ name, ...v })).sort((a, b) => b.revenue - a.revenue).slice(0, 30),
+    byServer: [...byServer.entries()].map(([name, v]) => ({ name, ...v, avgTicket: v.tickets ? Math.round(v.revenue / v.tickets) : 0 })).sort((a, b) => b.revenue - a.revenue),
+    byMethod: [...byMethod.entries()].map(([method, v]) => ({ method, ...v })).sort((a, b) => b.amount - a.amount),
+    byType: [...byType.entries()].map(([type, v]) => ({ type, ...v })).sort((a, b) => b.revenue - a.revenue),
+    previous,
+  };
+}

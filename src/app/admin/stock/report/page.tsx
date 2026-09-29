@@ -22,7 +22,7 @@ export default function StockReportPage() {
   const d = r.data;
   return (
     <div>
-      <PageHeader title="Rapport stock" subtitle="Consommation théorique, achats, pertes et food cost réel sur la période" action={<div className="flex items-center gap-2"><Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="w-40" /><span>→</span><Input type="date" value={to} max={today} onChange={(e) => setTo(e.target.value)} className="w-40" /></div>} />
+      <PageHeader title="Rapport stock" subtitle="Consommation théorique, achats, pertes et food cost réel sur la période" action={<div className="flex items-center gap-2"><Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="w-40!" /><span>→</span><Input type="date" value={to} max={today} onChange={(e) => setTo(e.target.value)} className="w-40!" /></div>} />
       <StockTabs />
       {r.isLoading || !d ? <div className="flex justify-center py-10"><Spinner /></div> : (
         <div className="space-y-4">

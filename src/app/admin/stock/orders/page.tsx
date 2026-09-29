@@ -58,7 +58,7 @@ export default function PurchaseOrdersPage() {
           </div>
         </Card>
       ) : null}
-      <div className="mb-3"><Select value={status} onChange={(e) => setStatus(e.target.value)} className="w-56"><option value="">Tous les statuts</option>{Object.entries(PO_STATUS_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</Select></div>
+      <div className="mb-3"><Select value={status} onChange={(e) => setStatus(e.target.value)} className="w-56!"><option value="">Tous les statuts</option>{Object.entries(PO_STATUS_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</Select></div>
       {orders.isLoading ? <div className="flex justify-center py-10"><Spinner /></div> : (
         <Table head={["N°", "Fournisseur", "Créé le", "Livraison prévue", "Lignes", "Total", "Statut"]}>
           {orders.data?.map((po) => <Tr key={po.id} onClick={() => setView(po)}><Td className="font-mono text-xs">{po.number}</Td><Td className="font-semibold">{po.supplier.name}</Td><Td className="text-xs">{formatDateTime(po.createdAt, timezone)}</Td><Td className="text-xs">{po.expectedAt ? formatDate(po.expectedAt, timezone) : "—"}</Td><Td>{po.lines.length}</Td><Td className="font-semibold"><Money amount={po.total} /></Td><Td>{badge(po.status)}</Td></Tr>)}
@@ -76,8 +76,8 @@ export default function PurchaseOrdersPage() {
             {form.lines.map((l, i) => { const p = sp(l.supplierProductId); return (
               <div key={i} className="flex flex-wrap items-center gap-2">
                 <Select value={l.supplierProductId} onChange={(e) => setForm({ ...form, lines: form.lines.map((x, j) => (j === i ? { ...x, supplierProductId: e.target.value, unitPrice: String(sp(e.target.value)?.lastPrice ?? "") } : x)) })} className="min-w-0 flex-1"><option value="">— article —</option>{sps.data?.map((x) => <option key={x.id} value={x.id}>{x.name}{x.ingredient ? ` → ${x.ingredient.name}` : ""}</option>)}</Select>
-                <Input type="number" step="0.001" value={l.quantity} onChange={(e) => setForm({ ...form, lines: form.lines.map((x, j) => (j === i ? { ...x, quantity: e.target.value } : x)) })} className="w-24" placeholder="Qté" />
-                <Input type="number" value={l.unitPrice} onChange={(e) => setForm({ ...form, lines: form.lines.map((x, j) => (j === i ? { ...x, unitPrice: e.target.value } : x)) })} className="w-28" placeholder="Prix unit." />
+                <Input type="number" step="0.001" value={l.quantity} onChange={(e) => setForm({ ...form, lines: form.lines.map((x, j) => (j === i ? { ...x, quantity: e.target.value } : x)) })} className="w-24!" placeholder="Qté" />
+                <Input type="number" value={l.unitPrice} onChange={(e) => setForm({ ...form, lines: form.lines.map((x, j) => (j === i ? { ...x, unitPrice: e.target.value } : x)) })} className="w-28!" placeholder="Prix unit." />
                 <span className="w-24 text-right text-sm font-semibold"><Money amount={Math.round(Number(l.quantity || 0) * Number(l.unitPrice || p?.lastPrice || 0))} /></span>
                 <Button variant="ghost" size="sm" onClick={() => setForm({ ...form, lines: form.lines.filter((_, j) => j !== i) })}>✕</Button>
               </div>
@@ -107,7 +107,7 @@ export default function PurchaseOrdersPage() {
       <Modal open={!!receive} onClose={() => setReceive(null)} title={receive ? `Réception — ${receive.po.number}` : ""} size="md" footer={<Button className="w-full" onClick={doReceive}>Valider la réception</Button>}>
         {receive ? <div className="space-y-2">
           <p className="text-sm text-muted">Indiquez les quantités réellement reçues (cumul). Les ingrédients liés entrent en stock au prix du bon ; le coût moyen est recalculé.</p>
-          {receive.po.lines.map((l) => <div key={l.id} className="flex items-center gap-2"><span className="min-w-0 flex-1 truncate text-sm font-semibold">{l.supplierProduct.name}<span className="block text-xs font-normal text-muted">commandé {fmtQty(l.quantity)} · déjà reçu {fmtQty(l.receivedQty)}</span></span><Input type="number" step="0.001" value={receive.qty[l.id] ?? ""} onChange={(e) => setReceive({ ...receive, qty: { ...receive.qty, [l.id]: e.target.value } })} className="w-28" /></div>)}
+          {receive.po.lines.map((l) => <div key={l.id} className="flex items-center gap-2"><span className="min-w-0 flex-1 truncate text-sm font-semibold">{l.supplierProduct.name}<span className="block text-xs font-normal text-muted">commandé {fmtQty(l.quantity)} · déjà reçu {fmtQty(l.receivedQty)}</span></span><Input type="number" step="0.001" value={receive.qty[l.id] ?? ""} onChange={(e) => setReceive({ ...receive, qty: { ...receive.qty, [l.id]: e.target.value } })} className="w-28!" /></div>)}
         </div> : null}
       </Modal>
     </div>

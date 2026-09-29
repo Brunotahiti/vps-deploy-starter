@@ -36,7 +36,7 @@ export default function InventoryPage() {
       <PageHeader title="Inventaire" subtitle="Comptez vos ingrédients : l'écart avec le stock théorique est tracé et valorisé" action={can("stock.manage") ? <Button disabled={filled.length === 0} loading={saving} onClick={submit}>Valider {filled.length ? `(${filled.length})` : ""}</Button> : null} />
       <StockTabs />
       <div className="mb-3 flex flex-wrap items-center gap-3">
-        <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Rechercher…" className="w-56" />
+        <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Rechercher…" className="w-56!" />
         {filled.length ? <span className={`text-sm font-semibold ${diffValue < 0 ? "text-red-600" : "text-green-600"}`}>Écart valorisé : {diffValue > 0 ? "+" : ""}<Money amount={diffValue} /></span> : <span className="text-sm text-muted">Laissez vide les ingrédients non comptés : ils ne seront pas modifiés.</span>}
       </div>
       {result ? (
@@ -55,7 +55,7 @@ export default function InventoryPage() {
               <Tr key={i.id}>
                 <Td><span className="font-semibold">{i.name}</span><span className="block text-xs text-muted">{i.unit}</span></Td>
                 <Td className="tabular-nums">{fmtQty(i.stockQty, i.unit)}</Td>
-                <Td><Input type="number" step="0.001" inputMode="decimal" value={c ?? ""} onChange={(e) => setCounts({ ...counts, [i.id]: e.target.value })} placeholder={fmtQty(i.stockQty)} className="w-32" disabled={!can("stock.manage")} /></Td>
+                <Td><Input type="number" step="0.001" inputMode="decimal" value={c ?? ""} onChange={(e) => setCounts({ ...counts, [i.id]: e.target.value })} placeholder={fmtQty(i.stockQty)} className="w-32!" disabled={!can("stock.manage")} /></Td>
                 <Td className={`font-semibold tabular-nums ${diff === null ? "text-muted" : diff < 0 ? "text-red-600" : diff > 0 ? "text-green-600" : ""}`}>{diff === null ? "—" : `${diff > 0 ? "+" : ""}${fmtQty(Math.round(diff * 1000) / 1000, i.unit)}`}</Td>
                 <Td className="tabular-nums">{diff === null ? "—" : <Money amount={Math.round(diff * i.avgCost)} />}</Td>
               </Tr>

@@ -20,6 +20,7 @@ export function Dashboard() {
   const daily = useQuery({ queryKey: ["reports", "daily", day], queryFn: () => api.get<DailySummary>(`/api/reports/daily?day=${day}`), refetchInterval: 60_000 });
   const range = useQuery({ queryKey: ["reports", "range", day], queryFn: () => api.get<{ day: string; revenue: number; tickets: number; covers: number }[]>(`/api/reports/range?from=${addDays(day, -13)}&to=${day}`) });
   const overview = useQuery({ queryKey: ["reports", "overview", day], queryFn: () => api.get<{ establishment: { id: string; name: string; city: string | null; currency: string }; revenue: number; tickets: number; covers: number; openOrders: number; previousRevenue: number }[]>(`/api/reports/overview?day=${day}`), enabled: can("reports.view_global") && (me?.establishments?.length ?? 0) > 1 });
+  const staff = useQuery({ queryKey: ["staff", "summary", day], queryFn: () => api.get<{ totalCost: number; totalHours: number; laborCostPct: number | null }>(`/api/staff/summary?from=${day}&to=${day}`), enabled: can("staff.manage") });
   const d = daily.data;
   const pct = (a: number, b: number) => (b > 0 ? ((a - b) / b) * 100 : null);
 
@@ -47,8 +48,14 @@ export function Dashboard() {
             <Stat label="Remises" value={<Money amount={d.discounts} />} />
             <Stat label="Annulations" value={d.cancellations} />
             <Stat label="Pourboires" value={<Money amount={d.tips} />} />
-            <Stat label="Food cost estimé" value={d.foodCostPct !== null ? `${d.foodCostPct} %` : "—"} hint={`coût matière ${formatMoney(d.foodCost, currency)} · coût personnel : Phase 5`} />
+            <Stat label="Food cost estimé" value={d.foodCostPct !== null ? `${d.foodCostPct} %` : "—"} hint={`coût matière ${formatMoney(d.foodCost, currency)}`} />
           </div>
+          {staff.data ? <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+            <Stat label="Coût du personnel" value={<Money amount={staff.data.totalCost} />} hint={`${staff.data.totalHours} h pointées`} accent="#8b5cf6" />
+            <Stat label="Coût personnel / CA HT" value={staff.data.laborCostPct !== null ? `${staff.data.laborCostPct} %` : "—"} hint="pointages × coût horaire" accent={staff.data.laborCostPct !== null && staff.data.laborCostPct > 35 ? "#ef4444" : "#22c55e"} />
+            <Stat label="Prime cost" value={d.foodCostPct !== null && staff.data.laborCostPct !== null ? `${Math.round((d.foodCostPct + staff.data.laborCostPct) * 10) / 10} %` : "—"} hint="matière + personnel" />
+            <Stat label="Marge après prime cost" value={<Money amount={d.revenueHt - d.foodCost - staff.data.totalCost} />} hint="CA HT − matière − personnel" />
+          </div> : null}
           {overview.data && overview.data.length > 1 ? (
             <Card title="Tous les établissements">
               <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
