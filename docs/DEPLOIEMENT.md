@@ -45,7 +45,7 @@ Le script enregistre la clé SSH et les secrets GitHub (`VPS_SSH_KEY`, `VPS_HOST
 | Sauvegarde immédiate | `… '/opt/manaresto/scripts/db-backup.sh'` |
 | Restaurer une sauvegarde | `… 'bash /opt/manaresto/scripts/db-restore.sh /var/backups/manaresto/<fichier>.sql.gz'` |
 | Sauvegardes chiffrées | ajouter `BACKUP_PASSPHRASE=…` dans `/opt/manaresto/.env` (AES-256, déchiffrement automatique à la restauration) |
-| Certificat HTTPS absent (Cloudflare répond 526) | Traefik n'a demandé le certificat qu'une fois, avant que le DNS n'existe. Relancer la demande : `… 'cd /opt/manaresto && docker compose up -d --force-recreate app'`, puis vérifier `docker exec traefik grep -c manaresto.manaprocess.cloud /letsencrypt/acme.json` (≥ 1). Aucun redémarrage de Traefik nécessaire. |
+| Certificat HTTPS absent (Cloudflare répond 526) | Traefik ne demande le certificat qu'à la mise en place du routeur ; si le DNS n'existait pas encore à ce moment, la demande a échoué et n'est pas réessayée. Mettre le DNS en place **avant** le premier déploiement. Sinon, Traefik refait toutes les demandes manquantes à son redémarrage : `docker restart traefik` (coupure d'environ une seconde pour tous les sites, configuration et certificats existants intacts), puis vérifier `docker exec traefik grep -c manaresto.manaprocess.cloud /letsencrypt/acme.json` (≥ 1). |
 | Désactiver la démo | mettre `SEED_DEMO=false` dans `/opt/manaresto/.env` (la démo déjà chargée reste en base ; supprimer l'entreprise « demo-mana-beach » si besoin) |
 
 ## Reçus par e-mail (SMTP)
