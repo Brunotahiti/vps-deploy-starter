@@ -10,7 +10,7 @@ Caisse (POS) et back-office SaaS/PWA pour les restaurants, snacks, roulottes, ba
 git clone https://github.com/Brunotahiti/vps-deploy-starter.git manaresto && cd manaresto && bash scripts/dev-mac.sh
 ```
 
-Le script démarre PostgreSQL dans Docker Desktop, crée `.env`, installe les dépendances, applique le schéma, charge la démo et lance http://localhost:3000. Pour tester la PWA et le mode hors ligne (service worker), utilisez le build de production : `pnpm build && pnpm start`.
+Le script installe ce qui manque (Homebrew, Node 22, PostgreSQL 16 via Docker Desktop s'il est présent, sinon via Homebrew), crée `.env`, installe les dépendances, applique le schéma, charge la démo et lance http://localhost:3000. Pour tester la PWA et le mode hors ligne (service worker), utilisez le build de production : `pnpm build && pnpm start`.
 
 ## Démarrage local pas à pas
 
