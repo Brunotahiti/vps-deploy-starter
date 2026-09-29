@@ -24,6 +24,8 @@ pnpm dev                        # http://localhost:3000
 
 Les produits de démonstration ont des illustrations locales (`public/demo/*.svg`) ; remplacez-les par vos photos via le champ « URL photo » d'un produit.
 
+Reçus : impression 80 mm, **reçu PDF élégant (A5)** téléchargeable ou **envoyé par e-mail au client** (après paiement ou depuis l'historique) dès que les variables `SMTP_*` sont renseignées (`.env`).
+
 Comptes de démonstration (mot de passe `demo1234`) :
 
 | Rôle | Email | PIN caisse |

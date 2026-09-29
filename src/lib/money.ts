@@ -29,7 +29,7 @@ export function formatMoney(amount: number, currency = "XPF"): string {
   const abs = Math.abs(amount);
   const major = Math.floor(abs / 10 ** info.exponent);
   const minor = abs % 10 ** info.exponent;
-  const majorStr = major.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+  const majorStr = major.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
   const minorStr = info.exponent > 0 ? "," + minor.toString().padStart(info.exponent, "0") : "";
   return `${sign}${majorStr}${minorStr} ${info.symbol}`;
 }

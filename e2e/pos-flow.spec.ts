@@ -82,7 +82,10 @@ test("caisse : de l'ouverture de table au rapport de caisse", async ({ page }) =
   await expect(page.getByText("Reste à payer")).toBeVisible();
   await page.getByRole("button", { name: "Carte bancaire" }).click();
   await page.getByRole("button", { name: /Encaisser/ }).click();
-  await expect(page.getByText("Commande soldée")).toBeVisible();
+  // Dialogue de reçu : imprimer / PDF / e-mail, puis Terminer
+  await expect(page.getByRole("heading", { name: "Commande soldée" })).toBeVisible();
+  await expect(page.getByPlaceholder("client@exemple.pf")).toBeVisible();
+  await page.getByRole("button", { name: "Terminer" }).click();
 
   // Retour salle : la table est de nouveau libre
   await page.waitForURL(/\/pos$/);

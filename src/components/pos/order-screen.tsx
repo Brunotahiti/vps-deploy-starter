@@ -17,6 +17,7 @@ import { ProductModal, type ProductChoice } from "./product-modal";
 import { ItemModal } from "./item-modal";
 import { PaymentModal, type PaymentPayload } from "./payment-modal";
 import { PinModal, withPin, type PinRequest } from "./pin-modal";
+import { ReceiptDialog } from "./receipt-dialog";
 import { useFloor } from "./floor";
 import { useOffline } from "@/lib/offline/provider";
 import { getLocalOrder, markOfflineOrderClosed, saveLocalOrder } from "@/lib/offline/local-orders";
@@ -64,6 +65,7 @@ export function OrderScreen({ orderId: orderIdProp }: { orderId: string }) {
   const [payOpen, setPayOpen] = useState(false);
   const [pin, setPin] = useState<PinRequest>(null);
   const [dialog, setDialog] = useState<"discount" | "cancel" | "transfer" | "covers" | null>(null);
+  const [receipt, setReceipt] = useState<{ afterPayment: boolean } | null>(null);
   const [sendMenu, setSendMenu] = useState(false);
 
   const o = order.data;
@@ -130,7 +132,7 @@ export function OrderScreen({ orderId: orderIdProp }: { orderId: string }) {
     await withPin(setPin, "pos.discount", async (managerPin) => {
       const res = await api.post<{ order: Order }>(`/api/orders/${orderId}/payments`, { payments: body, managerPin }, { idempotencyKey: crypto.randomUUID(), queueIfOffline: !body.some((p) => p.method === "COMPLIMENTARY") });
       setOrder(res.order);
-      if (res.order.status === "PAID") { setPayOpen(false); toast("Commande soldée ✓", "success"); qc.invalidateQueries({ queryKey: ["floor"] }); qc.invalidateQueries({ queryKey: ["cash"] }); markOfflineOrderClosed(orderId).catch(() => {}); router.push(res.order.tableId ? "/pos" : "/pos/orders"); }
+      if (res.order.status === "PAID") { setPayOpen(false); toast("Commande soldée ✓", "success"); qc.invalidateQueries({ queryKey: ["floor"] }); qc.invalidateQueries({ queryKey: ["cash"] }); markOfflineOrderClosed(orderId).catch(() => {}); setReceipt({ afterPayment: true }); }
       else toast("Paiement enregistré", "success");
     }).catch((e) => {
       onError(e);
@@ -141,7 +143,7 @@ export function OrderScreen({ orderId: orderIdProp }: { orderId: string }) {
       const paid = cur.paidTotal + body.reduce((a, p) => a + p.amount, 0);
       const next: Order = { ...cur, paidTotal: paid, tipTotal: cur.tipTotal + body.reduce((a, p) => a + (p.tipAmount ?? 0), 0), payments: [...cur.payments, ...body.map((p) => ({ id: p.id, establishmentId: cur.establishmentId, orderId, cashSessionId: null, receivedById: null, method: p.method as Order["payments"][number]["method"], status: "COMPLETED" as const, amount: p.amount, tipAmount: p.tipAmount ?? 0, tendered: p.tendered ?? null, changeGiven: p.tendered ? Math.max(0, p.tendered - p.amount - (p.tipAmount ?? 0)) : 0, refundedAmount: 0, reference: p.reference ?? null, splitLabel: p.splitLabel ?? null, providerRef: null, createdAt: new Date(), refunds: [] }))], ...(paid >= cur.total ? { status: "PAID" as const, closedAt: new Date() } : {}) };
       setOrder(next);
-      if (next.status === "PAID") { setPayOpen(false); markOfflineOrderClosed(orderId).catch(() => {}); qc.invalidateQueries({ queryKey: ["offline-orders"] }); router.push(next.tableId ? "/pos" : "/pos/orders"); }
+      if (next.status === "PAID") { setPayOpen(false); markOfflineOrderClosed(orderId).catch(() => {}); qc.invalidateQueries({ queryKey: ["offline-orders"] }); setReceipt({ afterPayment: true }); }
     });
   };
 
@@ -321,13 +323,13 @@ export function OrderScreen({ orderId: orderIdProp }: { orderId: string }) {
             <div className="grid grid-cols-4 gap-1">
               <button onClick={() => setDialog("discount")} className="touch flex h-12 flex-col items-center justify-center gap-0.5 rounded-xl surface-2 text-[10px] font-bold uppercase text-muted hover:surface-3"><Percent className="h-4 w-4" />Remise</button>
               <button onClick={() => setDialog("transfer")} disabled={!can("pos.transfer_table")} className="touch flex h-12 flex-col items-center justify-center gap-0.5 rounded-xl surface-2 text-[10px] font-bold uppercase text-muted hover:surface-3 disabled:opacity-40"><ArrowRightLeft className="h-4 w-4" />Transf.</button>
-              <a href={`/api/orders/${o.id}/receipt`} target="_blank" rel="noreferrer" className="touch flex h-12 flex-col items-center justify-center gap-0.5 rounded-xl surface-2 text-[10px] font-bold uppercase text-muted hover:surface-3"><Printer className="h-4 w-4" />Ticket</a>
+              <button onClick={() => setReceipt({ afterPayment: false })} className="touch flex h-12 flex-col items-center justify-center gap-0.5 rounded-xl surface-2 text-[10px] font-bold uppercase text-muted hover:surface-3"><Printer className="h-4 w-4" />Ticket</button>
               <button onClick={() => setDialog("cancel")} className="touch flex h-12 flex-col items-center justify-center gap-0.5 rounded-xl bg-red-500/10 text-[10px] font-bold uppercase text-red-600 hover:bg-red-500/15"><XCircle className="h-4 w-4" />Annuler</button>
             </div>
           </div>
         ) : (
           <div className="no-print flex gap-2 p-3">
-            <a href={`/api/orders/${o.id}/receipt`} target="_blank" rel="noreferrer" className="touch flex h-12 flex-1 items-center justify-center gap-2 rounded-xl surface-2 text-sm font-bold"><Printer className="h-4 w-4" /> Ticket</a>
+            <Button size="lg" variant="secondary" className="flex-1" onClick={() => setReceipt({ afterPayment: false })}><Printer className="h-4 w-4" /> Reçu</Button>
             <Button size="lg" variant="secondary" className="flex-1" onClick={() => router.push("/pos")}>Retour salle</Button>
           </div>
         )}
@@ -338,6 +340,7 @@ export function OrderScreen({ orderId: orderIdProp }: { orderId: string }) {
       {itemOpen ? <ItemModal order={o} item={o.items.find((i) => i.id === itemOpen.id) ?? itemOpen} onClose={() => setItemOpen(null)} onUpdate={updateItem} onRemove={removeItem} /> : null}
       {payOpen ? <PaymentModal key={o.paidTotal} order={o} methods={catalog.data.paymentMethods} open onClose={() => setPayOpen(false)} onPay={pay} /> : null}
       <PinModal request={pin} onClose={() => setPin(null)} />
+      {receipt ? <ReceiptDialog orderId={orderId} orderNumber={o.number} open afterPayment={receipt.afterPayment} onClose={() => { const after = receipt.afterPayment; setReceipt(null); if (after) router.push(o.tableId ? "/pos" : "/pos/orders"); }} /> : null}
       <DiscountDialog open={dialog === "discount"} order={o} onClose={() => setDialog(null)} onApply={(body) => withPin(setPin, "pos.discount", (managerPin) => api.post<Order>(`/api/orders/${orderId}/discount`, { ...body, managerPin }).then(setOrder)).then(() => setDialog(null)).catch(onError)} />
       <CancelDialog open={dialog === "cancel"} onClose={() => setDialog(null)} onConfirm={(reason) => withPin(setPin, "pos.cancel_order", (managerPin) => api.post<Order>(`/api/orders/${orderId}/cancel`, { reason, managerPin }).then(setOrder)).then(() => { setDialog(null); toast("Commande annulée"); router.push("/pos"); }).catch(onError)} />
       <TransferDialog open={dialog === "transfer"} currentTableId={o.tableId} onClose={() => setDialog(null)} onPick={(tableId) => run(() => api.post<Order>(`/api/orders/${orderId}/transfer`, { tableId })).then(() => { setDialog(null); toast("Table transférée", "success"); })} />
