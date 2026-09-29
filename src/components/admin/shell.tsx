@@ -8,6 +8,7 @@ import { LayoutDashboard, UtensilsCrossed, Map, Receipt, Wallet, Users, Settings
 import { useSession } from "@/hooks/use-session";
 import { useRealtime } from "@/hooks/use-realtime";
 import { useTheme } from "@/hooks/use-theme";
+import { useInstallPrompt } from "@/hooks/use-install-prompt";
 import { api } from "@/lib/api-client";
 import { Logo } from "@/components/brand";
 import { Spinner } from "@/components/ui/misc";
@@ -20,6 +21,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   const { toggle } = useTheme();
   const [open, setOpen] = useState(false);
   useRealtime(!!me?.user);
+  const { canInstall, install } = useInstallPrompt();
 
   if (isLoading) return <div className="flex h-screen items-center justify-center"><Spinner /></div>;
 
@@ -59,6 +61,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
         {later.map((n) => n.href ? <Link key={n.label} href={n.href} className="flex h-9 items-center gap-3 rounded-lg px-3 text-sm text-muted hover:surface-2"><n.icon className="h-4 w-4" />{n.label}<span className="ml-auto rounded bg-slate-500/15 px-1.5 text-[10px] font-bold">P{n.phase}</span></Link> : <span key={n.label} className="flex h-9 items-center gap-3 rounded-lg px-3 text-sm text-muted opacity-70"><n.icon className="h-4 w-4" />{n.label}<span className="ml-auto rounded bg-slate-500/15 px-1.5 text-[10px] font-bold">P{n.phase}</span></span>)}
       </nav>
       <div className="border-t border-line p-2">
+        {canInstall ? <button onClick={install} className="mb-1 flex h-10 w-full items-center gap-3 rounded-lg surface-2 px-3 text-sm font-semibold"><MonitorSmartphone className="h-4 w-4" />Installer l&apos;application</button> : null}
         <Link href="/pos" className="flex h-10 items-center gap-3 rounded-lg bg-corail-500/15 px-3 text-sm font-bold text-corail-600"><MonitorSmartphone className="h-4 w-4" />Ouvrir la caisse</Link>
         <div className="mt-2 flex items-center gap-2 px-1">
           <span className="flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold text-white" style={{ background: me?.user?.color ?? "#0ea5a4" }}>{(me?.user?.firstName ?? "?").slice(0, 1)}</span>

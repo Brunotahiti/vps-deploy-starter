@@ -5,9 +5,6 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   serverExternalPackages: ["pdfkit", "pg"],
-  experimental: {
-    serverActions: { bodySizeLimit: "2mb" },
-  },
   async headers() {
     return [
       {

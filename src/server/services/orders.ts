@@ -63,7 +63,6 @@ export async function listOrders(establishmentId: string, opts: { status?: strin
 export async function recalcOrder(tx: Tx, orderId: string) {
   const order = await tx.order.findUniqueOrThrow({ where: { id: orderId }, include: { items: true, payments: true } });
   const lines = order.items
-    .filter((i) => !i.parentItemId || true)
     .map((i) => ({
       quantity: i.quantity, unitPrice: i.unitPrice, modifiersTotal: i.modifiersTotal, discountAmount: i.discountAmount,
       taxRateBps: i.taxRateBps, taxRateName: i.taxRateName, voided: i.status === "VOIDED",
@@ -84,7 +83,7 @@ function assertOpen(order: { status: string }) {
 }
 
 // ---------------------------------------------------------------- Création
-export type CreateOrderInput = { id?: string; type: OrderType; tableId?: string | null; covers?: number; customerName?: string | null; notes?: string | null };
+export type CreateOrderInput = { id?: string; type: OrderType; tableId?: string | null; covers?: number; customerName?: string | null; notes?: string | null; courses?: { id: string; name: string }[]; openedAt?: string };
 
 export async function createOrder(actor: Actor, input: CreateOrderInput) {
   const est = await prisma.establishment.findUniqueOrThrow({ where: { id: actor.establishmentId } });
@@ -106,7 +105,8 @@ export async function createOrder(actor: Actor, input: CreateOrderInput) {
       data: {
         id: input.id, establishmentId: actor.establishmentId, number, type: input.type, tableId: input.tableId ?? null, serverId: actor.userId,
         terminalId: actor.terminalId ?? null, covers: input.covers ?? 1, customerName: input.customerName ?? null, notes: input.notes ?? null,
-        courses: { create: courseNames.map((name, i) => ({ name, sortOrder: i })) },
+        openedAt: input.openedAt ? new Date(input.openedAt) : undefined,
+        courses: { create: input.courses ? input.courses.map((c, i) => ({ id: c.id, name: c.name, sortOrder: i })) : courseNames.map((name, i) => ({ name, sortOrder: i })) },
       },
     });
     if (input.tableId) await tx.table.update({ where: { id: input.tableId }, data: { state: "FREE" } });

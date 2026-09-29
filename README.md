@@ -14,6 +14,8 @@ pnpm db:seed                    # restaurant de démonstration « Le Mana Beach 
 pnpm dev                        # http://localhost:3000
 ```
 
+Les produits de démonstration ont des illustrations locales (`public/demo/*.svg`) ; remplacez-les par vos photos via le champ « URL photo » d'un produit.
+
 Comptes de démonstration (mot de passe `demo1234`) :
 
 | Rôle | Email | PIN caisse |
@@ -24,6 +26,12 @@ Comptes de démonstration (mot de passe `demo1234`) :
 | Cuisine / Bar / Comptable | cuisine@ / bar@ / compta@manaresto.pf | 3000 / 4000 / 5000 |
 
 Pour la **connexion par PIN** : un manager enregistre l'appareil dans *Administration → Paramètres → Terminaux*, puis l'écran `/pos/login` accepte les PIN du personnel.
+
+## Application web installable (PWA) et mode hors ligne
+
+- Ouvrir l'URL dans Chrome / Edge / Safari sur tablette, puis **Installer** (bouton dans la caisse) ou, sur iPad, Partager → *Sur l'écran d'accueil*. L'application se lance ensuite en plein écran.
+- Sans réseau, la caisse continue : ouverture de table, ajout d'articles, envoi cuisine, encaissement. Les opérations sont mises en file d'attente (IndexedDB) avec des identifiants UUID et des clés d'idempotence, puis rejouées automatiquement à la reconnexion sans doublon. L'indicateur EN LIGNE / HORS LIGNE et le nombre d'opérations « à synchroniser » sont affichés en permanence.
+- Le service worker n'est actif qu'en build de production (`pnpm build && pnpm start`).
 
 ## Scripts
 

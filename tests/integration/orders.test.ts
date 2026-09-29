@@ -195,3 +195,22 @@ describe("parcours complet : table → articles → cuisine → addition → pai
     await expect(addItem(other.actor, o.id, { productId: T.eau.id })).rejects.toMatchObject({ status: 404 });
   });
 });
+
+describe("mode hors ligne : services pré-générés par le client", () => {
+  it("crée la commande avec les ids de services fournis, puis accepte les articles sur ces services", async () => {
+    const id = crypto.randomUUID();
+    const courses = [{ id: crypto.randomUUID(), name: "ENTRÉES" }, { id: crypto.randomUUID(), name: "PLATS" }];
+    const openedAt = new Date(Date.now() - 600000).toISOString();
+    const o = await createOrder(T.actor, { id, type: "COUNTER", covers: 2, courses, openedAt });
+    expect(o.courses.map((c) => c.id)).toEqual(courses.map((c) => c.id));
+    expect(o.openedAt.toISOString()).toBe(openedAt);
+    const itemId = crypto.randomUUID();
+    const r = await addItem(T.actor, id, { id: itemId, productId: T.eau.id, courseId: courses[1].id });
+    expect(r.items[0].id).toBe(itemId);
+    expect(r.items[0].courseId).toBe(courses[1].id);
+    // rejeu complet (création + article) : aucun doublon
+    await createOrder(T.actor, { id, type: "COUNTER", covers: 2, courses, openedAt });
+    const r2 = await addItem(T.actor, id, { id: itemId, productId: T.eau.id, courseId: courses[1].id });
+    expect(r2.items.length).toBe(1);
+  });
+});

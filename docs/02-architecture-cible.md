@@ -59,6 +59,25 @@ Hiérarchie **Compte (utilisateur) → Entreprise (`organizations`) → Établis
 7. **Caisse** : ouverture (fond), mouvements (entrée / sortie / dépôt / correction manager), clôture (théorique / compté / écart), rapport X/Z imprimable, corrections post-clôture tracées.
 8. **Tickets** : `GET /api/orders/:id/receipt` (`format=html|pdf|escpos`) avec HT / TVA par taux / TTC, N° Tahiti.
 
+## Mode hors ligne et PWA
+
+Objectif : **ne jamais perdre une commande** si Internet tombe (îles, coupures 4G).
+
+| Brique | Rôle |
+|---|---|
+| `public/sw.js` (service worker) | Précache des icônes / manifeste ; ressources Next en cache d'abord ; **API GET réseau d'abord, cache en secours** (catalogue, plan de salle, commandes, profil) ; navigations réseau d'abord avec **shell générique de l'écran de commande** (`/pos/order/*`) servi hors ligne, l'identifiant étant relu depuis l'URL côté client. |
+| `src/lib/offline/db.ts` | IndexedDB (`idb`) : magasin `cache` (snapshots) et `outbox` (mutations en attente). |
+| `src/lib/offline/outbox.ts` | File d'attente ordonnée des mutations (méthode, URL, corps, **clé d'idempotence**). Rejouée à l'événement `online` et au chargement ; s'arrête à la première erreur réseau ; une erreur métier (4xx) retire l'entrée et remonte l'erreur à l'utilisateur. |
+| `src/lib/offline/local-orders.ts` | Commandes créées ou modifiées localement : **UUID générés côté client** pour la commande, ses services et ses articles, totaux recalculés avec la même logique que le serveur (`order-calc`). Purgées après synchronisation complète. |
+| `src/lib/offline/provider.tsx` | État EN LIGNE / HORS LIGNE (`useSyncExternalStore`), compteur d'opérations à synchroniser, toasts de résultat. |
+| Serveur | `Idempotency-Key` (table `idempotency_keys`) et acceptation des ids fournis (`orders.id`, `courses.id`, `order_items.id`, `payments.id`) : un rejeu ne crée jamais de doublon. |
+
+Parcours couvert hors ligne (test `e2e/offline.spec.ts`) : ouvrir une table, ajouter des articles (options comprises), envoyer en cuisine, encaisser, revenir au plan de salle (la table apparaît occupée), puis reconnexion → synchronisation, aucune duplication.
+
+Limites connues : une commande jamais ouverte sur l'appareil n'est pas consultable hors ligne ; les conflits (commande modifiée en parallèle sur un autre poste) sont détectés par les codes 409 du serveur au rejeu et signalés, sans fusion automatique.
+
+PWA : `manifest.webmanifest` (standalone, icônes, thème), bouton « Installer » (événement `beforeinstallprompt`, Android / Chrome / Edge) ; sur iPad : Partager → « Sur l'écran d'accueil ».
+
 ## Sécurité
 
 HTTPS via Traefik ; cookies httpOnly/SameSite ; hachage scrypt ; validation zod ; requêtes paramétrées via Prisma ; en-têtes de sécurité (Next + Traefik) ; limitation des tentatives de connexion et de PIN ; journal d'audit non modifiable par l'API ; isolation multi-tenant ; aucune donnée de carte stockée (paiement électronique via abstraction `PaymentTerminalAdapter`, prestataires à brancher en Phase 7).

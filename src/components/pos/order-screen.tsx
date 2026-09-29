@@ -18,18 +18,44 @@ import { ItemModal } from "./item-modal";
 import { PaymentModal, type PaymentPayload } from "./payment-modal";
 import { PinModal, withPin, type PinRequest } from "./pin-modal";
 import { useFloor } from "./floor";
+import { useOffline } from "@/lib/offline/provider";
+import { getLocalOrder, markOfflineOrderClosed, saveLocalOrder } from "@/lib/offline/local-orders";
+import { computeOrderTotals } from "@/lib/order-calc";
 import { ORDER_TYPE_LABEL, type Order, type OrderItem, type PosMenu, type PosProduct } from "./types";
 import { NumPad } from "@/components/ui/numpad";
 
 const FORMULES = "__menus__";
 
-export function OrderScreen({ orderId }: { orderId: string }) {
+/** Recalcule les totaux d'une commande modifiée localement (même logique que le serveur). */
+function recomputeLocal(o: Order): Order {
+  const t = computeOrderTotals(o.items.map((i) => ({ quantity: i.quantity, unitPrice: i.unitPrice, modifiersTotal: i.modifiersTotal, discountAmount: i.discountAmount, taxRateBps: i.taxRateBps, taxRateName: i.taxRateName, voided: i.status === "VOIDED" })), o.discountTotal);
+  return { ...o, subtotal: t.subtotal, discountTotal: t.discountTotal, taxTotal: t.taxTotal, total: t.total };
+}
+
+export function OrderScreen({ orderId: orderIdProp }: { orderId: string }) {
+  // Hors ligne, la page peut être servie depuis un shell générique : l'id réel est dans l'URL
+  const [orderId] = useState(() => (typeof window !== "undefined" ? window.location.pathname.split("/pos/order/")[1]?.split(/[/?#]/)[0] || orderIdProp : orderIdProp));
   const router = useRouter();
   const qc = useQueryClient();
   const { toast } = useToast();
   const { can } = useSession();
   const catalog = usePosCatalog();
-  const order = useQuery({ queryKey: ["order", orderId], queryFn: () => api.get<Order>(`/api/orders/${orderId}`), refetchInterval: 15_000 });
+  const { online } = useOffline();
+  const order = useQuery({
+    queryKey: ["order", orderId],
+    refetchInterval: online ? 15_000 : false,
+    queryFn: async () => {
+      try {
+        const o = await api.get<Order>(`/api/orders/${orderId}`);
+        if (o.status === "OPEN" || o.status === "SENT" || o.status === "BILL_REQUESTED") saveLocalOrder(o).catch(() => {});
+        return o;
+      } catch (e) {
+        const local = await getLocalOrder(orderId);
+        if (local) return local;
+        throw e;
+      }
+    },
+  });
   const [search, setSearch] = useState("");
   const [seat, setSeat] = useState<number | null>(null);
   const [productOpen, setProductOpen] = useState<PosProduct | null>(null);
@@ -48,18 +74,20 @@ export function OrderScreen({ orderId }: { orderId: string }) {
   const setCourseId = setCourseSel;
   const setCategoryId = setCategorySel;
 
-  const setOrder = useCallback((next: Order) => qc.setQueryData(["order", orderId], next), [qc, orderId]);
+  const setOrder = useCallback((next: Order) => { qc.setQueryData(["order", orderId], next); saveLocalOrder(next).catch(() => {}); }, [qc, orderId]);
+  /** Applique une modification locale (hors ligne) au ticket en recalculant les totaux. */
+  const patchLocal = useCallback((fn: (o: Order) => Order) => { const cur = qc.getQueryData<Order>(["order", orderId]); if (cur) setOrder(recomputeLocal(fn(cur))); }, [qc, orderId, setOrder]);
   const invalidate = useCallback(() => { qc.invalidateQueries({ queryKey: ["order", orderId] }); qc.invalidateQueries({ queryKey: ["floor"] }); qc.invalidateQueries({ queryKey: ["orders"] }); }, [qc, orderId]);
 
+  const isQueued = (e: unknown) => e instanceof ApiClientError && e.code === "QUEUED";
   const onError = (e: unknown) => {
-    if (e instanceof ApiClientError && e.code === "QUEUED") toast("Hors ligne : opération enregistrée, elle sera synchronisée", "info");
+    if (isQueued(e)) toast("Hors ligne : opération enregistrée, elle sera synchronisée", "info");
     else if (!(e instanceof ApiClientError && e.isPinRequired)) toast(e instanceof ApiClientError ? e.message : "Erreur", "error");
   };
 
   const addItem = useMutation({
-    mutationFn: async (choice: ProductChoice) => {
-      const id = crypto.randomUUID();
-      return api.post<Order>(`/api/orders/${orderId}/items`, { id, ...choice, courseId, seatNumber: seat }, { idempotencyKey: id, queueIfOffline: true });
+    mutationFn: async (choice: ProductChoice & { id: string }) => {
+      return api.post<Order>(`/api/orders/${orderId}/items`, { ...choice, courseId, seatNumber: seat }, { idempotencyKey: choice.id, queueIfOffline: true });
     },
     onMutate: async (choice) => {
       // Ajout immédiat (optimiste) dans le ticket
@@ -70,30 +98,51 @@ export function OrderScreen({ orderId }: { orderId: string }) {
       const name = p?.name ?? m?.name ?? "…";
       const unitPrice = p ? (choice.variantId ? (p.variants.find((v) => v.id === choice.variantId)?.priceTtc ?? p.priceTtc) : p.priceTtc) : (m?.priceTtc ?? 0);
       const modsTotal = p ? p.modifierGroups.flatMap((g) => g.modifiers).filter((x) => choice.modifiers?.some((s) => s.modifierId === x.id)).reduce((a, x) => a + x.priceDelta, 0) : 0;
-      const temp: OrderItem = { id: `tmp-${Date.now()}`, orderId, courseId, productId: p?.id ?? null, variantId: choice.variantId ?? null, menuId: m?.id ?? null, parentItemId: null, kitchenStationId: null, kitchenTicketId: null, name, quantity: choice.quantity, unitPrice, modifiersTotal: modsTotal, discountAmount: 0, lineTotal: (unitPrice + modsTotal) * choice.quantity, taxRateBps: 0, taxRateName: null, taxAmount: 0, costPrice: 0, seatNumber: seat, notes: choice.notes ?? null, isUrgent: false, status: "PENDING", sentAt: null, readyAt: null, servedAt: null, voidedAt: null, voidReason: null, sortOrder: current.items.length, createdAt: new Date(), updatedAt: new Date(), modifiers: [] };
-      setOrder({ ...current, items: [...current.items, temp], total: current.total + temp.lineTotal, subtotal: current.subtotal + temp.lineTotal });
+      const modNames = p ? p.modifierGroups.flatMap((g) => g.modifiers.filter((x) => choice.modifiers?.some((s) => s.modifierId === x.id)).map((x) => ({ id: crypto.randomUUID(), orderItemId: choice.id, modifierId: x.id, groupName: g.name, name: x.name, priceDelta: x.priceDelta, quantity: 1 }))) : [];
+      const temp: OrderItem = { id: choice.id, orderId, courseId, productId: p?.id ?? null, variantId: choice.variantId ?? null, menuId: m?.id ?? null, parentItemId: null, kitchenStationId: p?.kitchenStationId ?? null, kitchenTicketId: null, name, quantity: choice.quantity, unitPrice, modifiersTotal: modsTotal, discountAmount: 0, lineTotal: (unitPrice + modsTotal) * choice.quantity, taxRateBps: p?.taxRate?.rateBps ?? 0, taxRateName: p?.taxRate?.name ?? null, taxAmount: 0, costPrice: 0, seatNumber: seat, notes: choice.notes ?? null, isUrgent: false, status: "PENDING", sentAt: null, readyAt: null, servedAt: null, voidedAt: null, voidReason: null, sortOrder: current.items.length, createdAt: new Date(), updatedAt: new Date(), modifiers: modNames };
+      setOrder(recomputeLocal({ ...current, items: [...current.items, temp] }));
     },
     onSuccess: (data) => setOrder(data),
-    onError: (e) => { onError(e); invalidate(); },
+    onError: (e, choice) => { onError(e); if (isQueued(e)) return; const cur = qc.getQueryData<Order>(["order", orderId]); if (cur) setOrder(recomputeLocal({ ...cur, items: cur.items.filter((i) => i.id !== choice.id) })); invalidate(); },
     onSettled: () => qc.invalidateQueries({ queryKey: ["floor"] }),
   });
 
-  const run = async (fn: () => Promise<Order>) => { try { setOrder(await fn()); } catch (e) { onError(e); invalidate(); } };
-  const updateItem = (itemId: string, patch: Record<string, unknown>) => run(() => api.patch<Order>(`/api/orders/${orderId}/items/${itemId}`, patch, { queueIfOffline: true }));
+  const run = async (fn: () => Promise<Order>, local?: (o: Order) => Order) => { try { setOrder(await fn()); } catch (e) { onError(e); if (isQueued(e) && local) patchLocal(local); else if (!isQueued(e)) invalidate(); } };
+  const updateItem = (itemId: string, patch: { quantity?: number; seatNumber?: number | null; notes?: string | null; courseId?: string | null; isUrgent?: boolean }) =>
+    run(() => api.patch<Order>(`/api/orders/${orderId}/items/${itemId}`, patch, { queueIfOffline: true }), (o) => ({ ...o, items: o.items.map((i) => (i.id === itemId || i.parentItemId === itemId ? { ...i, ...(patch.quantity !== undefined ? { quantity: patch.quantity } : {}), ...(patch.seatNumber !== undefined ? { seatNumber: patch.seatNumber } : {}), ...(patch.courseId !== undefined ? { courseId: patch.courseId } : {}), ...(patch.isUrgent !== undefined ? { isUrgent: patch.isUrgent } : {}), ...(i.id === itemId && patch.notes !== undefined ? { notes: patch.notes } : {}) } : i)) }));
   const removeItem = async (item: OrderItem, reason: string | null) => {
-    await withPin(setPin, "pos.void_item", (managerPin) => api.delete<Order>(`/api/orders/${orderId}/items/${item.id}`, { reason, managerPin }).then(setOrder)).catch(onError);
+    const sent = item.status !== "PENDING";
+    await withPin(setPin, "pos.void_item", (managerPin) => api.delete<Order>(`/api/orders/${orderId}/items/${item.id}`, { reason, managerPin }, { queueIfOffline: !sent }).then(setOrder))
+      .catch((e) => { onError(e); if (isQueued(e)) patchLocal((o) => ({ ...o, items: o.items.filter((i) => i.id !== item.id && i.parentItemId !== item.id) })); });
     setItemOpen(null);
   };
-  const send = (opts: { courseId?: string | null; all?: boolean }) => { setSendMenu(false); return run(() => api.post<Order>(`/api/orders/${orderId}/send`, opts, { idempotencyKey: crypto.randomUUID(), queueIfOffline: true })).then(() => toast("Envoyé en cuisine", "success")); };
+  const send = (opts: { courseId?: string | null; all?: boolean }) => {
+    setSendMenu(false);
+    const now = new Date();
+    return run(() => api.post<Order>(`/api/orders/${orderId}/send`, opts, { idempotencyKey: crypto.randomUUID(), queueIfOffline: true }),
+      (o) => ({ ...o, status: o.status === "OPEN" ? "SENT" : o.status, items: o.items.map((i) => (i.status === "PENDING" && (opts.all || i.courseId === opts.courseId) ? { ...i, status: "SENT", sentAt: now } : i)), courses: o.courses.map((c) => (opts.all || c.id === opts.courseId ? { ...c, status: "SENT", sentAt: now } : c)) }))
+      .then(() => toast(online ? "Envoyé en cuisine" : "Envoi enregistré, transmis en cuisine à la reconnexion", online ? "success" : "info"));
+  };
   const setCourseStatus = (cid: string, status: "PENDING" | "HOLD" | "FIRE" | "SERVED") => run(() => api.post<Order>(`/api/orders/${orderId}/courses/${cid}`, { status }));
   const requestBill = () => run(() => api.post<Order>(`/api/orders/${orderId}/bill`)).then(() => toast("Addition demandée", "success"));
   const pay = async (payments: PaymentPayload[]) => {
+    const body = payments.map((p) => ({ ...p, id: crypto.randomUUID() }));
     await withPin(setPin, "pos.discount", async (managerPin) => {
-      const res = await api.post<{ order: Order }>(`/api/orders/${orderId}/payments`, { payments: payments.map((p) => ({ ...p, id: crypto.randomUUID() })), managerPin }, { idempotencyKey: crypto.randomUUID() });
+      const res = await api.post<{ order: Order }>(`/api/orders/${orderId}/payments`, { payments: body, managerPin }, { idempotencyKey: crypto.randomUUID(), queueIfOffline: !body.some((p) => p.method === "COMPLIMENTARY") });
       setOrder(res.order);
-      if (res.order.status === "PAID") { setPayOpen(false); toast("Commande soldée ✓", "success"); qc.invalidateQueries({ queryKey: ["floor"] }); qc.invalidateQueries({ queryKey: ["cash"] }); router.push(res.order.tableId ? "/pos" : "/pos/orders"); }
+      if (res.order.status === "PAID") { setPayOpen(false); toast("Commande soldée ✓", "success"); qc.invalidateQueries({ queryKey: ["floor"] }); qc.invalidateQueries({ queryKey: ["cash"] }); markOfflineOrderClosed(orderId).catch(() => {}); router.push(res.order.tableId ? "/pos" : "/pos/orders"); }
       else toast("Paiement enregistré", "success");
-    }).catch(onError);
+    }).catch((e) => {
+      onError(e);
+      if (!isQueued(e)) return;
+      // Hors ligne : le paiement est en file d'attente ; la commande est soldée localement si le montant couvre le reste
+      const cur = qc.getQueryData<Order>(["order", orderId]);
+      if (!cur) return;
+      const paid = cur.paidTotal + body.reduce((a, p) => a + p.amount, 0);
+      const next: Order = { ...cur, paidTotal: paid, tipTotal: cur.tipTotal + body.reduce((a, p) => a + (p.tipAmount ?? 0), 0), payments: [...cur.payments, ...body.map((p) => ({ id: p.id, establishmentId: cur.establishmentId, orderId, cashSessionId: null, receivedById: null, method: p.method as Order["payments"][number]["method"], status: "COMPLETED" as const, amount: p.amount, tipAmount: p.tipAmount ?? 0, tendered: p.tendered ?? null, changeGiven: p.tendered ? Math.max(0, p.tendered - p.amount - (p.tipAmount ?? 0)) : 0, refundedAmount: 0, reference: p.reference ?? null, splitLabel: p.splitLabel ?? null, providerRef: null, createdAt: new Date(), refunds: [] }))], ...(paid >= cur.total ? { status: "PAID" as const, closedAt: new Date() } : {}) };
+      setOrder(next);
+      if (next.status === "PAID") { setPayOpen(false); markOfflineOrderClosed(orderId).catch(() => {}); qc.invalidateQueries({ queryKey: ["offline-orders"] }); router.push(next.tableId ? "/pos" : "/pos/orders"); }
+    });
   };
 
   const products = useMemo(() => {
@@ -106,11 +155,11 @@ export function OrderScreen({ orderId }: { orderId: string }) {
   const onProduct = (p: PosProduct) => {
     if (!p.isAvailable || p.autoUnavailable) return toast(`${p.name} est indisponible`, "error");
     if (p.modifierGroups.length > 0 || p.variants.length > 0) setProductOpen(p);
-    else addItem.mutate({ productId: p.id, quantity: 1 });
+    else addItem.mutate({ id: crypto.randomUUID(), productId: p.id, quantity: 1 });
   };
 
   if (order.isLoading || catalog.isLoading) return <div className="flex h-full items-center justify-center"><Spinner /></div>;
-  if (!o || !catalog.data) return <div className="p-6 text-center text-muted">Commande introuvable. <button className="text-lagon-600 underline" onClick={() => router.push("/pos")}>Retour</button></div>;
+  if (!o || !catalog.data) return <div className="p-6 text-center text-muted">{online ? "Commande introuvable." : "Commande non disponible hors ligne (elle n'a jamais été ouverte sur cet appareil)."} <button className="text-lagon-600 underline" onClick={() => router.push("/pos")}>Retour</button></div>;
 
   const closed = o.status === "PAID" || o.status === "CANCELLED";
   const activeItems = o.items.filter((i) => i.status !== "VOIDED");
@@ -155,11 +204,13 @@ export function OrderScreen({ orderId }: { orderId: string }) {
                 const off = !p.isAvailable || p.autoUnavailable;
                 const cat = catalog.data!.categories.find((c) => c.id === p.categoryId);
                 return (
-                  <button key={p.id} disabled={closed} onClick={() => onProduct(p)} className={`touch relative flex h-24 flex-col justify-between overflow-hidden rounded-xl surface p-2 text-left shadow-sm transition active:scale-95 disabled:opacity-50 ${off ? "opacity-50" : ""}`} style={{ borderLeft: `4px solid ${p.color ?? cat?.color ?? "#94a3b8"}` }}>
-                    {/* eslint-disable-next-line @next/next/no-img-element -- images externes du catalogue, non optimisables */}
-                    {p.imageUrl ? <img src={p.imageUrl} alt="" className="absolute inset-0 h-full w-full object-cover opacity-30" /> : null}
-                    <span className="relative line-clamp-2 text-sm font-bold leading-tight">{p.name}</span>
-                    <span className="relative flex items-center justify-between"><span className="text-sm font-semibold"><Money amount={p.priceTtc} /></span>{p.modifierGroups.length ? <span className="text-[10px] font-semibold uppercase text-muted">options</span> : null}</span>
+                  <button key={p.id} disabled={closed} onClick={() => onProduct(p)} className={`touch relative flex ${p.imageUrl ? "h-36" : "h-24"} flex-col overflow-hidden rounded-xl surface text-left shadow-sm transition active:scale-95 disabled:opacity-50 ${off ? "opacity-50" : ""}`} style={{ borderLeft: `4px solid ${p.color ?? cat?.color ?? "#94a3b8"}` }}>
+                    {/* eslint-disable-next-line @next/next/no-img-element -- images du catalogue (URL libre), non optimisables */}
+                    {p.imageUrl ? <img src={p.imageUrl} alt="" loading="lazy" className="h-16 w-full shrink-0 object-cover" /> : null}
+                    <span className="flex min-h-0 flex-1 flex-col justify-between p-2">
+                      <span className="line-clamp-2 text-sm font-bold leading-tight">{p.name}</span>
+                      <span className="flex items-center justify-between"><span className="text-sm font-semibold"><Money amount={p.priceTtc} /></span>{p.modifierGroups.length ? <span className="text-[10px] font-semibold uppercase text-muted">options</span> : null}</span>
+                    </span>
                     {off ? <span className="absolute inset-x-0 top-1/2 -translate-y-1/2 bg-red-600/90 py-0.5 text-center text-[11px] font-bold uppercase text-white">Indisponible</span> : null}
                   </button>
                 );
@@ -174,7 +225,7 @@ export function OrderScreen({ orderId }: { orderId: string }) {
           <div className="flex items-center justify-between">
             <button onClick={() => !closed && setDialog("covers")} className="touch text-left">
               <p className="text-lg font-extrabold leading-tight">{o.table ? `Table ${o.table.name}` : ORDER_TYPE_LABEL[o.type]}{o.customerName ? ` · ${o.customerName}` : ""}</p>
-              <p className="text-xs text-muted">{o.covers} couvert{o.covers > 1 ? "s" : ""} · {formatElapsed(o.openedAt)} · {o.server?.displayName || o.server?.firstName} · n° {o.number.split("-")[1]}</p>
+              <p className="text-xs text-muted">{o.covers} couvert{o.covers > 1 ? "s" : ""} · {formatElapsed(o.openedAt)} · {o.server?.displayName || o.server?.firstName} · {o.number === "HORS-LIGNE" ? <span className="font-bold text-orange-500">hors ligne</span> : `n° ${o.number.split("-")[1]}`}</p>
             </button>
             {closed ? <span className={`rounded-lg px-2 py-1 text-xs font-bold ${o.status === "PAID" ? "bg-green-500/15 text-green-600" : "bg-red-500/15 text-red-600"}`}>{o.status === "PAID" ? "PAYÉE" : "ANNULÉE"}</span> : null}
           </div>
@@ -220,7 +271,7 @@ export function OrderScreen({ orderId }: { orderId: string }) {
                   const comps = o.items.filter((x) => x.parentItemId === i.id);
                   const voided = i.status === "VOIDED";
                   return (
-                    <button key={i.id} disabled={closed || i.id.startsWith("tmp-")} onClick={() => setItemOpen(i)} className={`touch flex w-full items-start gap-2 border-b border-line px-3 py-2 text-left hover:surface-2 ${voided ? "opacity-40 line-through" : ""}`}>
+                    <button key={i.id} disabled={closed} onClick={() => setItemOpen(i)} className={`touch flex w-full items-start gap-2 border-b border-line px-3 py-2 text-left hover:surface-2 ${voided ? "opacity-40 line-through" : ""}`}>
                       <span className={`mt-0.5 min-w-[26px] rounded-md px-1.5 py-0.5 text-center text-xs font-bold ${i.status === "PENDING" ? "bg-corail-500/15 text-corail-600" : "bg-lagon-500/15 text-lagon-700 dark:text-lagon-300"}`}>{i.quantity}</span>
                       <span className="min-w-0 flex-1">
                         <span className="flex items-center gap-1 text-sm font-semibold leading-tight">{i.isUrgent ? <AlertTriangle className="h-3.5 w-3.5 text-corail-500" /> : null}{i.name}</span>
@@ -277,8 +328,8 @@ export function OrderScreen({ orderId }: { orderId: string }) {
         )}
       </aside>
 
-      {productOpen ? <ProductModal product={productOpen} onClose={() => setProductOpen(null)} onAdd={async (c) => { addItem.mutate(c); }} /> : null}
-      {menuOpen ? <ProductModal menu={menuOpen} products={catalog.data.products} onClose={() => setMenuOpen(null)} onAdd={async (c) => { addItem.mutate(c); }} /> : null}
+      {productOpen ? <ProductModal product={productOpen} onClose={() => setProductOpen(null)} onAdd={async (c) => { addItem.mutate({ ...c, id: crypto.randomUUID() }); }} /> : null}
+      {menuOpen ? <ProductModal menu={menuOpen} products={catalog.data.products} onClose={() => setMenuOpen(null)} onAdd={async (c) => { addItem.mutate({ ...c, id: crypto.randomUUID() }); }} /> : null}
       {itemOpen ? <ItemModal order={o} item={o.items.find((i) => i.id === itemOpen.id) ?? itemOpen} onClose={() => setItemOpen(null)} onUpdate={updateItem} onRemove={removeItem} /> : null}
       {payOpen ? <PaymentModal key={o.paidTotal} order={o} methods={catalog.data.paymentMethods} open onClose={() => setPayOpen(false)} onPay={pay} /> : null}
       <PinModal request={pin} onClose={() => setPin(null)} />

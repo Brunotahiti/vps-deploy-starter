@@ -105,6 +105,8 @@ export function ProductModal({ product, menu, products = [], onClose, onAdd }: {
         <Button size="lg" className="flex-1" disabled={!valid} loading={loading} onClick={submit}>Ajouter · <Money amount={unit * qty} /></Button>
       </div>
     }>
+      {/* eslint-disable-next-line @next/next/no-img-element -- image du catalogue (URL libre) */}
+      {(product?.imageUrl || menu?.imageUrl) ? <img src={(product?.imageUrl || menu?.imageUrl) ?? ""} alt="" className="mb-3 h-40 w-full rounded-xl object-cover" /> : null}
       {product?.description ? <p className="mb-3 text-sm text-muted">{product.description}</p> : null}
       {product && product.variants.length > 0 ? (
         <div className="mb-4">

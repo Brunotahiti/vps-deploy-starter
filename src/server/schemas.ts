@@ -61,7 +61,13 @@ export const layoutSchema = z.object({ tables: z.array(z.object({ id: uuid, x: z
 export const tableStateSchema = z.object({ state: z.enum(["FREE", "RESERVED", "TO_CLEAN"]) });
 
 export const orderType = z.enum(["DINE_IN", "COUNTER", "TAKEAWAY", "DELIVERY", "ONLINE", "KIOSK"]);
-export const orderCreateSchema = z.object({ id: uuid.optional(), type: orderType.default("DINE_IN"), tableId: uuid.nullable().optional(), covers: z.number().int().min(1).max(200).optional(), customerName: z.string().max(80).nullable().optional(), notes: z.string().max(500).nullable().optional() });
+export const orderCreateSchema = z.object({
+  id: uuid.optional(), type: orderType.default("DINE_IN"), tableId: uuid.nullable().optional(), covers: z.number().int().min(1).max(200).optional(),
+  customerName: z.string().max(80).nullable().optional(), notes: z.string().max(500).nullable().optional(),
+  // Services pré-générés par le client (mode hors ligne) : ids connus avant la synchronisation
+  courses: z.array(z.object({ id: uuid, name: z.string().min(1).max(40) })).min(1).max(10).optional(),
+  openedAt: z.string().datetime().optional(),
+});
 export const orderUpdateSchema = z.object({ covers: z.number().int().min(1).max(200).optional(), customerName: z.string().max(80).nullable().optional(), notes: z.string().max(500).nullable().optional(), type: orderType.optional() });
 const modifierSel = z.array(z.object({ modifierId: uuid, quantity: z.number().int().min(1).max(20).optional() })).optional();
 export const addItemSchema = z.object({

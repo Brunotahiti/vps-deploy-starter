@@ -10,6 +10,9 @@ import { addDays, endOfLocalDay, localDay, startOfLocalDay } from "../src/lib/da
 const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL! }) });
 
 const TZ = "Pacific/Tahiti";
+// Illustrations locales des produits (public/demo/*.svg), remplaçables par de vraies photos depuis le back-office
+import demoImages from "./demo-images.json" with { type: "json" };
+const IMAGES = demoImages as Record<string, string>;
 
 // Générateur pseudo-aléatoire déterministe (données de démo reproductibles)
 let seedState = 20260929;
@@ -80,8 +83,12 @@ const MODIFIER_GROUPS: { name: string; minSelect: number; maxSelect: number | nu
 async function main() {
   const existing = await prisma.organization.findUnique({ where: { slug: "demo-mana-beach" } });
   if (existing) {
-    console.log("Démo déjà présente (organisation demo-mana-beach). Supprimez-la pour la régénérer.");
-    return;
+    if (process.env.RESEED !== "1") {
+      console.log("Démo déjà présente (organisation demo-mana-beach). Relancez avec RESEED=1 pour la régénérer.");
+      return;
+    }
+    console.log("→ Suppression de l'ancienne démo…");
+    await prisma.organization.delete({ where: { id: existing.id } });
   }
   console.log("→ Création de l'entreprise de démonstration…");
   const org = await prisma.organization.create({ data: { name: "Mana Beach SARL", slug: "demo-mana-beach" } });
@@ -145,7 +152,7 @@ async function main() {
       const tax = cat.station === "BAR" && /Hinano|Tabu|vin|Cocktail|Mojito/.test(p.name) ? taxNormal : taxResto;
       const prod = await prisma.product.create({
         data: {
-          establishmentId: est.id, categoryId: category.id, taxRateId: tax.id, kitchenStationId: stations[cat.station], name: p.name, description: p.desc ?? null, priceTtc: p.price, costPrice: p.cost,
+          establishmentId: est.id, categoryId: category.id, taxRateId: tax.id, kitchenStationId: stations[cat.station], name: p.name, description: p.desc ?? null, imageUrl: IMAGES[p.name] ?? null, priceTtc: p.price, costPrice: p.cost,
           sku: `${cat.category.slice(0, 3).toUpperCase()}-${String(pi + 1).padStart(3, "0")}`, sortOrder: pi, color: p.color ?? null,
           modifierGroups: p.mods ? { create: p.mods.map((m, i) => ({ modifierGroupId: groups[m], sortOrder: i })) } : undefined,
         },

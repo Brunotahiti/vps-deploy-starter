@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ShoppingBag, Store, Users, Sparkles } from "lucide-react";
 import { api, ApiClientError } from "@/lib/api-client";
+import { outbox } from "@/lib/offline/outbox";
 import { cacheGet, cacheSet } from "@/lib/offline/db";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
@@ -14,6 +15,8 @@ import { Money } from "@/components/money";
 import { formatElapsed } from "@/lib/dates";
 import { useSession } from "@/hooks/use-session";
 import { TABLE_STATUS_COLOR, TABLE_STATUS_LABEL, type FloorStatus, type FloorTable, type Order } from "./types";
+import { buildLocalOrder, DEFAULT_COURSE_NAMES, listOfflineCreatedOrders, saveLocalOrder } from "@/lib/offline/local-orders";
+import { useOffline } from "@/lib/offline/provider";
 
 export function useFloor() {
   return useQuery({
@@ -37,27 +40,48 @@ export function FloorPlan() {
   const router = useRouter();
   const qc = useQueryClient();
   const { toast } = useToast();
-  const { can } = useSession();
+  const { can, me } = useSession();
+  const { online, pending } = useOffline();
   const floor = useFloor();
+  const localOrders = useQuery({ queryKey: ["offline-orders", pending], queryFn: listOfflineCreatedOrders, staleTime: 0 });
   const [roomId, setRoomId] = useState<string | null>(null);
   const [coversFor, setCoversFor] = useState<FloorTable | null>(null);
   const [busy, setBusy] = useState(false);
   const [, tick] = useState(0);
   useMemo(() => { const t = setInterval(() => tick((x) => x + 1), 30_000); return () => clearInterval(t); }, []);
 
-  const rooms = floor.data?.rooms ?? [];
+  const rooms = useMemo(() => {
+    const base = floor.data?.rooms ?? [];
+    const locals = localOrders.data ?? [];
+    if (locals.length === 0) return base;
+    // Les commandes créées hors ligne (non encore synchronisées) apparaissent sur leur table
+    return base.map((r) => ({ ...r, tables: r.tables.map((t) => { const lo = t.order ? null : locals.find((o) => o.tableId === t.id); return lo ? { ...t, status: "ORDERING" as const, order: { id: lo.id, tableId: t.id, status: "OPEN" as const, covers: lo.covers, total: 0, paidTotal: 0, openedAt: new Date(lo.openedAt), serverId: null, server: null, _count: { items: 0 } } } : t; }) }));
+  }, [floor.data, localOrders.data]);
   const room = rooms.find((r) => r.id === roomId) ?? rooms[0];
 
   const openOrder = async (input: { tableId?: string; covers?: number; type: "DINE_IN" | "COUNTER" | "TAKEAWAY" }) => {
     setBusy(true);
+    const id = crypto.randomUUID();
+    const courseNames = input.type === "DINE_IN" ? (((me?.establishment?.settings as { courses?: string[] } | null)?.courses) ?? DEFAULT_COURSE_NAMES) : ["COMMANDE"];
+    const courses = courseNames.map((name) => ({ id: crypto.randomUUID(), name }));
+    const body = { id, ...input, courses, openedAt: new Date().toISOString() };
     try {
-      const id = crypto.randomUUID();
-      const order = await api.post<Order>("/api/orders", { id, ...input }, { idempotencyKey: id, queueIfOffline: true });
+      const order = await (online ? api.post<Order>("/api/orders", body, { idempotencyKey: id, queueIfOffline: true }) : Promise.reject(new ApiClientError(0, "QUEUED", "offline")));
+      await saveLocalOrder(order);
       qc.invalidateQueries({ queryKey: ["floor"] });
       router.push(`/pos/order/${order.id}`);
     } catch (e) {
-      if (e instanceof ApiClientError && e.code === "QUEUED") toast("Hors ligne : la commande sera créée à la reconnexion", "info");
-      else toast(e instanceof ApiClientError ? e.message : "Erreur", "error");
+      if (e instanceof ApiClientError && e.code === "QUEUED") {
+        // Hors ligne : la commande existe localement, elle sera créée sur le serveur à la reconnexion
+        if (!online) await outbox.enqueue({ method: "POST", url: "/api/orders", body, idempotencyKey: id });
+        const tableName = input.tableId ? rooms.flatMap((r) => r.tables).find((t) => t.id === input.tableId)?.name : null;
+        const local = buildLocalOrder({ id, type: input.type, tableId: input.tableId ?? null, tableName, covers: input.covers ?? 1, courses, establishmentId: me?.establishment?.id ?? "", serverId: me?.user?.id ?? "", serverName: me?.user?.displayName || me?.user?.firstName || "" });
+        await saveLocalOrder(local, true);
+        qc.setQueryData(["order", id], local);
+        qc.invalidateQueries({ queryKey: ["offline-orders"] });
+        toast("Hors ligne : commande enregistrée localement, elle sera synchronisée", "info");
+        router.push(`/pos/order/${id}`);
+      } else toast(e instanceof ApiClientError ? e.message : "Erreur", "error");
     } finally {
       setBusy(false);
       setCoversFor(null);
