@@ -98,3 +98,18 @@ export const cashMovementSchema = z.object({ kind: z.enum(["PAY_IN", "PAY_OUT", 
 export const cashCloseSchema = z.object({ countedCash: money, notes: z.string().max(300).nullable().optional() });
 
 export const daySchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+
+// Stock (Phase 4)
+const qty = z.number().min(0).max(1_000_000);
+export const ingredientSchema = z.object({ name: z.string().min(1).max(120), unit: z.string().min(1).max(12).optional(), stockMin: qty.optional(), avgCost: money.optional(), isCritical: z.boolean().optional(), isActive: z.boolean().optional() });
+export const movementSchema = z.object({ ingredientId: uuid, kind: z.enum(["PURCHASE", "ADJUSTMENT", "LOSS", "BREAKAGE", "INTERNAL_USE"]), quantity: z.number().min(-1_000_000).max(1_000_000), unitCost: money.nullable().optional(), reason: z.string().max(200).nullable().optional() });
+export const movementsQuery = z.object({ ingredientId: uuid.optional(), kind: z.enum(["SALE", "PURCHASE", "ADJUSTMENT", "LOSS", "BREAKAGE", "INTERNAL_USE", "INVENTORY"]).optional(), from: z.string().optional(), to: z.string().optional(), take: z.coerce.number().int().min(1).max(1000).optional() });
+export const inventorySchema = z.object({ lines: z.array(z.object({ ingredientId: uuid, countedQty: qty })).min(1).max(500), reason: z.string().max(200).nullable().optional() });
+export const recipeSchema = z.object({ lines: z.array(z.object({ ingredientId: uuid, quantity: z.number().min(0).max(100000) })).max(100), applyCost: z.boolean().optional() });
+export const supplierSchema = z.object({ name: z.string().min(1).max(120), contactName: z.string().max(120).nullable().optional(), phone: z.string().max(40).nullable().optional(), email: z.string().email().max(160).nullable().optional().or(z.literal("")), address: z.string().max(300).nullable().optional(), notes: z.string().max(1000).nullable().optional(), isActive: z.boolean().optional() });
+export const supplierProductSchema = z.object({ supplierId: uuid, ingredientId: uuid.nullable().optional(), productId: uuid.nullable().optional(), reference: z.string().max(60).nullable().optional(), name: z.string().min(1).max(160), packSize: z.number().positive().max(100000).optional(), lastPrice: money.optional() });
+const poLine = z.object({ supplierProductId: uuid, quantity: qty, unitPrice: money.nullable().optional() });
+export const purchaseOrderSchema = z.object({ supplierId: uuid, expectedAt: z.string().nullable().optional(), notes: z.string().max(1000).nullable().optional(), lines: z.array(poLine).min(1).max(200) });
+export const purchaseOrderUpdateSchema = z.object({ expectedAt: z.string().nullable().optional(), notes: z.string().max(1000).nullable().optional(), lines: z.array(poLine).max(200).optional() });
+export const receiveSchema = z.object({ lines: z.array(z.object({ lineId: uuid, receivedQty: qty })).min(1) });
+export const stockReportQuery = z.object({ from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/) });

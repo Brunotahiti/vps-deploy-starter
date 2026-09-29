@@ -5,6 +5,7 @@ import { publish } from "@/server/realtime/bus";
 import { computeLine, computeOrderTotals } from "@/lib/order-calc";
 import { applyBps } from "@/lib/money";
 import { localDay } from "@/lib/dates";
+import { consumeForItems } from "./stock";
 import type { CourseStatus, OrderType, Prisma } from "@/generated/prisma/client";
 
 export type Actor = { organizationId: string; establishmentId: string; userId: string; terminalId?: string | null; authorizedById?: string | null };
@@ -272,6 +273,7 @@ export async function removeItem(actor: Actor, orderId: string, itemId: string, 
     const targets = [item.id, ...order.items.filter((i) => i.parentItemId === item.id).map((i) => i.id)];
     if (wasSent) {
       await tx.orderItem.updateMany({ where: { id: { in: targets } }, data: { status: "VOIDED", voidedAt: new Date(), voidReason: reason ?? null, lineTotal: 0, taxAmount: 0 } });
+      await consumeForItems(tx, actor.establishmentId, order.items.filter((i) => targets.includes(i.id) && i.status !== "VOIDED"), 1, orderId, actor.userId);
       // Ticket cuisine sans plus aucun article à préparer → annulé (l'écran cuisine le retire)
       const ticketIds = [...new Set(order.items.filter((i) => targets.includes(i.id) && i.kitchenTicketId).map((i) => i.kitchenTicketId!))];
       for (const ticketId of ticketIds) {
@@ -314,6 +316,8 @@ export async function sendCourse(actor: Actor, orderId: string, opts: { courseId
       await tx.orderItem.updateMany({ where: { id: { in: items.map((i) => i.id) } }, data: { status: "SENT", sentAt: now, kitchenTicketId: ticket.id } });
     }
     await tx.orderItem.updateMany({ where: { id: { in: pending.map((i) => i.id) }, status: "PENDING" }, data: { status: "SENT", sentAt: now } });
+    // Stock (Phase 4) : décrémentation des ingrédients (recettes) et du stock produit à l'envoi
+    await consumeForItems(tx, actor.establishmentId, pending, -1, orderId, actor.userId);
     const courseIds = [...new Set(pending.map((i) => i.courseId).filter(Boolean))] as string[];
     await tx.course.updateMany({ where: { id: { in: courseIds } }, data: { status: "SENT", sentAt: now } });
     await tx.order.update({ where: { id: orderId }, data: { status: order.status === "OPEN" ? "SENT" : order.status, version: { increment: 1 } } });
@@ -377,6 +381,7 @@ export async function cancelOrder(actor: Actor, orderId: string, reason: string)
   await prisma.$transaction(async (tx) => {
     await tx.order.update({ where: { id: orderId }, data: { status: "CANCELLED", cancelReason: reason, closedAt: new Date(), version: { increment: 1 } } });
     await tx.kitchenTicket.updateMany({ where: { orderId, status: { in: ["NEW", "ACCEPTED", "IN_PROGRESS", "READY"] } }, data: { status: "CANCELLED", completedAt: new Date() } });
+    await consumeForItems(tx, actor.establishmentId, order.items.filter((i) => i.status !== "PENDING" && i.status !== "VOIDED"), 1, orderId, actor.userId);
     await audit({ ...actor, action: "order.cancel", entityType: "order", entityId: orderId, oldValue: { status: order.status, total: order.total, number: order.number, items: order.items.length }, reason }, tx);
   });
   publish("order.closed", actor.establishmentId, { orderId, tableId: order.tableId });

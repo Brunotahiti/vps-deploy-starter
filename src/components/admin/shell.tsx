@@ -35,10 +35,11 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
     { href: "/admin/settings", label: "Paramètres", icon: Settings, show: can("settings.manage") },
     { href: "/admin/audit", label: "Journal d'audit", icon: ScrollText, show: can("audit.view") },
     { href: "/kds", label: "Écran cuisine", icon: ChefHat, show: can("kds.use") },
+    { href: "/admin/stock", label: "Stocks & achats", icon: Boxes, show: can("stock.view"), match: "/admin/stock" },
     { href: "/admin/establishments", label: "Établissements", icon: Building2, show: can("establishments.manage") || (me?.establishments?.length ?? 0) > 1 },
   ].filter((n) => n.show);
   const later = [
-    { label: "Stocks & achats", icon: Boxes, phase: 4 }, { label: "Personnel", icon: CalendarDays, phase: 5 },
+    { label: "Personnel", icon: CalendarDays, phase: 5 },
     { label: "Réservations", icon: CalendarDays, phase: 6 }, { label: "Fidélité & clients", icon: Heart, phase: 6 }, { label: "QR & en ligne", icon: QrCode, phase: 6 },
   ];
 

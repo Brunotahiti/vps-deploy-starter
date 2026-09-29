@@ -1,4 +1,4 @@
-# API ManaResto (Phases 1–3)
+# API ManaResto (Phases 1–4)
 
 Toutes les réponses sont `{ "data": … }` ou `{ "error": { "code", "message", "details" } }`. Authentification par cookie de session. Les mutations sensibles acceptent `managerPin` (autorisation ponctuelle) et renvoient `403 PIN_REQUIRED` sinon. Les créations de commandes / articles / envois / paiements acceptent l'en-tête `Idempotency-Key` (rejeu sûr après reconnexion).
 
@@ -17,6 +17,13 @@ Toutes les réponses sont `{ "data": … }` ou `{ "error": { "code", "message", 
 | GET | `/api/kitchen/tickets` (`?stationId=`, `?includeDone=1`) · `/api/kitchen/summary` | kds.use |
 | POST | `/api/kitchen/tickets/:id/status` `{status: ACCEPTED|IN_PROGRESS|READY|DONE}` · `/api/kitchen/tickets/:id/items/:itemId` `{ready}` | kds.use |
 | GET | `/api/kitchen/tickets/:id/print?format=html|escpos` (`&print=1` : impression automatique) | kds.use ou pos.use |
+| GET/POST/PATCH/DELETE | `/api/stock/ingredients[/:id]` · GET `/:id/movements` | stock.view / stock.manage |
+| GET/POST | `/api/stock/movements` (`?ingredientId&kind&from&to`) — POST : PURCHASE / ADJUSTMENT / LOSS / BREAKAGE / INTERNAL_USE | stock.view / stock.manage |
+| POST | `/api/stock/inventory` `{lines:[{ingredientId, countedQty}]}` | stock.manage |
+| GET/PUT | `/api/stock/recipes/:productId` `{lines:[{ingredientId, quantity}], applyCost}` | stock.view / stock.manage |
+| GET | `/api/stock/alerts` · `/api/stock/suggest` · `/api/stock/report?from&to` | stock.view |
+| GET/POST/PATCH/DELETE | `/api/suppliers[/:id]` · GET/POST `/api/suppliers/:id/products` · PATCH/DELETE `/api/supplier-products/:id` | stock.view / stock.manage |
+| GET/POST/PATCH | `/api/purchase-orders[/:id]` · POST `/:id/send`, `/:id/receive` `{lines:[{lineId, receivedQty}]}`, `/:id/cancel` | stock.view / stock.manage |
 | POST | `/api/payments/:id/refund` | pos.refund |
 | GET/POST | `/api/cash`, `/api/cash/current`, `/api/cash/open`, `/api/cash/:id`, `/:id/movements`, `/:id/close`, `/:id/report` | cash.open / cash.movement / cash.correct / cash.close |
 | GET | `/api/reports/daily?day=`, `/range?from&to`, `/overview` | reports.view / reports.view_global |
