@@ -173,6 +173,66 @@ async function main() {
   });
   const modifierRows = await prisma.modifier.findMany({ include: { group: true } });
 
+  console.log("→ Stock : ingrédients, recettes, fournisseurs, achats…");
+  const ING: [string, string, number, number, number, boolean][] = [
+    // nom, unité, stock, seuil, coût moyen par unité, critique
+    ["Thon rouge", "g", 6200, 3000, 2.4, true], ["Mahi-mahi", "g", 3100, 2000, 1.9, true], ["Steak haché 150 g", "pce", 38, 20, 320, true], ["Pain burger", "pce", 44, 24, 90, true],
+    ["Bacon", "g", 1400, 800, 2.1, false], ["Cheddar", "g", 1800, 600, 1.4, false], ["Frites surgelées", "kg", 14, 8, 420, false], ["Lait de coco", "ml", 5200, 2000, 0.5, false],
+    ["Citron vert", "pce", 60, 30, 55, false], ["Crevettes", "g", 2600, 1500, 3.2, false], ["Mozzarella", "g", 2400, 1000, 1.6, false], ["Pâte à pizza", "pce", 26, 12, 140, true],
+    ["Hinano 33 cl", "pce", 96, 48, 210, true], ["Coca-Cola 33 cl", "pce", 120, 48, 150, true], ["Eau minérale 50 cl", "pce", 84, 36, 95, true], ["Chocolat noir", "g", 1500, 500, 2.8, false], ["Œufs", "pce", 90, 30, 45, false],
+  ];
+  const ings: Record<string, { id: string; unit: string }> = {};
+  for (const [name, unit, stock, min, cost, critical] of ING) {
+    const row = await prisma.ingredient.create({ data: { establishmentId: est.id, name, unit, stockQty: stock, stockMin: min, avgCost: Math.round(cost), lastCost: Math.round(cost), isCritical: critical } });
+    ings[name] = { id: row.id, unit };
+  }
+  const allProducts = Object.values(productsByCategory).flat();
+  const byName = (n: string) => allProducts.find((p) => p.name === n);
+  const RECIPES: [string, [string, number][]][] = [
+    ["Poisson cru au lait de coco", [["Thon rouge", 160], ["Lait de coco", 80], ["Citron vert", 1]]], ["Tartare de thon", [["Thon rouge", 150], ["Citron vert", 1]]], ["Sashimi de thon rouge", [["Thon rouge", 180]]],
+    ["Carpaccio de mahi-mahi", [["Mahi-mahi", 140], ["Citron vert", 1]]], ["Beignets de crevettes", [["Crevettes", 120], ["Œufs", 1]]],
+    ["Burger Bacon", [["Steak haché 150 g", 1], ["Pain burger", 1], ["Bacon", 40], ["Cheddar", 30], ["Frites surgelées", 0.18]]], ["Cheeseburger", [["Steak haché 150 g", 1], ["Pain burger", 1], ["Cheddar", 40], ["Frites surgelées", 0.18]]],
+    ["Burger Mana (double steak)", [["Steak haché 150 g", 2], ["Pain burger", 1], ["Cheddar", 40], ["Frites surgelées", 0.18]]], ["Thon rouge mi-cuit", [["Thon rouge", 200], ["Frites surgelées", 0.15]]],
+    ["Pizza Reine", [["Pâte à pizza", 1], ["Mozzarella", 120]]], ["Fondant chocolat", [["Chocolat noir", 60], ["Œufs", 2]]],
+    ["Hinano 33 cl", [["Hinano 33 cl", 1]]], ["Coca-Cola 33 cl", [["Coca-Cola 33 cl", 1]]], ["Eau minérale 50 cl", [["Eau minérale 50 cl", 1]]],
+  ];
+  for (const [product, lines] of RECIPES) {
+    const prod = byName(product);
+    if (!prod) continue;
+    await prisma.recipeLine.createMany({ data: lines.filter(([ing]) => ings[ing]).map(([ing, qty]) => ({ productId: prod.id, ingredientId: ings[ing].id, quantity: qty })) });
+  }
+  const marchePapeete = await prisma.supplier.create({ data: { establishmentId: est.id, name: "Marché de Papeete — Poissonnerie Teva", contactName: "Teva", phone: "+689 87 12 34 56", email: "teva.poissons@mail.pf" } });
+  const brasserie = await prisma.supplier.create({ data: { establishmentId: est.id, name: "Brasserie de Tahiti", contactName: "Service pro", phone: "+689 40 55 66 77", email: "pro@brasseriedetahiti.pf" } });
+  const wingChong = await prisma.supplier.create({ data: { establishmentId: est.id, name: "Wing Chong — Gros alimentaire", phone: "+689 40 42 12 12" } });
+  const SP: [typeof marchePapeete, string, string, number, number][] = [
+    [marchePapeete, "Thon rouge longe (kg)", "Thon rouge", 1000, 2400], [marchePapeete, "Mahi-mahi filet (kg)", "Mahi-mahi", 1000, 1900], [marchePapeete, "Crevettes (kg)", "Crevettes", 1000, 3200],
+    [brasserie, "Carton Hinano 33 cl × 24", "Hinano 33 cl", 24, 5040], [brasserie, "Carton Coca-Cola 33 cl × 24", "Coca-Cola 33 cl", 24, 3600], [brasserie, "Pack eau 50 cl × 12", "Eau minérale 50 cl", 12, 1140],
+    [wingChong, "Steaks hachés 150 g × 20", "Steak haché 150 g", 20, 6400], [wingChong, "Pains burger × 12", "Pain burger", 12, 1080], [wingChong, "Frites surgelées 2,5 kg", "Frites surgelées", 2.5, 1050], [wingChong, "Cheddar tranches 1 kg", "Cheddar", 1000, 1400], [wingChong, "Bacon 500 g", "Bacon", 500, 1050],
+  ];
+  const sps: Record<string, string> = {};
+  for (const [sup, name, ing, pack, price] of SP) {
+    const row = await prisma.supplierProduct.create({ data: { supplierId: sup.id, ingredientId: ings[ing].id, name, packSize: pack, lastPrice: price, avgPrice: price } });
+    sps[name] = row.id;
+  }
+  const stockToday = localDay(new Date(), TZ);
+  const poDay = addDays(stockToday, -3).replace(/-/g, "");
+  await prisma.purchaseOrder.create({ data: { establishmentId: est.id, supplierId: brasserie.id, number: `BC-${poDay}-001`, status: "RECEIVED", total: 5040 * 4 + 3600 * 3, createdAt: new Date(Date.now() - 3 * 86400000), receivedAt: new Date(Date.now() - 2 * 86400000), lines: { create: [{ supplierProductId: sps["Carton Hinano 33 cl × 24"], quantity: 4, receivedQty: 4, unitPrice: 5040 }, { supplierProductId: sps["Carton Coca-Cola 33 cl × 24"], quantity: 3, receivedQty: 3, unitPrice: 3600 }] } } });
+  await prisma.purchaseOrder.create({ data: { establishmentId: est.id, supplierId: marchePapeete.id, number: `BC-${stockToday.replace(/-/g, "")}-001`, status: "SENT", total: 2400 * 5 + 1900 * 3, expectedAt: new Date(Date.now() + 86400000), lines: { create: [{ supplierProductId: sps["Thon rouge longe (kg)"], quantity: 5, unitPrice: 2400 }, { supplierProductId: sps["Mahi-mahi filet (kg)"], quantity: 3, unitPrice: 1900 }] } } });
+  // Mouvements des 7 derniers jours : ventes (recettes), achats, pertes
+  for (let d = 7; d >= 0; d--) {
+    const at = new Date(Date.now() - d * 86400000 - 3 * 3600000);
+    for (const [ing, qty] of [["Thon rouge", between(600, 1400)], ["Steak haché 150 g", between(4, 12)], ["Pain burger", between(4, 12)], ["Hinano 33 cl", between(6, 18)], ["Coca-Cola 33 cl", between(4, 14)], ["Frites surgelées", 1.2 + rand()], ["Mahi-mahi", between(200, 600)]] as [string, number][]) {
+      const ingRow = await prisma.ingredient.findUniqueOrThrow({ where: { id: ings[ing].id } });
+      await prisma.inventoryMovement.create({ data: { establishmentId: est.id, ingredientId: ings[ing].id, kind: "SALE", quantity: -qty, unitCost: ingRow.avgCost, createdAt: at } });
+    }
+    if (d === 2) { await prisma.inventoryMovement.create({ data: { establishmentId: est.id, ingredientId: ings["Hinano 33 cl"].id, userId: manager.id, kind: "PURCHASE", quantity: 96, unitCost: 210, reason: `Réception BC-${poDay}-001`, createdAt: at } }); await prisma.inventoryMovement.create({ data: { establishmentId: est.id, ingredientId: ings["Coca-Cola 33 cl"].id, userId: manager.id, kind: "PURCHASE", quantity: 72, unitCost: 150, reason: `Réception BC-${poDay}-001`, createdAt: at } }); }
+    if (d === 4) await prisma.inventoryMovement.create({ data: { establishmentId: est.id, ingredientId: ings["Thon rouge"].id, userId: manager.id, kind: "LOSS", quantity: -400, unitCost: 2, reason: "Périmé (DLC dépassée)", createdAt: at } });
+    if (d === 1) await prisma.inventoryMovement.create({ data: { establishmentId: est.id, ingredientId: ings["Pain burger"].id, userId: manager.id, kind: "BREAKAGE", quantity: -6, unitCost: 90, reason: "Pains écrasés à la livraison", createdAt: at } });
+  }
+  // Un ingrédient critique en rupture pour illustrer l'indisponibilité automatique
+  await prisma.ingredient.update({ where: { id: ings["Pâte à pizza"].id }, data: { stockQty: 0 } });
+  await prisma.product.updateMany({ where: { id: byName("Pizza Reine")?.id ?? "" }, data: { autoUnavailable: true } });
+
   console.log("→ Commandes fictives (14 jours)…");
   const today = localDay(new Date(), TZ);
   let counter = 0;

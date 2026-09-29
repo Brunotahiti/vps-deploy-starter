@@ -70,6 +70,7 @@ export const productInclude = {
   category: { select: { id: true, name: true, color: true } },
   taxRate: true,
   kitchenStation: { select: { id: true, name: true } },
+  _count: { select: { recipeLines: true } },
   variants: { where: { isActive: true }, orderBy: { sortOrder: "asc" as const } },
   modifierGroups: {
     orderBy: { sortOrder: "asc" as const },

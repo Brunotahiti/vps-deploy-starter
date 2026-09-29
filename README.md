@@ -2,7 +2,7 @@
 
 Caisse (POS) et back-office SaaS/PWA pour les restaurants, snacks, roulottes, bars et hôtels de **Polynésie française** : F CFP sans décimales, TVA configurable, N° Tahiti, mode hors ligne, multi-établissements.
 
-> État : **Phases 1 (socle), 2 (caisse) et 3 (cuisine / KDS) livrées** — voir `docs/ROADMAP.md`. Les phases suivantes (stock, personnel, digital, avancé) sont annoncées dans l'interface, jamais simulées.
+> État : **Phases 1 (socle), 2 (caisse), 3 (cuisine / KDS) et 4 (stock) livrées** — voir `docs/ROADMAP.md`. Les phases suivantes (personnel, digital, avancé) sont annoncées dans l'interface, jamais simulées.
 
 ## Démarrage sur Mac en une commande
 
