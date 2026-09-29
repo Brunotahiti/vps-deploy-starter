@@ -1,9 +1,11 @@
 import { route, ok, parseBody } from "@/server/http";
+import { rateLimitIp } from "@/server/rate-limit";
 import { publicReservationSchema } from "@/server/schemas";
 import { resolveEstablishment } from "@/server/services/public";
 import { createPublicReservation } from "@/server/services/reservations";
 
 export const POST = route<{ org: string; est: string }>(async (req, { params }) => {
+  rateLimitIp(req, "public-reserve", 10);
   const est = await resolveEstablishment(params.org, params.est);
   const body = await parseBody(req, publicReservationSchema);
   const r = await createPublicReservation(est.id, est.organizationId, { ...body, email: body.email || null });

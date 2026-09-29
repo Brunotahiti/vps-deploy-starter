@@ -2,7 +2,7 @@
 
 Caisse (POS) et back-office SaaS/PWA pour les restaurants, snacks, roulottes, bars et hôtels de **Polynésie française** : F CFP sans décimales, TVA configurable, N° Tahiti, mode hors ligne, multi-établissements.
 
-> État : **Phases 1 à 7 livrées** (socle, caisse, cuisine, stock, personnel et rapports, digital, avancé : multi-sites, export comptable, API publique, webhooks, TPE, imprimantes, Redis) — voir `docs/ROADMAP.md` et `docs/API-PUBLIQUE.md`.
+> État : **toutes les phases livrées (1 à 8)** — socle, caisse, cuisine, stock, personnel et rapports, digital, avancé (multi-sites, export comptable, API publique, webhooks, TPE, imprimantes, Redis), consolidation. Voir `docs/ROADMAP.md`, `docs/GUIDE-UTILISATEUR.md` et `docs/API-PUBLIQUE.md`.
 
 ## Démarrage sur Mac en une commande
 
@@ -69,5 +69,7 @@ Détails, déploiement automatique à chaque `git push` et exploitation : `docs/
 - `docs/02-architecture-cible.md` — stack, organisation, multi-tenant, flux caisse, sécurité
 - `docs/03-modele-de-donnees.md` — tables et règles de calcul
 - `docs/API.md` — routes REST et permissions
-- `docs/ROADMAP.md` — phases 1 à 7 et leur état
+- `docs/ROADMAP.md` — phases 1 à 8 et leur état
+- `docs/GUIDE-UTILISATEUR.md` — guide d'utilisation par module
+- `docs/API-PUBLIQUE.md` — API v1, webhooks, TPE, impression
 - `docs/DEPLOIEMENT.md` — mise en ligne sur le VPS Hostinger

@@ -20,7 +20,8 @@ export function route<P = Record<string, string>>(handler: Handler<P>) {
 
 export function errorResponse(err: unknown) {
   if (err instanceof ApiError) {
-    return NextResponse.json({ error: { code: err.code, message: err.message, details: err.details ?? null } }, { status: err.status });
+    const retry = (err.details as { retryAfter?: number } | undefined)?.retryAfter;
+    return NextResponse.json({ error: { code: err.code, message: err.message, details: err.details ?? null } }, { status: err.status, headers: err.status === 429 && retry ? { "Retry-After": String(retry) } : undefined });
   }
   if (err instanceof z.ZodError) {
     return NextResponse.json(
