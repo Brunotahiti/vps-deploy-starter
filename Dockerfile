@@ -3,7 +3,11 @@
 FROM node:22-alpine AS deps
 WORKDIR /app
 RUN apk add --no-cache libc6-compat && corepack enable pnpm
-COPY package.json pnpm-lock.yaml ./
+# Le postinstall lance `prisma generate` : le schéma et la config Prisma doivent être présents.
+# DATABASE_URL factice : nécessaire au chargement de prisma.config.ts, jamais utilisée au build.
+ENV DATABASE_URL=postgresql://build:build@localhost:5432/build
+COPY package.json pnpm-lock.yaml prisma.config.ts ./
+COPY prisma ./prisma
 RUN pnpm install --frozen-lockfile
 
 FROM node:22-alpine AS builder
@@ -11,7 +15,7 @@ WORKDIR /app
 RUN corepack enable pnpm
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-ENV NEXT_TELEMETRY_DISABLED=1
+ENV NEXT_TELEMETRY_DISABLED=1 DATABASE_URL=postgresql://build:build@localhost:5432/build
 RUN pnpm prisma generate && pnpm next build
 
 # Image de migration / seed : contient le CLI Prisma et le seed (lancée une fois avant l'app)
