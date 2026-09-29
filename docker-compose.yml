@@ -1,10 +1,12 @@
 # ManaResto — déploiement VPS (Hostinger) : Traefik (externe) + app + Postgres 16
 # Variables lues depuis .env : APP_NAME, PUBLIC_HOST, POSTGRES_PASSWORD, SESSION_SECRET, SEED_DEMO…
+# Limites mémoire (serveur partagé) : DB_MEM_LIMIT, MIGRATE_MEM_LIMIT, APP_MEM_LIMIT — ajustables dans .env
 services:
   db:
     image: postgres:16-alpine
     container_name: ${APP_NAME:-manaresto}-db
     restart: unless-stopped
+    mem_limit: ${DB_MEM_LIMIT:-512m}
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-manaresto}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD manquant}
@@ -28,6 +30,7 @@ services:
     image: ${APP_NAME:-manaresto}-migrate:latest
     container_name: ${APP_NAME:-manaresto}-migrate
     restart: "no"
+    mem_limit: ${MIGRATE_MEM_LIMIT:-512m}
     env_file:
       - .env
     environment:
@@ -46,6 +49,7 @@ services:
     image: ${APP_NAME:-manaresto}:latest
     container_name: ${APP_NAME:-manaresto}
     restart: unless-stopped
+    mem_limit: ${APP_MEM_LIMIT:-768m}
     env_file:
       - .env
     environment:
