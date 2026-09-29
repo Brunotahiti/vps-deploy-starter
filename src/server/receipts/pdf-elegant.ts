@@ -3,8 +3,9 @@ import { formatBps } from "@/lib/money";
 import { formatDateTime } from "@/lib/dates";
 
 const BRAND = "#0d8a86", BRAND_DARK = "#0f6e6c", CORAL = "#f97c3c", INK = "#0f172a", MUTED = "#64748b", LINE = "#e4e9ef", SOFT = "#f1f4f8";
-/** Helvetica (WinAnsi) ne couvre pas le macron : on translittère les caractères hors plage. */
-const safe = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^\x20-\x7e\xa0-\xff€]/g, "");
+/** Helvetica (WinAnsi) couvre le Latin-1 (é, è, à, ç…) mais pas le macron (ā) : seuls les caractères hors plage sont translittérés. */
+const strip = (ch: string) => ch.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+const safe = (s: string) => [...s].map((ch) => (ch.charCodeAt(0) <= 0xff || ch === "€" ? ch : /^[\x20-\x7e\xa0-\xff]$/.test(strip(ch)) ? strip(ch) : "")).join("");
 
 /**
  * Ticket / reçu PDF « élégant » au format A5 : en-tête aux couleurs de l'établissement,
@@ -71,7 +72,7 @@ export async function renderReceiptPdfElegant(establishmentId: string, orderId: 
   if (order.discountTotal) { lines.push(["Sous-total", money(totals.subtotal)]); lines.push([`Remise${order.discountReason ? ` (${order.discountReason})` : ""}`, `- ${money(order.discountTotal)}`]); }
   lines.push(["Total HT", money(totals.htTotal)]);
   lines.push(["TVA", money(totals.taxTotal)]);
-  const boxH = 14 * lines.length + 34;
+  const boxH = Math.max(14 * lines.length + 34, 22 * totals.breakdown.length + 16);
   doc.roundedRect(boxX, y, boxW, boxH, 8).fill(SOFT);
   let ty = y + 8;
   lines.forEach(([l, v]) => { doc.fillColor(MUTED).font("Helvetica").fontSize(8.5).text(safe(l), boxX + 10, ty, { width: boxW - 20 }); doc.fillColor(INK).text(v, boxX + 10, ty, { width: boxW - 20, align: "right" }); ty += 14; });
@@ -81,10 +82,11 @@ export async function renderReceiptPdfElegant(establishmentId: string, orderId: 
 
   doc.fillColor(MUTED).font("Helvetica-Bold").fontSize(7.5).text("VENTILATION TVA", M, y + 2);
   let vy = y + 14;
+  const vatW = cw - boxW - 16;
   totals.breakdown.forEach((b) => {
-    doc.fillColor(INK).font("Helvetica").fontSize(7.5).text(safe(`${b.name} (${formatBps(b.rateBps)})`), M, vy, { width: 110, lineBreak: false, ellipsis: true });
-    doc.fillColor(MUTED).text(`HT ${money(b.ht)}  ·  TVA ${money(b.tax)}`, M + 100, vy, { width: cw - boxW - 110, lineBreak: false });
-    vy += 11;
+    doc.fillColor(INK).font("Helvetica-Bold").fontSize(7.5).text(safe(`${b.name} (${formatBps(b.rateBps)})`), M, vy, { width: vatW, lineBreak: false, ellipsis: true });
+    doc.fillColor(MUTED).font("Helvetica").text(`HT ${money(b.ht)}   TVA ${money(b.tax)}   TTC ${money(b.ttc)}`, M, vy + 10, { width: vatW, lineBreak: false, ellipsis: true });
+    vy += 22;
   });
   y += boxH + 14;
 
