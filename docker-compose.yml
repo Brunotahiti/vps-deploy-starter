@@ -1,43 +1,91 @@
+# ManaResto — déploiement VPS (Hostinger) : Traefik (externe) + app + Postgres 16
+# Variables lues depuis .env : APP_NAME, PUBLIC_HOST, POSTGRES_PASSWORD, SESSION_SECRET, SEED_DEMO…
 services:
+  db:
+    image: postgres:16-alpine
+    container_name: ${APP_NAME:-manaresto}-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-manaresto}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD manquant}
+      POSTGRES_DB: ${POSTGRES_DB:-manaresto}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-manaresto} -d ${POSTGRES_DB:-manaresto}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: migrator
+    image: ${APP_NAME:-manaresto}-migrate:latest
+    container_name: ${APP_NAME:-manaresto}-migrate
+    restart: "no"
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-manaresto}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-manaresto}
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - internal
+
   app:
     build:
       context: .
       dockerfile: Dockerfile
-    image: __APP_NAME__:latest
-    container_name: __APP_NAME__
+      target: runner
+    image: ${APP_NAME:-manaresto}:latest
+    container_name: ${APP_NAME:-manaresto}
     restart: unless-stopped
     env_file:
       - .env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-manaresto}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-manaresto}
+      PORT: 3000
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     networks:
       - traefik
+      - internal
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=traefik"
-
-      # HTTP → HTTPS redirect
-      - "traefik.http.routers.__APP_NAME__-http.rule=Host(`__PUBLIC_HOST__`)"
-      - "traefik.http.routers.__APP_NAME__-http.entrypoints=web"
-      - "traefik.http.routers.__APP_NAME__-http.middlewares=__APP_NAME__-https-redirect"
-      - "traefik.http.middlewares.__APP_NAME__-https-redirect.redirectscheme.scheme=https"
-      - "traefik.http.middlewares.__APP_NAME__-https-redirect.redirectscheme.permanent=true"
-
-      # HTTPS router
-      - "traefik.http.routers.__APP_NAME__.rule=Host(`__PUBLIC_HOST__`)"
-      - "traefik.http.routers.__APP_NAME__.entrypoints=websecure"
-      - "traefik.http.routers.__APP_NAME__.tls=true"
-      - "traefik.http.routers.__APP_NAME__.tls.certresolver=letsencrypt"
-      - "traefik.http.services.__APP_NAME__.loadbalancer.server.port=__APP_PORT__"
-
-      # Security headers
-      - "traefik.http.middlewares.__APP_NAME__-headers.headers.stsSeconds=31536000"
-      - "traefik.http.middlewares.__APP_NAME__-headers.headers.stsIncludeSubdomains=true"
-      - "traefik.http.middlewares.__APP_NAME__-headers.headers.stsPreload=true"
-      - "traefik.http.middlewares.__APP_NAME__-headers.headers.contentTypeNosniff=true"
-      - "traefik.http.middlewares.__APP_NAME__-headers.headers.browserXssFilter=true"
-      - "traefik.http.middlewares.__APP_NAME__-headers.headers.referrerPolicy=strict-origin-when-cross-origin"
-      - "traefik.http.routers.__APP_NAME__.middlewares=__APP_NAME__-headers"
+      - "traefik.http.routers.${APP_NAME:-manaresto}-http.rule=Host(`${PUBLIC_HOST}`)"
+      - "traefik.http.routers.${APP_NAME:-manaresto}-http.entrypoints=web"
+      - "traefik.http.routers.${APP_NAME:-manaresto}-http.middlewares=${APP_NAME:-manaresto}-https-redirect"
+      - "traefik.http.middlewares.${APP_NAME:-manaresto}-https-redirect.redirectscheme.scheme=https"
+      - "traefik.http.middlewares.${APP_NAME:-manaresto}-https-redirect.redirectscheme.permanent=true"
+      - "traefik.http.routers.${APP_NAME:-manaresto}.rule=Host(`${PUBLIC_HOST}`)"
+      - "traefik.http.routers.${APP_NAME:-manaresto}.entrypoints=websecure"
+      - "traefik.http.routers.${APP_NAME:-manaresto}.tls=true"
+      - "traefik.http.routers.${APP_NAME:-manaresto}.tls.certresolver=letsencrypt"
+      - "traefik.http.services.${APP_NAME:-manaresto}.loadbalancer.server.port=3000"
+      # Flux SSE : pas de mise en tampon, délais longs
+      - "traefik.http.routers.${APP_NAME:-manaresto}.middlewares=${APP_NAME:-manaresto}-headers"
+      - "traefik.http.middlewares.${APP_NAME:-manaresto}-headers.headers.stsSeconds=31536000"
+      - "traefik.http.middlewares.${APP_NAME:-manaresto}-headers.headers.stsIncludeSubdomains=true"
+      - "traefik.http.middlewares.${APP_NAME:-manaresto}-headers.headers.stsPreload=true"
+      - "traefik.http.middlewares.${APP_NAME:-manaresto}-headers.headers.contentTypeNosniff=true"
+      - "traefik.http.middlewares.${APP_NAME:-manaresto}-headers.headers.referrerPolicy=strict-origin-when-cross-origin"
 
 networks:
   traefik:
     external: true
     name: traefik
+  internal:
+    driver: bridge
+
+volumes:
+  pgdata:

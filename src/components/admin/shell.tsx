@@ -1,0 +1,86 @@
+"use client";
+
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { LayoutDashboard, UtensilsCrossed, Map, Receipt, Wallet, Users, Settings, ScrollText, Building2, Moon, Sun, LogOut, Menu, X, MonitorSmartphone, ChefHat, Boxes, CalendarDays, Heart, QrCode } from "lucide-react";
+import { useSession } from "@/hooks/use-session";
+import { useRealtime } from "@/hooks/use-realtime";
+import { useTheme } from "@/hooks/use-theme";
+import { useInstallPrompt } from "@/hooks/use-install-prompt";
+import { api } from "@/lib/api-client";
+import { Logo } from "@/components/brand";
+import { Spinner } from "@/components/ui/misc";
+
+export function AdminShell({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const router = useRouter();
+  const qc = useQueryClient();
+  const { me, can, isLoading } = useSession();
+  const { toggle } = useTheme();
+  const [open, setOpen] = useState(false);
+  useRealtime(!!me?.user);
+  const { canInstall, install } = useInstallPrompt();
+
+  if (isLoading) return <div className="flex h-screen items-center justify-center"><Spinner /></div>;
+
+  const nav = [
+    { href: "/admin", label: "Tableau de bord", icon: LayoutDashboard, show: can("reports.view") },
+    { href: "/admin/catalog/products", label: "Catalogue", icon: UtensilsCrossed, show: can("catalog.view"), match: "/admin/catalog" },
+    { href: "/admin/floor", label: "Plan de salle", icon: Map, show: can("floor.manage") },
+    { href: "/admin/orders", label: "Commandes", icon: Receipt, show: can("orders.view_history") },
+    { href: "/admin/cash", label: "Caisse", icon: Wallet, show: can("reports.view") },
+    { href: "/admin/users", label: "Utilisateurs", icon: Users, show: can("users.manage") },
+    { href: "/admin/settings", label: "Paramètres", icon: Settings, show: can("settings.manage") },
+    { href: "/admin/audit", label: "Journal d'audit", icon: ScrollText, show: can("audit.view") },
+    { href: "/admin/establishments", label: "Établissements", icon: Building2, show: can("establishments.manage") || (me?.establishments?.length ?? 0) > 1 },
+  ].filter((n) => n.show);
+  const later = [
+    { label: "Cuisine (KDS)", icon: ChefHat, phase: 3, href: "/kds" }, { label: "Stocks & achats", icon: Boxes, phase: 4 }, { label: "Personnel", icon: CalendarDays, phase: 5 },
+    { label: "Réservations", icon: CalendarDays, phase: 6 }, { label: "Fidélité & clients", icon: Heart, phase: 6 }, { label: "QR & en ligne", icon: QrCode, phase: 6 },
+  ];
+
+  const switchEst = async (id: string) => { await api.post("/api/auth/switch-establishment", { establishmentId: id }); qc.clear(); router.refresh(); qc.invalidateQueries(); };
+  const logout = async () => { await api.post("/api/auth/logout"); qc.clear(); router.replace("/login"); };
+
+  const Sidebar = (
+    <aside className="flex h-full w-64 flex-col border-r border-line surface">
+      <div className="flex h-14 items-center justify-between px-4"><Logo size={30} /><button className="touch rounded-lg p-2 lg:hidden" onClick={() => setOpen(false)}><X className="h-5 w-5" /></button></div>
+      {me?.establishments && me.establishments.length > 1 ? (
+        <select value={me.establishment?.id ?? ""} onChange={(e) => switchEst(e.target.value)} className="mx-3 mb-2 h-10 rounded-lg border border-line surface-2 px-2 text-sm font-semibold">
+          {me.establishments.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
+        </select>
+      ) : <p className="mx-4 mb-2 truncate text-sm font-semibold text-muted">{me?.establishment?.name}</p>}
+      <nav className="flex-1 overflow-y-auto px-2">
+        {nav.map((n) => {
+          const active = n.match ? pathname.startsWith(n.match) : pathname === n.href;
+          return <Link key={n.href} href={n.href} onClick={() => setOpen(false)} className={`mb-0.5 flex h-10 items-center gap-3 rounded-lg px-3 text-sm font-semibold ${active ? "bg-lagon-600 text-white" : "hover:surface-2"}`}><n.icon className="h-4 w-4" />{n.label}</Link>;
+        })}
+        <p className="mt-4 px-3 text-[10px] font-bold uppercase tracking-wider text-muted">Prochaines phases</p>
+        {later.map((n) => n.href ? <Link key={n.label} href={n.href} className="flex h-9 items-center gap-3 rounded-lg px-3 text-sm text-muted hover:surface-2"><n.icon className="h-4 w-4" />{n.label}<span className="ml-auto rounded bg-slate-500/15 px-1.5 text-[10px] font-bold">P{n.phase}</span></Link> : <span key={n.label} className="flex h-9 items-center gap-3 rounded-lg px-3 text-sm text-muted opacity-70"><n.icon className="h-4 w-4" />{n.label}<span className="ml-auto rounded bg-slate-500/15 px-1.5 text-[10px] font-bold">P{n.phase}</span></span>)}
+      </nav>
+      <div className="border-t border-line p-2">
+        {canInstall ? <button onClick={install} className="mb-1 flex h-10 w-full items-center gap-3 rounded-lg surface-2 px-3 text-sm font-semibold"><MonitorSmartphone className="h-4 w-4" />Installer l&apos;application</button> : null}
+        <Link href="/pos" className="flex h-10 items-center gap-3 rounded-lg bg-corail-500/15 px-3 text-sm font-bold text-corail-600"><MonitorSmartphone className="h-4 w-4" />Ouvrir la caisse</Link>
+        <div className="mt-2 flex items-center gap-2 px-1">
+          <span className="flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold text-white" style={{ background: me?.user?.color ?? "#0ea5a4" }}>{(me?.user?.firstName ?? "?").slice(0, 1)}</span>
+          <span className="min-w-0 flex-1 truncate text-sm font-semibold">{me?.user?.firstName} {me?.user?.lastName}<span className="block text-xs font-normal text-muted">{me?.roleKey}</span></span>
+          <button onClick={toggle} className="touch rounded-lg p-2 hover:surface-2"><Sun className="h-4 w-4 dark:hidden" /><Moon className="hidden h-4 w-4 dark:block" /></button>
+          <button onClick={logout} className="touch rounded-lg p-2 hover:surface-2" title="Déconnexion"><LogOut className="h-4 w-4" /></button>
+        </div>
+      </div>
+    </aside>
+  );
+
+  return (
+    <div className="flex h-dvh">
+      <div className="hidden lg:block">{Sidebar}</div>
+      {open ? <div className="fixed inset-0 z-40 flex lg:hidden"><div className="absolute inset-0 bg-black/50" onClick={() => setOpen(false)} /><div className="relative z-10">{Sidebar}</div></div> : null}
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header className="flex h-14 shrink-0 items-center gap-3 border-b border-line surface px-4 lg:hidden"><button className="touch rounded-lg p-2" onClick={() => setOpen(true)}><Menu className="h-5 w-5" /></button><Logo size={28} /></header>
+        <main className="min-h-0 flex-1 overflow-y-auto p-4 lg:p-6">{children}</main>
+      </div>
+    </div>
+  );
+}

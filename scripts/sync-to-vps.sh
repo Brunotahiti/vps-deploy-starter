@@ -3,7 +3,7 @@
 set -euo pipefail
 
 VPS_HOST="${VPS_HOST:-root@187.127.105.242}"
-VPS_PATH="${VPS_PATH:-/opt/__APP_NAME__}"
+VPS_PATH="${VPS_PATH:-/opt/manaresto}"
 
 cd "$(dirname "$0")/.."
 

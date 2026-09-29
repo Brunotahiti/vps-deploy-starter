@@ -1,0 +1,261 @@
+import "dotenv/config";
+import { PrismaClient } from "../src/generated/prisma/client";
+import { PrismaPg } from "@prisma/adapter-pg";
+import { hashPassword } from "../src/server/auth/password";
+import { ensureSystemRoles } from "../src/server/services/roles";
+import { createEstablishmentDefaults } from "../src/server/services/establishments";
+import { computeLine, computeOrderTotals } from "../src/lib/order-calc";
+import { addDays, endOfLocalDay, localDay, startOfLocalDay } from "../src/lib/dates";
+
+const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL! }) });
+
+const TZ = "Pacific/Tahiti";
+// Illustrations locales des produits (public/demo/*.svg), remplaçables par de vraies photos depuis le back-office
+import demoImages from "./demo-images.json" with { type: "json" };
+const IMAGES = demoImages as Record<string, string>;
+
+// Générateur pseudo-aléatoire déterministe (données de démo reproductibles)
+let seedState = 20260929;
+const rand = () => { seedState = (seedState * 1103515245 + 12345) & 0x7fffffff; return seedState / 0x7fffffff; };
+const pick = <T,>(arr: T[]): T => arr[Math.floor(rand() * arr.length)];
+const between = (a: number, b: number) => a + Math.floor(rand() * (b - a + 1));
+
+type ProductSeed = { name: string; price: number; cost: number; desc?: string; station?: "CUISINE" | "BAR"; mods?: string[]; color?: string };
+
+const CATALOG: { category: string; color: string; station: "CUISINE" | "BAR"; products: ProductSeed[] }[] = [
+  { category: "Entrées", color: "#22C55E", station: "CUISINE", products: [
+    { name: "Poisson cru au lait de coco", price: 1900, cost: 620, desc: "Thon rouge, citron vert, lait de coco, légumes croquants" },
+    { name: "Tartare de thon", price: 2100, cost: 700 },
+    { name: "Sashimi de thon rouge", price: 2300, cost: 820 },
+    { name: "Salade tahitienne", price: 1600, cost: 450 },
+    { name: "Carpaccio de mahi-mahi", price: 2000, cost: 650 },
+    { name: "Beignets de crevettes", price: 1800, cost: 560 },
+    { name: "Soupe chinoise", price: 1400, cost: 380 },
+    { name: "Nems (4 pièces)", price: 1300, cost: 350 },
+  ] },
+  { category: "Plats", color: "#F97316", station: "CUISINE", products: [
+    { name: "Burger Bacon", price: 2100, cost: 630, mods: ["Cuisson", "Accompagnement", "Suppléments burger"] },
+    { name: "Cheeseburger", price: 1900, cost: 560, mods: ["Cuisson", "Accompagnement", "Suppléments burger"] },
+    { name: "Burger Mana (double steak)", price: 2600, cost: 850, mods: ["Cuisson", "Accompagnement", "Suppléments burger"] },
+    { name: "Thon rouge mi-cuit", price: 2900, cost: 1050, mods: ["Cuisson", "Accompagnement"] },
+    { name: "Mahi-mahi sauce vanille", price: 3100, cost: 1100, mods: ["Accompagnement"] },
+    { name: "Entrecôte 300 g", price: 3600, cost: 1400, mods: ["Cuisson", "Accompagnement"] },
+    { name: "Poulet fafa", price: 2400, cost: 700 },
+    { name: "Chevrette curry coco", price: 3200, cost: 1150 },
+    { name: "Chow mein poulet", price: 1900, cost: 520 },
+    { name: "Steak frites", price: 2500, cost: 850, mods: ["Cuisson"] },
+    { name: "Pizza Margherita", price: 1700, cost: 420 },
+    { name: "Pizza Reine", price: 1950, cost: 540 },
+    { name: "Pizza Tahitienne", price: 2200, cost: 680 },
+    { name: "Ma'a Tinito", price: 2100, cost: 620 },
+    { name: "Poisson grillé du jour", price: 2800, cost: 950, mods: ["Accompagnement"] },
+  ] },
+  { category: "Desserts", color: "#EC4899", station: "CUISINE", products: [
+    { name: "Po'e banane", price: 900, cost: 220 },
+    { name: "Tarte coco", price: 1000, cost: 260 },
+    { name: "Crème brûlée vanille de Tahiti", price: 1100, cost: 300 },
+    { name: "Fondant chocolat", price: 1100, cost: 320 },
+    { name: "Salade de fruits frais", price: 900, cost: 280 },
+    { name: "Firi firi (3 pièces)", price: 700, cost: 150 },
+    { name: "Glace 2 boules", price: 800, cost: 200 },
+    { name: "Café gourmand", price: 1200, cost: 350 },
+  ] },
+  { category: "Boissons", color: "#3B82F6", station: "BAR", products: [
+    { name: "Eau minérale 50 cl", price: 350, cost: 90 }, { name: "Eau gazeuse 50 cl", price: 400, cost: 110 },
+    { name: "Coca-Cola 33 cl", price: 450, cost: 140 }, { name: "Limonade 33 cl", price: 450, cost: 130 },
+    { name: "Jus d'ananas", price: 600, cost: 180 }, { name: "Jus de pamplemousse", price: 600, cost: 180 },
+    { name: "Café expresso", price: 300, cost: 60 }, { name: "Café allongé", price: 350, cost: 70 },
+    { name: "Thé", price: 350, cost: 60 }, { name: "Chocolat chaud", price: 500, cost: 120 },
+    { name: "Hinano 33 cl", price: 600, cost: 210 }, { name: "Hinano pression 50 cl", price: 900, cost: 280 },
+    { name: "Tabu blonde 33 cl", price: 650, cost: 230 }, { name: "Verre de vin rouge", price: 800, cost: 260 },
+    { name: "Verre de vin blanc", price: 800, cost: 260 }, { name: "Verre de rosé", price: 800, cost: 260 },
+    { name: "Cocktail Mai Tai", price: 1400, cost: 400 }, { name: "Cocktail Piña Colada", price: 1400, cost: 420 },
+    { name: "Mojito", price: 1300, cost: 380 }, { name: "Cocktail sans alcool", price: 900, cost: 250 },
+  ] },
+];
+
+const MODIFIER_GROUPS: { name: string; minSelect: number; maxSelect: number | null; modifiers: { name: string; price: number; def?: boolean }[] }[] = [
+  { name: "Cuisson", minSelect: 1, maxSelect: 1, modifiers: [{ name: "Bleu", price: 0 }, { name: "Saignant", price: 0 }, { name: "À point", price: 0, def: true }, { name: "Bien cuit", price: 0 }] },
+  { name: "Accompagnement", minSelect: 1, maxSelect: 1, modifiers: [{ name: "Frites", price: 0, def: true }, { name: "Salade", price: 0 }, { name: "Légumes", price: 0 }, { name: "Riz", price: 0 }] },
+  { name: "Suppléments burger", minSelect: 0, maxSelect: null, modifiers: [{ name: "Bacon", price: 250 }, { name: "Fromage", price: 150 }, { name: "Avocat", price: 300 }, { name: "Œuf", price: 150 }] },
+];
+
+async function main() {
+  const existing = await prisma.organization.findUnique({ where: { slug: "demo-mana-beach" } });
+  if (existing) {
+    if (process.env.RESEED !== "1") {
+      console.log("Démo déjà présente (organisation demo-mana-beach). Relancez avec RESEED=1 pour la régénérer.");
+      return;
+    }
+    console.log("→ Suppression de l'ancienne démo…");
+    await prisma.organization.delete({ where: { id: existing.id } });
+  }
+  console.log("→ Création de l'entreprise de démonstration…");
+  const org = await prisma.organization.create({ data: { name: "Mana Beach SARL", slug: "demo-mana-beach" } });
+  await ensureSystemRoles(org.id);
+  const roles = Object.fromEntries((await prisma.role.findMany({ where: { organizationId: org.id } })).map((r) => [r.key, r.id]));
+
+  const est = await prisma.establishment.create({
+    data: {
+      organizationId: org.id, name: "Le Mana Beach", slug: "le-mana-beach", legalName: "Mana Beach SARL", tahitiNumber: "A12345", addressLine1: "PK 18,2 côté mer",
+      city: "Punaauia", island: "Tahiti", postalCode: "98718", phone: "+689 40 12 34 56", email: "contact@manabeach.pf", tipsEnabled: true, onboardingDone: true, onboardingStep: 15,
+      openingHours: { mon: ["11:00-14:30", "18:00-22:00"], tue: ["11:00-14:30", "18:00-22:00"], wed: ["11:00-14:30", "18:00-22:00"], thu: ["11:00-14:30", "18:00-22:00"], fri: ["11:00-14:30", "18:00-23:00"], sat: ["11:00-15:00", "18:00-23:00"], sun: ["11:00-15:00"] },
+    },
+  });
+  await createEstablishmentDefaults(est.id);
+  const taxRates = await prisma.taxRate.findMany({ where: { establishmentId: est.id } });
+  const taxResto = taxRates.find((t) => t.isDefault)!;
+  const taxNormal = taxRates.find((t) => t.rateBps === 1600)!;
+  const stations = Object.fromEntries((await prisma.kitchenStation.findMany({ where: { establishmentId: est.id } })).map((s) => [s.name, s.id]));
+
+  console.log("→ Personnel…");
+  const pw = await hashPassword("demo1234");
+  const mkUser = async (email: string, first: string, last: string, roleKey: string | null, pin: string, color: string, isOwner = false) => {
+    const u = await prisma.user.create({ data: { organizationId: org.id, email, passwordHash: pw, pinHash: await hashPassword(pin), firstName: first, lastName: last, color, isOwner, displayName: first } });
+    if (roleKey) await prisma.userEstablishment.create({ data: { userId: u.id, establishmentId: est.id, roleId: roles[roleKey] } });
+    return u;
+  };
+  const owner = await mkUser("demo@manaresto.pf", "Teiva", "Manutahi", null, "1234", "#0EA5A4", true);
+  const manager = await mkUser("manager@manaresto.pf", "Hinatea", "Tehei", "manager", "2000", "#8B5CF6");
+  const servers: { id: string }[] = [];
+  const serverNames: [string, string, string][] = [["Moana", "Tefaatau", "1001"], ["Vaiana", "Raapoto", "1002"], ["Tamatoa", "Bonno", "1003"], ["Poema", "Chang", "1004"], ["Heimana", "Wong", "1005"]];
+  const colors = ["#F97316", "#22C55E", "#3B82F6", "#EC4899", "#EAB308"];
+  for (const [i, [f, l, pin]] of serverNames.entries()) servers.push(await mkUser(`${f.toLowerCase()}@manaresto.pf`, f, l, "server", pin, colors[i]));
+  await mkUser("cuisine@manaresto.pf", "Rai", "Cuisine", "kitchen", "3000", "#EF4444");
+  await mkUser("bar@manaresto.pf", "Manu", "Bar", "bartender", "4000", "#06B6D4");
+  await mkUser("compta@manaresto.pf", "Léa", "Comptable", "accountant", "5000", "#64748B");
+
+  console.log("→ Salles et tables…");
+  const salle = await prisma.room.create({ data: { establishmentId: est.id, name: "Salle", kind: "INDOOR", sortOrder: 0, width: 1200, height: 800 } });
+  const terrasse = await prisma.room.create({ data: { establishmentId: est.id, name: "Terrasse", kind: "TERRACE", sortOrder: 1, width: 1200, height: 700 } });
+  const tables: { id: string }[] = [];
+  for (let i = 1; i <= 12; i++) {
+    const col = (i - 1) % 4, row = Math.floor((i - 1) / 4);
+    tables.push(await prisma.table.create({ data: { establishmentId: est.id, roomId: salle.id, name: `T${String(i).padStart(2, "0")}`, seats: i % 3 === 0 ? 6 : i % 2 === 0 ? 4 : 2, shape: i % 3 === 0 ? "RECT" : i % 2 === 0 ? "SQUARE" : "ROUND", x: 80 + col * 260, y: 80 + row * 230, width: i % 3 === 0 ? 180 : 110, height: 110 } }));
+  }
+  for (let i = 13; i <= 20; i++) {
+    const col = (i - 13) % 4, row = Math.floor((i - 13) / 4);
+    tables.push(await prisma.table.create({ data: { establishmentId: est.id, roomId: terrasse.id, name: `T${i}`, seats: i % 2 === 0 ? 4 : 2, shape: i % 2 === 0 ? "SQUARE" : "ROUND", x: 80 + col * 260, y: 100 + row * 260, width: 110, height: 110 } }));
+  }
+
+  console.log("→ Catalogue…");
+  const groups: Record<string, string> = {};
+  for (const [gi, g] of MODIFIER_GROUPS.entries()) {
+    const created = await prisma.modifierGroup.create({ data: { establishmentId: est.id, name: g.name, minSelect: g.minSelect, maxSelect: g.maxSelect, sortOrder: gi, modifiers: { create: g.modifiers.map((m, i) => ({ name: m.name, priceDelta: m.price, isDefault: !!m.def, sortOrder: i })) } } });
+    groups[g.name] = created.id;
+  }
+  const productsByCategory: Record<string, { id: string; name: string; priceTtc: number; costPrice: number; taxRateBps: number; taxRateName: string; stationId: string | null; groups: string[] }[]> = {};
+  for (const [ci, cat] of CATALOG.entries()) {
+    const category = await prisma.category.create({ data: { establishmentId: est.id, name: cat.category, color: cat.color, sortOrder: ci } });
+    productsByCategory[cat.category] = [];
+    for (const [pi, p] of cat.products.entries()) {
+      const tax = cat.station === "BAR" && /Hinano|Tabu|vin|Cocktail|Mojito/.test(p.name) ? taxNormal : taxResto;
+      const prod = await prisma.product.create({
+        data: {
+          establishmentId: est.id, categoryId: category.id, taxRateId: tax.id, kitchenStationId: stations[cat.station], name: p.name, description: p.desc ?? null, imageUrl: IMAGES[p.name] ?? null, priceTtc: p.price, costPrice: p.cost,
+          sku: `${cat.category.slice(0, 3).toUpperCase()}-${String(pi + 1).padStart(3, "0")}`, sortOrder: pi, color: p.color ?? null,
+          modifierGroups: p.mods ? { create: p.mods.map((m, i) => ({ modifierGroupId: groups[m], sortOrder: i })) } : undefined,
+        },
+      });
+      productsByCategory[cat.category].push({ id: prod.id, name: prod.name, priceTtc: prod.priceTtc, costPrice: prod.costPrice, taxRateBps: tax.rateBps, taxRateName: tax.name, stationId: stations[cat.station], groups: p.mods ?? [] });
+    }
+  }
+  const entrees = productsByCategory["Entrées"], plats = productsByCategory["Plats"], desserts = productsByCategory["Desserts"], boissons = productsByCategory["Boissons"];
+  await prisma.menu.create({
+    data: {
+      establishmentId: est.id, name: "Menu déjeuner", description: "Entrée + plat + dessert", priceTtc: 3500, taxRateId: taxResto.id, color: "#0EA5A4",
+      sections: { create: [
+        { name: "Entrée", minSelect: 1, maxSelect: 1, sortOrder: 0, items: { create: [entrees[0], entrees[3], entrees[6]].map((p, i) => ({ productId: p.id, supplement: 0, sortOrder: i })) } },
+        { name: "Plat", minSelect: 1, maxSelect: 1, sortOrder: 1, items: { create: [{ productId: plats[6].id, supplement: 0, sortOrder: 0 }, { productId: plats[8].id, supplement: 0, sortOrder: 1 }, { productId: plats[9].id, supplement: 0, sortOrder: 2 }, { productId: plats[5].id, supplement: 500, sortOrder: 3 }] } },
+        { name: "Dessert", minSelect: 1, maxSelect: 1, sortOrder: 2, items: { create: [{ productId: desserts[0].id, supplement: 0, sortOrder: 0 }, { productId: desserts[1].id, supplement: 0, sortOrder: 1 }, { productId: desserts[2].id, supplement: 300, sortOrder: 2 }] } },
+      ] },
+    },
+  });
+  const modifierRows = await prisma.modifier.findMany({ include: { group: true } });
+
+  console.log("→ Commandes fictives (14 jours)…");
+  const today = localDay(new Date(), TZ);
+  let counter = 0;
+  const mkOrder = async (day: string, hour: number, minute: number, tableIdx: number, close: boolean, serverIdx: number, cashSessionId: string | null) => {
+    const openedAt = new Date(startOfLocalDay(day, TZ).getTime() + (hour * 60 + minute) * 60000);
+    const covers = between(1, 5);
+    const dayCounter = await prisma.orderCounter.upsert({ where: { establishmentId_day: { establishmentId: est.id, day } }, update: { value: { increment: 1 } }, create: { establishmentId: est.id, day, value: 1 } });
+    const number = `${day.replace(/-/g, "")}-${String(dayCounter.value).padStart(4, "0")}`;
+    const table = tables[tableIdx];
+    const order = await prisma.order.create({ data: { establishmentId: est.id, number, type: "DINE_IN", tableId: table.id, serverId: servers[serverIdx].id, covers, openedAt, createdAt: openedAt, status: "OPEN", courses: { create: ["APÉRITIFS", "ENTRÉES", "PLATS", "DESSERTS"].map((name, i) => ({ name, sortOrder: i })) } } });
+    const courses = await prisma.course.findMany({ where: { orderId: order.id }, orderBy: { sortOrder: "asc" } });
+    const lines: { quantity: number; unitPrice: number; modifiersTotal: number; discountAmount: number; taxRateBps: number; taxRateName: string }[] = [];
+    const picks: { p: (typeof plats)[number]; course: number }[] = [];
+    for (let c = 0; c < covers; c++) {
+      if (rand() < 0.5) picks.push({ p: pick(entrees), course: 1 });
+      picks.push({ p: pick(plats), course: 2 });
+      if (rand() < 0.45) picks.push({ p: pick(desserts), course: 3 });
+      picks.push({ p: pick(boissons), course: 0 });
+      if (rand() < 0.3) picks.push({ p: pick(boissons), course: 0 });
+    }
+    const sent = close || rand() < 0.7;
+    for (const [i, { p, course }] of picks.entries()) {
+      const mods = [];
+      for (const gName of p.groups) {
+        const g = MODIFIER_GROUPS.find((x) => x.name === gName)!;
+        if (g.minSelect > 0) { const m = pick(modifierRows.filter((r) => r.group.name === gName)); mods.push(m); }
+        else if (rand() < 0.35) { const m = pick(modifierRows.filter((r) => r.group.name === gName)); mods.push(m); }
+      }
+      const modifiersTotal = mods.reduce((a, m) => a + m.priceDelta, 0);
+      const calc = computeLine({ quantity: 1, unitPrice: p.priceTtc, modifiersTotal, discountAmount: 0, taxRateBps: p.taxRateBps });
+      lines.push({ quantity: 1, unitPrice: p.priceTtc, modifiersTotal, discountAmount: 0, taxRateBps: p.taxRateBps, taxRateName: p.taxRateName });
+      await prisma.orderItem.create({
+        data: {
+          orderId: order.id, courseId: courses[course].id, productId: p.id, kitchenStationId: p.stationId, name: p.name, quantity: 1, unitPrice: p.priceTtc, modifiersTotal, lineTotal: calc.lineTotal,
+          taxRateBps: p.taxRateBps, taxRateName: p.taxRateName, taxAmount: calc.taxAmount, costPrice: p.costPrice, seatNumber: (i % covers) + 1, sortOrder: i, status: close ? "SERVED" : sent ? "SENT" : "PENDING",
+          sentAt: sent ? new Date(openedAt.getTime() + 3 * 60000) : null, createdAt: openedAt,
+          modifiers: { create: mods.map((m) => ({ modifierId: m.id, groupName: m.group.name, name: m.name, priceDelta: m.priceDelta })) },
+        },
+      });
+    }
+    const discount = rand() < 0.08 ? 500 : 0;
+    const totals = computeOrderTotals(lines, discount);
+    if (close) {
+      const closedAt = new Date(openedAt.getTime() + between(45, 110) * 60000);
+      const method = rand() < 0.55 ? "CARD" : rand() < 0.85 ? "CASH" : "MEAL_VOUCHER";
+      const tip = method === "CARD" && rand() < 0.3 ? Math.round(totals.total * 0.05 / 100) * 100 : 0;
+      const split = method === "CARD" && covers >= 2 && rand() < 0.25;
+      const amounts = split ? [Math.floor(totals.total / 2), totals.total - Math.floor(totals.total / 2)] : [totals.total];
+      for (const [i, amount] of amounts.entries()) {
+        const pay = await prisma.payment.create({ data: { establishmentId: est.id, orderId: order.id, cashSessionId, receivedById: servers[serverIdx].id, method, amount, tipAmount: i === 0 ? tip : 0, tendered: method === "CASH" ? Math.ceil((amount + tip) / 1000) * 1000 : null, changeGiven: method === "CASH" ? Math.ceil((amount + tip) / 1000) * 1000 - amount - tip : 0, splitLabel: split ? `Part ${i + 1}/2` : null, createdAt: closedAt } });
+        if (method === "CASH" && cashSessionId) await prisma.cashMovement.create({ data: { cashSessionId, userId: servers[serverIdx].id, paymentId: pay.id, orderId: order.id, kind: "SALE", amount: amount + tip, reason: `Vente ${number}`, createdAt: closedAt } });
+      }
+      await prisma.order.update({ where: { id: order.id }, data: { status: "PAID", closedAt, subtotal: totals.subtotal, discountTotal: totals.discountTotal, discountReason: discount ? "Geste commercial" : null, taxTotal: totals.taxTotal, total: totals.total, paidTotal: totals.total, tipTotal: tip } });
+    } else {
+      await prisma.order.update({ where: { id: order.id }, data: { status: sent ? "SENT" : "OPEN", subtotal: totals.subtotal, discountTotal: totals.discountTotal, taxTotal: totals.taxTotal, total: totals.total } });
+    }
+    counter++;
+  };
+
+  for (let d = 14; d >= 1; d--) {
+    const day = addDays(today, -d);
+    const dow = new Date(day + "T12:00:00Z").getUTCDay();
+    const lunch = dow === 0 || dow === 6 ? between(18, 26) : between(10, 18);
+    const dinner = dow === 0 ? 0 : dow === 5 || dow === 6 ? between(16, 24) : between(8, 14);
+    const session = await prisma.cashSession.create({ data: { establishmentId: est.id, openedById: manager.id, closedById: manager.id, status: "CLOSED", openingFloat: 30000, openedAt: new Date(startOfLocalDay(day, TZ).getTime() + 10.5 * 3600000), closedAt: new Date(endOfLocalDay(day, TZ).getTime() - 1.5 * 3600000) } });
+    await prisma.cashMovement.create({ data: { cashSessionId: session.id, userId: manager.id, kind: "OPENING", amount: 30000, reason: "Fond de caisse", createdAt: session.openedAt } });
+    for (let i = 0; i < lunch; i++) await mkOrder(day, between(11, 13), between(0, 59), between(0, 19), true, between(0, 4), session.id);
+    for (let i = 0; i < dinner; i++) await mkOrder(day, between(18, 21), between(0, 59), between(0, 19), true, between(0, 4), session.id);
+    const movements = await prisma.cashMovement.findMany({ where: { cashSessionId: session.id } });
+    const expected = movements.reduce((a, m) => a + m.amount, 0);
+    const counted = expected + (rand() < 0.2 ? pick([-500, -100, 100, 200]) : 0);
+    await prisma.cashSession.update({ where: { id: session.id }, data: { expectedCash: expected, countedCash: counted, difference: counted - expected } });
+  }
+  // Aujourd'hui : session ouverte, quelques commandes payées et des tables occupées
+  const todaySession = await prisma.cashSession.create({ data: { establishmentId: est.id, openedById: manager.id, status: "OPEN", openingFloat: 30000, openedAt: new Date(Date.now() - 3 * 3600000) } });
+  await prisma.cashMovement.create({ data: { cashSessionId: todaySession.id, userId: manager.id, kind: "OPENING", amount: 30000, reason: "Fond de caisse", createdAt: todaySession.openedAt } });
+  const nowLocalHour = Number(new Intl.DateTimeFormat("en-US", { timeZone: TZ, hour: "numeric", hourCycle: "h23" }).format(new Date()));
+  for (let i = 0; i < 6; i++) await mkOrder(today, Math.max(0, nowLocalHour - 2), between(0, 40), between(0, 19), true, between(0, 4), todaySession.id);
+  const openTables = [0, 3, 5, 14, 16];
+  for (const [i, t] of openTables.entries()) await mkOrder(today, Math.max(0, nowLocalHour - (i % 2)), between(0, 30), t, false, i % 5, todaySession.id);
+
+  await prisma.auditLog.create({ data: { organizationId: org.id, establishmentId: est.id, userId: owner.id, action: "demo.seed", entityType: "establishment", entityId: est.id, newValue: { orders: counter } } });
+  console.log(`✓ Démo créée : ${counter} commandes. Connexion : demo@manaresto.pf / demo1234 (PIN 1234)`);
+}
+
+main().catch((e) => { console.error(e); process.exit(1); }).finally(() => prisma.$disconnect());

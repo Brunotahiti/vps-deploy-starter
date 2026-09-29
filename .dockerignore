@@ -2,7 +2,6 @@ node_modules
 .next
 .git
 .github
-.vercel
 .env
 .env.*
 !.env.example
@@ -11,11 +10,10 @@ node_modules
 .DS_Store
 dist
 build
-__pycache__
-*.pyc
-.venv
-venv
-README.md
+src/generated
+playwright-report
+test-results
+e2e
+docs
+scripts
 TEMPLATE-README.md
-init.sh
-.gitignore
