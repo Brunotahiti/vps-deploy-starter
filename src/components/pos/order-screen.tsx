@@ -3,7 +3,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Search, Send, Receipt, CreditCard, Percent, XCircle, ArrowRightLeft, Printer, Flame, PauseCircle, CheckCircle2, AlertTriangle, ChevronDown } from "lucide-react";
+import { ArrowLeft, Search, Send, Receipt, CreditCard, Percent, XCircle, ArrowRightLeft, Printer, Flame, PauseCircle, CheckCircle2, AlertTriangle, ChevronDown, Plus, X, ShoppingBasket } from "lucide-react";
 import { api, ApiClientError } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
@@ -67,6 +67,7 @@ export function OrderScreen({ orderId: orderIdProp }: { orderId: string }) {
   const [dialog, setDialog] = useState<"discount" | "cancel" | "transfer" | "covers" | null>(null);
   const [receipt, setReceipt] = useState<{ afterPayment: boolean } | null>(null);
   const [sendMenu, setSendMenu] = useState(false);
+  const [sheet, setSheet] = useState(false); // panneau « commande » sur téléphone
 
   const o = order.data;
   const [courseSel, setCourseSel] = useState<string | null>(null);
@@ -154,10 +155,18 @@ export function OrderScreen({ orderId: orderIdProp }: { orderId: string }) {
     return catalog.data.products.filter((p) => p.categoryId === categoryId);
   }, [catalog.data, categoryId, search]);
 
+  /** Toucher la vignette : fiche détaillée (photo, description, options, quantité, note). */
   const onProduct = (p: PosProduct) => {
     if (!p.isAvailable || p.autoUnavailable) return toast(`${p.name} est indisponible`, "error");
-    if (p.modifierGroups.length > 0 || p.variants.length > 0) setProductOpen(p);
-    else addItem.mutate({ id: crypto.randomUUID(), productId: p.id, quantity: 1 });
+    setProductOpen(p);
+  };
+  /** Bouton « + » de la vignette : ajout direct quand aucun choix n'est requis. */
+  const quickAdd = (p: PosProduct) => {
+    if (!p.isAvailable || p.autoUnavailable) return toast(`${p.name} est indisponible`, "error");
+    const needsChoice = p.variants.length > 0 || p.modifierGroups.some((g) => g.minSelect > 0 && !g.modifiers.some((m) => m.isDefault));
+    if (needsChoice) return setProductOpen(p);
+    const defaults = p.modifierGroups.flatMap((g) => g.modifiers.filter((m) => m.isDefault).slice(0, g.maxSelect ?? undefined).map((m) => ({ modifierId: m.id })));
+    addItem.mutate({ id: crypto.randomUUID(), productId: p.id, quantity: 1, modifiers: defaults });
   };
 
   if (order.isLoading || catalog.isLoading) return <div className="flex h-full items-center justify-center"><Spinner /></div>;
@@ -172,22 +181,41 @@ export function OrderScreen({ orderId: orderIdProp }: { orderId: string }) {
   const rootItems = o.items.filter((i) => !i.parentItemId);
   const currentCourse = o.courses.find((c) => c.id === courseId);
 
+  const itemCount = activeItems.filter((i) => !i.parentItemId).reduce((a, i) => a + i.quantity, 0);
+  const categoryButton = (c: { id: string; name: string; color: string | null }, active: boolean, onClick: () => void, mobile = false) => (
+    <button key={c.id} onClick={onClick} className={mobile
+      ? `touch flex h-10 shrink-0 items-center gap-2 rounded-full px-3.5 text-[13px] font-bold transition active:scale-[0.97] ${active ? "text-white shadow-lift" : "card text-muted"}`
+      : `touch flex h-16 w-full flex-col items-start justify-center gap-1 rounded-2xl px-3 text-left text-sm font-bold leading-tight transition active:scale-[0.98] ${active ? "text-white shadow-lift" : "card hover:surface-2"}`}
+      style={active ? { background: `linear-gradient(140deg, ${c.color ?? "#14aaa3"}, color-mix(in srgb, ${c.color ?? "#14aaa3"} 70%, black))` } : undefined}>
+      <span className={mobile ? "h-2.5 w-2.5 rounded-full" : "h-2 w-6 rounded-full"} style={{ background: active ? "rgb(255 255 255 / 0.75)" : (c.color ?? "#14aaa3") }} />
+      <span className={mobile ? "whitespace-nowrap" : "line-clamp-2"}>{c.name}</span>
+    </button>
+  );
+  const formulesCat = { id: FORMULES, name: "Formules", color: "#14aaa3" };
+  const rootCategories = catalog.data.categories.filter((c) => !c.parentId);
+
   return (
-    <div className="flex h-full">
-      {/* Catégories */}
-      <aside className="no-print flex w-32 shrink-0 flex-col sm:w-40">
+    <div className="flex h-full flex-col md:flex-row">
+      {/* Bandeau mobile : retour, table, recherche */}
+      <div className="md:hidden flex shrink-0 items-center gap-2 px-2 pt-2">
+        <button onClick={() => router.push("/pos")} className="touch flex h-11 w-11 shrink-0 items-center justify-center rounded-xl card" aria-label="Retour à la salle"><ArrowLeft className="h-5 w-5" /></button>
+        <button onClick={() => !closed && setDialog("covers")} className="touch min-w-0 flex-1 text-left">
+          <p className="truncate text-base font-extrabold leading-tight">{o.table ? `Table ${o.table.name}` : ORDER_TYPE_LABEL[o.type]}{o.customerName ? ` · ${o.customerName}` : ""}</p>
+          <p className="truncate text-[11px] text-muted">{o.covers} couv. · {formatElapsed(o.openedAt)} · {o.number === "HORS-LIGNE" ? "hors ligne" : `n° ${o.number.split("-")[1]}`}{currentCourse && o.courses.length > 1 ? ` · ${currentCourse.name}` : ""}</p>
+        </button>
+        {!closed && o.type === "DINE_IN" ? <button onClick={() => setSeat(seat === null ? 1 : seat >= o.covers ? null : seat + 1)} className="touch h-9 shrink-0 rounded-full surface-2 px-3 text-xs font-bold text-muted">{seat === null ? "Table" : `C${seat}`}</button> : null}
+      </div>
+      <div className="md:hidden flex shrink-0 gap-2 overflow-x-auto no-scrollbar px-2 pt-2 pb-1">
+        {rootCategories.map((c) => categoryButton(c, categoryId === c.id && !search, () => { setCategoryId(c.id); setSearch(""); }, true))}
+        {showFormules ? categoryButton(formulesCat, categoryId === FORMULES && !search, () => { setCategoryId(FORMULES); setSearch(""); }, true) : null}
+      </div>
+
+      {/* Catégories (tablette / ordinateur) */}
+      <aside className="no-print hidden w-32 shrink-0 flex-col md:flex sm:w-40">
         <button onClick={() => router.push("/pos")} className="touch mx-2 mt-2 flex h-11 items-center justify-center gap-1.5 rounded-xl text-sm font-bold text-muted hover:surface-2"><ArrowLeft className="h-4 w-4" /> Salle</button>
         <div className="flex-1 space-y-1.5 overflow-y-auto no-scrollbar p-2">
-          {catalog.data.categories.filter((c) => !c.parentId).map((c) => {
-            const active = categoryId === c.id && !search;
-            return (
-              <button key={c.id} onClick={() => { setCategoryId(c.id); setSearch(""); }} className={`touch flex h-16 w-full flex-col items-start justify-center gap-1 rounded-2xl px-3 text-left text-sm font-bold leading-tight transition active:scale-[0.98] ${active ? "text-white shadow-lift" : "card hover:surface-2"}`} style={active ? { background: `linear-gradient(140deg, ${c.color}, color-mix(in srgb, ${c.color} 70%, black))` } : undefined}>
-                <span className="h-2 w-6 rounded-full" style={{ background: active ? "rgb(255 255 255 / 0.7)" : c.color }} />
-                <span className="line-clamp-2">{c.name}</span>
-              </button>
-            );
-          })}
-          {showFormules ? <button onClick={() => { setCategoryId(FORMULES); setSearch(""); }} className={`touch flex h-16 w-full flex-col items-start justify-center gap-1 rounded-2xl px-3 text-left text-sm font-bold transition ${categoryId === FORMULES && !search ? "bg-brand text-white shadow-lift" : "card hover:surface-2"}`}><span className={`h-2 w-6 rounded-full ${categoryId === FORMULES && !search ? "bg-white/70" : "bg-lagon-500"}`} />Formules</button> : null}
+          {rootCategories.map((c) => categoryButton(c, categoryId === c.id && !search, () => { setCategoryId(c.id); setSearch(""); }))}
+          {showFormules ? categoryButton(formulesCat, categoryId === FORMULES && !search, () => { setCategoryId(FORMULES); setSearch(""); }) : null}
         </div>
       </aside>
 
@@ -198,40 +226,60 @@ export function OrderScreen({ orderId: orderIdProp }: { orderId: string }) {
           <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Rechercher un produit, un code…" className="h-9 flex-1 bg-transparent text-sm outline-none placeholder:text-muted" />
           {search ? <button onClick={() => setSearch("")} className="rounded-full surface-2 px-2 py-0.5 text-xs font-semibold text-muted">Effacer</button> : null}
         </div>
-        <div className="grid flex-1 auto-rows-min grid-cols-2 gap-2.5 overflow-y-auto p-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+        <div className="grid flex-1 auto-rows-min grid-cols-2 gap-2.5 overflow-y-auto p-2 pb-24 md:pb-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
           {categoryId === FORMULES && !search
             ? catalog.data.menus.map((m) => (
-                <button key={m.id} disabled={closed} onClick={() => setMenuOpen(m)} className="touch card flex h-28 flex-col justify-between overflow-hidden p-3 text-left transition hover:-translate-y-0.5 hover:shadow-lift active:scale-[0.98] disabled:opacity-50">
-                  <span className="inline-flex w-fit rounded-full bg-lagon-500/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-lagon-700 dark:text-lagon-300">Formule</span>
-                  <span className="line-clamp-2 text-sm font-bold leading-tight">{m.name}</span>
-                  <span className="text-sm font-extrabold text-brand"><Money amount={m.priceTtc} /></span>
+                <button key={m.id} disabled={closed} onClick={() => setMenuOpen(m)} className="touch card relative flex h-36 flex-col overflow-hidden text-left transition hover:-translate-y-0.5 hover:shadow-lift active:scale-[0.98] disabled:opacity-50">
+                  {/* eslint-disable-next-line @next/next/no-img-element -- image du catalogue (URL libre) */}
+                  {m.imageUrl ? <img src={m.imageUrl} alt="" loading="lazy" className="h-20 w-full shrink-0 object-cover" /> : <span className="flex h-20 w-full shrink-0 items-end bg-lagoon p-2.5"><span className="rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">Formule</span></span>}
+                  <span className="flex min-h-0 flex-1 flex-col justify-between p-2.5">
+                    <span className="line-clamp-2 text-[13px] font-bold leading-tight">{m.name}</span>
+                    <span className="text-sm font-extrabold text-brand"><Money amount={m.priceTtc} /></span>
+                  </span>
                 </button>
               ))
             : products.map((p) => {
                 const off = !p.isAvailable || p.autoUnavailable;
                 const cat = catalog.data!.categories.find((c) => c.id === p.categoryId);
+                const tint = p.color ?? cat?.color ?? "#14aaa3";
                 return (
-                  <button key={p.id} disabled={closed} onClick={() => onProduct(p)} className={`touch card relative flex ${p.imageUrl ? "h-40" : "h-28"} flex-col overflow-hidden text-left transition hover:-translate-y-0.5 hover:shadow-lift active:scale-[0.98] disabled:opacity-50 ${off ? "opacity-50 grayscale" : ""}`}>
-                    {/* eslint-disable-next-line @next/next/no-img-element -- images du catalogue (URL libre), non optimisables */}
-                    {p.imageUrl ? <img src={p.imageUrl} alt="" loading="lazy" className="h-[86px] w-full shrink-0 object-cover" /> : <span className="h-1.5 w-full shrink-0" style={{ background: p.color ?? cat?.color ?? "#94a3b8" }} />}
-                    <span className="flex min-h-0 flex-1 flex-col justify-between p-2.5">
-                      <span className="line-clamp-2 text-[13px] font-bold leading-tight">{p.name}</span>
-                      <span className="flex items-center justify-between gap-1"><span className="rounded-full surface-2 px-2 py-0.5 text-xs font-extrabold"><Money amount={p.priceTtc} /></span>{p.modifierGroups.length ? <span className="text-[10px] font-bold uppercase tracking-wide text-muted">options</span> : null}</span>
-                    </span>
+                  <div key={p.id} className={`card relative flex h-[172px] flex-col overflow-hidden transition hover:-translate-y-0.5 hover:shadow-lift ${closed ? "opacity-50" : ""} ${off ? "opacity-60 grayscale" : ""}`}>
+                    <button disabled={closed} onClick={() => onProduct(p)} className="touch flex min-h-0 flex-1 flex-col text-left active:scale-[0.99]" aria-label={`${p.name} : détail`}>
+                      {/* eslint-disable-next-line @next/next/no-img-element -- images du catalogue (URL libre), non optimisables */}
+                      {p.imageUrl ? <img src={p.imageUrl} alt="" loading="lazy" className="h-[88px] w-full shrink-0 object-cover" /> : (
+                        <span className="flex h-[88px] w-full shrink-0 items-center justify-center text-3xl font-extrabold text-white/90" style={{ background: `linear-gradient(140deg, color-mix(in srgb, ${tint} 85%, white), ${tint} 60%, color-mix(in srgb, ${tint} 75%, black))` }}>{p.name.slice(0, 1).toUpperCase()}</span>
+                      )}
+                      <span className="flex min-h-0 flex-1 flex-col justify-between gap-1 p-2.5 pr-11">
+                        <span className="line-clamp-2 text-[13px] font-bold leading-tight">{p.name}</span>
+                        <span className="flex items-center gap-1.5 text-xs font-extrabold"><Money amount={p.priceTtc} />{p.variants.length ? <span className="text-[10px] font-bold uppercase tracking-wide text-muted">dès</span> : null}{p.modifierGroups.length ? <span className="rounded-md surface-2 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-muted">options</span> : null}</span>
+                      </span>
+                    </button>
+                    {!closed && !off ? <button onClick={(e) => { e.stopPropagation(); quickAdd(p); }} className="touch absolute bottom-2 right-2 flex h-9 w-9 items-center justify-center rounded-full bg-brand text-white shadow-glow active:scale-90" aria-label={`Ajouter ${p.name}`}><Plus className="h-5 w-5" /></button> : null}
                     {off ? <span className="absolute inset-x-0 top-1/2 -translate-y-1/2 bg-red-600/90 py-0.5 text-center text-[11px] font-bold uppercase text-white">Indisponible</span> : null}
-                  </button>
+                  </div>
                 );
               })}
           {products.length === 0 && categoryId !== FORMULES ? <p className="col-span-full py-10 text-center text-sm text-muted">Aucun produit</p> : null}
         </div>
       </section>
 
-      {/* Ticket */}
-      <aside className="card m-2 ml-0 flex w-[340px] shrink-0 flex-col overflow-hidden xl:w-[400px]">
+      {/* Barre mobile : résumé de la commande */}
+      <div className="md:hidden fixed inset-x-0 bottom-0 z-30 flex gap-2 p-2" style={{ paddingBottom: "max(8px, env(safe-area-inset-bottom))" }}>
+        <button onClick={() => setSheet(true)} aria-label="Voir la commande" className="touch glass flex h-14 min-w-0 flex-1 items-center gap-3 rounded-2xl border px-4 shadow-lift">
+          <span className="relative"><ShoppingBasket className="h-6 w-6" />{itemCount > 0 ? <span className="absolute -right-2 -top-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-corail-500 px-1 text-[11px] font-extrabold text-white">{itemCount}</span> : null}</span>
+          <span className="min-w-0 flex-1 text-left"><span className="block truncate text-sm font-extrabold">Commande{pendingCount > 0 ? ` · ${pendingCount} à envoyer` : ""}</span><span className="block text-[11px] text-muted">{itemCount} article{itemCount > 1 ? "s" : ""}</span></span>
+          <Money amount={o.total} className="text-lg font-extrabold" />
+        </button>
+        {!closed && pendingCount > 0 ? <Button size="lg" variant="accent" className="h-14 shrink-0 px-4" onClick={() => send({ all: true })}><Send className="h-5 w-5" /></Button> : null}
+      </div>
+
+      {/* Ticket : colonne fixe (tablette / ordinateur) ou panneau plein écran (téléphone) */}
+      <aside data-testid="ticket" className={`card flex shrink-0 flex-col overflow-hidden ${sheet ? "fixed inset-0 z-40 m-0 w-full rounded-none rise" : "hidden"} md:static md:z-auto md:m-2 md:ml-0 md:flex md:w-[340px] md:rounded-[20px] xl:w-[400px]`} style={sheet ? { paddingBottom: "env(safe-area-inset-bottom)" } : undefined}>
         <div className="border-b border-line px-4 py-3">
           <div className="flex items-center justify-between">
-            <button onClick={() => !closed && setDialog("covers")} className="touch text-left">
-              <p className="text-lg font-extrabold leading-tight">{o.table ? `Table ${o.table.name}` : ORDER_TYPE_LABEL[o.type]}{o.customerName ? ` · ${o.customerName}` : ""}</p>
+            <button onClick={() => setSheet(false)} className="md:hidden touch -ml-1 mr-2 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl surface-2" aria-label="Fermer la commande"><X className="h-5 w-5" /></button>
+            <button onClick={() => !closed && setDialog("covers")} className="touch min-w-0 flex-1 text-left">
+              <p className="truncate text-lg font-extrabold leading-tight">{o.table ? `Table ${o.table.name}` : ORDER_TYPE_LABEL[o.type]}{o.customerName ? ` · ${o.customerName}` : ""}</p>
               <p className="text-xs text-muted">{o.covers} couvert{o.covers > 1 ? "s" : ""} · {formatElapsed(o.openedAt)} · {o.server?.displayName || o.server?.firstName} · {o.number === "HORS-LIGNE" ? <span className="font-bold text-orange-500">hors ligne</span> : `n° ${o.number.split("-")[1]}`}</p>
             </button>
             {closed ? <span className={`rounded-lg px-2 py-1 text-xs font-bold ${o.status === "PAID" ? "bg-green-500/15 text-green-600" : "bg-red-500/15 text-red-600"}`}>{o.status === "PAID" ? "PAYÉE" : "ANNULÉE"}</span> : null}

@@ -29,38 +29,38 @@ test("caisse : de l'ouverture de table au rapport de caisse", async ({ page }) =
 
   // Plan de salle : ouvrir une table libre
   await expect(page.getByRole("button", { name: /Comptoir/ })).toBeVisible();
-  const freeTable = page.locator("button[title='Libre']").first();
+  const freeTable = page.locator("button[title='Libre']:visible").first();
   await expect(freeTable).toBeVisible();
   const tableName = (await freeTable.locator("span").first().textContent())?.trim();
   await freeTable.click();
   await page.getByRole("button", { name: "4", exact: true }).click();
   await page.waitForURL(/\/pos\/order\//);
-  await expect(page.getByText(`Table ${tableName}`)).toBeVisible();
+  await expect(page.getByTestId("ticket").getByText(`Table ${tableName}`)).toBeVisible();
 
   // Ajouter un produit simple (boisson)
   await page.getByRole("button", { name: "Boissons" }).click();
-  await page.getByRole("button", { name: /Eau minérale 50 cl/ }).click();
-  await expect(page.locator("aside").last().getByText("Eau minérale 50 cl")).toBeVisible();
+  await page.getByRole("button", { name: "Ajouter Eau minérale 50 cl" }).click();
+  await expect(page.getByTestId("ticket").getByText("Eau minérale 50 cl")).toBeVisible();
 
   // Ajouter un produit avec options obligatoires (burger)
   await page.getByRole("button", { name: "Plats", exact: true }).click();
-  await page.getByRole("button", { name: /^Burger Bacon/ }).click();
+  await page.getByRole("button", { name: "Burger Bacon : détail" }).click();
   await expect(page.getByRole("heading", { name: "Burger Bacon" })).toBeVisible();
   await page.getByRole("button", { name: "Saignant" }).click();
   await page.getByRole("button", { name: "Salade", exact: true }).click();
   await page.getByRole("button", { name: /Bacon\s*\+/ }).click();
-  await page.getByRole("button", { name: /Ajouter/ }).click();
-  await expect(page.locator("aside").last().getByText("Burger Bacon")).toBeVisible();
-  await expect(page.locator("aside").last().getByText("Saignant, Salade, Bacon")).toBeVisible();
+  await page.getByRole("button", { name: /^Ajouter ·/ }).click();
+  await expect(page.getByTestId("ticket").getByText("Burger Bacon")).toBeVisible();
+  await expect(page.getByTestId("ticket").getByText("Saignant, Salade, Bacon")).toBeVisible();
 
   // Total attendu : 350 + 2100 + 250 = 2 700 F
-  await expect(page.locator("aside").last().getByText("2 700 F").first()).toBeVisible();
+  await expect(page.getByTestId("ticket").getByText("2 700 F").first()).toBeVisible();
 
   // Envoi en cuisine (menu déroulant multi-services → tout envoyer)
   await page.getByRole("button", { name: /Envoyer/ }).click();
   await page.getByRole("button", { name: "Tout envoyer" }).click();
   await expect(page.getByText("Envoyé en cuisine")).toBeVisible();
-  await expect(page.locator("aside").last().getByText("envoyé").first()).toBeVisible();
+  await expect(page.getByTestId("ticket").getByText("envoyé").first()).toBeVisible();
 
   // Tickets cuisine créés (API) — le KDS visuel arrive en Phase 3
   const orderId = page.url().split("/pos/order/")[1];
@@ -69,7 +69,7 @@ test("caisse : de l'ouverture de table au rapport de caisse", async ({ page }) =
   expect(order.data.items.every((i: { status: string }) => i.status === "SENT")).toBe(true);
 
   // Addition demandée
-  await page.locator("aside").last().locator("button").filter({ has: page.locator("svg.lucide-receipt") }).click();
+  await page.getByTestId("ticket").locator("button").filter({ has: page.locator("svg.lucide-receipt") }).click();
   await expect(page.getByText("Addition demandée")).toBeVisible();
 
   // Paiement : diviser en 2 parts égales, payer la 1re en espèces, la 2e en carte
