@@ -15,7 +15,7 @@ test("hors ligne : ouvrir une table, commander, envoyer, puis synchroniser", asy
   await expect(page.getByText("EN LIGNE")).toBeVisible();
   // Laisser le service worker s'installer et le catalogue se mettre en cache
   await page.waitForFunction(() => navigator.serviceWorker?.controller !== null, null, { timeout: 15000 }).catch(() => {});
-  const freeBefore = page.locator("button[title='Libre']").first();
+  const freeBefore = page.locator("button[title='Libre']:visible").first();
   const tableName = (await freeBefore.locator("span").first().textContent())?.trim();
 
   // ---- Coupure réseau
@@ -23,17 +23,17 @@ test("hors ligne : ouvrir une table, commander, envoyer, puis synchroniser", asy
   await page.evaluate(() => window.dispatchEvent(new Event("offline")));
   await expect(page.getByText("HORS LIGNE")).toBeVisible();
 
-  await page.locator("button[title='Libre']").first().click();
+  await page.locator("button[title='Libre']:visible").first().click();
   await page.getByRole("button", { name: "2", exact: true }).click();
   await page.waitForURL(/\/pos\/order\//);
   const orderId = page.url().split("/pos/order/")[1];
   await expect(page.getByText("hors ligne", { exact: false }).first()).toBeVisible();
-  await expect(page.getByText(`Table ${tableName}`)).toBeVisible();
+  await expect(page.locator("aside").last().getByText(`Table ${tableName}`)).toBeVisible();
 
   await page.getByRole("button", { name: "Boissons" }).click();
   const grid = page.locator("section").first();
-  await grid.getByRole("button", { name: /Coca-Cola 33 cl/ }).click();
-  await grid.getByRole("button", { name: /Coca-Cola 33 cl/ }).click();
+  await grid.getByRole("button", { name: "Ajouter Coca-Cola 33 cl" }).click();
+  await grid.getByRole("button", { name: "Ajouter Coca-Cola 33 cl" }).click();
   await expect(page.locator("aside").last().getByText("Coca-Cola 33 cl")).toHaveCount(2);
   await expect(page.locator("aside").last().getByText("900 F").first()).toBeVisible();
 
@@ -45,7 +45,7 @@ test("hors ligne : ouvrir une table, commander, envoyer, puis synchroniser", asy
   // Retour salle hors ligne : la table apparaît occupée grâce à la commande locale
   await page.getByRole("button", { name: "Salle" }).first().click();
   await page.waitForURL(/\/pos$/);
-  await expect(page.locator(`button[title='Commande en cours']`).filter({ hasText: tableName! })).toBeVisible();
+  await expect(page.locator(`button[title='Commande en cours']:visible`).filter({ hasText: tableName! })).toBeVisible();
 
   // ---- Reconnexion : synchronisation
   await context.setOffline(false);

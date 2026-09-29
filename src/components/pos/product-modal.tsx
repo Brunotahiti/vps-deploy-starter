@@ -106,8 +106,11 @@ export function ProductModal({ product, menu, products = [], onClose, onAdd }: {
       </div>
     }>
       {/* eslint-disable-next-line @next/next/no-img-element -- image du catalogue (URL libre) */}
-      {(product?.imageUrl || menu?.imageUrl) ? <img src={(product?.imageUrl || menu?.imageUrl) ?? ""} alt="" className="mb-3 h-40 w-full rounded-xl object-cover" /> : null}
-      {product?.description ? <p className="mb-3 text-sm text-muted">{product.description}</p> : null}
+      {(product?.imageUrl || menu?.imageUrl) ? <img src={(product?.imageUrl || menu?.imageUrl) ?? ""} alt="" className="mb-3 h-44 w-full rounded-2xl object-cover shadow-soft sm:h-56" /> : null}
+      <div className="mb-3 flex items-start justify-between gap-3">
+        <p className="min-w-0 flex-1 text-sm text-muted">{product?.description || menu?.description || (product?.modifierGroups.length || product?.variants.length ? "Choisissez les options puis ajoutez à la commande." : "Aucune option : ajustez la quantité puis ajoutez à la commande.")}</p>
+        <span className="shrink-0 rounded-full bg-lagon-500/15 px-3 py-1 text-base font-extrabold text-lagon-700 dark:text-lagon-200"><Money amount={product ? (product.variants.length ? Math.min(...product.variants.map((v) => v.priceTtc)) : product.priceTtc) : (menu?.priceTtc ?? 0)} /></span>
+      </div>
       {product && product.variants.length > 0 ? (
         <div className="mb-4">
           <h4 className="mb-2 font-bold">Taille / variante</h4>

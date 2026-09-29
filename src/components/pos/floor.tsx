@@ -120,11 +120,30 @@ export function FloorPlan() {
         </div>
         <span className="hidden text-sm text-muted md:inline"><Users className="mr-1 inline h-4 w-4" />{occupied} table{occupied > 1 ? "s" : ""} occupée{occupied > 1 ? "s" : ""}</span>
         <div className="ml-auto flex gap-2">
-          <Button variant="secondary" size="lg" loading={busy} onClick={() => openOrder({ type: "COUNTER" })}><Store className="h-5 w-5" /> Comptoir</Button>
-          <Button variant="accent" size="lg" loading={busy} onClick={() => openOrder({ type: "TAKEAWAY" })}><ShoppingBag className="h-5 w-5" /> À emporter</Button>
+          <Button variant="secondary" size="md" className="sm:h-14 sm:px-6 sm:text-base sm:rounded-2xl" loading={busy} onClick={() => openOrder({ type: "COUNTER" })}><Store className="h-5 w-5" /> Comptoir</Button>
+          <Button variant="accent" size="md" className="sm:h-14 sm:px-6 sm:text-base sm:rounded-2xl" loading={busy} onClick={() => openOrder({ type: "TAKEAWAY" })}><ShoppingBag className="h-5 w-5" /> À emporter</Button>
         </div>
       </div>
-      <div className="relative min-h-0 flex-1 overflow-auto px-3 pb-3 sm:px-4">
+      {/* Téléphone : liste des tables en cartes (le plan spatial est illisible sous 600 px) */}
+      <div className="sm:hidden min-h-0 flex-1 overflow-y-auto px-3 pb-3">
+        <div className="grid grid-cols-2 gap-2.5">
+          {room.tables.map((t) => {
+            const color = TABLE_STATUS_COLOR[t.status];
+            return (
+              <button key={t.id} onClick={() => onTable(t)} className="touch card flex min-h-[96px] flex-col justify-between overflow-hidden p-3 text-left transition active:scale-[0.98]" title={TABLE_STATUS_LABEL[t.status]}>
+                <span className="flex items-center justify-between"><span className="text-lg font-extrabold">{t.name}</span><span className="h-3 w-3 rounded-full shadow-sm" style={{ background: color }} /></span>
+                {t.order ? (
+                  <span className="mt-1"><span className="block text-base font-extrabold" style={{ color }}><Money amount={t.order.total} /></span><span className="block text-[11px] text-muted">{formatElapsed(t.order.openedAt)} · {t.order.covers} cvts · {TABLE_STATUS_LABEL[t.status]}</span></span>
+                ) : (
+                  <span className="mt-1 text-xs font-medium text-muted">{t.status === "FREE" ? `${t.seats} places · libre` : TABLE_STATUS_LABEL[t.status]}</span>
+                )}
+              </button>
+            );
+          })}
+          {room.tables.length === 0 ? <p className="col-span-full py-10 text-center text-sm text-muted">Aucune table dans cette salle</p> : null}
+        </div>
+      </div>
+      <div className="relative hidden min-h-0 flex-1 overflow-auto px-3 pb-3 sm:block sm:px-4">
         <div className="card relative mx-auto overflow-hidden" style={{ width: "min(100%, 1000px)", aspectRatio: `${room.width} / ${room.height}`, backgroundImage: "radial-gradient(circle, color-mix(in srgb, var(--muted) 22%, transparent) 1px, transparent 1px)", backgroundSize: "28px 28px" }}>
           {room.tables.map((t) => {
             const color = TABLE_STATUS_COLOR[t.status];
@@ -156,7 +175,7 @@ export function FloorPlan() {
           {room.tables.length === 0 ? <div className="absolute inset-0 flex items-center justify-center text-sm text-muted">Aucune table dans cette salle</div> : null}
         </div>
       </div>
-      <div className="no-print flex shrink-0 flex-wrap gap-2 px-3 pb-3 text-xs sm:px-4">
+      <div className="no-print hidden shrink-0 flex-wrap gap-2 px-3 pb-3 text-xs sm:flex sm:px-4">
         {(Object.keys(TABLE_STATUS_LABEL) as FloorTable["status"][]).map((s) => (
           <span key={s} className="flex items-center gap-1.5 rounded-full surface-2 px-2.5 py-1 font-medium text-muted"><span className="h-2.5 w-2.5 rounded-full" style={{ background: TABLE_STATUS_COLOR[s] }} />{TABLE_STATUS_LABEL[s]}</span>
         ))}

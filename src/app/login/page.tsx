@@ -53,7 +53,10 @@ export default function LoginPage() {
   return (
     <main className="grid min-h-screen lg:grid-cols-[1.1fr_1fr]">
       <BrandPanel />
-      <section className="flex items-center justify-center p-6 sm:p-10"><Suspense><LoginForm /></Suspense></section>
+      <section className="flex flex-col items-center justify-center p-6 sm:p-10">
+        <div className="bg-lagoon mb-8 flex w-full max-w-sm items-center gap-3 rounded-3xl p-4 text-white shadow-lift lg:hidden"><Logo size={40} light withText={false} /><span className="text-sm font-semibold leading-snug">La caisse pensée pour les restaurants du fenua.<span className="block text-xs font-normal text-lagon-100/90">Hors ligne, TVA PF, cuisine et statistiques en temps réel.</span></span></div>
+        <Suspense><LoginForm /></Suspense>
+      </section>
     </main>
   );
 }
