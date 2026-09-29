@@ -84,6 +84,17 @@ services:
       - "traefik.http.middlewares.${APP_NAME:-manaresto}-headers.headers.contentTypeNosniff=true"
       - "traefik.http.middlewares.${APP_NAME:-manaresto}-headers.headers.referrerPolicy=strict-origin-when-cross-origin"
 
+  # Optionnel (plusieurs instances de l'application) : docker compose --profile redis up -d
+  redis:
+    image: redis:7-alpine
+    container_name: ${APP_NAME:-manaresto}-redis
+    restart: unless-stopped
+    profiles: ["redis"]
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    networks:
+      - internal
+    mem_limit: ${REDIS_MEM_LIMIT:-128m}
+
 networks:
   traefik:
     external: true

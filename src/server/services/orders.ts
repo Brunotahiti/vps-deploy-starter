@@ -6,6 +6,7 @@ import { computeLine, computeOrderTotals } from "@/lib/order-calc";
 import { applyBps } from "@/lib/money";
 import { localDay } from "@/lib/dates";
 import { consumeForItems } from "./stock";
+import { autoPrintKitchenTickets } from "@/server/hardware/printers";
 import type { CourseStatus, OrderType, Prisma } from "@/generated/prisma/client";
 
 export type Actor = { organizationId: string; establishmentId: string; userId: string; terminalId?: string | null; authorizedById?: string | null };
@@ -300,6 +301,7 @@ export async function sendCourse(actor: Actor, orderId: string, opts: { courseId
   const pending = order.items.filter((i) => i.status === "PENDING" && (opts.all || i.courseId === opts.courseId));
   if (pending.length === 0) throw new ApiError(400, "NOTHING_TO_SEND", "Aucun article à envoyer");
   const now = new Date();
+  const createdTicketIds: string[] = [];
   await prisma.$transaction(async (tx) => {
     // Regroupement par (service, poste)
     const groups = new Map<string, typeof pending>();
@@ -314,6 +316,7 @@ export async function sendCourse(actor: Actor, orderId: string, opts: { courseId
         data: { orderId, courseId: courseId === "none" ? null : courseId, stationId: stationId === "none" ? null : stationId, isUrgent: items.some((i) => i.isUrgent) },
       });
       await tx.orderItem.updateMany({ where: { id: { in: items.map((i) => i.id) } }, data: { status: "SENT", sentAt: now, kitchenTicketId: ticket.id } });
+      createdTicketIds.push(ticket.id);
     }
     await tx.orderItem.updateMany({ where: { id: { in: pending.map((i) => i.id) }, status: "PENDING" }, data: { status: "SENT", sentAt: now } });
     // Stock (Phase 4) : décrémentation des ingrédients (recettes) et du stock produit à l'envoi
@@ -325,6 +328,7 @@ export async function sendCourse(actor: Actor, orderId: string, opts: { courseId
   publish("order.updated", actor.establishmentId, { orderId, tableId: order.tableId });
   publish("kitchen.updated", actor.establishmentId, { orderId });
   publish("table.updated", actor.establishmentId, { tableId: order.tableId });
+  autoPrintKitchenTickets(actor.establishmentId, createdTicketIds).catch(() => {}); // Phase 7 : imprimantes cuisine réseau
   return getOrder(actor.establishmentId, orderId);
 }
 
