@@ -14,13 +14,14 @@ async function login(page: Page) {
 test("intégrations : créer une clé API et interroger l'API publique", async ({ page }) => {
   await login(page);
   await page.goto("/admin/integrations");
+  const keyName = `Test E2E ${Date.now().toString().slice(-6)}`;
   await page.getByRole("button", { name: "Nouvelle clé" }).click();
-  await field(page, "Nom (usage)").fill("Test E2E");
+  await field(page, "Nom (usage)").fill(keyName);
   await page.getByRole("button", { name: "Créer" }).click();
   const key = (await page.locator("code", { hasText: /^mr_live_/ }).textContent())!.trim();
   expect(key.startsWith("mr_live_")).toBe(true);
   await page.keyboard.press("Escape");
-  await expect(page.locator("tr", { hasText: "Test E2E" })).toBeVisible();
+  await expect(page.locator("tr", { hasText: keyName })).toBeVisible();
 
   const ctx = page.request;
   const me = await ctx.get("/api/v1/me", { headers: { Authorization: `Bearer ${key}` } });
@@ -47,7 +48,7 @@ test("intégrations : créer une clé API et interroger l'API publique", async (
   // Révocation de la clé
   await page.getByRole("button", { name: "Clés API" }).click();
   page.once("dialog", (d) => d.accept());
-  await page.locator("tr", { hasText: "Test E2E" }).getByRole("button", { name: "Révoquer" }).click();
+  await page.locator("tr", { hasText: keyName }).getByRole("button", { name: "Révoquer" }).click();
   await expect(page.getByText(/Clé révoquée/)).toBeVisible();
   expect((await ctx.get("/api/v1/me", { headers: { Authorization: `Bearer ${key}` } })).status()).toBe(401);
 });
