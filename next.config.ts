@@ -5,6 +5,8 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   serverExternalPackages: ["pdfkit", "pg"],
+  // Polices AFM de pdfkit (tickets PDF) à embarquer dans le build standalone (Docker)
+  outputFileTracingIncludes: { "/api/orders/[id]/receipt": ["./node_modules/pdfkit/js/data/**", "./node_modules/.pnpm/pdfkit@*/node_modules/pdfkit/js/data/**"] },
   async headers() {
     return [
       {

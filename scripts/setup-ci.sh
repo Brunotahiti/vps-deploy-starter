@@ -8,7 +8,7 @@ VPS_USER="${VPS_USER:-root}"
 APP_NAME="manaresto"
 PUBLIC_HOST="manaresto.pf"
 VPS_PATH="/opt/$APP_NAME"
-KEY_PATH="$HOME/.ssh/${APP_NAME}_deploy"
+KEY_PATH="$HOME/.ssh/manaresto_vps"
 
 echo ""
 echo "🔐 Configuration CI/CD pour $APP_NAME"
@@ -22,7 +22,7 @@ echo ""
 
 # Vérifier que gh CLI est connecté
 if ! gh auth status >/dev/null 2>&1; then
-  echo "❌ gh CLI n'est pas connecté. Lance d'abord : gh auth login"
+  echo "❌ gh CLI n'est pas connecté. Sur Mac : brew install gh && gh auth login"
   exit 1
 fi
 
