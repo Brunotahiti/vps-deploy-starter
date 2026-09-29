@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ShoppingBag, Store, Users, Sparkles, BellRing } from "lucide-react";
+import { ShoppingBag, Store, Users, Sparkles, BellRing, Hand } from "lucide-react";
 import { api, ApiClientError } from "@/lib/api-client";
 import { outbox } from "@/lib/offline/outbox";
 import { cacheGet, cacheSet } from "@/lib/offline/db";
@@ -89,6 +89,7 @@ export function FloorPlan() {
   };
 
   const onTable = async (t: FloorTable) => {
+    if (t.callRequestedAt) { api.delete(`/api/tables/${t.id}/call`).then(() => qc.invalidateQueries({ queryKey: ["floor"] })).catch(() => {}); toast(`Appel de la table ${t.name} pris en charge`, "success"); }
     if (t.order) return router.push(`/pos/order/${t.order.id}`);
     if (t.status === "TO_CLEAN") {
       await api.post(`/api/tables/${t.id}/state`, { state: "FREE" });
@@ -131,7 +132,7 @@ export function FloorPlan() {
             const color = TABLE_STATUS_COLOR[t.status];
             return (
               <button key={t.id} onClick={() => onTable(t)} className="touch card flex min-h-[96px] flex-col justify-between overflow-hidden p-3 text-left transition active:scale-[0.98]" title={TABLE_STATUS_LABEL[t.status]}>
-                <span className="flex items-center justify-between"><span className="text-lg font-extrabold">{t.name}</span>{t.order?.readyCount ? <span className="flex items-center gap-1 rounded-full bg-green-500 px-2 py-0.5 text-[11px] font-extrabold text-white pulse-soft"><BellRing className="h-3 w-3" />{t.order.readyCount} prêt{t.order.readyCount > 1 ? "s" : ""}</span> : <span className="h-3 w-3 rounded-full shadow-sm" style={{ background: color }} />}</span>
+                <span className="flex items-center justify-between"><span className="text-lg font-extrabold">{t.name}{t.callRequestedAt ? <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-corail-500 px-2 py-0.5 align-middle text-[11px] font-extrabold text-white pulse-soft"><Hand className="h-3 w-3" />appel</span> : null}</span>{t.order?.readyCount ? <span className="flex items-center gap-1 rounded-full bg-green-500 px-2 py-0.5 text-[11px] font-extrabold text-white pulse-soft"><BellRing className="h-3 w-3" />{t.order.readyCount} prêt{t.order.readyCount > 1 ? "s" : ""}</span> : <span className="h-3 w-3 rounded-full shadow-sm" style={{ background: color }} />}</span>
                 {t.order ? (
                   <span className="mt-1"><span className="block text-base font-extrabold" style={{ color }}><Money amount={t.order.total} /></span><span className="block text-[11px] text-muted">{formatElapsed(t.order.openedAt)} · {t.order.covers} cvts · {TABLE_STATUS_LABEL[t.status]}</span></span>
                 ) : (
@@ -161,6 +162,7 @@ export function FloorPlan() {
                 title={TABLE_STATUS_LABEL[t.status]}
               >
                 <span className="text-lg font-extrabold leading-tight drop-shadow-sm">{t.name}</span>
+                {t.callRequestedAt ? <span className="absolute -left-1.5 -top-1.5 flex items-center gap-0.5 rounded-full bg-corail-500 px-1.5 py-0.5 text-[10px] font-extrabold text-white shadow-lift pulse-soft" title="Appel serveur"><Hand className="h-3 w-3" />appel</span> : null}
                 {t.order ? (
                   <>
                     <span className="mt-0.5 rounded-full bg-black/15 px-2 py-0.5 text-[11px] font-semibold">{formatElapsed(t.order.openedAt)} · {t.order.covers} cvts</span>

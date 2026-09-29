@@ -3,7 +3,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Search, Send, Receipt, CreditCard, Percent, XCircle, ArrowRightLeft, Printer, Flame, PauseCircle, CheckCircle2, AlertTriangle, ChevronDown, Plus, X, ShoppingBasket } from "lucide-react";
+import { ArrowLeft, Search, Send, Receipt, CreditCard, Percent, XCircle, ArrowRightLeft, Printer, Flame, PauseCircle, CheckCircle2, AlertTriangle, ChevronDown, Plus, X, ShoppingBasket, UserRound } from "lucide-react";
 import { api, ApiClientError } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
@@ -18,6 +18,7 @@ import { ItemModal } from "./item-modal";
 import { PaymentModal, type PaymentPayload } from "./payment-modal";
 import { PinModal, withPin, type PinRequest } from "./pin-modal";
 import { ReceiptDialog } from "./receipt-dialog";
+import { CustomerDialog } from "./customer-dialog";
 import { useFloor } from "./floor";
 import { useOffline } from "@/lib/offline/provider";
 import { getLocalOrder, markOfflineOrderClosed, saveLocalOrder } from "@/lib/offline/local-orders";
@@ -68,6 +69,7 @@ export function OrderScreen({ orderId: orderIdProp }: { orderId: string }) {
   const [receipt, setReceipt] = useState<{ afterPayment: boolean } | null>(null);
   const [sendMenu, setSendMenu] = useState(false);
   const [sheet, setSheet] = useState(false); // panneau « commande » sur téléphone
+  const [customerOpen, setCustomerOpen] = useState(false);
 
   const o = order.data;
   const [courseSel, setCourseSel] = useState<string | null>(null);
@@ -368,7 +370,8 @@ export function OrderScreen({ orderId: orderIdProp }: { orderId: string }) {
               <Button size="lg" variant="secondary" className="w-14 shrink-0 px-0!" title="Demander l'addition" disabled={activeItems.length === 0 || o.status === "BILL_REQUESTED"} onClick={requestBill}><Receipt className="h-5 w-5" /></Button>
               <Button size="lg" className="min-w-0 flex-1 px-2!" disabled={activeItems.length === 0} onClick={() => setPayOpen(true)}><CreditCard className="h-5 w-5 shrink-0" /><span className="truncate">Payer</span></Button>
             </div>
-            <div className="grid grid-cols-4 gap-1">
+            <div className="grid grid-cols-5 gap-1">
+              <button onClick={() => setCustomerOpen(true)} className={`touch flex h-12 flex-col items-center justify-center gap-0.5 rounded-xl text-[10px] font-bold uppercase hover:surface-3 ${o.customerId ? "bg-lagon-500/15 text-lagon-700 dark:text-lagon-300" : "surface-2 text-muted"}`}><UserRound className="h-4 w-4" />Client</button>
               <button onClick={() => setDialog("discount")} className="touch flex h-12 flex-col items-center justify-center gap-0.5 rounded-xl surface-2 text-[10px] font-bold uppercase text-muted hover:surface-3"><Percent className="h-4 w-4" />Remise</button>
               <button onClick={() => setDialog("transfer")} disabled={!can("pos.transfer_table")} className="touch flex h-12 flex-col items-center justify-center gap-0.5 rounded-xl surface-2 text-[10px] font-bold uppercase text-muted hover:surface-3 disabled:opacity-40"><ArrowRightLeft className="h-4 w-4" />Transf.</button>
               <button onClick={() => setReceipt({ afterPayment: false })} className="touch flex h-12 flex-col items-center justify-center gap-0.5 rounded-xl surface-2 text-[10px] font-bold uppercase text-muted hover:surface-3"><Printer className="h-4 w-4" />Ticket</button>
@@ -388,6 +391,7 @@ export function OrderScreen({ orderId: orderIdProp }: { orderId: string }) {
       {itemOpen ? <ItemModal order={o} item={o.items.find((i) => i.id === itemOpen.id) ?? itemOpen} onClose={() => setItemOpen(null)} onUpdate={updateItem} onRemove={removeItem} /> : null}
       {payOpen ? <PaymentModal key={o.paidTotal} order={o} methods={catalog.data.paymentMethods} open onClose={() => setPayOpen(false)} onPay={pay} /> : null}
       <PinModal request={pin} onClose={() => setPin(null)} />
+      <CustomerDialog open={customerOpen} orderId={orderId} customerId={o.customerId} closed={closed} onClose={() => setCustomerOpen(false)} onChanged={() => { qc.invalidateQueries({ queryKey: ["order", orderId] }); qc.invalidateQueries({ queryKey: ["customer"] }); }} />
       {receipt ? <ReceiptDialog orderId={orderId} orderNumber={o.number} open afterPayment={receipt.afterPayment} onClose={() => { const after = receipt.afterPayment; setReceipt(null); if (after) router.push(o.tableId ? "/pos" : "/pos/orders"); }} /> : null}
       <DiscountDialog open={dialog === "discount"} order={o} onClose={() => setDialog(null)} onApply={(body) => withPin(setPin, "pos.discount", (managerPin) => api.post<Order>(`/api/orders/${orderId}/discount`, { ...body, managerPin }).then(setOrder)).then(() => setDialog(null)).catch(onError)} />
       <CancelDialog open={dialog === "cancel"} onClose={() => setDialog(null)} onConfirm={(reason) => withPin(setPin, "pos.cancel_order", (managerPin) => api.post<Order>(`/api/orders/${orderId}/cancel`, { reason, managerPin }).then(setOrder)).then(() => { setDialog(null); toast("Commande annulée"); router.push("/pos"); }).catch(onError)} />

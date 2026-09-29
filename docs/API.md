@@ -1,4 +1,4 @@
-# API ManaResto (Phases 1–5)
+# API ManaResto (Phases 1–6)
 
 Toutes les réponses sont `{ "data": … }` ou `{ "error": { "code", "message", "details" } }`. Authentification par cookie de session. Les mutations sensibles acceptent `managerPin` (autorisation ponctuelle) et renvoient `403 PIN_REQUIRED` sinon. Les créations de commandes / articles / envois / paiements acceptent l'en-tête `Idempotency-Key` (rejeu sûr après reconnexion).
 
@@ -31,4 +31,12 @@ Toutes les réponses sont `{ "data": … }` ou `{ "error": { "code", "message", 
 | GET/POST/PATCH/DELETE | `/api/staff/employees[/:id]` · POST `/from-users` · `/api/staff/shifts[/:id]` (`?from&to`) · `/api/staff/entries[/:id]` (`?from&to&employeeId`, corrections motivées) · GET `/api/staff/summary?from&to` | staff.manage |
 | POST | `/api/staff/clock/identify` `{pin}` · `/api/staff/clock` `{pin, kind: CLOCK_IN|BREAK_START|BREAK_END|CLOCK_OUT}` · GET `/api/staff/present` | session (tout membre connecté) |
 | GET | `/api/audit` | audit.view |
+| GET | `/api/public/menu/:qrToken` · POST `/order` `{id, lines, covers?, notes?}` · POST `/call` | public (QR de table) |
+| GET | `/api/public/shop/:org/:etab` · POST `/order` `{id, mode: PICKUP|DELIVERY, name, phone, …, lines}` · POST `/reserve` | public |
+| GET | `/api/public/track/:publicToken` | public (jeton de suivi) |
+| GET/POST | `/api/kiosk/catalog` · `/api/kiosk/order` `{id, mode, name?, lines}` | cookie terminal de type KIOSK |
+| GET/POST | `/api/online-orders` · `/:id/accept` · `/:id/reject` `{reason}` · DELETE `/api/tables/:id/call` · GET `/api/tables/qr`, `/api/tables/:id/qr` (PNG) | pos.use / floor.manage |
+| GET/POST/PATCH | `/api/customers[/:id]` (`?search=`) · POST `/:id/points` · POST `/api/orders/:id/customer` `{customerId}` · POST `/api/orders/:id/loyalty` `{rewards}` | customers.manage / pos.use |
+| GET/POST/PATCH | `/api/reservations[/:id]` (`?day=`) · POST `/:id/status` `{status, tableId?}` | pos.use / customers.manage |
+| GET/PATCH | `/api/digital/settings` (QR, en ligne, borne, fidélité) | settings.manage |
 | GET | `/api/realtime` (SSE) · `/api/health` | — |

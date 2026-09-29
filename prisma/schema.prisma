@@ -284,6 +284,7 @@ model Table {
   rotation        Int        @default(0)
   state           TableState @default(FREE)
   qrToken         String     @unique @default(uuid()) @map("qr_token")
+  callRequestedAt DateTime?  @map("call_requested_at") // appel serveur depuis le QR code (Phase 6)
   isActive        Boolean    @default(true) @map("is_active")
   createdAt       DateTime   @default(now()) @map("created_at")
   updatedAt       DateTime   @updatedAt @map("updated_at")
@@ -676,6 +677,9 @@ model Order {
   serverId        String?     @map("server_id") @db.Uuid
   terminalId      String?     @map("terminal_id") @db.Uuid
   customerId      String?     @map("customer_id") @db.Uuid
+  publicToken     String?     @unique @map("public_token") // suivi client (commande en ligne / QR)
+  channelMeta     Json?       @map("channel_meta")          // retrait / livraison / contact (Phase 6)
+  acceptedAt      DateTime?   @map("accepted_at")           // acceptation d'une commande en ligne par le restaurant
   customerName    String?     @map("customer_name")
   covers          Int         @default(1)
   subtotal        Int         @default(0) // TTC avant remise
