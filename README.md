@@ -53,13 +53,13 @@ Pour la **connexion par PIN** : un manager enregistre l'appareil dans *Administr
 
 ## Déploiement VPS (Hostinger, Docker + Traefik)
 
+En une commande depuis le Mac (Docker, Traefik HTTPS, `.env` généré, migrations, démo, sauvegarde quotidienne) :
+
 ```bash
-cp .env.vps.example .env        # sur le VPS : mots de passe, SESSION_SECRET, PUBLIC_HOST
-docker compose build migrate app
-docker compose up -d            # db → migrate (migrations + seed optionnel) → app
+bash scripts/deploy-vps.sh
 ```
 
-Le workflow GitHub Actions `deploy.yml` fait la même chose à chaque push sur `main` (voir `scripts/setup-ci.sh`). Sauvegardes : `scripts/db-backup.sh` (gzip, chiffrement AES si `BACKUP_PASSPHRASE`, rétention `RETENTION_DAYS`), restauration `scripts/db-restore.sh`.
+Détails, déploiement automatique à chaque `git push` et exploitation : `docs/DEPLOIEMENT.md`.
 
 ## Documentation
 
@@ -68,3 +68,4 @@ Le workflow GitHub Actions `deploy.yml` fait la même chose à chaque push sur `
 - `docs/03-modele-de-donnees.md` — tables et règles de calcul
 - `docs/API.md` — routes REST et permissions
 - `docs/ROADMAP.md` — phases 1 à 7 et leur état
+- `docs/DEPLOIEMENT.md` — mise en ligne sur le VPS Hostinger
