@@ -15,7 +15,7 @@ Le script installe ce qui manque (Homebrew, Node 22, PostgreSQL 16 via Docker De
 ## Démarrage local pas à pas
 
 ```bash
-pnpm install
+pnpm install                    # génère aussi le client Prisma (postinstall)
 cp .env.example .env            # DATABASE_URL, SESSION_SECRET
 pnpm db:migrate                 # crée le schéma (prisma migrate dev)
 pnpm db:seed                    # restaurant de démonstration « Le Mana Beach »

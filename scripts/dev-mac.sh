@@ -59,6 +59,8 @@ fi
 
 echo "→ Dépendances…"
 pnpm install --frozen-lockfile
+echo "→ Client Prisma…"
+pnpm prisma generate
 echo "→ Schéma de base de données…"
 pnpm prisma migrate deploy
 echo "→ Démo « Le Mana Beach » (ignorée si déjà présente)…"
