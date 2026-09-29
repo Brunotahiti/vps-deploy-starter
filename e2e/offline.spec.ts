@@ -12,7 +12,7 @@ test("hors ligne : ouvrir une table, commander, envoyer, puis synchroniser", asy
   await page.getByRole("button", { name: "Se connecter" }).click();
   await page.waitForURL(/\/(pos|admin)/);
   await page.goto("/pos");
-  await expect(page.getByText("EN LIGNE")).toBeVisible();
+  await expect(page.locator("header").getByText("EN LIGNE")).toBeVisible();
   // Laisser le service worker s'installer et le catalogue se mettre en cache
   await page.waitForFunction(() => navigator.serviceWorker?.controller !== null, null, { timeout: 15000 }).catch(() => {});
   const freeBefore = page.locator("button[title='Libre']:visible").first();
@@ -21,26 +21,26 @@ test("hors ligne : ouvrir une table, commander, envoyer, puis synchroniser", asy
   // ---- Coupure réseau
   await context.setOffline(true);
   await page.evaluate(() => window.dispatchEvent(new Event("offline")));
-  await expect(page.getByText("HORS LIGNE")).toBeVisible();
+  await expect(page.locator("header").getByText("HORS LIGNE")).toBeVisible();
 
   await page.locator("button[title='Libre']:visible").first().click();
   await page.getByRole("button", { name: "2", exact: true }).click();
   await page.waitForURL(/\/pos\/order\//);
   const orderId = page.url().split("/pos/order/")[1];
   await expect(page.getByText("hors ligne", { exact: false }).first()).toBeVisible();
-  await expect(page.locator("aside").last().getByText(`Table ${tableName}`)).toBeVisible();
+  await expect(page.getByTestId("ticket").getByText(`Table ${tableName}`)).toBeVisible();
 
   await page.getByRole("button", { name: "Boissons" }).click();
   const grid = page.locator("section").first();
   await grid.getByRole("button", { name: "Ajouter Coca-Cola 33 cl" }).click();
   await grid.getByRole("button", { name: "Ajouter Coca-Cola 33 cl" }).click();
-  await expect(page.locator("aside").last().getByText("Coca-Cola 33 cl")).toHaveCount(2);
-  await expect(page.locator("aside").last().getByText("900 F").first()).toBeVisible();
+  await expect(page.getByTestId("ticket").getByText("Coca-Cola 33 cl")).toHaveCount(2);
+  await expect(page.getByTestId("ticket").getByText("900 F").first()).toBeVisible();
 
   await page.getByRole("button", { name: /Envoyer/ }).click();
   await page.getByRole("button", { name: "Tout envoyer" }).click();
-  await expect(page.locator("aside").last().getByText("envoyé").first()).toBeVisible();
-  await expect(page.getByText(/à synchroniser/)).toBeVisible();
+  await expect(page.getByTestId("ticket").getByText("envoyé").first()).toBeVisible();
+  await expect(page.locator("header").getByText(/à synchroniser/)).toBeVisible();
 
   // Retour salle hors ligne : la table apparaît occupée grâce à la commande locale
   await page.getByRole("button", { name: "Salle" }).first().click();
@@ -51,7 +51,7 @@ test("hors ligne : ouvrir une table, commander, envoyer, puis synchroniser", asy
   await context.setOffline(false);
   await page.evaluate(() => window.dispatchEvent(new Event("online")));
   await expect(page.getByText(/Synchronisation : 4 opérations transmises/)).toBeVisible({ timeout: 15000 });
-  await expect(page.getByText("EN LIGNE")).toBeVisible();
+  await expect(page.locator("header").getByText("EN LIGNE")).toBeVisible();
 
   const res = await page.request.get(`/api/orders/${orderId}`);
   expect(res.ok()).toBe(true);

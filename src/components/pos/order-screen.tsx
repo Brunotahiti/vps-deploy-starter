@@ -274,7 +274,7 @@ export function OrderScreen({ orderId: orderIdProp }: { orderId: string }) {
       </div>
 
       {/* Ticket : colonne fixe (tablette / ordinateur) ou panneau plein écran (téléphone) */}
-      <aside className={`card flex shrink-0 flex-col overflow-hidden ${sheet ? "fixed inset-0 z-40 m-0 w-full rounded-none rise" : "hidden"} md:static md:z-auto md:m-2 md:ml-0 md:flex md:w-[340px] md:rounded-[20px] xl:w-[400px]`} style={sheet ? { paddingBottom: "env(safe-area-inset-bottom)" } : undefined}>
+      <aside data-testid="ticket" className={`card flex shrink-0 flex-col overflow-hidden ${sheet ? "fixed inset-0 z-40 m-0 w-full rounded-none rise" : "hidden"} md:static md:z-auto md:m-2 md:ml-0 md:flex md:w-[340px] md:rounded-[20px] xl:w-[400px]`} style={sheet ? { paddingBottom: "env(safe-area-inset-bottom)" } : undefined}>
         <div className="border-b border-line px-4 py-3">
           <div className="flex items-center justify-between">
             <button onClick={() => setSheet(false)} className="md:hidden touch -ml-1 mr-2 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl surface-2" aria-label="Fermer la commande"><X className="h-5 w-5" /></button>

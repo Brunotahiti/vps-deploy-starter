@@ -35,12 +35,12 @@ test("caisse : de l'ouverture de table au rapport de caisse", async ({ page }) =
   await freeTable.click();
   await page.getByRole("button", { name: "4", exact: true }).click();
   await page.waitForURL(/\/pos\/order\//);
-  await expect(page.locator("aside").last().getByText(`Table ${tableName}`)).toBeVisible();
+  await expect(page.getByTestId("ticket").getByText(`Table ${tableName}`)).toBeVisible();
 
   // Ajouter un produit simple (boisson)
   await page.getByRole("button", { name: "Boissons" }).click();
   await page.getByRole("button", { name: "Ajouter Eau minérale 50 cl" }).click();
-  await expect(page.locator("aside").last().getByText("Eau minérale 50 cl")).toBeVisible();
+  await expect(page.getByTestId("ticket").getByText("Eau minérale 50 cl")).toBeVisible();
 
   // Ajouter un produit avec options obligatoires (burger)
   await page.getByRole("button", { name: "Plats", exact: true }).click();
@@ -50,17 +50,17 @@ test("caisse : de l'ouverture de table au rapport de caisse", async ({ page }) =
   await page.getByRole("button", { name: "Salade", exact: true }).click();
   await page.getByRole("button", { name: /Bacon\s*\+/ }).click();
   await page.getByRole("button", { name: /^Ajouter ·/ }).click();
-  await expect(page.locator("aside").last().getByText("Burger Bacon")).toBeVisible();
-  await expect(page.locator("aside").last().getByText("Saignant, Salade, Bacon")).toBeVisible();
+  await expect(page.getByTestId("ticket").getByText("Burger Bacon")).toBeVisible();
+  await expect(page.getByTestId("ticket").getByText("Saignant, Salade, Bacon")).toBeVisible();
 
   // Total attendu : 350 + 2100 + 250 = 2 700 F
-  await expect(page.locator("aside").last().getByText("2 700 F").first()).toBeVisible();
+  await expect(page.getByTestId("ticket").getByText("2 700 F").first()).toBeVisible();
 
   // Envoi en cuisine (menu déroulant multi-services → tout envoyer)
   await page.getByRole("button", { name: /Envoyer/ }).click();
   await page.getByRole("button", { name: "Tout envoyer" }).click();
   await expect(page.getByText("Envoyé en cuisine")).toBeVisible();
-  await expect(page.locator("aside").last().getByText("envoyé").first()).toBeVisible();
+  await expect(page.getByTestId("ticket").getByText("envoyé").first()).toBeVisible();
 
   // Tickets cuisine créés (API) — le KDS visuel arrive en Phase 3
   const orderId = page.url().split("/pos/order/")[1];
@@ -69,7 +69,7 @@ test("caisse : de l'ouverture de table au rapport de caisse", async ({ page }) =
   expect(order.data.items.every((i: { status: string }) => i.status === "SENT")).toBe(true);
 
   // Addition demandée
-  await page.locator("aside").last().locator("button").filter({ has: page.locator("svg.lucide-receipt") }).click();
+  await page.getByTestId("ticket").locator("button").filter({ has: page.locator("svg.lucide-receipt") }).click();
   await expect(page.getByText("Addition demandée")).toBeVisible();
 
   // Paiement : diviser en 2 parts égales, payer la 1re en espèces, la 2e en carte
