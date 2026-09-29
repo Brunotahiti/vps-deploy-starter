@@ -79,6 +79,10 @@ export const updateItemSchema = z.object({ quantity: z.number().int().min(1).max
 export const removeItemSchema = z.object({ reason: z.string().max(200).nullable().optional(), managerPin: pin.optional() });
 export const sendSchema = z.object({ courseId: uuid.nullable().optional(), all: z.boolean().optional() });
 export const courseStatusSchema = z.object({ status: z.enum(["PENDING", "HOLD", "FIRE", "SERVED"]) });
+// Cuisine (Phase 3)
+export const kitchenListQuery = z.object({ stationId: uuid.optional(), includeDone: z.string().optional() });
+export const kitchenTicketStatusSchema = z.object({ status: z.enum(["ACCEPTED", "IN_PROGRESS", "READY", "DONE"]) });
+export const kitchenItemReadySchema = z.object({ ready: z.boolean() });
 export const discountSchema = z.object({ amount: money.optional(), percentBps: bps.max(10000).optional(), reason: z.string().min(1).max(200), managerPin: pin.optional() });
 export const cancelSchema = z.object({ reason: z.string().min(1).max(200), managerPin: pin.optional() });
 export const transferSchema = z.object({ tableId: uuid });

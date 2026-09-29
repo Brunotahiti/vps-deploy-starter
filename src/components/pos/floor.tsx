@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ShoppingBag, Store, Users, Sparkles } from "lucide-react";
+import { ShoppingBag, Store, Users, Sparkles, BellRing } from "lucide-react";
 import { api, ApiClientError } from "@/lib/api-client";
 import { outbox } from "@/lib/offline/outbox";
 import { cacheGet, cacheSet } from "@/lib/offline/db";
@@ -55,7 +55,7 @@ export function FloorPlan() {
     const locals = localOrders.data ?? [];
     if (locals.length === 0) return base;
     // Les commandes créées hors ligne (non encore synchronisées) apparaissent sur leur table
-    return base.map((r) => ({ ...r, tables: r.tables.map((t) => { const lo = t.order ? null : locals.find((o) => o.tableId === t.id); return lo ? { ...t, status: "ORDERING" as const, order: { id: lo.id, tableId: t.id, status: "OPEN" as const, covers: lo.covers, total: 0, paidTotal: 0, openedAt: new Date(lo.openedAt), serverId: null, server: null, _count: { items: 0 } } } : t; }) }));
+    return base.map((r) => ({ ...r, tables: r.tables.map((t) => { const lo = t.order ? null : locals.find((o) => o.tableId === t.id); return lo ? { ...t, status: "ORDERING" as const, order: { id: lo.id, tableId: t.id, status: "OPEN" as const, covers: lo.covers, total: 0, paidTotal: 0, openedAt: new Date(lo.openedAt), serverId: null, server: null, _count: { items: 0 }, items: undefined, readyCount: 0 } } : t; }) }));
   }, [floor.data, localOrders.data]);
   const room = rooms.find((r) => r.id === roomId) ?? rooms[0];
 
@@ -131,7 +131,7 @@ export function FloorPlan() {
             const color = TABLE_STATUS_COLOR[t.status];
             return (
               <button key={t.id} onClick={() => onTable(t)} className="touch card flex min-h-[96px] flex-col justify-between overflow-hidden p-3 text-left transition active:scale-[0.98]" title={TABLE_STATUS_LABEL[t.status]}>
-                <span className="flex items-center justify-between"><span className="text-lg font-extrabold">{t.name}</span><span className="h-3 w-3 rounded-full shadow-sm" style={{ background: color }} /></span>
+                <span className="flex items-center justify-between"><span className="text-lg font-extrabold">{t.name}</span>{t.order?.readyCount ? <span className="flex items-center gap-1 rounded-full bg-green-500 px-2 py-0.5 text-[11px] font-extrabold text-white pulse-soft"><BellRing className="h-3 w-3" />{t.order.readyCount} prêt{t.order.readyCount > 1 ? "s" : ""}</span> : <span className="h-3 w-3 rounded-full shadow-sm" style={{ background: color }} />}</span>
                 {t.order ? (
                   <span className="mt-1"><span className="block text-base font-extrabold" style={{ color }}><Money amount={t.order.total} /></span><span className="block text-[11px] text-muted">{formatElapsed(t.order.openedAt)} · {t.order.covers} cvts · {TABLE_STATUS_LABEL[t.status]}</span></span>
                 ) : (
@@ -165,6 +165,7 @@ export function FloorPlan() {
                   <>
                     <span className="mt-0.5 rounded-full bg-black/15 px-2 py-0.5 text-[11px] font-semibold">{formatElapsed(t.order.openedAt)} · {t.order.covers} cvts</span>
                     <span className="text-xs font-bold"><Money amount={t.order.total} /></span>
+                    {t.order.readyCount ? <span className="absolute -right-1.5 -top-1.5 flex items-center gap-0.5 rounded-full bg-green-500 px-1.5 py-0.5 text-[10px] font-extrabold text-white shadow-lift pulse-soft" title="Plats prêts en cuisine"><BellRing className="h-3 w-3" />{t.order.readyCount}</span> : null}
                   </>
                 ) : (
                   <span className="text-xs font-medium opacity-90">{t.status === "FREE" ? `${t.seats} places` : TABLE_STATUS_LABEL[t.status]}</span>

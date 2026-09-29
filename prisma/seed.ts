@@ -194,6 +194,7 @@ async function main() {
       if (rand() < 0.3) picks.push({ p: pick(boissons), course: 0 });
     }
     const sent = close || rand() < 0.7;
+    const createdItems: { id: string; courseId: string; stationId: string | null | undefined; sentAt: Date | null }[] = [];
     for (const [i, { p, course }] of picks.entries()) {
       const mods = [];
       for (const gName of p.groups) {
@@ -204,7 +205,7 @@ async function main() {
       const modifiersTotal = mods.reduce((a, m) => a + m.priceDelta, 0);
       const calc = computeLine({ quantity: 1, unitPrice: p.priceTtc, modifiersTotal, discountAmount: 0, taxRateBps: p.taxRateBps });
       lines.push({ quantity: 1, unitPrice: p.priceTtc, modifiersTotal, discountAmount: 0, taxRateBps: p.taxRateBps, taxRateName: p.taxRateName });
-      await prisma.orderItem.create({
+      const item = await prisma.orderItem.create({
         data: {
           orderId: order.id, courseId: courses[course].id, productId: p.id, kitchenStationId: p.stationId, name: p.name, quantity: 1, unitPrice: p.priceTtc, modifiersTotal, lineTotal: calc.lineTotal,
           taxRateBps: p.taxRateBps, taxRateName: p.taxRateName, taxAmount: calc.taxAmount, costPrice: p.costPrice, seatNumber: (i % covers) + 1, sortOrder: i, status: close ? "SERVED" : sent ? "SENT" : "PENDING",
@@ -212,6 +213,22 @@ async function main() {
           modifiers: { create: mods.map((m) => ({ modifierId: m.id, groupName: m.group.name, name: m.name, priceDelta: m.priceDelta })) },
         },
       });
+      createdItems.push({ id: item.id, courseId: courses[course].id, stationId: p.stationId, sentAt: item.sentAt });
+    }
+    // Tickets cuisine (Phase 3) : un ticket par (service, poste) pour les commandes en cours envoyées
+    if (sent && !close) {
+      const groups = new Map<string, typeof createdItems>();
+      for (const it of createdItems) { const k = `${it.courseId}|${it.stationId ?? "none"}`; groups.set(k, [...(groups.get(k) ?? []), it]); }
+      for (const [k, items] of groups) {
+        const [courseId, stationId] = k.split("|");
+        const r = rand();
+        const status = r < 0.35 ? "NEW" : r < 0.55 ? "ACCEPTED" : r < 0.85 ? "IN_PROGRESS" : "READY";
+        const at = items[0].sentAt ?? openedAt;
+        const later = (min: number) => new Date(at.getTime() + min * 60000);
+        const ticket = await prisma.kitchenTicket.create({ data: { orderId: order.id, courseId, stationId: stationId === "none" ? null : stationId, status, isUrgent: rand() < 0.12, createdAt: at, acceptedAt: status === "NEW" ? null : later(1), startedAt: status === "NEW" || status === "ACCEPTED" ? null : later(2), readyAt: status === "READY" ? later(9) : null } });
+        await prisma.orderItem.updateMany({ where: { id: { in: items.map((i) => i.id) } }, data: { kitchenTicketId: ticket.id, ...(status === "IN_PROGRESS" ? { status: "PREPARING" } : status === "READY" ? { status: "READY", readyAt: later(9) } : {}) } });
+        if (status === "READY") await prisma.course.update({ where: { id: courseId }, data: { status: "READY" } });
+      }
     }
     const discount = rand() < 0.08 ? 500 : 0;
     const totals = computeOrderTotals(lines, discount);

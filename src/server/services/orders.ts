@@ -272,6 +272,12 @@ export async function removeItem(actor: Actor, orderId: string, itemId: string, 
     const targets = [item.id, ...order.items.filter((i) => i.parentItemId === item.id).map((i) => i.id)];
     if (wasSent) {
       await tx.orderItem.updateMany({ where: { id: { in: targets } }, data: { status: "VOIDED", voidedAt: new Date(), voidReason: reason ?? null, lineTotal: 0, taxAmount: 0 } });
+      // Ticket cuisine sans plus aucun article à préparer → annulé (l'écran cuisine le retire)
+      const ticketIds = [...new Set(order.items.filter((i) => targets.includes(i.id) && i.kitchenTicketId).map((i) => i.kitchenTicketId!))];
+      for (const ticketId of ticketIds) {
+        const remaining = await tx.orderItem.count({ where: { kitchenTicketId: ticketId, status: { not: "VOIDED" } } });
+        if (remaining === 0) await tx.kitchenTicket.updateMany({ where: { id: ticketId, status: { in: ["NEW", "ACCEPTED", "IN_PROGRESS", "READY"] } }, data: { status: "CANCELLED", completedAt: new Date() } });
+      }
       await audit({ ...actor, action: "item.void", entityType: "order_item", entityId: item.id, oldValue: { name: item.name, quantity: item.quantity, lineTotal: item.lineTotal, orderNumber: order.number }, reason }, tx);
     } else {
       await tx.orderItem.deleteMany({ where: { id: { in: targets } } });
@@ -370,7 +376,7 @@ export async function cancelOrder(actor: Actor, orderId: string, reason: string)
   if (order.paidTotal > 0) throw new ApiError(409, "ORDER_PAID", "Remboursez les paiements avant d'annuler");
   await prisma.$transaction(async (tx) => {
     await tx.order.update({ where: { id: orderId }, data: { status: "CANCELLED", cancelReason: reason, closedAt: new Date(), version: { increment: 1 } } });
-    await tx.kitchenTicket.updateMany({ where: { orderId, status: { in: ["NEW", "ACCEPTED", "IN_PROGRESS"] } }, data: { status: "CANCELLED" } });
+    await tx.kitchenTicket.updateMany({ where: { orderId, status: { in: ["NEW", "ACCEPTED", "IN_PROGRESS", "READY"] } }, data: { status: "CANCELLED", completedAt: new Date() } });
     await audit({ ...actor, action: "order.cancel", entityType: "order", entityId: orderId, oldValue: { status: order.status, total: order.total, number: order.number, items: order.items.length }, reason }, tx);
   });
   publish("order.closed", actor.establishmentId, { orderId, tableId: order.tableId });
