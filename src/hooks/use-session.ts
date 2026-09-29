@@ -12,6 +12,7 @@ export type Me = {
   roleKey?: string | null;
   permissions?: string[];
   terminal: { id: string; name: string; kind: string; establishmentId: string } | null;
+  features?: { email: boolean };
 };
 
 export function useSession() {

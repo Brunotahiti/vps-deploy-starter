@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Money } from "@/components/money";
 import { PageHeader, Table, Tr, Td, useAction } from "@/components/admin/common";
 import { PinModal, withPin, type PinRequest } from "@/components/pos/pin-modal";
+import { ReceiptDialog } from "@/components/pos/receipt-dialog";
 import { ORDER_STATUS_LABEL, ORDER_TYPE_LABEL, PAYMENT_LABEL, type Order } from "@/components/pos/types";
 
 export default function OrdersAdmin() {
@@ -20,6 +21,7 @@ export default function OrdersAdmin() {
   const [sel, setSel] = useState<Order | null>(null);
   const [pin, setPin] = useState<PinRequest>(null);
   const [refund, setRefund] = useState<{ paymentId: string; amount: string; reason: string } | null>(null);
+  const [receiptFor, setReceiptFor] = useState<Order | null>(null);
   const act = useAction();
   const q = useQuery({ queryKey: ["orders", "admin", day, status], queryFn: () => api.get<{ items: Order[]; total: number }>(`/api/orders?day=${day}${status ? `&status=${status}` : ""}&take=200`) });
 
@@ -62,7 +64,7 @@ export default function OrdersAdmin() {
               ))}
               {sel.payments.length === 0 ? <p className="text-muted">Aucun paiement</p> : null}
             </div>
-            <div className="flex gap-2"><a className="touch inline-flex h-10 items-center rounded-lg surface-2 px-3 font-semibold" href={`/api/orders/${sel.id}/receipt`} target="_blank" rel="noreferrer">Ticket HTML</a><a className="touch inline-flex h-10 items-center rounded-lg surface-2 px-3 font-semibold" href={`/api/orders/${sel.id}/receipt?format=pdf`} target="_blank" rel="noreferrer">Ticket PDF</a></div>
+            <div className="flex flex-wrap gap-2"><a className="touch inline-flex h-10 items-center rounded-lg surface-2 px-3 font-semibold" href={`/api/orders/${sel.id}/receipt`} target="_blank" rel="noreferrer">Ticket</a><a className="touch inline-flex h-10 items-center rounded-lg surface-2 px-3 font-semibold" href={`/api/orders/${sel.id}/receipt?format=pdf`} target="_blank" rel="noreferrer">Reçu PDF</a><Button variant="primary" size="md" onClick={() => setReceiptFor(sel)}>Envoyer par e-mail</Button></div>
           </div>
         ) : null}
       </Modal>
@@ -70,6 +72,7 @@ export default function OrdersAdmin() {
         {refund ? <div className="space-y-3"><label className="block text-xs font-bold uppercase text-muted">Montant<input type="number" value={refund.amount} onChange={(e) => setRefund({ ...refund, amount: e.target.value })} className="mt-1 h-11 w-full rounded-xl border border-line surface px-3 text-sm" /></label><label className="block text-xs font-bold uppercase text-muted">Motif<input value={refund.reason} onChange={(e) => setRefund({ ...refund, reason: e.target.value })} className="mt-1 h-11 w-full rounded-xl border border-line surface px-3 text-sm" /></label><Button variant="danger" className="w-full" disabled={!refund.reason || Number(refund.amount) <= 0} onClick={doRefund}>Confirmer le remboursement</Button></div> : null}
       </Modal>
       <PinModal request={pin} onClose={() => setPin(null)} />
+      {receiptFor ? <ReceiptDialog orderId={receiptFor.id} orderNumber={receiptFor.number} open onClose={() => setReceiptFor(null)} /> : null}
     </div>
   );
 }

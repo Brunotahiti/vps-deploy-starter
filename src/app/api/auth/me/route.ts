@@ -1,6 +1,7 @@
 import { route, ok } from "@/server/http";
 import { getAuthContext } from "@/server/auth/context";
 import { getTerminalFromCookie } from "@/server/auth/session";
+import { isEmailConfigured } from "@/server/email/mailer";
 
 export const GET = route(async () => {
   const ctx = await getAuthContext();
@@ -15,5 +16,6 @@ export const GET = route(async () => {
     roleKey: ctx.roleKey,
     permissions: [...ctx.permissions],
     terminal: ctx.terminal ? { id: ctx.terminal.id, name: ctx.terminal.name, kind: ctx.terminal.kind, establishmentId: ctx.terminal.establishmentId } : null,
+    features: { email: isEmailConfigured() },
   });
 });

@@ -3,13 +3,13 @@ import { formatMoney, splitTtc, splitEqual, applyBps, formatBps, roundHalfUp } f
 
 describe("formatMoney", () => {
   it("affiche les F CFP sans décimales avec séparateur de milliers", () => {
-    expect(formatMoney(2450)).toBe("2 450 F");
-    expect(formatMoney(485300, "XPF")).toBe("485 300 F");
+    expect(formatMoney(2450)).toBe("2 450 F");
+    expect(formatMoney(485300, "XPF")).toBe("485 300 F");
     expect(formatMoney(0)).toBe("0 F");
     expect(formatMoney(-500)).toBe("-500 F");
   });
   it("gère une devise à 2 décimales (architecture multi-devises)", () => {
-    expect(formatMoney(245000, "EUR")).toBe("2 450,00 €");
+    expect(formatMoney(245000, "EUR")).toBe("2 450,00 €");
     expect(formatMoney(1999, "EUR")).toBe("19,99 €");
   });
 });

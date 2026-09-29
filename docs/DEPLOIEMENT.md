@@ -46,6 +46,21 @@ Le script enregistre la clé SSH et les secrets GitHub (`VPS_SSH_KEY`, `VPS_HOST
 | Sauvegardes chiffrées | ajouter `BACKUP_PASSPHRASE=…` dans `/opt/manaresto/.env` (AES-256, déchiffrement automatique à la restauration) |
 | Désactiver la démo | mettre `SEED_DEMO=false` dans `/opt/manaresto/.env` (la démo déjà chargée reste en base ; supprimer l'entreprise « demo-mana-beach » si besoin) |
 
+## Reçus par e-mail (SMTP)
+
+Pour envoyer les reçus PDF aux clients, ajouter dans `/opt/manaresto/.env` (sur le VPS) puis relancer `docker compose up -d app` :
+
+```
+SMTP_HOST=smtp.hostinger.com
+SMTP_PORT=465
+SMTP_SECURE=true
+SMTP_USER=contact@votre-restaurant.pf
+SMTP_PASS=le-mot-de-passe-de-la-boite
+SMTP_FROM="Le Mana Beach <contact@votre-restaurant.pf>"
+```
+
+Avec une boîte e-mail Hostinger, ce sont les réglages standard. Tout autre serveur SMTP (Gmail avec mot de passe d'application, OVH, Brevo…) fonctionne de la même façon. L'état apparaît dans *Administration → Paramètres → Reçus par e-mail*.
+
 ## Sécurité en production
 
 - Changer le mot de passe du compte propriétaire de démo, ou créer votre entreprise via `/signup` et ne pas charger la démo.
