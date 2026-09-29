@@ -17,7 +17,7 @@ echo ""
 echo "🚀 Déploiement ManaResto → $TARGET:$VPS_PATH"
 echo "=============================================="
 if [ -z "${PUBLIC_HOST:-}" ]; then
-  read -rp "Nom de domaine de l'application (ex. manaresto.pf ou srv1565699.hstgr.cloud) : " PUBLIC_HOST
+  read -rp "Nom de domaine de l'application (ex. manaresto.manaprocess.cloud) : " PUBLIC_HOST
 fi
 if [ -z "${SEED_DEMO:-}" ]; then
   read -rp "Charger le restaurant de démonstration « Le Mana Beach » ? [Y/n] : " SD

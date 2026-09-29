@@ -20,7 +20,8 @@ Relancer la même commande met à jour l'application (le `.env` et la base sont 
 
 ### Avant de lancer
 
-- Le domaine doit pointer vers l'IP du VPS (enregistrement DNS **A** → `187.127.105.242`). Avec le nom `*.hstgr.cloud` fourni par Hostinger, rien à faire.
+- Le domaine doit pointer vers l'IP du VPS (enregistrement DNS **A** → `187.127.105.242`). Le nom `srv1565699.hstgr.cloud` est déjà utilisé par un autre site du serveur : ManaResto a son propre sous-domaine, **`manaresto.manaprocess.cloud`**.
+- La zone DNS de `manaprocess.cloud` est gérée chez **Cloudflare** (serveurs `lex`/`meg.ns.cloudflare.com`), pas dans le panneau Hostinger : un enregistrement créé chez Hostinger n'a aucun effet. Ajouter l'enregistrement A dans Cloudflare, proxy activé (nuage orange) comme les autres sous-domaines. Vérifier : `dig +short @1.1.1.1 manaresto.manaprocess.cloud` doit répondre (adresses Cloudflare avec le proxy).
 - Le VPS doit déjà avoir Docker et **son Traefik** (réseau Docker `traefik`, entrypoints `web` / `websecure`, certresolver `letsencrypt`), comme fourni par le starter. Le script s'arrête avec un message clair si l'un des trois manque et ne touche pas au pare-feu.
 - VPS visé par défaut : `root@187.127.105.242` (modifiable : `VPS_HOST=... VPS_USER=... bash scripts/deploy-vps.sh`).
 
@@ -44,6 +45,7 @@ Le script enregistre la clé SSH et les secrets GitHub (`VPS_SSH_KEY`, `VPS_HOST
 | Sauvegarde immédiate | `… '/opt/manaresto/scripts/db-backup.sh'` |
 | Restaurer une sauvegarde | `… 'bash /opt/manaresto/scripts/db-restore.sh /var/backups/manaresto/<fichier>.sql.gz'` |
 | Sauvegardes chiffrées | ajouter `BACKUP_PASSPHRASE=…` dans `/opt/manaresto/.env` (AES-256, déchiffrement automatique à la restauration) |
+| Certificat HTTPS absent (Cloudflare répond 526) | Traefik n'a demandé le certificat qu'une fois, avant que le DNS n'existe. Relancer la demande : `… 'cd /opt/manaresto && docker compose up -d --force-recreate app'`, puis vérifier `docker exec traefik grep -c manaresto.manaprocess.cloud /letsencrypt/acme.json` (≥ 1). Aucun redémarrage de Traefik nécessaire. |
 | Désactiver la démo | mettre `SEED_DEMO=false` dans `/opt/manaresto/.env` (la démo déjà chargée reste en base ; supprimer l'entreprise « demo-mana-beach » si besoin) |
 
 ## Reçus par e-mail (SMTP)
