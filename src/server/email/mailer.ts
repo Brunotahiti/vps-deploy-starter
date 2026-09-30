@@ -59,3 +59,23 @@ ${input.address || input.phone ? `<p style="margin:18px 0 0;font-size:12px;color
   const text = `${title} — ${input.establishmentName}\nN° ${input.orderNumber} · ${input.dateLabel}\nMontant ${input.isPaid ? "réglé" : "à régler"} : ${input.total}\n\nLe document PDF est en pièce jointe. Merci de votre visite, māuruuru !`;
   return { to: input.to, subject: `${title} ${input.orderNumber} — ${input.establishmentName}`, text, html, attachments: [{ filename: `recu-${input.orderNumber}.pdf`, content: input.pdf, contentType: "application/pdf" }] };
 }
+
+/** E-mail d'invitation à rejoindre l'équipe : bouton vers la page de création du mot de passe. */
+export function invitationMail(input: { to: string; firstName: string; organizationName: string; establishments: string[]; inviterName: string; url: string; expiresDays: number }): OutgoingMail {
+  const where = input.establishments.length ? input.establishments.join(", ") : input.organizationName;
+  const html = `<!doctype html><html lang="fr"><body style="margin:0;background:#f3f5f8;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#0f172a">
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td align="center" style="padding:24px 12px">
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:520px;background:#fff;border-radius:20px;overflow:hidden;box-shadow:0 6px 20px -8px rgba(15,23,42,.15)">
+<tr><td style="background:linear-gradient(135deg,#14aaa3,#0f6e6c);padding:28px 28px 24px;color:#fff">
+<div style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;opacity:.85">ManaResto · ${esc(input.organizationName)}</div>
+<div style="font-size:24px;font-weight:800;margin-top:6px">Bienvenue dans l'équipe, ${esc(input.firstName)} !</div></td></tr>
+<tr><td style="padding:24px 28px">
+<p style="margin:0 0 14px;font-size:15px;line-height:1.5"><strong>${esc(input.inviterName)}</strong> vous invite à rejoindre <strong>${esc(where)}</strong> sur ManaResto, l'application de caisse et de gestion du restaurant.</p>
+<p style="margin:0 0 20px;font-size:15px;line-height:1.5">Cliquez sur le bouton pour choisir votre mot de passe et votre code PIN de caisse. Vous pourrez ensuite vous connecter sur tablette, téléphone ou ordinateur.</p>
+<p style="margin:0 0 20px;text-align:center"><a href="${esc(input.url)}" style="display:inline-block;background:#f97c3c;color:#fff;text-decoration:none;font-weight:800;font-size:16px;padding:14px 26px;border-radius:14px">Créer mon accès</a></p>
+<p style="margin:0;font-size:12px;color:#64748b;line-height:1.5">Ce lien est valable ${input.expiresDays} jours. Si le bouton ne fonctionne pas, copiez cette adresse dans votre navigateur :<br><a href="${esc(input.url)}" style="color:#0f6e6c;word-break:break-all">${esc(input.url)}</a></p></td></tr>
+<tr><td style="padding:14px 28px;background:#f8fafc;font-size:11px;color:#94a3b8;text-align:center">Invitation envoyée par ManaResto pour ${esc(input.organizationName)}. Si vous n'attendiez pas cette invitation, ignorez cet e-mail.</td></tr>
+</table></td></tr></table></body></html>`;
+  const text = `Bienvenue dans l'équipe, ${input.firstName} !\n\n${input.inviterName} vous invite à rejoindre ${where} sur ManaResto.\nCréez votre accès (mot de passe et PIN de caisse) : ${input.url}\n\nCe lien est valable ${input.expiresDays} jours.`;
+  return { to: input.to, subject: `${input.inviterName} vous invite à rejoindre ${where} sur ManaResto`, text, html };
+}

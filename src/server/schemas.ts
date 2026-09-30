@@ -29,6 +29,8 @@ export const userCreateSchema = z.object({
   displayName: z.string().max(40).nullable().optional(), color: z.string().max(20).nullable().optional(), pin: pin.nullable().optional(), memberships: z.array(membershipSchema).min(1),
 });
 export const userUpdateSchema = userCreateSchema.partial().extend({ isActive: z.boolean().optional() });
+export const inviteSchema = z.object({ email: z.string().email(), firstName: z.string().min(1).max(60), lastName: z.string().min(1).max(60), color: z.string().max(20).nullable().optional(), memberships: z.array(membershipSchema).min(1) });
+export const acceptInviteSchema = z.object({ password: z.string().min(8).max(128), pin: pin.nullable().optional() });
 export const roleSchema = z.object({ name: z.string().min(1).max(60), permissions: z.array(z.string()) });
 
 export const taxRateSchema = z.object({ name: z.string().min(1).max(60), rateBps: bps, isDefault: z.boolean().optional(), isActive: z.boolean().optional() });

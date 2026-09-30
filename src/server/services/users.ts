@@ -11,11 +11,11 @@ export async function listUsers(organizationId: string, establishmentId?: string
     },
     select: {
       id: true, email: true, firstName: true, lastName: true, displayName: true, color: true, isOwner: true, isActive: true,
-      lastLoginAt: true, createdAt: true, pinHash: true,
+      lastLoginAt: true, createdAt: true, pinHash: true, inviteToken: true, inviteExpiresAt: true, invitedAt: true,
       memberships: { include: { role: { select: { id: true, key: true, name: true } }, establishment: { select: { id: true, name: true } } } },
     },
     orderBy: [{ isOwner: "desc" }, { lastName: "asc" }],
-  }).then((users) => users.map(({ pinHash, ...u }) => ({ ...u, hasPin: !!pinHash })));
+  }).then((users) => users.map(({ pinHash, inviteToken, ...u }) => ({ ...u, hasPin: !!pinHash, invitePending: !!inviteToken, inviteExpired: !!inviteToken && !!u.inviteExpiresAt && u.inviteExpiresAt.getTime() < Date.now() })));
 }
 
 export type CreateUserInput = {
