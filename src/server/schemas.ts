@@ -171,3 +171,17 @@ export const serviceSettingsSchema = z.object({
   delays: z.object({ welcome: z.number().int().min(0).max(120), drinksCheck: z.number().int().min(0).max(120), foodCheck: z.number().int().min(0).max(120), dessertOffer: z.number().int().min(0).max(120), dessertCheck: z.number().int().min(0).max(120), bill: z.number().int().min(0).max(120), late: z.number().int().min(1).max(120) }).partial().optional(),
   steps: z.array(z.object({ key: z.string().min(1).max(40).regex(/^[a-z0-9_]+$/), label: z.string().min(1).max(120) })).min(1).max(20).optional(),
 });
+
+// Site vitrine : demande de démonstration
+export const demoRequestSchema = z.object({
+  restaurantName: z.string().trim().min(2, "Nom du restaurant requis").max(120),
+  contactName: z.string().trim().min(2, "Nom du contact requis").max(120),
+  phone: z.string().trim().min(6, "Téléphone requis").max(30),
+  email: z.string().trim().email("E-mail invalide").max(160),
+  commune: z.string().trim().min(2, "Commune requise").max(80),
+  kind: z.enum(["RESTAURANT", "ROULOTTE", "SNACK", "BAR", "CAFE", "AUTRE"]),
+  message: z.string().trim().max(1000).optional().or(z.literal("")),
+  consent: z.literal(true, { message: "Votre accord est nécessaire pour être recontacté" }),
+  website: z.string().max(200).optional(), // pot de miel anti-spam : un robot le remplit, un humain ne le voit pas
+  startedAt: z.number().optional(), // horodatage d'ouverture du formulaire (anti-robot)
+});

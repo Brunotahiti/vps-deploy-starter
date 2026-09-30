@@ -1,9 +1,9 @@
 /** Offre commerciale ManaResto (Polynésie française). */
 export const OFFER = {
-  trialDays: 15,
-  setupFee: 15_000,     // F CFP, une fois
-  monthly: 12_000,      // F CFP par mois
-  commission: 0,        // % sur les ventes
+  trialDays: 15,          // essai gratuit, sans carte bancaire
+  monthly: 12_000,        // F CFP par mois
+  commitmentMonths: 12,   // engagement
+  commission: 0,          // % sur les commandes en ligne et les ventes
   contactEmail: "contact@manaresto.com",
   siteUrl: "https://www.manaresto.com",
 } as const;

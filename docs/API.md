@@ -39,6 +39,7 @@ Toutes les réponses sont `{ "data": … }` ou `{ "error": { "code", "message", 
 | GET | `/api/public/menu/:qrToken` · POST `/order` `{id, lines, covers?, notes?}` · POST `/call` | public (QR de table) |
 | GET | `/api/public/shop/:org/:etab` · POST `/order` `{id, mode: PICKUP|DELIVERY, name, phone, …, lines}` · POST `/reserve` | public |
 | GET | `/api/public/track/:publicToken` | public (jeton de suivi) |
+| POST | `/api/public/demo-request` `{restaurantName, contactName, phone, email, commune, kind, message?, consent: true}` — demande de démonstration (site vitrine ; limité par IP, pot de miel) | public |
 | GET | `/api/public/site/:org/:etab` — site du restaurant (coordonnées, horaires, réglages, canaux ouverts, menu allégé) ; page `/site/:org/:etab` | public |
 | GET/POST | `/api/kiosk/catalog` · `/api/kiosk/order` `{id, mode, name?, lines}` | cookie terminal de type KIOSK |
 | GET/POST | `/api/online-orders` · `/:id/accept` · `/:id/reject` `{reason}` · DELETE `/api/tables/:id/call` · GET `/api/tables/qr`, `/api/tables/:id/qr` (PNG) | pos.use / floor.manage |

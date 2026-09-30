@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+Disallow: /nginx.conf
+Sitemap: https://www.manaresto.com/sitemap.xml
