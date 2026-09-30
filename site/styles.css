@@ -48,6 +48,16 @@ p { margin: 0; }
 .nav-links a:hover { color: var(--lagon-700); border-color: var(--lagon); }
 .nav-cta { margin-left: auto; display: none; gap: 10px; align-items: center; }
 .nav-cta.always { display: flex; }
+/* Se connecter : visible sur tous les écrans (clients qui ont déjà un compte) */
+.nav-login { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 12px; border-radius: 12px; font-weight: 700; font-size: .92rem; color: var(--lagon-700); white-space: nowrap; transition: background .2s; }
+.nav-login:hover, .nav-login:focus-visible { background: var(--soft); }
+.nav-login svg { width: 17px; height: 17px; }
+.nav-login + .nav-cta { margin-left: 0; }
+/* Liens secondaires retirés de la barre d'ordinateur (place pour « Se connecter ») ; ils restent dans le menu mobile */
+.nav-links .nav-more { display: none; }
+.nav-login .short { display: none; }
+@media (max-width: 439px) { .nav-login .long { display: none; } .nav-login .short { display: inline; } .nav-login { padding: 0 10px; min-height: 44px; margin-right: 4px; } }
+@media (max-width: 349px) { .nav-login .short { display: none; } .nav-login { width: 44px; padding: 0; justify-content: center; } }
 @media (max-width: 479px) { .nav-cta.always { display: none; } }
 .burger { margin-left: auto; width: 46px; height: 46px; border: 1px solid var(--line); background: #fff; border-radius: 12px; display: grid; place-items: center; cursor: pointer; }
 .burger span { display: block; width: 20px; height: 2px; background: var(--text); position: relative; }
