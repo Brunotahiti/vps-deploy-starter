@@ -51,7 +51,7 @@ function Wizard({ est }: { est: NonNullable<NonNullable<ReturnType<typeof useSes
     9: <div className="space-y-2"><p className="text-sm text-muted">Créez vos serveurs, managers, cuisine… avec un PIN pour la caisse.</p>{link("/admin/users", "Utilisateurs")}</div>,
     10: <div className="space-y-2"><p className="text-sm text-muted">Les tickets s&apos;impriment depuis le navigateur (HTML/PDF). Le branchement d&apos;imprimantes thermiques réseau est prévu en Phase 7. Configurez les postes de destination des produits.</p>{link("/admin/settings", "Paramètres → Postes")}</div>,
     11: <div className="space-y-2"><p className="text-sm text-muted">Postes cuisine (CUISINE, BAR, PIZZA…) et seuils d&apos;alerte. L&apos;écran cuisine (/kds) affiche les tickets par poste avec les alertes de temps ; les tickets sont générés à chaque envoi.</p>{link("/admin/settings", "Paramètres → Postes cuisine")}</div>,
-    12: <div className="space-y-2"><p className="text-sm text-muted">Espèces, carte, chèque, virement, ticket restaurant, offert et autre sont disponibles. Activez les pourboires si besoin.</p>{link("/admin/settings", "Paramètres → Caisse")}</div>,
+    12: <div className="space-y-2"><p className="text-sm text-muted">Espèces, carte, chèque, virement, ticket restaurant, offert et autre sont disponibles.</p>{link("/admin/settings", "Paramètres → Caisse")}</div>,
     13: <div className="space-y-2"><p className="text-sm text-muted">Ouvrez la caisse, créez une commande sur une table, envoyez-la en cuisine et encaissez-la.</p>{link("/pos", "Ouvrir la caisse")}</div>,
     14: <p className="text-sm text-muted">Tout est prêt. Vous pourrez revenir sur chaque réglage depuis l&apos;administration.</p>,
   };

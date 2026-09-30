@@ -14,6 +14,7 @@ import { Logo } from "@/components/brand";
 import { api } from "@/lib/api-client";
 import { Money } from "@/components/money";
 import type { SessionReport } from "@/components/pos/types";
+import { TodoButton, TodoPanel, useServiceReminders } from "./service-todo";
 
 export function PosShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -25,6 +26,12 @@ export function PosShell({ children }: { children: React.ReactNode }) {
   const connected = useRealtime(!!me?.user);
   const { canInstall, install } = useInstallPrompt();
   const posAllowed = !!me?.user && can("pos.use");
+  // Phase 9 : rappels de service (« À faire maintenant »)
+  const reminders = useServiceReminders(posAllowed);
+  const [todo, setTodoState] = useState(false);
+  const setTodo = (open: boolean) => { setTodoState(open); if (open) qc.invalidateQueries({ queryKey: ["service"] }); };
+  const dueCount = reminders.data?.due.length ?? 0;
+  const lateAny = reminders.data?.due.some((r) => r.late) ?? false;
   const cash = useQuery({ queryKey: ["cash", "current"], queryFn: () => api.get<SessionReport | null>("/api/cash/current"), enabled: posAllowed });
   // Un compte sans accès caisse (ex. rôle Cuisine) est envoyé vers son écran, sans charger la salle
   useEffect(() => {
@@ -61,6 +68,7 @@ export function PosShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex h-dvh flex-col">
+      <TodoPanel open={todo} onClose={() => setTodo(false)} data={reminders.data} />
       <header className="no-print glass flex h-14 shrink-0 items-center gap-1.5 border-b px-2 sm:h-16 sm:gap-2 sm:px-4">
         <Link href="/pos" className="mr-1 flex items-center gap-2"><Logo size={32} withText={false} /><span className="hidden flex-col leading-tight md:flex"><span className="text-base font-extrabold tracking-tight">Mana<span className="text-brand">Resto</span></span><span className="truncate text-[11px] font-medium text-muted">{me?.establishment?.name}</span></span></Link>
         <nav className="ml-auto hidden items-center gap-1 sm:flex">
@@ -69,12 +77,14 @@ export function PosShell({ children }: { children: React.ReactNode }) {
               <n.icon className="h-4 w-4" /><span className="hidden md:inline">{n.label}</span>
             </Link>
           ))}
+          <TodoButton count={dueCount} late={lateAny} onClick={() => setTodo(true)} />
           {can("kds.use") ? <Link href="/kds" className="touch flex h-10 items-center gap-2 rounded-xl px-3 text-sm font-semibold hover:surface-2" title="Écran cuisine"><ChefHat className="h-4 w-4" /></Link> : null}
           {can("reports.view") || can("catalog.manage") ? <Link href="/admin" className="touch flex h-10 items-center gap-2 rounded-xl px-3 text-sm font-semibold hover:surface-2" title="Administration"><Settings className="h-4 w-4" /></Link> : null}
         </nav>
         {/* Téléphone : nom de l'écran, état réseau, bouton menu */}
         <span className="ml-1 truncate text-base font-extrabold sm:hidden">{pathname.startsWith("/pos/order/") ? "Commande" : (nav.find((n) => isActive(n.href))?.label ?? "")}</span>
         <div className="ml-auto flex items-center gap-1.5 sm:hidden">
+          <TodoButton count={dueCount} late={lateAny} onClick={() => setTodo(true)} compact />
           <button onClick={() => (pending > 0 ? flush() : undefined)} className={`touch flex h-9 w-9 items-center justify-center rounded-full ${!online ? "bg-red-500/15 text-red-600" : pending > 0 ? "bg-orange-500/15 text-orange-600" : connected ? "bg-green-500/10 text-green-600" : "surface-2 text-muted"}`} aria-label={online ? "En ligne" : "Hors ligne"}>
             {online ? <Wifi className="h-4 w-4" /> : <WifiOff className="h-4 w-4" />}{pending > 0 ? <span className="absolute -mt-6 ml-6 flex h-4 min-w-4 items-center justify-center rounded-full bg-orange-500 px-1 text-[10px] font-extrabold text-white">{pending}</span> : null}
           </button>
