@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Field, Input, Select, Toggle } from "@/components/ui/field";
 import { Spinner, Card, Badge } from "@/components/ui/misc";
 import { PageHeader, useAction, useList } from "@/components/admin/common";
+import { SubscriptionCard } from "@/components/admin/subscription";
 import { ServiceSettingsCard } from "@/components/admin/service-settings";
 import { PAYMENT_LABEL } from "@/components/pos/types";
 import type { Establishment, PaymentMethodConfig, Terminal, KitchenStation } from "@/generated/prisma/client";
@@ -67,6 +68,7 @@ function SettingsForm({ initial }: { initial: Est }) {
             <Toggle checked={toClean} onChange={setToClean} label="Passer la table « à nettoyer » après paiement (sinon libre immédiatement)" />
           </div>
         </Card>
+        <SubscriptionCard />
         <ServiceSettingsCard />
         <Card title="Horaires d'ouverture">
           <div className="grid gap-2 sm:grid-cols-2">{DAYS.map(([k, l]) => <Field key={k} label={l}><Input value={hours[k] ?? ""} onChange={(e) => setHours({ ...hours, [k]: e.target.value })} placeholder="11:00-14:30, 18:00-22:00" /></Field>)}</div>
