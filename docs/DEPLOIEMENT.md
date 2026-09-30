@@ -77,6 +77,16 @@ DNS chez Hostinger pour `manaresto.com` : modifiez l'enregistrement A `@` exista
 
 Puis, depuis votre Mac : `bash scripts/deploy-vps.sh` en répondant `app.manaresto.com` au domaine de l'application. L'ancien domaine reste accepté si `PUBLIC_HOST_ALT=manaresto.manaprocess.cloud` est présent dans `/opt/manaresto/.env` ; les domaines du site se règlent avec `SITE_HOST` et `SITE_HOST_ALT`. Traefik demande les certificats automatiquement une fois le DNS en place (comptez quelques minutes). Pour changer l'adresse de l'application utilisée par le site, modifiez `data-app` dans `site/index.html`.
 
+## Suivi des erreurs (Sentry)
+
+L'application embarque le SDK Sentry (navigateur, serveur et edge). Il ne s'active que si `SENTRY_DSN` est renseignée dans `/opt/manaresto/.env` :
+
+1. Dans Sentry (organisation `manaprocess-rd`), créez un projet **Next.js** nommé `manaresto` puis copiez sa DSN (Settings → Projects → manaresto → Client Keys).
+2. Ajoutez `SENTRY_DSN=…` (et éventuellement `SENTRY_ENVIRONMENT=production`) au `.env` du VPS.
+3. Relancez `bash scripts/deploy-vps.sh` : la DSN est intégrée au build pour le navigateur et lue au démarrage par le serveur.
+
+Les erreurs des routes API non gérées, les erreurs de rendu serveur et les plantages de l'interface sont remontés avec la version (`manaresto@<commit>`). Les coupures réseau (mode hors ligne de la caisse) sont ignorées. Les envois passent par `/monitoring` pour contourner les bloqueurs de publicité. Pour des traces lisibles, fournissez `SENTRY_AUTH_TOKEN` (scope `project:releases`) : les source maps sont alors téléversées au build.
+
 ## Abonnements (offre commerciale)
 
 Chaque entreprise créée via `/signup` démarre avec **15 jours d'essai gratuits** (toutes fonctions). Un bandeau dans l'administration indique les jours restants ; à l'échéance l'application continue de fonctionner mais signale l'essai terminé, et la page Paramètres → Abonnement propose de vous contacter. Tarif : 15 000 F de mise en place puis 12 000 F par mois, 0 % de commission.

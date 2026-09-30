@@ -8,7 +8,7 @@ import { LayoutDashboard, UtensilsCrossed, Map, Receipt, Wallet, Users, Settings
 import { useSession } from "@/hooks/use-session";
 import { useRealtime } from "@/hooks/use-realtime";
 import { useTheme } from "@/hooks/use-theme";
-import { useInstallPrompt } from "@/hooks/use-install-prompt";
+import { InstallAppButton } from "@/components/install-app";
 import { BUILD_ID } from "@/lib/build";
 import { SubscriptionBanner } from "@/components/admin/subscription";
 import { api } from "@/lib/api-client";
@@ -23,7 +23,6 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   const { toggle } = useTheme();
   const [open, setOpen] = useState(false);
   useRealtime(!!me?.user);
-  const { canInstall, install } = useInstallPrompt();
 
   if (isLoading) return <div className="flex h-screen items-center justify-center"><Spinner /></div>;
 
@@ -67,7 +66,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
         })}
       </nav>
       <div className="border-t border-line p-2">
-        {canInstall ? <button onClick={install} className="mb-1 flex h-10 w-full items-center gap-3 rounded-lg surface-2 px-3 text-sm font-semibold"><MonitorSmartphone className="h-4 w-4" />Installer l&apos;application</button> : null}
+        <InstallAppButton variant="secondary" className="mb-1 h-10 w-full justify-start" label="Installer l'application" compact />
         <Link href="/pos" className="bg-accent flex h-11 items-center gap-3 rounded-xl px-3 text-sm font-bold text-white shadow-[0_8px_24px_-8px_rgb(249_124_60/0.5)]"><MonitorSmartphone className="h-4 w-4" />Ouvrir la caisse</Link>
         <div className="mt-2 flex items-center gap-2 px-1">
           <span className="flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold text-white" style={{ background: me?.user?.color ?? "#0ea5a4" }}>{(me?.user?.firstName ?? "?").slice(0, 1)}</span>

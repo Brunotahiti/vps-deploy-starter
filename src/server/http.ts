@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/nextjs";
 import { NextResponse, type NextRequest } from "next/server";
 import { z, type ZodType } from "zod";
 import { ApiError } from "./errors";
@@ -37,6 +38,7 @@ export function errorResponse(err: unknown) {
     return NextResponse.json({ error: { code: "NOT_FOUND", message: "Ressource introuvable" } }, { status: 404 });
   }
   console.error("[api] erreur non gérée", err);
+  Sentry.captureException(err);
   return NextResponse.json({ error: { code: "INTERNAL", message: "Erreur interne" } }, { status: 500 });
 }
 
