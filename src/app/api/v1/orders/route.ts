@@ -32,5 +32,5 @@ export const POST = route(async (req) => {
 export function publicOrder(o: Awaited<ReturnType<typeof getOrder>>) {
   return { id: o.id, number: o.number, type: o.type, status: o.status, table: o.table?.name ?? null, covers: o.covers, customerName: o.customerName, openedAt: o.openedAt, closedAt: o.closedAt, subtotal: o.subtotal, discountTotal: o.discountTotal, taxTotal: o.taxTotal, total: o.total, paidTotal: o.paidTotal, tipTotal: o.tipTotal,
     items: o.items.filter((i) => i.status !== "VOIDED").map((i) => ({ id: i.id, name: i.name, quantity: i.quantity, unitPrice: i.unitPrice, lineTotal: i.lineTotal, taxRateBps: i.taxRateBps, status: i.status, parentItemId: i.parentItemId, modifiers: i.modifiers.map((m) => ({ name: m.name, priceDelta: m.priceDelta })) })),
-    payments: o.payments.filter((p) => p.status !== "VOIDED").map((p) => ({ id: p.id, method: p.method, amount: p.amount, tipAmount: p.tipAmount, refundedAmount: p.refundedAmount, reference: p.reference, createdAt: p.createdAt })) };
+    payments: o.payments.filter((p) => p.status !== "VOIDED").map((p) => ({ id: p.id, method: p.method, amount: p.amount, refundedAmount: p.refundedAmount, reference: p.reference, createdAt: p.createdAt })) };
 }

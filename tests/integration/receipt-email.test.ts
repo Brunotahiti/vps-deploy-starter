@@ -22,7 +22,7 @@ beforeAll(async () => {
   await addItem(T.actor, orderId, { productId: T.burger.id, quantity: 2, modifiers: [{ modifierId: T.cuisson.modifiers[0].id }, { modifierId: T.supp.modifiers[0].id }], notes: "sans oignons" });
   await addItem(T.actor, orderId, { productId: T.biere.id });
   await openSession(T.managerActor, { openingFloat: 10000 });
-  const r = await addPayments(T.actor, orderId, [{ method: "CASH", amount: 5000, tendered: 5000 }, { method: "CARD", amount: 300, tipAmount: 100 }]);
+  const r = await addPayments(T.actor, orderId, [{ method: "CASH", amount: 5000, tendered: 5000 }, { method: "CARD", amount: 300 }]);
   expect(r.order.status).toBe("PAID");
 });
 

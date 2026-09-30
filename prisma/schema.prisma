@@ -86,6 +86,8 @@ model Establishment {
   printers         Printer[]
   apiKeys          ApiKey[]
   webhooks         Webhook[]
+  serviceSteps     TableServiceStep[]
+  serviceReminders ServiceReminder[]
   paymentMethods   PaymentMethodConfig[]
   orders           Order[]
   payments         Payment[]
@@ -714,6 +716,8 @@ model Order {
 
   establishment  Establishment   @relation(fields: [establishmentId], references: [id], onDelete: Cascade)
   table          Table?          @relation(fields: [tableId], references: [id], onDelete: SetNull)
+  serviceSteps     TableServiceStep[]
+  serviceReminders ServiceReminder[]
   server         User?           @relation("OrderServer", fields: [serverId], references: [id], onDelete: SetNull)
   terminal       Terminal?       @relation(fields: [terminalId], references: [id], onDelete: SetNull)
   customer       Customer?       @relation(fields: [customerId], references: [id], onDelete: SetNull)
@@ -1333,4 +1337,79 @@ model IdempotencyKey {
 
   @@index([createdAt])
   @@map("idempotency_keys")
+}
+
+// ------------------------------------------------------------------ Suivi de service (Phase 9)
+enum ServiceStepStatus {
+  PENDING
+  DONE
+  SKIPPED
+  NOT_NEEDED
+}
+
+enum ServiceReminderKind {
+  BRING       // commande prête à apporter
+  TAKE_ORDER  // table qui attend une prise de commande
+  CHECK       // vérification de satisfaction
+  DESSERT     // dessert ou café à proposer
+  BILL        // table prête pour l'addition
+  CUSTOM
+}
+
+enum ServiceReminderStatus {
+  OPEN
+  DONE
+  CANCELLED
+}
+
+/// Étape du parcours de service d'une table (une ligne par étape et par commande).
+model TableServiceStep {
+  id              String            @id @default(uuid()) @db.Uuid
+  establishmentId String            @map("establishment_id") @db.Uuid
+  orderId         String            @map("order_id") @db.Uuid
+  key             String
+  label           String
+  sortOrder       Int               @default(0) @map("sort_order")
+  status          ServiceStepStatus @default(PENDING)
+  reason          String?
+  doneAt          DateTime?         @map("done_at")
+  doneById        String?           @map("done_by_id") @db.Uuid
+  createdAt       DateTime          @default(now()) @map("created_at")
+  updatedAt       DateTime          @updatedAt @map("updated_at")
+
+  establishment Establishment @relation(fields: [establishmentId], references: [id], onDelete: Cascade)
+  order         Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@unique([orderId, key])
+  @@index([establishmentId])
+  @@map("table_service_steps")
+}
+
+/// Rappel de service : action à faire pour une table, avec priorité, échéance et responsable.
+model ServiceReminder {
+  id              String                @id @default(uuid()) @db.Uuid
+  establishmentId String                @map("establishment_id") @db.Uuid
+  orderId         String                @map("order_id") @db.Uuid
+  tableId         String?               @map("table_id") @db.Uuid
+  kind            ServiceReminderKind
+  label           String
+  priority        Int                   @default(5)
+  dueAt           DateTime              @map("due_at")
+  status          ServiceReminderStatus @default(OPEN)
+  assignedToId    String?               @map("assigned_to_id") @db.Uuid
+  ticketId        String?               @map("ticket_id") @db.Uuid
+  meta            Json?
+  snoozeCount     Int                   @default(0) @map("snooze_count")
+  snoozedById     String?               @map("snoozed_by_id") @db.Uuid
+  doneAt          DateTime?             @map("done_at")
+  doneById        String?               @map("done_by_id") @db.Uuid
+  createdAt       DateTime              @default(now()) @map("created_at")
+  updatedAt       DateTime              @updatedAt @map("updated_at")
+
+  establishment Establishment @relation(fields: [establishmentId], references: [id], onDelete: Cascade)
+  order         Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([establishmentId, status, dueAt])
+  @@index([orderId])
+  @@map("service_reminders")
 }

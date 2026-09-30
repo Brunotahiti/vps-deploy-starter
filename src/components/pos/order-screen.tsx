@@ -19,6 +19,7 @@ import { PaymentModal, type PaymentPayload } from "./payment-modal";
 import { PinModal, withPin, type PinRequest } from "./pin-modal";
 import { ReceiptDialog } from "./receipt-dialog";
 import { CustomerDialog } from "./customer-dialog";
+import { ServicePanel } from "./service-panel";
 import { useFloor } from "./floor";
 import { useOffline } from "@/lib/offline/provider";
 import { getLocalOrder, markOfflineOrderClosed, saveLocalOrder } from "@/lib/offline/local-orders";
@@ -69,6 +70,7 @@ export function OrderScreen({ orderId: orderIdProp }: { orderId: string }) {
   const [receipt, setReceipt] = useState<{ afterPayment: boolean } | null>(null);
   const [sendMenu, setSendMenu] = useState(false);
   const [sheet, setSheet] = useState(false); // panneau « commande » sur téléphone
+  const [panel, setPanel] = useState<"ticket" | "service">("ticket"); // Phase 9 : onglet suivi de service
   const [customerOpen, setCustomerOpen] = useState(false);
 
   const o = order.data;
@@ -144,7 +146,7 @@ export function OrderScreen({ orderId: orderIdProp }: { orderId: string }) {
       const cur = qc.getQueryData<Order>(["order", orderId]);
       if (!cur) return;
       const paid = cur.paidTotal + body.reduce((a, p) => a + p.amount, 0);
-      const next: Order = { ...cur, paidTotal: paid, tipTotal: cur.tipTotal + body.reduce((a, p) => a + (p.tipAmount ?? 0), 0), payments: [...cur.payments, ...body.map((p) => ({ id: p.id, establishmentId: cur.establishmentId, orderId, cashSessionId: null, receivedById: null, method: p.method as Order["payments"][number]["method"], status: "COMPLETED" as const, amount: p.amount, tipAmount: p.tipAmount ?? 0, tendered: p.tendered ?? null, changeGiven: p.tendered ? Math.max(0, p.tendered - p.amount - (p.tipAmount ?? 0)) : 0, refundedAmount: 0, reference: p.reference ?? null, splitLabel: p.splitLabel ?? null, providerRef: null, createdAt: new Date(), refunds: [] }))], ...(paid >= cur.total ? { status: "PAID" as const, closedAt: new Date() } : {}) };
+      const next: Order = { ...cur, paidTotal: paid, tipTotal: cur.tipTotal, payments: [...cur.payments, ...body.map((p) => ({ id: p.id, establishmentId: cur.establishmentId, orderId, cashSessionId: null, receivedById: null, method: p.method as Order["payments"][number]["method"], status: "COMPLETED" as const, amount: p.amount, tipAmount: 0, tendered: p.tendered ?? null, changeGiven: p.tendered ? Math.max(0, p.tendered - p.amount - (0)) : 0, refundedAmount: 0, reference: p.reference ?? null, splitLabel: p.splitLabel ?? null, providerRef: null, createdAt: new Date(), refunds: [] }))], ...(paid >= cur.total ? { status: "PAID" as const, closedAt: new Date() } : {}) };
       setOrder(next);
       if (next.status === "PAID") { setPayOpen(false); markOfflineOrderClosed(orderId).catch(() => {}); qc.invalidateQueries({ queryKey: ["offline-orders"] }); setReceipt({ afterPayment: true }); }
     });
@@ -292,7 +294,13 @@ export function OrderScreen({ orderId: orderIdProp }: { orderId: string }) {
               {Array.from({ length: o.covers }, (_, i) => i + 1).map((n) => <button key={n} onClick={() => setSeat(n)} className={`touch h-8 w-10 shrink-0 rounded-full text-xs font-bold transition ${seat === n ? "bg-nuit-800 text-white dark:bg-lagon-500 dark:text-nuit-950" : "surface-2 text-muted"}`}>C{n}</button>)}
             </div>
           ) : null}
-          {!closed && o.courses.length > 1 ? (
+          {o.type === "DINE_IN" && o.table ? (
+            <div className="mt-2 flex rounded-xl surface-2 p-0.5 text-xs font-bold" role="tablist">
+              <button role="tab" aria-selected={panel === "ticket"} onClick={() => setPanel("ticket")} className={`touch h-8 flex-1 rounded-[10px] ${panel === "ticket" ? "surface shadow-soft" : "text-muted"}`}>Commande</button>
+              <button role="tab" aria-selected={panel === "service"} onClick={() => setPanel("service")} className={`touch h-8 flex-1 rounded-[10px] ${panel === "service" ? "surface shadow-soft" : "text-muted"}`}>Service</button>
+            </div>
+          ) : null}
+          {!closed && o.courses.length > 1 && panel === "ticket" ? (
             <div className="mt-2 flex gap-1 overflow-x-auto no-scrollbar">
               {o.courses.map((c) => (
                 <button key={c.id} onClick={() => setCourseId(c.id)} className={`touch relative h-9 shrink-0 rounded-full px-3 text-[11px] font-bold transition ${courseId === c.id ? "bg-brand text-white shadow-glow" : "surface-2 text-muted"}`}>
@@ -305,10 +313,13 @@ export function OrderScreen({ orderId: orderIdProp }: { orderId: string }) {
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto">
-          {rootItems.length === 0 ? <p className="p-6 text-center text-sm text-muted">Appuyez sur un produit pour l&apos;ajouter</p> : null}
+          {panel === "service" && o.number !== "HORS-LIGNE" ? <ServicePanel orderId={orderId} closed={closed} /> : null}
+          {panel === "service" && o.number === "HORS-LIGNE" ? <p className="p-4 text-sm text-muted">Le suivi de service sera disponible dès la synchronisation de la commande.</p> : null}
+          {panel === "ticket" && rootItems.length === 0 ? <p className="p-6 text-center text-sm text-muted">Appuyez sur un produit pour l&apos;ajouter</p> : null}
           {o.courses.map((c) => {
             const items = rootItems.filter((i) => i.courseId === c.id);
-            if (items.length === 0) return null;
+            if (items.length === 0 || panel === "service") return null;
+            const hasReady = items.some((i) => i.status === "READY");
             return (
               <div key={c.id}>
                 {o.courses.length > 1 ? (
@@ -319,7 +330,7 @@ export function OrderScreen({ orderId: orderIdProp }: { orderId: string }) {
                         {c.status === "PENDING" && pendingInCourse(c.id) > 0 ? <button title="Ne pas envoyer immédiatement" onClick={() => setCourseStatus(c.id, "HOLD")} className="touch rounded p-1 hover:surface"><PauseCircle className="h-4 w-4" /></button> : null}
                         {c.status === "HOLD" ? <button title="Réactiver" onClick={() => setCourseStatus(c.id, "PENDING")} className="touch rounded p-1 text-orange-500"><PauseCircle className="h-4 w-4" /></button> : null}
                         {(c.status === "SENT" || c.status === "PENDING" || c.status === "HOLD") && items.some((i) => i.status !== "PENDING" || c.status !== "SENT") ? <button title="Faire marcher (urgent)" onClick={() => setCourseStatus(c.id, "FIRE")} className="touch rounded p-1 text-corail-500 hover:surface"><Flame className="h-4 w-4" /></button> : null}
-                        {c.status === "SENT" || c.status === "FIRE" || c.status === "READY" ? <button title="Marquer servi" onClick={() => setCourseStatus(c.id, "SERVED")} className="touch rounded p-1 text-green-600 hover:surface"><CheckCircle2 className="h-4 w-4" /></button> : null}
+                        {c.status === "SENT" || c.status === "FIRE" || c.status === "READY" || hasReady ? <button title="Apporté à la table" onClick={() => setCourseStatus(c.id, "SERVED")} className={`touch flex items-center gap-1 rounded p-1 text-green-600 hover:surface ${hasReady ? "bg-green-500/15 px-2 font-bold normal-case tracking-normal" : ""}`}><CheckCircle2 className="h-4 w-4" />{hasReady ? "Apporté" : null}</button> : null}
                       </span>
                     ) : null}
                   </div>
