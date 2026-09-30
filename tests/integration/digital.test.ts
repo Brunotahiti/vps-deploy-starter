@@ -138,8 +138,8 @@ describe("Phase 6 — fidélité et réservations", () => {
   });
 
   it("réservation publique → confirmation → installation ouvre la commande avec les couverts et le client", async () => {
-    const day = localDay(new Date(), TZ);
     const startsAt = new Date(Date.now() + 2 * 3600_000).toISOString();
+    const day = localDay(new Date(startsAt), TZ); // jour local de la réservation (peut être demain en fin de soirée)
     const pub = await createPublicReservation(T.est.id, T.org.id, { name: "Sophie Martin", phone: "87654321", startsAt, partySize: 4, allergies: "Arachides" });
     expect(pub.status).toBe("PENDING");
     expect(pub.customerId).not.toBeNull();

@@ -61,7 +61,7 @@ export function CashScreen() {
           <div className="grid gap-4 md:grid-cols-2">
             <Card title="Ventes par moyen de paiement">
               {Object.entries(s.summary.byMethod).length === 0 ? <p className="text-sm text-muted">Aucun encaissement</p> : null}
-              {Object.entries(s.summary.byMethod).map(([m, v]) => <div key={m} className="flex justify-between border-b border-line py-1.5 text-sm last:border-0"><span>{PAYMENT_LABEL[m]} <span className="text-muted">× {v.count}</span></span><span className="font-semibold"><Money amount={v.amount - v.refunded} />{v.tips ? <span className="ml-1 text-xs text-muted">(+<Money amount={v.tips} /> pourb.)</span> : null}</span></div>)}
+              {Object.entries(s.summary.byMethod).map(([m, v]) => <div key={m} className="flex justify-between border-b border-line py-1.5 text-sm last:border-0"><span>{PAYMENT_LABEL[m]} <span className="text-muted">× {v.count}</span></span><span className="font-semibold"><Money amount={v.amount - v.refunded} /></span></div>)}
               <div className="mt-2 flex justify-between border-t border-line pt-2 font-bold"><span>Total encaissé</span><Money amount={s.summary.totalSales} /></div>
             </Card>
             <Card title="Mouvements">
