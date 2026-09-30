@@ -1,7 +1,23 @@
 /* ManaResto — site vitrine : liens vers l'application, menu mobile, configuration, témoignages, formulaire, suivi d'événements. */
 (function () {
+  // Entrée « wahou » : voile lagon avec le logo, une fois par session, puis cascade du héros. Rien si l'utilisateur préfère moins d'animations.
+  var intro = document.getElementById("intro"), reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches, seen = false;
+  try { seen = sessionStorage.getItem("mr-intro") === "1"; } catch { /* stockage indisponible */ }
+  if (intro) {
+    if (reduce || seen) { intro.remove(); document.body.classList.add("anim", "anim-fast"); }
+    else {
+      document.body.classList.add("anim", "intro-on");
+      try { sessionStorage.setItem("mr-intro", "1"); } catch { /* stockage indisponible */ }
+      setTimeout(function () { intro.classList.add("done"); document.body.classList.remove("intro-on"); }, 1250);
+      setTimeout(function () { intro.remove(); }, 2100);
+    }
+  }
   var C = window.MANARESTO_CONFIG || {}; var B = C.business || {}; var app = C.app || "https://app.manaresto.com";
   var $ = function (s, r) { return (r || document).querySelector(s); }; var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
+
+  // Icônes vectorielles (icons.js)
+  var I = window.MANARESTO_ICONS || {};
+  $$("[data-icon]").forEach(function (el) { var d = I[el.getAttribute("data-icon")]; if (d) el.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + d + "</svg>"; });
 
   // Liens vers l'application
   $$("[data-signup]").forEach(function (a) { a.href = app + "/signup"; });
@@ -73,7 +89,7 @@
       var ok = true;
       Object.keys(rules).forEach(function (name) {
         var el = form.elements[name], field = el.closest(".field"), r = rules[name](el.value, el);
-        if (r !== true) { ok = false; field.classList.add("error"); $(".err", field).textContent = r; } else { field.classList.remove("error"); }
+        var err = $(".err", field); if (r !== true) { ok = false; field.classList.add("error"); if (err) err.textContent = r; } else { field.classList.remove("error"); }
       });
       return ok;
     };
