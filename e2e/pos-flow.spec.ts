@@ -31,7 +31,7 @@ test("caisse : de l'ouverture de table au rapport de caisse", async ({ page }) =
   await expect(page.getByRole("button", { name: /Comptoir/ })).toBeVisible();
   const freeTable = page.locator("button[title='Libre']:visible").first();
   await expect(freeTable).toBeVisible();
-  const tableName = (await freeTable.locator("span").first().textContent())?.trim();
+  const tableName = (await freeTable.getByTestId("table-name").textContent())?.trim();
   await freeTable.click();
   await page.getByRole("button", { name: "4", exact: true }).click();
   await page.waitForURL(/\/pos\/order\//);
