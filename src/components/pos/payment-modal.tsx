@@ -8,7 +8,7 @@ import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { NumPad } from "@/components/ui/numpad";
 import { Money } from "@/components/money";
-import { formatMoney, applyBps } from "@/lib/money";
+import { formatMoney } from "@/lib/money";
 import { splitByItems, splitBySeat, splitEqually } from "@/lib/split";
 import { useSession } from "@/hooks/use-session";
 import { Banknote, CreditCard, FileText, Landmark, Ticket, Gift, MoreHorizontal, Users, SplitSquareHorizontal, ListChecks, Calculator } from "lucide-react";
@@ -16,16 +16,15 @@ import { PAYMENT_LABEL, type Order, type PosCatalog } from "./types";
 
 const ICONS: Record<string, React.ComponentType<{ className?: string }>> = { CASH: Banknote, CARD: CreditCard, CHECK: FileText, TRANSFER: Landmark, MEAL_VOUCHER: Ticket, COMPLIMENTARY: Gift, OTHER: MoreHorizontal };
 
-export type PaymentPayload = { method: string; amount: number; tipAmount?: number; tendered?: number; reference?: string | null; splitLabel?: string | null };
+export type PaymentPayload = { method: string; amount: number; tendered?: number; reference?: string | null; splitLabel?: string | null };
 
 export function PaymentModal({ order, methods, open, onClose, onPay }: { order: Order; methods: PosCatalog["paymentMethods"]; open: boolean; onClose: () => void; onPay: (payments: PaymentPayload[]) => Promise<void> }) {
-  const { me, currency } = useSession();
+  const { currency } = useSession();
   const remaining = order.total - order.paidTotal;
   const [method, setMethod] = useState(methods[0]?.method ?? "CASH");
   const [mode, setMode] = useState<"pay" | "split">("pay");
   const [amountStr, setAmountStr] = useState(String(remaining));
   const [tenderedStr, setTenderedStr] = useState("");
-  const [tip, setTip] = useState(0);
   const [label, setLabel] = useState<string | null>(null);
   const [reference, setReference] = useState("");
   const [loading, setLoading] = useState(false);
@@ -39,8 +38,8 @@ export function PaymentModal({ order, methods, open, onClose, onPay }: { order: 
   const payWithTerminal = async () => {
     setTpeBusy(true);
     try {
-      const r = await api.post<{ providerRef: string | null; amount: number }>("/api/payments/terminal/charge", { orderId: order.id, amount: amount + tip });
-      await onPay([{ method: "CARD", amount, tipAmount: tip || undefined, reference: r.providerRef ?? "TPE", splitLabel: label }]);
+      const r = await api.post<{ providerRef: string | null; amount: number }>("/api/payments/terminal/charge", { orderId: order.id, amount: amount });
+      await onPay([{ method: "CARD", amount, reference: r.providerRef ?? "TPE", splitLabel: label }]);
       setReference("");
     } catch (e) { toast(e instanceof ApiClientError ? e.message : "Transaction TPE impossible", "error"); }
     finally { setTpeBusy(false); }
@@ -49,8 +48,7 @@ export function PaymentModal({ order, methods, open, onClose, onPay }: { order: 
 
   const amount = Math.min(Number(amountStr || 0), remaining);
   const tendered = Number(tenderedStr || 0);
-  const change = method === "CASH" && tendered > 0 ? Math.max(0, tendered - amount - tip) : 0;
-  const tipPresets = ((me?.establishment?.tipPresetsBps as number[] | undefined) ?? [500, 1000, 1500]);
+  const change = method === "CASH" && tendered > 0 ? Math.max(0, tendered - amount) : 0;
   const activeItems = useMemo(() => order.items.filter((i) => i.status !== "VOIDED" && !i.parentItemId), [order.items]);
   const seatSplit = useMemo(() => splitBySeat(activeItems.map((i) => ({ id: i.id, lineTotal: i.lineTotal + order.items.filter((c) => c.parentItemId === i.id).reduce((a, c) => a + c.lineTotal, 0), seatNumber: i.seatNumber })), order.covers), [activeItems, order.items, order.covers]);
   const equalParts = useMemo(() => splitEqually(order.total, parts), [order.total, parts]);
@@ -61,15 +59,15 @@ export function PaymentModal({ order, methods, open, onClose, onPay }: { order: 
     if (amount <= 0) return;
     setLoading(true);
     try {
-      await onPay([{ method, amount, tipAmount: tip || undefined, tendered: method === "CASH" && tendered > 0 ? tendered : undefined, reference: reference || null, splitLabel: label }]);
+      await onPay([{ method, amount, tendered: method === "CASH" && tendered > 0 ? tendered : undefined, reference: reference || null, splitLabel: label }]);
       setReference("");
     } finally {
       setLoading(false);
     }
   };
 
-  const quickCash = [500, 1000, 2000, 5000, 10000].filter((v) => v >= amount + tip).slice(0, 3);
-  const roundUp = Math.ceil((amount + tip) / 1000) * 1000;
+  const quickCash = [500, 1000, 2000, 5000, 10000].filter((v) => v >= amount).slice(0, 3);
+  const roundUp = Math.ceil((amount) / 1000) * 1000;
 
   return (
     <Modal open={open} onClose={onClose} title={`Encaisser · ${order.number}`} size="xl">
@@ -152,29 +150,19 @@ export function PaymentModal({ order, methods, open, onClose, onPay }: { order: 
                 {order.covers > 1 ? <button onClick={() => applySplitAmount(splitEqually(order.total, order.covers)[0], `1/${order.covers}`)} className="touch h-9 rounded-lg border border-line px-3 text-xs font-semibold">1/{order.covers}</button> : null}
               </div>
             </div>
-            {me?.establishment?.tipsEnabled ? (
-              <div className="rounded-xl surface-2 p-3">
-                <p className="mb-2 text-xs uppercase text-muted">Pourboire</p>
-                <div className="flex flex-wrap gap-2">
-                  <button onClick={() => setTip(0)} className={`touch h-10 rounded-lg px-3 text-sm font-semibold ${tip === 0 ? "bg-lagon-600 text-white" : "border border-line"}`}>Aucun</button>
-                  {tipPresets.map((b) => <button key={b} onClick={() => setTip(applyBps(amount, b))} className={`touch h-10 rounded-lg px-3 text-sm font-semibold ${tip === applyBps(amount, b) && tip > 0 ? "bg-lagon-600 text-white" : "border border-line"}`}>{b / 100} %</button>)}
-                  {[100, 200, 500].map((v) => <button key={v} onClick={() => setTip(v)} className={`touch h-10 rounded-lg px-3 text-sm font-semibold ${tip === v ? "bg-lagon-600 text-white" : "border border-line"}`}>+{formatMoney(v, currency)}</button>)}
-                </div>
-              </div>
-            ) : null}
             {method === "CASH" ? (
               <div className="rounded-xl surface-2 p-3">
                 <div className="flex items-baseline justify-between"><span className="text-xs uppercase text-muted">Espèces reçues</span><span className="text-xl font-bold"><Money amount={tendered} /></span></div>
                 <div className="mt-2 flex flex-wrap gap-2">
-                  <button onClick={() => setTenderedStr(String(amount + tip))} className="touch h-10 rounded-lg border border-line px-3 text-sm font-semibold">Compte juste</button>
-                  {roundUp > amount + tip ? <button onClick={() => setTenderedStr(String(roundUp))} className="touch h-10 rounded-lg border border-line px-3 text-sm font-semibold">{formatMoney(roundUp, currency)}</button> : null}
+                  <button onClick={() => setTenderedStr(String(amount))} className="touch h-10 rounded-lg border border-line px-3 text-sm font-semibold">Compte juste</button>
+                  {roundUp > amount ? <button onClick={() => setTenderedStr(String(roundUp))} className="touch h-10 rounded-lg border border-line px-3 text-sm font-semibold">{formatMoney(roundUp, currency)}</button> : null}
                   {quickCash.map((v) => <button key={v} onClick={() => setTenderedStr(String(v))} className="touch h-10 rounded-lg border border-line px-3 text-sm font-semibold">{formatMoney(v, currency)}</button>)}
                 </div>
                 {change > 0 ? <p className="mt-2 text-right text-lg font-bold text-corail-500">Rendu : <Money amount={change} /></p> : null}
               </div>
             ) : null}
             {["CARD", "CHECK", "TRANSFER", "OTHER"].includes(method) ? <input value={reference} onChange={(e) => setReference(e.target.value)} placeholder="Référence (n° chèque, TPE…)" className="h-11 w-full rounded-xl border border-line surface px-3 text-sm" /> : null}
-            {method === "CARD" && terminal.data?.connected ? <Button variant="accent" size="lg" className="w-full" loading={tpeBusy} disabled={amount <= 0} onClick={payWithTerminal}>Envoyer <Money amount={amount + tip} /> au TPE</Button> : null}
+            {method === "CARD" && terminal.data?.connected ? <Button variant="accent" size="lg" className="w-full" loading={tpeBusy} disabled={amount <= 0} onClick={payWithTerminal}>Envoyer <Money amount={amount} /> au TPE</Button> : null}
             {method === "COMPLIMENTARY" ? <p className="rounded-lg bg-orange-500/10 px-3 py-2 text-xs text-orange-700 dark:text-orange-300">« Offert » vaut remise totale : autorisation manager requise.</p> : null}
             {order.payments.length > 0 ? (
               <div className="rounded-xl border border-line p-3 text-sm">
@@ -185,9 +173,9 @@ export function PaymentModal({ order, methods, open, onClose, onPay }: { order: 
           </div>
           <div className="space-y-2">
             <NumPad value={method === "CASH" && tenderedStr !== "" ? tenderedStr : amountStr} onChange={(v) => (method === "CASH" && tenderedStr !== "" ? setTenderedStr(v) : setAmountStr(v))} />
-            {method === "CASH" ? <button onClick={() => setTenderedStr(tenderedStr === "" ? String(amount + tip) : "")} className="touch h-10 w-full rounded-lg border border-line text-xs font-semibold">{tenderedStr === "" ? "Saisir les espèces reçues" : "Revenir au montant"}</button> : null}
-            <Button size="xl" className="w-full" loading={loading} disabled={amount <= 0 || (method === "CASH" && tendered > 0 && tendered < amount + tip)} onClick={pay}>
-              Encaisser <Money amount={amount + tip} />
+            {method === "CASH" ? <button onClick={() => setTenderedStr(tenderedStr === "" ? String(amount) : "")} className="touch h-10 w-full rounded-lg border border-line text-xs font-semibold">{tenderedStr === "" ? "Saisir les espèces reçues" : "Revenir au montant"}</button> : null}
+            <Button size="xl" className="w-full" loading={loading} disabled={amount <= 0 || (method === "CASH" && tendered > 0 && tendered < amount)} onClick={pay}>
+              Encaisser <Money amount={amount} />
             </Button>
             {amount < remaining ? <p className="text-center text-xs text-muted">Il restera <Money amount={remaining - amount} /> à payer</p> : <p className="text-center text-xs text-lagon-600">La commande sera clôturée</p>}
           </div>

@@ -356,7 +356,7 @@ async function main() {
     if (close) {
       const closedAt = new Date(openedAt.getTime() + between(45, 110) * 60000);
       const method = rand() < 0.55 ? "CARD" : rand() < 0.85 ? "CASH" : "MEAL_VOUCHER";
-      const tip = method === "CARD" && rand() < 0.3 ? Math.round(totals.total * 0.05 / 100) * 100 : 0;
+      const tip = 0;
       const split = method === "CARD" && covers >= 2 && rand() < 0.25;
       const amounts = split ? [Math.floor(totals.total / 2), totals.total - Math.floor(totals.total / 2)] : [totals.total];
       for (const [i, amount] of amounts.entries()) {

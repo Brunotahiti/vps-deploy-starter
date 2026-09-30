@@ -113,10 +113,10 @@ describe("parcours complet : table → articles → cuisine → addition → pai
     expect(r.order.status).toBe("BILL_REQUESTED");
     expect(r.order.paidTotal).toBe(part);
     expect(r.payments[0].changeGiven).toBe(500);
-    r = await addPayments(T.actor, o.id, [{ method: "CARD", amount: o.total - part, tipAmount: 200, splitLabel: "Part 2/2" }]);
+    r = await addPayments(T.actor, o.id, [{ method: "CARD", amount: o.total - part, splitLabel: "Part 2/2" }]);
     expect(r.order.status).toBe("PAID");
     expect(r.order.paidTotal).toBe(o.total);
-    expect(r.order.tipTotal).toBe(200);
+    expect(r.order.tipTotal).toBe(0);
     expect(r.order.closedAt).not.toBeNull();
     const floor = await getFloorStatus(T.est.id);
     expect(floor.rooms[0].tables.find((t) => t.id === T.t1.id)!.status).toBe("FREE");

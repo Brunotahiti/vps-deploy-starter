@@ -88,7 +88,7 @@ export const cancelSchema = z.object({ reason: z.string().min(1).max(200), manag
 export const transferSchema = z.object({ tableId: uuid });
 export const paymentMethod = z.enum(["CASH", "CARD", "CHECK", "TRANSFER", "MEAL_VOUCHER", "COMPLIMENTARY", "OTHER"]);
 export const paymentsSchema = z.object({
-  payments: z.array(z.object({ id: uuid.optional(), method: paymentMethod, amount: z.number().int().min(1), tipAmount: money.optional(), tendered: money.optional(), reference: z.string().max(80).nullable().optional(), splitLabel: z.string().max(40).nullable().optional() })).min(1).max(20),
+  payments: z.array(z.object({ id: uuid.optional(), method: paymentMethod, amount: z.number().int().min(1), tendered: money.optional(), reference: z.string().max(80).nullable().optional(), splitLabel: z.string().max(40).nullable().optional() })).min(1).max(20),
   managerPin: pin.optional(),
 });
 export const refundSchema = z.object({ amount: z.number().int().min(1), reason: z.string().min(1).max(200), managerPin: pin.optional() });

@@ -17,7 +17,7 @@ ManaResto est une caisse et un back-office pour les restaurants de Polynésie fr
 
 - **Plan de salle** : salles, tables (forme, places, position), statut en temps réel (libre, occupée, addition demandée, plats prêts, appel serveur, réservée).
 - **Caisse** `/pos` : ouvrir une table ou une vente au comptoir, ajouter des produits (touchez la vignette pour le détail, « + » pour l'ajout rapide), services (« envoyer », « à suivre », « faire marcher », urgent), sièges, notes, remises et annulations (PIN manager, motif tracé), transfert de table.
-- **Addition et paiement** : division égale, par client, par article ou par montant ; espèces, carte (ou « Envoyer au TPE » si un terminal est connecté), chèque, virement, autre ; pourboires ; reçu imprimé, envoyé par e-mail (PDF) ou affiché.
+- **Addition et paiement** : division égale, par client, par article ou par montant ; espèces, carte (ou « Envoyer au TPE » si un terminal est connecté), chèque, virement, autre ; reçu imprimé, envoyé par e-mail (PDF) ou affiché.
 - **Caisse** `/pos/cash` : ouverture avec fonds, mouvements (entrées / sorties motivées), clôture avec comptage et écart, rapports X et Z.
 - **Hors ligne** : la caisse continue de fonctionner sans réseau (commandes, envois) et se synchronise au retour de la connexion ; l'indicateur en haut affiche l'état.
 

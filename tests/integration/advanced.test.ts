@@ -163,7 +163,7 @@ describe("Phase 7 — imprimantes, TPE, multi-sites, comptabilité", () => {
     await addItem(T.actor, o.id, { productId: T.burger.id, modifiers: [{ modifierId: saignant.id }] }); // 2100 à 13 %
     await addItem(T.actor, o.id, { productId: T.biere.id }); // 600 à 16 %
     await sendCourse(T.actor, o.id, { all: true });
-    await addPayments(T.actor, o.id, [{ method: "CARD", amount: 2700, tipAmount: 300 }]);
+    await addPayments(T.actor, o.id, [{ method: "CARD", amount: 2700 }]);
     const { sheets } = await buildExport(T.est.id, "accounting", today, today, "Pacific/Tahiti");
     const sales = sheets.find((s) => s.name === "Ventes par taux TVA")!;
     expect(sales.rows.some((r) => r[1] === "13 %")).toBe(true);

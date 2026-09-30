@@ -25,7 +25,7 @@ export async function buildExport(establishmentId: string, type: ExportType, fro
     const kpi: Sheet = { name: "Synthèse", head: ["Indicateur", "Valeur", "Période précédente"], rows: [
       ["Période", period, r.previous ? `${r.previous.from} → ${r.previous.to}` : null], ["CA TTC", r.revenue, r.previous?.revenue ?? null], ["CA HT", r.revenueHt, r.previous?.revenueHt ?? null], ["TVA", r.tax, null],
       ["Tickets", r.tickets, r.previous?.tickets ?? null], ["Couverts", r.covers, r.previous?.covers ?? null], ["Panier moyen", r.avgTicket, r.previous?.avgTicket ?? null], ["CA / couvert", r.avgPerCover, null],
-      ["Remises", r.discounts, null], ["Pourboires", r.tips, null], ["Remboursements", r.refunds, null], ["Annulations", r.cancellations, null], ["Coût matière", r.foodCost, null], ["Food cost %", r.foodCostPct ?? "", r.previous?.foodCostPct ?? null],
+      ["Remises", r.discounts, null], ["Remboursements", r.refunds, null], ["Annulations", r.cancellations, null], ["Coût matière", r.foodCost, null], ["Food cost %", r.foodCostPct ?? "", r.previous?.foodCostPct ?? null],
     ] };
     return { title: `Rapport ${period}`, sheets: [kpi,
       { name: "Par jour", head: ["Jour", "CA TTC", "Tickets", "Couverts"], rows: r.byDay.map((d) => [d.day, d.revenue, d.tickets, d.covers]) },
@@ -47,7 +47,7 @@ export async function buildExport(establishmentId: string, type: ExportType, fro
   }
   if (type === "orders") {
     const orders = await prisma.order.findMany({ where: { establishmentId, status: { in: ["PAID", "CANCELLED"] }, closedAt: { gte: startOfLocalDay(fromDay, timezone), lt: endOfLocalDay(toDay, timezone) } }, orderBy: { closedAt: "asc" }, include: { table: { select: { name: true } }, server: { select: { firstName: true, displayName: true } }, payments: true, _count: { select: { items: true } } } });
-    const rows = orders.map((o) => [o.number, formatDateTime(o.openedAt, timezone), o.closedAt ? formatDateTime(o.closedAt, timezone) : "", TYPE[o.type] ?? o.type, o.table?.name ?? "", o.covers, o.server?.displayName || o.server?.firstName || "", STATUS[o.status] ?? o.status, o.subtotal, o.discountTotal, o.taxTotal, o.total, o.tipTotal, o.payments.filter((p) => p.status !== "VOIDED").map((p) => `${METHOD[p.method] ?? p.method} ${p.amount}`).join(" + "), o.cancelReason ?? ""]);
+    const rows = orders.map((o) => [o.number, formatDateTime(o.openedAt, timezone), o.closedAt ? formatDateTime(o.closedAt, timezone) : "", TYPE[o.type] ?? o.type, o.table?.name ?? "", o.covers, o.server?.displayName || o.server?.firstName || "", STATUS[o.status] ?? o.status, o.subtotal, o.discountTotal, o.taxTotal, o.total, o.payments.filter((p) => p.status !== "VOIDED").map((p) => `${METHOD[p.method] ?? p.method} ${p.amount}`).join(" + "), o.cancelReason ?? ""]);
     return { title: `Commandes ${period}`, sheets: [{ name: "Commandes", head: ["N°", "Ouverte", "Clôturée", "Type", "Table", "Couverts", "Serveur", "Statut", "Sous-total", "Remise", "TVA", "Total TTC", "Pourboire", "Paiements", "Motif annulation"], rows }] };
   }
   if (type === "accounting") return buildAccountingExport(establishmentId, fromDay, toDay, timezone);
@@ -92,7 +92,7 @@ export async function toPdf(sheets: Sheet[], title: string, establishmentName: s
   doc.font("Helvetica").fontSize(10).text(strip(title), 36, 44);
   doc.fillColor("#0f172a");
   let y = 90;
-  const moneyCols = new Set(["CA TTC", "CA HT", "TVA", "Montant", "Coût matière", "Coût", "Sous-total", "Remise", "Total TTC", "Pourboire", "Panier moyen", "CA / couvert", "Remises", "Pourboires", "Remboursements", "Coût horaire"]);
+  const moneyCols = new Set(["CA TTC", "CA HT", "TVA", "Montant", "Coût matière", "Coût", "Sous-total", "Remise", "Total TTC", "Pourboire", "Panier moyen", "CA / couvert", "Remises", "Remboursements", "Coût horaire"]);
   for (const sh of sheets) {
     const rows = sh.rows.slice(0, 45);
     const cols = sh.head.length;
@@ -118,7 +118,7 @@ export async function toPdf(sheets: Sheet[], title: string, establishmentName: s
 
 /**
  * Export comptable (Phase 7) — Polynésie française (plan comptable général) :
- *  - Ventes par jour et par taux de TVA (HT, TVA, TTC), remises et pourboires ;
+ *  - Ventes par jour et par taux de TVA (HT, TVA, TTC), remises ;
  *  - Encaissements par jour et moyen de paiement (net des remboursements) ;
  *  - Écritures de journal (format import comptable : date, journal, compte, libellé, débit, crédit) :
  *    707 ventes HT par taux, 4457 TVA collectée, 53 caisse / 512 banque / 467 titres-restaurant, 6 remboursements.
@@ -144,14 +144,13 @@ export async function buildAccountingExport(establishmentId: string, fromDay: st
     const d = dayTotals.get(day) ?? { ttc: 0, discounts: 0, tips: 0, tickets: 0 }; d.ttc += o.total; d.discounts += o.discountTotal; d.tips += o.tipTotal; d.tickets++; dayTotals.set(day, d);
   }
   const sales: Sheet = { name: "Ventes par taux TVA", head: ["Jour", "Taux", "Libellé TVA", "HT", "TVA", "TTC"], rows: [...byDayRate.entries()].sort().map(([k, v]) => { const [day, bps, name] = k.split("|"); return [day, `${Number(bps) / 100} %`, name, v.ht, v.tax, v.ttc]; }) };
-  const receipts: Sheet = { name: "Encaissements", head: ["Jour", "Moyen", "Compte", "Montant net", "Nombre", "Pourboires", "Remboursé"], rows: [...byDayMethod.entries()].sort().map(([k, v]) => { const [day, m] = k.split("|"); return [day, METHOD[m] ?? m, ACCOUNTS[m]?.[0] ?? "", v.amount, v.count, v.tips, v.refunded]; }) };
-  const days: Sheet = { name: "Journal de caisse", head: ["Jour", "Tickets", "CA TTC", "Remises", "Pourboires"], rows: [...dayTotals.entries()].sort().map(([day, v]) => [day, v.tickets, v.ttc, v.discounts, v.tips]) };
+  const receipts: Sheet = { name: "Encaissements", head: ["Jour", "Moyen", "Compte", "Montant net", "Nombre", "Remboursé"], rows: [...byDayMethod.entries()].sort().map(([k, v]) => { const [day, m] = k.split("|"); return [day, METHOD[m] ?? m, ACCOUNTS[m]?.[0] ?? "", v.amount, v.count, v.refunded]; }) };
+  const days: Sheet = { name: "Journal de caisse", head: ["Jour", "Tickets", "CA TTC", "Remises"], rows: [...dayTotals.entries()].sort().map(([day, v]) => [day, v.tickets, v.ttc, v.discounts]) };
   // Écritures : par jour, débit des comptes d'encaissement, crédit 707 (HT par taux) et 4457 (TVA)
   const entries: Sheet = { name: "Écritures", head: ["Date", "Journal", "Compte", "Libellé", "Débit", "Crédit"], rows: [] };
   for (const [day] of [...dayTotals.entries()].sort()) {
-    for (const [k, v] of [...byDayMethod.entries()].filter(([k]) => k.startsWith(day + "|"))) { const m = k.split("|")[1]; const [acc, label] = ACCOUNTS[m] ?? ["471000", m]; if (v.amount + v.tips) entries.rows.push([day, "VT", acc, `${label} — ventes ${day}`, v.amount + v.tips, 0]); }
+    for (const [k, v] of [...byDayMethod.entries()].filter(([k]) => k.startsWith(day + "|"))) { const m = k.split("|")[1]; const [acc, label] = ACCOUNTS[m] ?? ["471000", m]; if (v.amount) entries.rows.push([day, "VT", acc, `${label} — ventes ${day}`, v.amount, 0]); }
     for (const [k, v] of [...byDayRate.entries()].filter(([k]) => k.startsWith(day + "|"))) { const [, bps, name] = k.split("|"); entries.rows.push([day, "VT", `7070${String(Math.round(Number(bps) / 100)).padStart(2, "0")}`, `Ventes HT ${name || bps + " bps"} ${day}`, 0, v.ht]); if (v.tax) entries.rows.push([day, "VT", "445710", `TVA collectée ${name || bps + " bps"} ${day}`, 0, v.tax]); }
-    const tips = dayTotals.get(day)!.tips; if (tips) entries.rows.push([day, "VT", "421000", `Pourboires ${day}`, 0, tips]);
   }
   const period = `${fromDay} → ${toDay}`;
   const header: Sheet = { name: "Entête", head: ["Champ", "Valeur"], rows: [["Établissement", est.name], ["Raison sociale", est.legalName ?? ""], ["N° Tahiti", est.tahitiNumber ?? ""], ["Période", period], ["Devise", "XPF (F CFP), sans décimales"], ["Généré le", new Date().toISOString()]] };
