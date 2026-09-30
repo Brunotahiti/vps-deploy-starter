@@ -7,10 +7,10 @@ import { Button } from "@/components/ui/button";
 import { Field, Input, Select, Toggle, Textarea } from "@/components/ui/field";
 import { Spinner, Card } from "@/components/ui/misc";
 import { PageHeader, useAction, useList } from "@/components/admin/common";
-import type { DigitalSettings } from "@/server/services/public";
+import type { DigitalSettings, SiteSettings } from "@/server/services/public";
 import type { LoyaltySettings } from "@/server/services/customers";
 
-type S = DigitalSettings & { loyalty: LoyaltySettings; urls: { shop: string; reserve: string; kiosk: string } };
+type S = DigitalSettings & { loyalty: LoyaltySettings; site: SiteSettings; urls: { shop: string; reserve: string; kiosk: string; site: string } };
 type QrRow = { id: string; name: string; url: string; room: { name: string } };
 
 /** Canaux clients : QR à table, commande en ligne, borne, fidélité ; QR codes à imprimer. */
@@ -24,12 +24,32 @@ function DigitalForm({ initial }: { initial: S }) {
   const act = useAction();
   const [s, setS] = useState<S>(initial);
   const [zones, setZones] = useState(initial.online.deliveryZones.join(", "));
+  const [photos, setPhotos] = useState(initial.site.photos.join("\n"));
+  const site = (patch: Partial<SiteSettings>) => setS({ ...s, site: { ...s.site, ...patch } });
   const qr = useList<QrRow[]>(["tables", "qr"], "/api/tables/qr");
-  const save = () => act(() => api.patch("/api/digital/settings", { qrMode: s.qrMode, online: { ...s.online, deliveryZones: zones.split(",").map((z) => z.trim()).filter(Boolean) }, kiosk: s.kiosk, loyalty: s.loyalty }), { success: "Réglages enregistrés", invalidate: [["digital"]] });
+  const save = () => act(() => api.patch("/api/digital/settings", { qrMode: s.qrMode, online: { ...s.online, deliveryZones: zones.split(",").map((z) => z.trim()).filter(Boolean) }, kiosk: s.kiosk, loyalty: s.loyalty, site: { ...s.site, photos: photos.split(/\n+/).map((u) => u.trim()).filter(Boolean) } }), { success: "Réglages enregistrés", invalidate: [["digital"]] });
   const copy = (v: string) => navigator.clipboard?.writeText(v);
   return (
     <div>
-      <PageHeader title="Digital" subtitle="QR codes à table, commande en ligne, borne et fidélité" action={<Button onClick={save}>Enregistrer</Button>} />
+      <PageHeader title="Digital" subtitle="Site du restaurant, QR codes à table, commande en ligne, borne et fidélité" action={<Button onClick={save}>Enregistrer</Button>} />
+      <Card title="Site du restaurant (page publique, menu en ligne)" className="mb-4" action={<a href={s.urls.site} target="_blank" rel="noopener" className="text-xs font-bold text-lagon-600">Voir le site ↗</a>}>
+        <div className="grid gap-3 lg:grid-cols-2">
+          <div className="min-w-0 space-y-3">
+            <Toggle checked={s.site.enabled} onChange={(v) => site({ enabled: v })} label="Publier le site du restaurant" />
+            <Field label="Accroche (une phrase)"><Input value={s.site.tagline} onChange={(e) => site({ tagline: e.target.value })} placeholder="Cuisine du lagon, les pieds dans le sable" maxLength={120} /></Field>
+            <Field label="Présentation" hint="Votre histoire, votre cuisine, ce qui vous rend unique."><Textarea rows={5} value={s.site.description} onChange={(e) => site({ description: e.target.value })} maxLength={2000} /></Field>
+            <div className="flex flex-wrap gap-4"><Toggle checked={s.site.showMenu} onChange={(v) => site({ showMenu: v })} label="Afficher la carte" /><Toggle checked={s.site.showPrices} onChange={(v) => site({ showPrices: v })} label="Afficher les prix" /></div>
+            <Field label="Couleur du site"><div className="flex items-center gap-2"><input type="color" value={s.site.accent} onChange={(e) => site({ accent: e.target.value })} className="h-10 w-14 cursor-pointer rounded-lg border border-[var(--border)] bg-transparent" aria-label="Couleur du site" /><code className="text-xs">{s.site.accent}</code></div></Field>
+          </div>
+          <div className="min-w-0 space-y-3">
+            <Field label="Image de couverture (URL)"><Input value={s.site.coverUrl} onChange={(e) => site({ coverUrl: e.target.value })} placeholder="https://…/photo.jpg" inputMode="url" /></Field>
+            <Field label="Logo (URL)"><Input value={s.site.logoUrl} onChange={(e) => site({ logoUrl: e.target.value })} placeholder="https://…/logo.png" inputMode="url" /></Field>
+            <Field label="Photos (une URL par ligne, 12 max)"><Textarea rows={3} value={photos} onChange={(e) => setPhotos(e.target.value)} placeholder={"https://…/salle.jpg\nhttps://…/plat.jpg"} /></Field>
+            <div className="grid gap-3 sm:grid-cols-2"><Field label="Page Facebook"><Input value={s.site.facebook} onChange={(e) => site({ facebook: e.target.value })} placeholder="https://facebook.com/…" inputMode="url" /></Field><Field label="Instagram"><Input value={s.site.instagram} onChange={(e) => site({ instagram: e.target.value })} placeholder="https://instagram.com/…" inputMode="url" /></Field></div>
+            <div className="rounded-xl surface-2 p-3 text-xs"><p className="font-bold">Adresse du site</p><p className="flex items-center gap-2"><code className="min-w-0 flex-1 truncate">{s.urls.site}</code><button onClick={() => copy(s.urls.site)} className="font-semibold text-lagon-600">Copier</button></p><p className="mt-1 text-muted">Le nom, l&apos;adresse, le téléphone et les horaires viennent de Paramètres → Établissement. Les boutons Commander et Réserver apparaissent selon les réglages ci-dessous.</p></div>
+          </div>
+        </div>
+      </Card>
       <div className="grid gap-4 lg:grid-cols-2">
         <Card title="QR code à table">
           <Field label="Mode"><Select value={s.qrMode} onChange={(e) => setS({ ...s, qrMode: e.target.value as DigitalSettings["qrMode"] })}>

@@ -46,7 +46,6 @@ export default function ReportsPage() {
           </div>
           <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
             <Stat label="Remises" value={<Money amount={d.discounts} />} />
-            <Stat label="Pourboires" value={<Money amount={d.tips} />} />
             <Stat label="Remboursements" value={<Money amount={d.refunds} />} />
             <Stat label="Annulations" value={d.cancellations} />
             <Stat label="Coût matière" value={<Money amount={d.foodCost} />} />

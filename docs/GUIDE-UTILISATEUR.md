@@ -17,9 +17,19 @@ ManaResto est une caisse et un back-office pour les restaurants de Polynésie fr
 
 - **Plan de salle** : salles, tables (forme, places, position), statut en temps réel (libre, occupée, addition demandée, plats prêts, appel serveur, réservée).
 - **Caisse** `/pos` : ouvrir une table ou une vente au comptoir, ajouter des produits (touchez la vignette pour le détail, « + » pour l'ajout rapide), services (« envoyer », « à suivre », « faire marcher », urgent), sièges, notes, remises et annulations (PIN manager, motif tracé), transfert de table.
-- **Addition et paiement** : division égale, par client, par article ou par montant ; espèces, carte (ou « Envoyer au TPE » si un terminal est connecté), chèque, virement, autre ; pourboires ; reçu imprimé, envoyé par e-mail (PDF) ou affiché.
+- **Addition et paiement** : division égale, par client, par article ou par montant ; espèces, carte (ou « Envoyer au TPE » si un terminal est connecté), chèque, virement, autre ; reçu imprimé, envoyé par e-mail (PDF) ou affiché.
 - **Caisse** `/pos/cash` : ouverture avec fonds, mouvements (entrées / sorties motivées), clôture avec comptage et écart, rapports X et Z.
 - **Hors ligne** : la caisse continue de fonctionner sans réseau (commandes, envois) et se synchronise au retour de la connexion ; l'indicateur en haut affiche l'état.
+
+## 3 bis. Suivi de service (ne plus oublier une table)
+
+À l'installation d'une table, ManaResto démarre son **parcours de service** (accueil, boissons, vérifications, plats, dessert, addition) et crée un premier rappel. Ensuite :
+- un plat **prêt en cuisine** crée l'action « À apporter » pour le serveur de la table ; « Apporté » (dans la commande ou depuis le rappel) marque les articles servis et programme la vérification suivante ;
+- après les boissons vient la prise de commande des plats ; après les plats, « tout se passe bien ? » puis la proposition du dessert et du café ; après le dessert, un passage de courtoisie puis l'addition.
+
+Le bouton **« À faire »** en haut de la caisse ouvre le panneau **À faire maintenant** : actions classées par priorité (en retard d'abord, puis à apporter, prise de commande, vérification, dessert, addition) avec la table, le serveur, l'attente, **Fait** et **Reporter** (5, 10 ou 15 min). Sur le plan de salle, un badge indique l'action à faire sur la table concernée et un contour rouge signale le retard ; les initiales du serveur apparaissent sur la table.
+
+Dans une commande, l'onglet **Service** montre la prochaine action, le serveur responsable (modifiable), les étapes du parcours (fait, ignoré, non nécessaire, avec raison) et la chronologie de la table. Réglages dans **Paramètres → Suivi de service** : activation, délais, son et vibration, rappels au serveur ou à toute l'équipe, étapes du parcours.
 
 ## 4. Cuisine
 
@@ -48,7 +58,8 @@ ManaResto est une caisse et un back-office pour les restaurants de Polynésie fr
 - **Borne** `/kiosk` sur un appareil enregistré de type Borne.
 - **Fidélité** : points au paiement, récompense en remise, fiche client en caisse.
 - **Réservations** : formulaire public `/reserver/…`, écran caisse (confirmer, arrivée, installer, no-show).
-- Interfaces clients en français, anglais et reo tahiti.
+- **Site du restaurant** `/site/<entreprise>/<établissement>` : page publique propre à votre restaurant (présentation, horaires, adresse avec itinéraire, téléphone, photos, réseaux sociaux, menu en ligne avec prix) et boutons Commander, Réserver, Appeler. Réglages dans Digital → « Site du restaurant » (accroche, description, image de couverture, logo, photos, couleur, afficher le menu / les prix). Le site existe dès la création du compte ; partagez son adresse ou faites-y pointer votre nom de domaine.
+- Interfaces clients en français, anglais et reo tahiti (site du restaurant : `?lang=en` ou `?lang=ty`).
 
 ## 9. Intégrations
 
@@ -67,6 +78,10 @@ ManaResto est une caisse et un back-office pour les restaurants de Polynésie fr
 ## 11. Sécurité
 
 Sessions chiffrées par cookie, PIN et mots de passe hachés, tentatives limitées (connexion, PIN, formulaires publics, API), en-têtes de sécurité HTTP, permissions vérifiées côté serveur sur chaque route, isolation stricte par établissement.
+
+## Offre et abonnement
+
+15 jours d'essai gratuits à la création de votre espace, sans engagement. Ensuite 15 000 F de mise en place puis 12 000 F par mois, toutes fonctions comprises, 0 % de commission sur vos ventes. L'état de votre essai est affiché en haut de l'administration et dans **Paramètres → Abonnement**.
 
 ## Compte de démonstration
 

@@ -90,7 +90,7 @@ export const cancelSchema = z.object({ reason: z.string().min(1).max(200), manag
 export const transferSchema = z.object({ tableId: uuid });
 export const paymentMethod = z.enum(["CASH", "CARD", "CHECK", "TRANSFER", "MEAL_VOUCHER", "COMPLIMENTARY", "OTHER"]);
 export const paymentsSchema = z.object({
-  payments: z.array(z.object({ id: uuid.optional(), method: paymentMethod, amount: z.number().int().min(1), tipAmount: money.optional(), tendered: money.optional(), reference: z.string().max(80).nullable().optional(), splitLabel: z.string().max(40).nullable().optional() })).min(1).max(20),
+  payments: z.array(z.object({ id: uuid.optional(), method: paymentMethod, amount: z.number().int().min(1), tendered: money.optional(), reference: z.string().max(80).nullable().optional(), splitLabel: z.string().max(40).nullable().optional() })).min(1).max(20),
   managerPin: pin.optional(),
 });
 export const refundSchema = z.object({ amount: z.number().int().min(1), reason: z.string().min(1).max(200), managerPin: pin.optional() });
@@ -140,11 +140,13 @@ export const attachCustomerSchema = z.object({ customerId: uuid.nullable() });
 export const redeemSchema = z.object({ rewards: z.number().int().min(1).max(10).optional() });
 export const adjustPointsSchema = z.object({ points: z.number().int().min(-100000).max(100000), reason: z.string().min(1).max(200) });
 export const rejectSchema = z.object({ reason: z.string().min(1).max(200) });
+const httpUrl = z.string().max(500).refine((v) => v === "" || /^https?:\/\//.test(v), "Adresse web attendue (https://…)");
 export const digitalSettingsSchema = z.object({
   qrMode: z.enum(["MENU", "MENU_CALL", "ORDER", "ORDER_DIRECT"]).optional(),
   online: z.object({ enabled: z.boolean(), pickup: z.boolean(), delivery: z.boolean(), pickupLeadMin: z.number().int().min(0).max(240), deliveryFee: money, deliveryMinOrder: money, deliveryZones: z.array(z.string().min(1).max(80)).max(50), message: z.string().max(300) }).partial().optional(),
   kiosk: z.object({ enabled: z.boolean(), dineIn: z.boolean(), takeaway: z.boolean() }).partial().optional(),
   loyalty: z.object({ enabled: z.boolean(), pointsPer100: z.number().int().min(0).max(100), rewardPoints: z.number().int().min(1).max(100000), rewardValue: money }).partial().optional(),
+  site: z.object({ enabled: z.boolean(), tagline: z.string().max(120), description: z.string().max(2000), coverUrl: httpUrl, logoUrl: httpUrl, photos: z.array(httpUrl.pipe(z.string().min(1))).max(12), facebook: httpUrl, instagram: httpUrl, showMenu: z.boolean(), showPrices: z.boolean(), accent: z.string().regex(/^#[0-9a-fA-F]{6}$/) }).partial().optional(),
 });
 
 // Avancé (Phase 7)
@@ -156,3 +158,16 @@ export const terminalChargeSchema = z.object({ orderId: uuid, amount: z.number()
 export const terminalSettingsSchema = z.object({ adapter: z.enum(["manual", "bridge"]), url: z.string().url().max(300).optional().or(z.literal("")), apiKey: z.string().max(200).optional(), terminalId: z.string().max(80).optional(), timeoutMs: z.number().int().min(5000).max(300000).optional() });
 export const copyCatalogSchema = z.object({ fromId: uuid, products: z.boolean().optional(), menus: z.boolean().optional() });
 export const apiOrdersQuery = z.object({ from: daySchema.optional(), to: daySchema.optional(), status: z.string().optional(), take: z.coerce.number().int().min(1).max(500).optional(), skip: z.coerce.number().int().min(0).optional() });
+
+// ---------------------------------------------------------------- Suivi de service (Phase 9)
+export const snoozeSchema = z.object({ minutes: z.number().int().min(1).max(120) });
+export const serviceStepSchema = z.object({ status: z.enum(["PENDING", "DONE", "SKIPPED", "NOT_NEEDED"]), reason: z.string().max(200).nullable().optional() });
+export const assignServerSchema = z.object({ serverId: uuid.nullable().optional() });
+export const serviceSettingsSchema = z.object({
+  enabled: z.boolean().optional(),
+  assignTo: z.enum(["SERVER", "TEAM"]).optional(),
+  sound: z.boolean().optional(),
+  vibrate: z.boolean().optional(),
+  delays: z.object({ welcome: z.number().int().min(0).max(120), drinksCheck: z.number().int().min(0).max(120), foodCheck: z.number().int().min(0).max(120), dessertOffer: z.number().int().min(0).max(120), dessertCheck: z.number().int().min(0).max(120), bill: z.number().int().min(0).max(120), late: z.number().int().min(1).max(120) }).partial().optional(),
+  steps: z.array(z.object({ key: z.string().min(1).max(40).regex(/^[a-z0-9_]+$/), label: z.string().min(1).max(120) })).min(1).max(20).optional(),
+});

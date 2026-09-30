@@ -39,6 +39,7 @@ Toutes les réponses sont `{ "data": … }` ou `{ "error": { "code", "message", 
 | GET | `/api/public/menu/:qrToken` · POST `/order` `{id, lines, covers?, notes?}` · POST `/call` | public (QR de table) |
 | GET | `/api/public/shop/:org/:etab` · POST `/order` `{id, mode: PICKUP|DELIVERY, name, phone, …, lines}` · POST `/reserve` | public |
 | GET | `/api/public/track/:publicToken` | public (jeton de suivi) |
+| GET | `/api/public/site/:org/:etab` — site du restaurant (coordonnées, horaires, réglages, canaux ouverts, menu allégé) ; page `/site/:org/:etab` | public |
 | GET/POST | `/api/kiosk/catalog` · `/api/kiosk/order` `{id, mode, name?, lines}` | cookie terminal de type KIOSK |
 | GET/POST | `/api/online-orders` · `/:id/accept` · `/:id/reject` `{reason}` · DELETE `/api/tables/:id/call` · GET `/api/tables/qr`, `/api/tables/:id/qr` (PNG) | pos.use / floor.manage |
 | GET/POST/PATCH | `/api/customers[/:id]` (`?search=`) · POST `/:id/points` · POST `/api/orders/:id/customer` `{customerId}` · POST `/api/orders/:id/loyalty` `{rewards}` | customers.manage / pos.use |
@@ -49,4 +50,7 @@ Toutes les réponses sont `{ "data": … }` ou `{ "error": { "code", "message", 
 | GET/PATCH/POST | `/api/payments/terminal/settings` · `/api/payments/terminal/charge` `{orderId, amount}` | pos.use / settings.manage |
 | GET/POST | `/api/organization/overview?from&to` · `/api/establishments/:id/copy-catalog` `{fromId}` | reports.view_global / establishments.manage |
 | GET | `/api/reports/export?type=accounting` (export comptable) | audit.view |
+| GET | `/api/service/reminders` (rappels dus et à venir) · POST `/api/service/reminders/:id/done` · POST `/api/service/reminders/:id/snooze` `{minutes}` | pos.use |
+| GET | `/api/service/orders/:id/timeline` · POST `/api/service/orders/:id/steps/:key` `{status, reason?}` · POST `/api/service/orders/:id/server` `{serverId}` | pos.use |
+| GET/PATCH | `/api/service/settings` (activation, délais, son, vibration, attribution, étapes) | pos.use / settings.manage |
 | GET | `/api/realtime` (SSE) · `/api/health` | — |

@@ -92,7 +92,7 @@ async function main() {
     await prisma.organization.delete({ where: { id: existing.id } });
   }
   console.log("→ Création de l'entreprise de démonstration…");
-  const org = await prisma.organization.create({ data: { name: "Mana Beach SARL", slug: "demo-mana-beach" } });
+  const org = await prisma.organization.create({ data: { name: "Mana Beach SARL", slug: "demo-mana-beach", plan: "TRIAL", trialEndsAt: new Date(Date.now() + 12 * 86_400_000) } });
   await ensureSystemRoles(org.id);
   const roles = Object.fromEntries((await prisma.role.findMany({ where: { organizationId: org.id } })).map((r) => [r.key, r.id]));
 
@@ -161,7 +161,7 @@ async function main() {
   }
 
   console.log("→ Clients, fidélité, réglages digitaux…");
-  await prisma.establishment.update({ where: { id: est.id }, data: { settings: { courses: ["APÉRITIFS", "ENTRÉES", "PLATS", "DESSERTS"], digital: { qrMode: "ORDER", online: { enabled: true, pickup: true, delivery: true, pickupLeadMin: 20, deliveryFee: 500, deliveryMinOrder: 3000, deliveryZones: ["Punaauia", "Paea", "Faa'a"], message: "Commandes en ligne de 11 h à 13 h 30 et de 18 h à 21 h. Paiement sur place." }, kiosk: { enabled: true, dineIn: true, takeaway: true } }, loyalty: { enabled: true, pointsPer100: 1, rewardPoints: 100, rewardValue: 1000 } } } });
+  await prisma.establishment.update({ where: { id: est.id }, data: { settings: { courses: ["APÉRITIFS", "ENTRÉES", "PLATS", "DESSERTS"], digital: { qrMode: "ORDER", online: { enabled: true, pickup: true, delivery: true, pickupLeadMin: 20, deliveryFee: 500, deliveryMinOrder: 3000, deliveryZones: ["Punaauia", "Paea", "Faa'a"], message: "Commandes en ligne de 11 h à 13 h 30 et de 18 h à 21 h. Paiement sur place." }, kiosk: { enabled: true, dineIn: true, takeaway: true } }, loyalty: { enabled: true, pointsPer100: 1, rewardPoints: 100, rewardValue: 1000 }, site: { enabled: true, tagline: "Cuisine du lagon, les pieds dans le sable", description: "Depuis 2012, Le Mana Beach vous accueille face au lagon de Punaauia : poisson cru au lait de coco, thon rouge de la criée, grillades au feu de bois et desserts aux fruits du fenua.\nTerrasse sur la plage, parking gratuit, cocktails au coucher du soleil.", showMenu: true, showPrices: true, accent: "#14aaa3" } } } });
   const CUSTOMERS: [string, string, string, string | null, string | null, number, number, number][] = [
     ["Teiki", "Faatau", "+689 87 11 22 33", "teiki@mail.pf", null, 14, 186500, 165], ["Hina", "Tetuanui", "+689 87 44 55 66", "hina.t@mail.pf", "Fruits de mer", 9, 98200, 82], ["Marc", "Dupont", "+689 89 12 34 56", null, null, 4, 41300, 41],
     ["Vaimiti", "Pambrun", "+689 87 99 88 77", "vaimiti@mail.pf", "Gluten", 21, 312400, 12], ["Sophie", "Martin", "+689 87 65 43 21", "sophie.m@mail.pf", null, 2, 12800, 128], ["Tama", "Ariipeu", "+689 89 00 11 22", null, null, 6, 54700, 47],
@@ -356,7 +356,7 @@ async function main() {
     if (close) {
       const closedAt = new Date(openedAt.getTime() + between(45, 110) * 60000);
       const method = rand() < 0.55 ? "CARD" : rand() < 0.85 ? "CASH" : "MEAL_VOUCHER";
-      const tip = method === "CARD" && rand() < 0.3 ? Math.round(totals.total * 0.05 / 100) * 100 : 0;
+      const tip = 0;
       const split = method === "CARD" && covers >= 2 && rand() < 0.25;
       const amounts = split ? [Math.floor(totals.total / 2), totals.total - Math.floor(totals.total / 2)] : [totals.total];
       for (const [i, amount] of amounts.entries()) {
@@ -406,6 +406,17 @@ async function main() {
   await mkOnline("ONLINE", 1, [plats[0], entrees[1], boissons[0]], { name: "Hina Tetuanui", phone: "+689 87 44 55 66", when: "12:30", lang: "fr" }, false);
   await mkOnline("DELIVERY", 3, [plats[2], plats[6], desserts[0], boissons[2]], { name: "Vaimiti Pambrun", phone: "+689 87 99 88 77", when: "Dès que possible", address: "PK 15,8 côté montagne, portail vert", zone: "Punaauia", deliveryFee: 500, lang: "fr" }, false);
   await mkOnline("KIOSK", null, [plats[1], boissons[1]], { name: "Moe", mode: "TAKEAWAY", payAtCounter: true, lang: "en" }, true);
+
+  // Phase 9 : parcours de service et rappels pour les tables en cours (un rappel antidaté pour montrer le retard)
+  const { startTracking, onTicketReady } = await import("../src/server/services/service-tracking");
+  const liveOrders = await prisma.order.findMany({ where: { establishmentId: est.id, type: "DINE_IN", status: { in: ["OPEN", "SENT", "BILL_REQUESTED"] } }, include: { kitchenTickets: { include: { items: true } } } });
+  for (const o of liveOrders) {
+    const actor = { organizationId: org.id, establishmentId: est.id, userId: o.serverId ?? owner.id };
+    await prisma.$transaction(async (tx) => startTracking(tx, actor, o));
+    for (const t of o.kitchenTickets.filter((t) => t.status === "READY")) await onTicketReady(actor, { id: t.id, orderId: o.id, items: t.items, order: { tableId: o.tableId, serverId: o.serverId, type: o.type } });
+  }
+  const firstReminder = await prisma.serviceReminder.findFirst({ where: { establishmentId: est.id, status: "OPEN", kind: "TAKE_ORDER" }, orderBy: { createdAt: "asc" } });
+  if (firstReminder) await prisma.serviceReminder.update({ where: { id: firstReminder.id }, data: { dueAt: new Date(Date.now() - 9 * 60000) } });
 
   await prisma.auditLog.create({ data: { organizationId: org.id, establishmentId: est.id, userId: owner.id, action: "demo.seed", entityType: "establishment", entityId: est.id, newValue: { orders: counter } } });
   console.log(`✓ Démo créée : ${counter} commandes. Connexion : demo@manaresto.pf / demo1234 (PIN 1234)`);

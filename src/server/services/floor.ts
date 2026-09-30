@@ -2,6 +2,7 @@ import { prisma } from "@/server/db";
 import { ApiError } from "@/server/errors";
 import { publish } from "@/server/realtime/bus";
 import type { RoomKind, TableShape, TableState } from "@/generated/prisma/client";
+import { floorService } from "./service-tracking";
 
 type Actor = { organizationId: string; establishmentId: string; userId: string };
 
@@ -80,10 +81,11 @@ export async function getFloorStatus(establishmentId: string) {
   const rooms = await listRooms(establishmentId);
   const openOrders = await prisma.order.findMany({
     where: { establishmentId, status: { in: ["OPEN", "SENT", "BILL_REQUESTED"] }, tableId: { not: null } },
-    select: { id: true, tableId: true, status: true, covers: true, total: true, paidTotal: true, openedAt: true, serverId: true, server: { select: { firstName: true, displayName: true } }, _count: { select: { items: true } }, items: { where: { status: "READY" }, select: { id: true } } },
+    select: { id: true, tableId: true, status: true, covers: true, total: true, paidTotal: true, openedAt: true, serverId: true, server: { select: { firstName: true, lastName: true, displayName: true, color: true } }, _count: { select: { items: true } }, items: { where: { status: "READY" }, select: { id: true } } },
   });
   // readyCount : plats marqués PRÊT par la cuisine et pas encore servis (Phase 3)
   const byTable = new Map(openOrders.map((o) => [o.tableId!, { ...o, items: undefined, readyCount: o.items.length }]));
+  const service = await floorService(establishmentId); // Phase 9 : prochaine action par table
   return {
     rooms: rooms.map((room) => ({
       ...room,
@@ -94,7 +96,9 @@ export async function getFloorStatus(establishmentId: string) {
           status = order.status === "BILL_REQUESTED" ? "BILL" : order.status === "SENT" ? "SENT" : order._count.items > 0 ? "ORDERING" : "OCCUPIED";
         } else if (t.state === "RESERVED") status = "RESERVED";
         else if (t.state === "TO_CLEAN") status = "TO_CLEAN";
-        return { ...t, status, order };
+        const srv = order?.server;
+        const serverInitials = srv ? (srv.displayName?.trim() ? srv.displayName.trim().slice(0, 2) : `${srv.firstName.slice(0, 1)}${srv.lastName.slice(0, 1)}`).toUpperCase() : null;
+        return { ...t, status, order, serverInitials, serverColor: srv?.color ?? null, service: service.get(t.id) ?? null };
       }),
     })),
   };
