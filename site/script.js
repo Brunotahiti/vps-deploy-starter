@@ -23,6 +23,7 @@
   $$("[data-signup]").forEach(function (a) { a.href = app + "/signup"; });
   $$("[data-login]").forEach(function (a) { a.href = app + "/login"; });
   $$("[data-install]").forEach(function (a) { a.href = app + "/login?install=1"; });
+  $$("[data-admin]").forEach(function (a) { a.href = app + "/platform"; });
   $$("[data-year]").forEach(function (el) { el.textContent = String(new Date().getFullYear()); });
 
   // Suivi d'événements (sans cookie) : poussés dans window.dataLayer si un outil est branché
