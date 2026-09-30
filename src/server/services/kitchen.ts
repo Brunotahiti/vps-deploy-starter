@@ -74,7 +74,9 @@ async function syncCourse(tx: Tx, courseId: string | null) {
   if (!course || !["SENT", "FIRE", "READY", "SERVED"].includes(course.status)) return;
   const allDone = tickets.every((t) => t.status === "DONE");
   const allReady = tickets.every((t) => t.status === "READY" || t.status === "DONE");
-  const next = allDone ? "SERVED" : allReady ? "READY" : course.status === "FIRE" ? "FIRE" : "SENT";
+  // Phase 9 : un service n'est « servi » que lorsque ses articles ont été apportés à la table
+  const toBring = allDone ? await tx.orderItem.count({ where: { courseId, status: { in: ["SENT", "PREPARING", "READY"] } } }) : 1;
+  const next = allDone && toBring === 0 ? "SERVED" : allReady ? "READY" : course.status === "FIRE" ? "FIRE" : "SENT";
   if (next !== course.status) await tx.course.update({ where: { id: courseId }, data: { status: next } });
 }
 
