@@ -11,7 +11,7 @@ test("suivi de service : installer une table crée un rappel, le panneau permet 
   await page.request.patch("/api/service/settings", { data: { enabled: true, delays: { welcome: 0 } } });
   await page.goto("/pos");
   const free = page.locator("button[title='Libre']:visible").first();
-  const tableName = (await free.locator("span").first().textContent())?.trim();
+  const tableName = (await free.getByTestId("table-name").textContent())?.trim();
   await free.click();
   await page.getByRole("button", { name: "2", exact: true }).click();
   await page.waitForURL(/\/pos\/order\//);
