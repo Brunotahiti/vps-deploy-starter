@@ -40,10 +40,10 @@ p { margin: 0; }
 /* En-tête */
 .nav { position: sticky; top: 0; z-index: 50; background: rgb(255 255 255 / .86); backdrop-filter: blur(14px) saturate(1.2); border-bottom: 1px solid rgb(230 235 241 / .8); }
 .nav .wrap { display: flex; align-items: center; gap: 16px; height: 70px; }
-.brand { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 1.18rem; letter-spacing: -0.01em; }
+.brand { display: flex; flex-shrink: 0; align-items: center; gap: 10px; font-weight: 800; font-size: 1.18rem; letter-spacing: -0.01em; }
 .brand img { width: 38px; height: 38px; border-radius: 11px; box-shadow: 0 4px 10px -4px rgb(15 110 108 / .5); }
 .brand b { color: var(--lagon); }
-.nav-links { display: none; gap: 20px; margin-left: 8px; font-weight: 600; color: var(--muted); font-size: .93rem; white-space: nowrap; }
+.nav-links { display: none; min-width: 0; overflow: hidden; gap: 20px; margin-left: 8px; font-weight: 600; color: var(--muted); font-size: .93rem; white-space: nowrap; }
 .nav-links a { padding: 6px 2px; border-bottom: 2px solid transparent; }
 .nav-links a:hover { color: var(--lagon-700); border-color: var(--lagon); }
 .nav-cta { margin-left: auto; display: none; gap: 10px; align-items: center; }
