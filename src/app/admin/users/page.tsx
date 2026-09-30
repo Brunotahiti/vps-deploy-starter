@@ -25,6 +25,9 @@ export default function UsersPage() {
   const perms = useList<Perm[]>(["permissions"], "/api/permissions");
   const [edit, setEdit] = useState<Form | null>(null);
   const [roleEdit, setRoleEdit] = useState<{ id?: string; name: string; permissions: string[]; isSystem: boolean } | null>(null);
+  const [invite, setInvite] = useState<{ email: string; firstName: string; lastName: string; memberships: { establishmentId: string; roleId: string }[] } | null>(null);
+  const [sent, setSent] = useState<{ email: string; inviteUrl: string; emailSent: boolean } | null>(null);
+  const [inviting, setInviting] = useState(false);
   const ests = me?.establishments ?? [];
   const assignable = roles.data?.filter((r) => r.key !== "owner") ?? [];
 
@@ -34,6 +37,18 @@ export default function UsersPage() {
     const r = await act(() => (edit.id ? api.patch(`/api/users/${edit.id}`, body) : api.post("/api/users", body)), { success: "Utilisateur enregistré", invalidate: [["users"]] });
     if (r) setEdit(null);
   };
+  const sendInvite = async () => {
+    if (!invite) return;
+    setInviting(true);
+    const r = await act(() => api.post<{ email: string; inviteUrl: string; emailSent: boolean }>("/api/users/invite", invite), { success: "Invitation créée", invalidate: [["users"]] });
+    setInviting(false);
+    if (r) { setInvite(null); setSent(r); }
+  };
+  const resend = async (u: U) => {
+    const r = await act(() => api.post<{ email: string; inviteUrl: string; emailSent: boolean }>(`/api/users/${u.id}/invite`), { success: "Invitation renvoyée", invalidate: [["users"]] });
+    if (r) setSent(r);
+  };
+  const copy = (v: string) => navigator.clipboard?.writeText(v);
   const saveRole = async () => {
     if (!roleEdit) return;
     const r = await act(() => (roleEdit.id ? api.patch(`/api/roles/${roleEdit.id}`, { name: roleEdit.name, permissions: roleEdit.permissions }) : api.post("/api/roles", { name: roleEdit.name, permissions: roleEdit.permissions })), { success: "Rôle enregistré", invalidate: [["roles"], ["me"]] });
@@ -43,7 +58,7 @@ export default function UsersPage() {
 
   return (
     <div>
-      <PageHeader title="Utilisateurs & rôles" subtitle="Comptes du personnel, PIN de caisse, rôles et permissions granulaires" action={tab === "users" ? <Button onClick={() => setEdit({ email: "", password: "", firstName: "", lastName: "", displayName: "", color: "#0EA5A4", pin: "", isActive: true, memberships: me?.establishment ? [{ establishmentId: me.establishment.id, roleId: assignable.find((r) => r.key === "server")?.id ?? "" }] : [] })}>Nouvel utilisateur</Button> : <Button onClick={() => setRoleEdit({ name: "", permissions: [], isSystem: false })}>Nouveau rôle</Button>} />
+      <PageHeader title="Utilisateurs & rôles" subtitle="Comptes du personnel, PIN de caisse, rôles et permissions granulaires" action={tab === "users" ? <div className="flex flex-wrap gap-2"><Button variant="secondary" onClick={() => setInvite({ email: "", firstName: "", lastName: "", memberships: me?.establishment ? [{ establishmentId: me.establishment.id, roleId: assignable.find((r) => r.key === "server")?.id ?? "" }] : [] })}>Inviter par e-mail</Button><Button onClick={() => setEdit({ email: "", password: "", firstName: "", lastName: "", displayName: "", color: "#0EA5A4", pin: "", isActive: true, memberships: me?.establishment ? [{ establishmentId: me.establishment.id, roleId: assignable.find((r) => r.key === "server")?.id ?? "" }] : [] })}>Nouvel utilisateur</Button></div> : <Button onClick={() => setRoleEdit({ name: "", permissions: [], isSystem: false })}>Nouveau rôle</Button>} />
       <div className="mb-4 flex gap-1 border-b border-line">{(["users", "roles"] as const).map((t) => <button key={t} onClick={() => setTab(t)} className={`border-b-2 px-3 py-2 text-sm font-semibold ${tab === t ? "border-lagon-500 text-lagon-600" : "border-transparent text-muted"}`}>{t === "users" ? "Utilisateurs" : "Rôles & permissions"}</button>)}</div>
       {tab === "users" ? (users.isLoading ? <div className="flex justify-center py-10"><Spinner /></div> : (
         <Table head={["Nom", "Email", "Rôle(s)", "PIN", "Statut", "Dernière connexion", ""]}>
@@ -51,7 +66,7 @@ export default function UsersPage() {
             <Tr key={u.id}>
               <Td><span className="mr-2 inline-flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold text-white" style={{ background: u.color ?? "#0ea5a4" }}>{u.firstName.slice(0, 1)}</span><span className="font-semibold">{u.firstName} {u.lastName}</span>{u.displayName ? <span className="text-muted"> ({u.displayName})</span> : null}</Td><Td>{u.email}</Td>
               <Td>{u.isOwner ? <Badge color="purple">Propriétaire</Badge> : u.memberships.map((m) => <span key={m.establishmentId} className="mr-1 inline-block rounded-md surface-2 px-1.5 py-0.5 text-xs">{m.role.name}{ests.length > 1 ? ` · ${m.establishment.name}` : ""}</span>)}</Td>
-              <Td>{u.hasPin ? <Badge color="green">défini</Badge> : <Badge color="orange">aucun</Badge>}</Td><Td>{u.isActive ? "Actif" : <Badge color="red">désactivé</Badge>}</Td><Td className="text-xs text-muted">{u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleString("fr-FR") : "—"}</Td>
+              <Td>{u.hasPin ? <Badge color="green">défini</Badge> : <Badge color="orange">aucun</Badge>}</Td><Td>{!u.isActive ? <Badge color="red">désactivé</Badge> : u.invitePending ? <span className="inline-flex flex-wrap items-center gap-1.5"><Badge color={u.inviteExpired ? "red" : "orange"}>{u.inviteExpired ? "invitation expirée" : "invitation en attente"}</Badge><button onClick={() => resend(u)} className="text-xs font-semibold text-lagon-600">Renvoyer</button></span> : "Actif"}</Td><Td className="text-xs text-muted">{u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleString("fr-FR") : "—"}</Td>
               <Td><button onClick={() => setEdit({ id: u.id, email: u.email, password: "", firstName: u.firstName, lastName: u.lastName, displayName: u.displayName ?? "", color: u.color ?? "", pin: "", isActive: u.isActive, memberships: u.memberships.map((m) => ({ establishmentId: m.establishmentId, roleId: m.roleId })) })} className="text-xs font-semibold text-lagon-600">Modifier</button></Td>
             </Tr>
           ))}
@@ -65,6 +80,34 @@ export default function UsersPage() {
         </Table>
       ))}
 
+      <Modal open={!!invite} onClose={() => setInvite(null)} title="Inviter un membre de l'équipe" size="lg" footer={<Button className="w-full" disabled={inviting || !invite?.email.includes("@") || !invite?.firstName || !invite?.lastName || !invite?.memberships.length || invite.memberships.some((m) => !m.roleId)} onClick={sendInvite}>{inviting ? "Envoi…" : "Envoyer l'invitation"}</Button>}>
+        {invite ? (
+          <div className="space-y-3">
+            <p className="text-sm text-muted">La personne reçoit un e-mail avec un lien pour choisir son mot de passe et son PIN de caisse. Le lien est valable 7 jours ; vous pourrez aussi le copier pour l&apos;envoyer vous-même.</p>
+            <Field label="Adresse e-mail"><Input type="email" value={invite.email} onChange={(e) => setInvite({ ...invite, email: e.target.value })} placeholder="prenom@exemple.pf" autoComplete="off" /></Field>
+            <div className="grid gap-3 sm:grid-cols-2"><Field label="Prénom"><Input value={invite.firstName} onChange={(e) => setInvite({ ...invite, firstName: e.target.value })} /></Field><Field label="Nom"><Input value={invite.lastName} onChange={(e) => setInvite({ ...invite, lastName: e.target.value })} /></Field></div>
+            <div>
+              <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted">Rôle par établissement</p>
+              {invite.memberships.map((m, i) => (
+                <div key={i} className="mb-2 grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
+                  <Select value={m.establishmentId} onChange={(e) => setInvite({ ...invite, memberships: invite.memberships.map((x, j) => (j === i ? { ...x, establishmentId: e.target.value } : x)) })}>{ests.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}</Select>
+                  <Select value={m.roleId} onChange={(e) => setInvite({ ...invite, memberships: invite.memberships.map((x, j) => (j === i ? { ...x, roleId: e.target.value } : x)) })}><option value="">Rôle…</option>{assignable.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}</Select>
+                  <button onClick={() => setInvite({ ...invite, memberships: invite.memberships.filter((_, j) => j !== i) })} className="text-xs font-semibold text-red-600">Retirer</button>
+                </div>
+              ))}
+              {ests.length > invite.memberships.length ? <button onClick={() => setInvite({ ...invite, memberships: [...invite.memberships, { establishmentId: ests.find((e) => !invite.memberships.some((m) => m.establishmentId === e.id))?.id ?? ests[0].id, roleId: "" }] })} className="text-xs font-semibold text-lagon-600">+ Ajouter un établissement</button> : null}
+            </div>
+          </div>
+        ) : null}
+      </Modal>
+      <Modal open={!!sent} onClose={() => setSent(null)} title="Invitation prête" footer={<Button className="w-full" onClick={() => setSent(null)}>Fermer</Button>}>
+        {sent ? (
+          <div className="space-y-3 text-sm" data-testid="invite-sent">
+            <p>{sent.emailSent ? <>Un e-mail d&apos;invitation a été envoyé à <b>{sent.email}</b>.</> : <>L&apos;envoi d&apos;e-mail n&apos;est pas configuré sur ce serveur : transmettez ce lien à <b>{sent.email}</b> (WhatsApp, SMS…).</>}</p>
+            <div className="rounded-xl surface-2 p-3"><p className="mb-1 text-xs font-bold uppercase text-muted">Lien d&apos;invitation (valable 7 jours)</p><p className="flex items-center gap-2"><code className="min-w-0 flex-1 truncate text-xs" data-testid="invite-url">{sent.inviteUrl}</code><button onClick={() => copy(sent.inviteUrl)} className="font-semibold text-lagon-600">Copier</button></p></div>
+          </div>
+        ) : null}
+      </Modal>
       <Modal open={!!edit} onClose={() => setEdit(null)} title={edit?.id ? "Modifier l'utilisateur" : "Nouvel utilisateur"} size="lg" footer={<Button className="w-full" disabled={!edit?.email || !edit.firstName || !edit.lastName || (!edit.id && edit.password.length < 8) || edit.memberships.some((m) => !m.roleId)} onClick={save}>Enregistrer</Button>}>
         {edit ? <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Prénom"><Input value={edit.firstName} onChange={(e) => setEdit({ ...edit, firstName: e.target.value })} /></Field><Field label="Nom"><Input value={edit.lastName} onChange={(e) => setEdit({ ...edit, lastName: e.target.value })} /></Field>

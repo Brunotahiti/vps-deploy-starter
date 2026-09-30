@@ -10,6 +10,9 @@ Toutes les réponses sont `{ "data": … }` ou `{ "error": { "code", "message", 
 | GET | `/api/auth/me` | — |
 | GET/POST/PATCH | `/api/establishments[/:id]` | establishments.manage / settings.manage |
 | GET/POST/PATCH | `/api/users[/:id]`, `/api/roles[/:id]`, `/api/permissions` | users.manage |
+| POST | `/api/users/invite` `{email, firstName, lastName, memberships}` → `{inviteUrl, emailSent}` · POST `/api/users/:id/invite` (renvoi) | users.manage |
+| GET / POST | `/api/invitations/:token` (détail) · `/accept` `{password, pin?}` → ouvre la session | public (jeton d'invitation, limité par IP) |
+| GET | `/api/stats?from&to` — statistiques complètes (ventes, personnel, cuisine, réservations, clients, faits marquants) | reports.view |
 | GET/POST/PATCH/DELETE | `/api/tax-rates`, `/api/categories` (+`/reorder`), `/api/products` (+`/:id/availability`, `/import`), `/api/modifier-groups`, `/api/menus`, `/api/kitchen-stations` | catalog.view / catalog.manage / catalog.availability |
 | GET | `/api/pos/catalog` | pos.use |
 | GET | `/api/floor` · PUT `/api/floor/layout` · `/api/rooms`, `/api/tables` (+`/:id/state`) | pos.use / floor.manage |

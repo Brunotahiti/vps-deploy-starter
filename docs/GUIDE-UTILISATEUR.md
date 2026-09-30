@@ -43,7 +43,10 @@ Dans une commande, l'onglet **Service** montre la prochaine action, le serveur r
 
 **Personnel** : fiches employés (coût horaire, PIN de pointage), planning hebdomadaire, **pointeuse** `/pos/clock` (arrivée, pause, reprise, départ), corrections manager, heures et coût du personnel, prime cost sur le tableau de bord.
 
-## 7. Rapports et exports
+## 7. Statistiques, rapports et exports
+
+**Statistiques** (menu Statistiques) : une page complète sur la période de votre choix (7 jours, 30 jours, ce mois, mois dernier, 90 jours ou dates libres) avec comparaison à la période précédente : faits marquants en langage clair, chiffre d'affaires, tickets, couverts, panier moyen, marge brute, food cost, coût du personnel et prime cost, courbe par jour, jours de semaine et heures de pointe, catégories, top produits, serveurs, moyens de paiement et types de vente, temps de préparation en cuisine, durée moyenne d'un repas, réservations et no-show, clients connus et fidèles, part des ventes en ligne.
+
 
 **Tableau de bord** (jour) et **Rapports & exports** (période) : synthèse et comparaison, par jour, heure, catégorie, produit, serveur, moyen de paiement, type de vente. Exports **CSV, Excel, PDF** : rapport, ventes par produit, commandes, personnel, **export comptable** (journal de caisse, ventes par taux de TVA, encaissements, écritures).
 
@@ -70,7 +73,7 @@ Dans une commande, l'onglet **Service** montre la prochaine action, le serveur r
 
 ## 10. Utilisateurs, rôles et audit
 
-**Utilisateurs** : comptes, rôles (propriétaire, manager, serveur, cuisine, bar, caissier… personnalisables par permission), PIN. **Journal d'audit** : toute action sensible (remise, annulation, correction, paramètres, clés API) est tracée avec l'auteur et le motif.
+**Utilisateurs** : comptes, rôles (propriétaire, manager, serveur, cuisine, bar, caissier… personnalisables par permission), PIN. **Inviter par e-mail** : saisissez l'adresse, le prénom, le nom et le rôle ; la personne reçoit un lien (valable 7 jours) pour choisir son mot de passe et son PIN, puis entre directement dans l'application. Le lien peut aussi être copié et transmis à la main (WhatsApp, SMS) si l'envoi d'e-mail n'est pas configuré ; « Renvoyer » génère un nouveau lien. **Journal d'audit** : toute action sensible (remise, annulation, correction, paramètres, clés API) est tracée avec l'auteur et le motif.
 
 ## 11. Sécurité
 
