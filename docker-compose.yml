@@ -96,7 +96,8 @@ services:
     restart: unless-stopped
     volumes:
       - ./site:/usr/share/nginx/html:ro
-      - ./site/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      # Dossier (et non fichier unique) : un fichier remplacé par rsync resterait figé dans le conteneur
+      - ./site/nginx:/etc/nginx/conf.d:ro
     networks:
       - traefik
     mem_limit: ${SITE_MEM_LIMIT:-64m}
