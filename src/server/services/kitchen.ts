@@ -4,6 +4,7 @@ import { audit } from "@/server/audit";
 import { publish } from "@/server/realtime/bus";
 import { startOfLocalDay, localDay } from "@/lib/dates";
 import type { Actor } from "./orders";
+import { serviceSettings, onTicketReady, onTicketNotReady } from "./service-tracking";
 import type { KitchenTicketStatus, Prisma } from "@/generated/prisma/client";
 
 /**
@@ -21,7 +22,7 @@ export const ticketInclude = {
   course: { select: { id: true, name: true, sortOrder: true, status: true } },
   order: {
     select: {
-      id: true, number: true, type: true, covers: true, customerName: true, notes: true, status: true, openedAt: true,
+      id: true, number: true, type: true, covers: true, customerName: true, notes: true, status: true, openedAt: true, serverId: true,
       table: { select: { id: true, name: true } },
       server: { select: { id: true, firstName: true, displayName: true } },
     },
@@ -85,6 +86,8 @@ export async function setTicketStatus(actor: Actor, ticketId: string, status: Ki
   if (ticket.status === status) return ticket;
   const now = new Date();
   const itemIds = ticket.items.filter((i) => i.status !== "VOIDED").map((i) => i.id);
+  // Phase 9 : avec le suivi de service, « terminé » en cuisine ne vaut pas « apporté à la table »
+  const tracking = ticket.order.type === "DINE_IN" && (await serviceSettings(actor.establishmentId)).enabled;
   await prisma.$transaction(async (tx) => {
     const data: Prisma.KitchenTicketUpdateInput = { status };
     if (status === "ACCEPTED") data.acceptedAt = ticket.acceptedAt ?? now;
@@ -95,7 +98,11 @@ export async function setTicketStatus(actor: Actor, ticketId: string, status: Ki
     if (itemIds.length > 0) {
       if (status === "IN_PROGRESS") await tx.orderItem.updateMany({ where: { id: { in: itemIds }, status: { in: ["SENT", "READY"] } }, data: { status: "PREPARING", readyAt: null } });
       if (status === "READY") await tx.orderItem.updateMany({ where: { id: { in: itemIds }, status: { in: ["SENT", "PREPARING", "SERVED"] } }, data: { status: "READY", readyAt: now, servedAt: null } });
-      if (status === "DONE") await tx.orderItem.updateMany({ where: { id: { in: itemIds }, status: { in: ["SENT", "PREPARING", "READY"] } }, data: { status: "SERVED", servedAt: now } });
+      if (status === "DONE") {
+        if (tracking) await tx.orderItem.updateMany({ where: { id: { in: itemIds }, status: { in: ["SENT", "PREPARING"] } }, data: { status: "READY", readyAt: now } });
+        else await tx.orderItem.updateMany({ where: { id: { in: itemIds }, status: { in: ["SENT", "PREPARING", "READY"] } }, data: { status: "SERVED", servedAt: now } });
+      }
+      if (status === "ACCEPTED" || status === "IN_PROGRESS") await onTicketNotReady(tx, ticket.orderId, ticketId);
       if (status === "ACCEPTED") await tx.orderItem.updateMany({ where: { id: { in: itemIds }, status: { in: ["PREPARING", "READY"] } }, data: { status: "SENT", readyAt: null } });
     }
     await syncCourse(tx, ticket.courseId);
@@ -105,7 +112,9 @@ export async function setTicketStatus(actor: Actor, ticketId: string, status: Ki
   publish("kitchen.updated", actor.establishmentId, { orderId: ticket.orderId, ticketId, status });
   publish("order.updated", actor.establishmentId, { orderId: ticket.orderId, tableId: ticket.order.table?.id ?? null });
   publish("table.updated", actor.establishmentId, { tableId: ticket.order.table?.id ?? null });
-  return loadTicket(actor.establishmentId, ticketId);
+  const after = await loadTicket(actor.establishmentId, ticketId);
+  if (tracking && (status === "READY" || status === "DONE")) await onTicketReady(actor, { id: after.id, orderId: after.orderId, items: after.items, order: { tableId: after.order.table?.id ?? null, serverId: after.order.serverId, type: after.order.type } });
+  return after;
 }
 
 /** Coche un article comme prêt (ou l'inverse) ; le ticket passe PRÊT quand tous ses articles le sont. */

@@ -21,6 +21,16 @@ ManaResto est une caisse et un back-office pour les restaurants de Polynésie fr
 - **Caisse** `/pos/cash` : ouverture avec fonds, mouvements (entrées / sorties motivées), clôture avec comptage et écart, rapports X et Z.
 - **Hors ligne** : la caisse continue de fonctionner sans réseau (commandes, envois) et se synchronise au retour de la connexion ; l'indicateur en haut affiche l'état.
 
+## 3 bis. Suivi de service (ne plus oublier une table)
+
+À l'installation d'une table, ManaResto démarre son **parcours de service** (accueil, boissons, vérifications, plats, dessert, addition) et crée un premier rappel. Ensuite :
+- un plat **prêt en cuisine** crée l'action « À apporter » pour le serveur de la table ; « Apporté » (dans la commande ou depuis le rappel) marque les articles servis et programme la vérification suivante ;
+- après les boissons vient la prise de commande des plats ; après les plats, « tout se passe bien ? » puis la proposition du dessert et du café ; après le dessert, un passage de courtoisie puis l'addition.
+
+Le bouton **« À faire »** en haut de la caisse ouvre le panneau **À faire maintenant** : actions classées par priorité (en retard d'abord, puis à apporter, prise de commande, vérification, dessert, addition) avec la table, le serveur, l'attente, **Fait** et **Reporter** (5, 10 ou 15 min). Sur le plan de salle, un badge indique l'action à faire sur la table concernée et un contour rouge signale le retard ; les initiales du serveur apparaissent sur la table.
+
+Dans une commande, l'onglet **Service** montre la prochaine action, le serveur responsable (modifiable), les étapes du parcours (fait, ignoré, non nécessaire, avec raison) et la chronologie de la table. Réglages dans **Paramètres → Suivi de service** : activation, délais, son et vibration, rappels au serveur ou à toute l'équipe, étapes du parcours.
+
 ## 4. Cuisine
 
 **Écran cuisine** `/kds` par poste (cuisine, bar…) : accepter, en préparation, prêt, terminé, article par article, temps écoulé avec alertes, rappel d'un ticket, bip à l'arrivée. Les statuts remontent sur la salle (« plats prêts »). Les bons cuisine s'impriment aussi (navigateur ou imprimante configurée).
