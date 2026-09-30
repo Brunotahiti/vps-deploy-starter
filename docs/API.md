@@ -47,4 +47,7 @@ Toutes les réponses sont `{ "data": … }` ou `{ "error": { "code", "message", 
 | GET/PATCH/POST | `/api/payments/terminal/settings` · `/api/payments/terminal/charge` `{orderId, amount}` | pos.use / settings.manage |
 | GET/POST | `/api/organization/overview?from&to` · `/api/establishments/:id/copy-catalog` `{fromId}` | reports.view_global / establishments.manage |
 | GET | `/api/reports/export?type=accounting` (export comptable) | audit.view |
+| GET | `/api/service/reminders` (rappels dus et à venir) · POST `/api/service/reminders/:id/done` · POST `/api/service/reminders/:id/snooze` `{minutes}` | pos.use |
+| GET | `/api/service/orders/:id/timeline` · POST `/api/service/orders/:id/steps/:key` `{status, reason?}` · POST `/api/service/orders/:id/server` `{serverId}` | pos.use |
+| GET/PATCH | `/api/service/settings` (activation, délais, son, vibration, attribution, étapes) | pos.use / settings.manage |
 | GET | `/api/realtime` (SSE) · `/api/health` | — |

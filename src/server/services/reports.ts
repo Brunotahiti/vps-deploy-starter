@@ -1,6 +1,35 @@
 import { prisma } from "@/server/db";
 import { addDays, endOfLocalDay, startOfLocalDay } from "@/lib/dates";
 
+
+/** Ligne produit avec coût matière et marge (HT). */
+export type ProductLine = { name: string; revenue: number; revenueHt: number; cost: number; margin: number; marginPct: number | null; quantity: number };
+export type Profitability = { best: ProductLine[]; worst: ProductLine[]; unknownCost: number };
+type SaleItem = { id: string; name: string; status: string; quantity: number; lineTotal: number; costPrice: number; taxRateBps: number; parentItemId: string | null };
+type ProdAgg = { revenue: number; revenueHt: number; cost: number; quantity: number };
+
+/** Agrège les articles d'une commande par produit : CA TTC/HT, coût matière (composants de formule imputés au parent), quantité. */
+function addItemsToProducts(map: Map<string, ProdAgg>, items: SaleItem[]) {
+  const parentName = new Map(items.filter((i) => !i.parentItemId).map((i) => [i.id, i.name]));
+  for (const it of items) {
+    if (it.status === "VOIDED") continue;
+    const key = it.parentItemId ? parentName.get(it.parentItemId) : it.name;
+    if (!key) continue;
+    const p = map.get(key) ?? { revenue: 0, revenueHt: 0, cost: 0, quantity: 0 };
+    p.cost += it.costPrice * it.quantity;
+    if (!it.parentItemId) { p.revenue += it.lineTotal; p.revenueHt += it.lineTotal / (1 + it.taxRateBps / 10000); p.quantity += it.quantity; }
+    map.set(key, p);
+  }
+}
+function productLines(map: Map<string, ProdAgg>): ProductLine[] {
+  return [...map.entries()].map(([name, v]) => { const revenueHt = Math.round(v.revenueHt); const cost = Math.round(v.cost); const margin = revenueHt - cost; return { name, revenue: v.revenue, revenueHt, cost, margin, marginPct: revenueHt > 0 ? Math.round((margin / revenueHt) * 1000) / 10 : null, quantity: v.quantity }; });
+}
+/** Plats les plus et les moins rentables (marge HT en %), hors produits sans coût renseigné. */
+function profitability(lines: ProductLine[], n = 5): Profitability {
+  const known = lines.filter((l) => l.cost > 0 && l.revenueHt > 0 && l.marginPct !== null);
+  const byPct = [...known].sort((a, b) => (b.marginPct ?? 0) - (a.marginPct ?? 0));
+  return { best: byPct.slice(0, n), worst: byPct.slice(-n).reverse().filter((w) => !byPct.slice(0, n).includes(w)), unknownCost: lines.length - known.length };
+}
 export type DailySummary = {
   day: string;
   revenue: number; // CA TTC net (commandes payées)
@@ -18,7 +47,8 @@ export type DailySummary = {
   openOrders: number;
   byHour: { hour: number; revenue: number; tickets: number }[];
   byCategory: { name: string; revenue: number; quantity: number }[];
-  byProduct: { name: string; revenue: number; quantity: number }[];
+  byProduct: ProductLine[];
+  profitability: Profitability;
   byServer: { name: string; revenue: number; tickets: number }[];
   byMethod: { method: string; amount: number; count: number }[];
   previous: { day: string; revenue: number; tickets: number; covers: number } | null;
@@ -37,7 +67,7 @@ export async function getDailySummary(establishmentId: string, day: string, time
   const covers = paid.reduce((a, o) => a + o.covers, 0);
   const byHour = new Map<number, { revenue: number; tickets: number }>();
   const byCategory = new Map<string, { revenue: number; quantity: number }>();
-  const byProduct = new Map<string, { revenue: number; quantity: number }>();
+  const byProduct = new Map<string, ProdAgg>();
   const byServer = new Map<string, { revenue: number; tickets: number }>();
   const byMethod = new Map<string, { amount: number; count: number }>();
   let foodCost = 0;
@@ -55,9 +85,8 @@ export async function getDailySummary(establishmentId: string, day: string, time
       const cat = it.product?.category?.name ?? (it.menuId ? "Formules" : "Sans catégorie");
       const c = byCategory.get(cat) ?? { revenue: 0, quantity: 0 };
       c.revenue += it.lineTotal; c.quantity += it.quantity; byCategory.set(cat, c);
-      const p = byProduct.get(it.name) ?? { revenue: 0, quantity: 0 };
-      p.revenue += it.lineTotal; p.quantity += it.quantity; byProduct.set(it.name, p);
     }
+    addItemsToProducts(byProduct, o.items);
     for (const pay of o.payments) {
       const m = byMethod.get(pay.method) ?? { amount: 0, count: 0 };
       m.amount += pay.amount - pay.refundedAmount; m.count++; byMethod.set(pay.method, m);
@@ -76,7 +105,8 @@ export async function getDailySummary(establishmentId: string, day: string, time
     openOrders,
     byHour: [...byHour.entries()].map(([hour, v]) => ({ hour, ...v })).sort((a, b) => a.hour - b.hour),
     byCategory: [...byCategory.entries()].map(([name, v]) => ({ name, ...v })).sort((a, b) => b.revenue - a.revenue),
-    byProduct: [...byProduct.entries()].map(([name, v]) => ({ name, ...v })).sort((a, b) => b.revenue - a.revenue).slice(0, 15),
+    byProduct: productLines(byProduct).sort((a, b) => b.revenue - a.revenue).slice(0, 15),
+    profitability: profitability(productLines(byProduct)),
     byServer: [...byServer.entries()].map(([name, v]) => ({ name, ...v })).sort((a, b) => b.revenue - a.revenue),
     byMethod: [...byMethod.entries()].map(([method, v]) => ({ method, ...v })).sort((a, b) => b.amount - a.amount),
     previous: previous ? { day: previous.day, revenue: previous.revenue, tickets: previous.tickets, covers: previous.covers } : null,
@@ -123,7 +153,8 @@ export type PeriodReport = {
   byWeekday: { weekday: number; label: string; revenue: number; tickets: number }[];
   byHour: { hour: number; revenue: number; tickets: number }[];
   byCategory: { name: string; revenue: number; quantity: number; share: number }[];
-  byProduct: { name: string; revenue: number; quantity: number }[];
+  byProduct: ProductLine[];
+  profitability: Profitability;
   byServer: { name: string; revenue: number; tickets: number; avgTicket: number }[];
   byMethod: { method: string; amount: number; count: number }[];
   byType: { type: string; revenue: number; tickets: number }[];
@@ -149,7 +180,7 @@ export async function getPeriodReport(establishmentId: string, fromDay: string, 
   const byWeekday = new Map<number, { revenue: number; tickets: number }>();
   const byHour = new Map<number, { revenue: number; tickets: number }>();
   const byCategory = new Map<string, { revenue: number; quantity: number }>();
-  const byProduct = new Map<string, { revenue: number; quantity: number }>();
+  const byProduct = new Map<string, ProdAgg>();
   const byServer = new Map<string, { revenue: number; tickets: number }>();
   const byMethod = new Map<string, { amount: number; count: number }>();
   const byType = new Map<string, { revenue: number; tickets: number }>();
@@ -170,8 +201,8 @@ export async function getPeriodReport(establishmentId: string, fromDay: string, 
       if (it.parentItemId) continue;
       const cat = it.product?.category?.name ?? (it.menuId ? "Formules" : "Sans catégorie");
       const c = byCategory.get(cat) ?? { revenue: 0, quantity: 0 }; c.revenue += it.lineTotal; c.quantity += it.quantity; byCategory.set(cat, c);
-      const p = byProduct.get(it.name) ?? { revenue: 0, quantity: 0 }; p.revenue += it.lineTotal; p.quantity += it.quantity; byProduct.set(it.name, p);
     }
+    addItemsToProducts(byProduct, o.items);
     for (const pay of o.payments) {
       const m = byMethod.get(pay.method) ?? { amount: 0, count: 0 }; m.amount += pay.amount - pay.refundedAmount; m.count++; byMethod.set(pay.method, m);
       refunds += pay.refundedAmount;
@@ -194,7 +225,8 @@ export async function getPeriodReport(establishmentId: string, fromDay: string, 
     byWeekday: [1, 2, 3, 4, 5, 6, 0].map((wd) => ({ weekday: wd, label: WEEKDAYS[wd], ...(byWeekday.get(wd) ?? { revenue: 0, tickets: 0 }) })),
     byHour: [...byHour.entries()].map(([hour, v]) => ({ hour, ...v })).sort((a, b) => a.hour - b.hour),
     byCategory: [...byCategory.entries()].map(([name, v]) => ({ name, ...v, share: revenue > 0 ? Math.round((v.revenue / revenue) * 1000) / 10 : 0 })).sort((a, b) => b.revenue - a.revenue),
-    byProduct: [...byProduct.entries()].map(([name, v]) => ({ name, ...v })).sort((a, b) => b.revenue - a.revenue).slice(0, 30),
+    byProduct: productLines(byProduct).sort((a, b) => b.revenue - a.revenue).slice(0, 30),
+    profitability: profitability(productLines(byProduct), 8),
     byServer: [...byServer.entries()].map(([name, v]) => ({ name, ...v, avgTicket: v.tickets ? Math.round(v.revenue / v.tickets) : 0 })).sort((a, b) => b.revenue - a.revenue),
     byMethod: [...byMethod.entries()].map(([method, v]) => ({ method, ...v })).sort((a, b) => b.amount - a.amount),
     byType: [...byType.entries()].map(([type, v]) => ({ type, ...v })).sort((a, b) => b.revenue - a.revenue),

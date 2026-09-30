@@ -13,6 +13,7 @@ export type Me = {
   permissions?: string[];
   terminal: { id: string; name: string; kind: string; establishmentId: string } | null;
   features?: { email: boolean };
+  subscription?: import("@/lib/plan").SubscriptionInfo;
 };
 
 export function useSession() {
