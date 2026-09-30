@@ -243,6 +243,9 @@ footer h3 { font-size: .8rem; text-transform: uppercase; letter-spacing: .08em; 
 footer ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 9px; }
 footer a:hover { color: #9be9e2; }
 .foot-bottom { margin-top: 30px; padding-top: 16px; border-top: 1px solid rgb(255 255 255 / .12); color: rgb(255 255 255 / .55); display: flex; flex-wrap: wrap; gap: 8px 20px; justify-content: space-between; font-size: .86rem; }
+.foot-admin { display: inline-flex; align-items: center; gap: 4px; margin-left: 14px; color: rgb(255 255 255 / .32); font-size: .78rem; text-decoration: none; transition: color .2s; }
+.foot-admin:hover, .foot-admin:focus-visible { color: rgb(255 255 255 / .8); }
+.foot-admin svg { width: 12px; height: 12px; }
 
 /* WhatsApp flottant */
 .wa { position: fixed; right: 16px; bottom: 16px; z-index: 40; display: none; align-items: center; gap: 8px; min-height: 48px; padding: 0 16px; border-radius: 999px; background: #25d366; color: #fff; font-weight: 800; box-shadow: 0 10px 24px -10px rgb(0 0 0 / .4); }
