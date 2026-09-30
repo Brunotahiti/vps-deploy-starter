@@ -124,3 +124,16 @@ describe("Phase 5 — personnel, pointage, coût et rapports", () => {
     expect(toCsv(staff.sheets)).toContain("Tehani Extra");
   });
 });
+
+describe("heures : oublis de pointage et services à cheval sur minuit", () => {
+  const t = (h: number) => new Date(Date.UTC(2026, 8, 1, 0, 0) + h * 3600_000);
+  it("une arrivée sans sortie n'est pas payée jusqu'à l'arrivée suivante", () => {
+    const h = computeHours([{ kind: "CLOCK_IN", at: t(10) }, { kind: "CLOCK_IN", at: t(34) }, { kind: "CLOCK_OUT", at: t(42) }], t(48));
+    expect(h.workedMs / 3600_000).toBe(8);
+    expect(h.anomalies).toBe(1);
+  });
+  it("service commencé la veille : les heures après minuit comptent", () => {
+    const h = computeHours([{ kind: "CLOCK_OUT", at: t(1) }], t(24), { initial: { kind: "CLOCK_IN" }, periodStart: t(0) });
+    expect(h.workedMs / 3600_000).toBe(1);
+  });
+});

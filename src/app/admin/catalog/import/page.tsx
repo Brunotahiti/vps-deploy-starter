@@ -51,9 +51,13 @@ export default function ImportPage() {
   };
   const onFile = async (f: File | null) => { if (!f) return; setText(await f.text()); setResult(null); setTimeout(autoMap, 0); };
   const num = (v: string) => Number(String(v).replace(/[^\d.,-]/g, "").replace(",", "."));
+  // Prix en F CFP (sans centimes) : « 1.500 », « 1,500 » et « 1 500 » valent 1 500 F
+  const money = (v: string) => { const t = String(v).replace(/[\s\u00a0\u202f]/g, "").replace(/[^\d.,-]/g, ""); return /[.,]\d{3}$/.test(t) || /[.,]\d{3}[.,]/.test(t) ? Number(t.replace(/[.,]/g, "")) : Number(t.replace(",", ".")); };
+  // TVA : « 13 », « 13 % » ou « 0,13 » valent 13 %
+  const rate = (v: string) => { const x = num(v); return x > 0 && x < 1 ? x * 100 : x; };
   const build = () => body.map((r) => {
     const o: Record<string, unknown> = {};
-    header.forEach((_, i) => { const t = mapping[i]; if (!t) return; const v = r[i] ?? ""; if (t === "priceTtc" || t === "costPrice") o[t] = Math.round(num(v) || 0); else if (t === "taxRateBps") o[t] = v === "" ? null : Math.round(num(v) * 100); else if (t === "isAvailable") o[t] = !/^(non|no|0|false|faux)$/i.test(v); else o[t] = v; });
+    header.forEach((_, i) => { const t = mapping[i]; if (!t) return; const v = r[i] ?? ""; if (t === "priceTtc" || t === "costPrice") o[t] = Math.round(money(v) || 0); else if (t === "taxRateBps") o[t] = v === "" ? null : Math.round(rate(v) * 100); else if (t === "isAvailable") o[t] = !/^(non|no|0|false|faux)$/i.test(v); else o[t] = v; });
     return o;
   }).filter((o) => o.name && o.category);
   const preview = build();

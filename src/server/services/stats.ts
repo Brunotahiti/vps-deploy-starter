@@ -65,7 +65,7 @@ export async function getStats(establishmentId: string, fromDay: string, toDay: 
   if (bestHour) h.push({ kind: "info", text: `Heure de pointe : ${bestHour.hour} h – ${bestHour.hour + 1} h (${money(bestHour.revenue)} sur la période).` });
   const star = period.byProduct[0];
   if (star) h.push({ kind: "info", text: `Produit star : ${star.name}, ${star.quantity} vendus pour ${money(star.revenue)}.` });
-  if (period.foodCostPct !== null) h.push({ kind: period.foodCostPct > 35 ? "warn" : "good", text: `Coût matière à ${period.foodCostPct} % du CA${period.foodCostPct > 35 ? " : au-dessus des 35 % recommandés, vérifiez les recettes et les pertes." : ", dans la bonne zone (objectif ≤ 35 %)."}` });
+  if (period.foodCostPct !== null) h.push({ kind: period.foodCostPct > 35 ? "warn" : "good", text: `Coût matière à ${period.foodCostPct} % du CA HT${period.foodCostPct > 35 ? " : au-dessus des 35 % recommandés, vérifiez les recettes et les pertes." : ", dans la bonne zone (objectif ≤ 35 %)."}` });
   if (staff.laborCostPct !== null) h.push({ kind: staff.laborCostPct > 35 ? "warn" : "good", text: `Coût du personnel à ${staff.laborCostPct} % du CA HT (${staff.totalHours} h pointées, ${money(staff.totalCost)}).` });
   if (resa.noShowPct !== null && resa.noShowPct >= 10) h.push({ kind: "warn", text: `${resa.noShowPct} % de réservations non honorées (${resa.noShow} no-show) : pensez à confirmer par téléphone la veille.` });
   if (kitchen.avgPrepSec !== null) h.push({ kind: kitchen.avgPrepSec > 900 ? "warn" : "good", text: `Temps de préparation moyen en cuisine : ${Math.round(kitchen.avgPrepSec / 60)} min${kitchen.over15MinPct ? ` (${kitchen.over15MinPct} % des tickets au-delà de 15 min)` : ""}.` });

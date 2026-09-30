@@ -16,7 +16,8 @@ function addItemsToProducts(map: Map<string, ProdAgg>, items: SaleItem[]) {
     const key = it.parentItemId ? parentName.get(it.parentItemId) : it.name;
     if (!key) continue;
     const p = map.get(key) ?? { revenue: 0, revenueHt: 0, cost: 0, quantity: 0 };
-    p.cost += it.costPrice * it.quantity;
+    // Formule : le coût est porté par la ligne parente (somme des composants) — ne pas le recompter sur les composants
+    if (!it.parentItemId) p.cost += it.costPrice * it.quantity;
     if (!it.parentItemId) { p.revenue += it.lineTotal; p.revenueHt += it.lineTotal / (1 + it.taxRateBps / 10000); p.quantity += it.quantity; }
     map.set(key, p);
   }
@@ -80,6 +81,7 @@ export async function getDailySummary(establishmentId: string, day: string, time
     s.revenue += o.total; s.tickets++; byServer.set(serverName, s);
     for (const it of o.items) {
       if (it.status === "VOIDED") continue;
+      if (it.parentItemId) continue; // composants de formule : coût et CA portés par la ligne parente
       foodCost += it.costPrice * it.quantity;
       if (it.parentItemId) continue; // composants de formule comptés via le parent
       const cat = it.product?.category?.name ?? (it.menuId ? "Formules" : "Sans catégorie");
@@ -101,7 +103,7 @@ export async function getDailySummary(establishmentId: string, day: string, time
     discounts: paid.reduce((a, o) => a + o.discountTotal, 0),
     cancellations: orders.filter((o) => o.status === "CANCELLED").length,
     tips: paid.reduce((a, o) => a + o.tipTotal, 0),
-    foodCost, foodCostPct: revenue > 0 ? Math.round((foodCost / revenue) * 1000) / 10 : null,
+    foodCost, foodCostPct: revenue - tax > 0 ? Math.round((foodCost / (revenue - tax)) * 1000) / 10 : null, // ratio sur le CA HT (comme le rapport de stock)
     openOrders,
     byHour: [...byHour.entries()].map(([hour, v]) => ({ hour, ...v })).sort((a, b) => a.hour - b.hour),
     byCategory: [...byCategory.entries()].map(([name, v]) => ({ name, ...v })).sort((a, b) => b.revenue - a.revenue),
@@ -197,6 +199,7 @@ export async function getPeriodReport(establishmentId: string, fromDay: string, 
     const t = byType.get(o.type) ?? { revenue: 0, tickets: 0 }; t.revenue += o.total; t.tickets++; byType.set(o.type, t);
     for (const it of o.items) {
       if (it.status === "VOIDED") continue;
+      if (it.parentItemId) continue; // composants de formule : coût et CA portés par la ligne parente
       foodCost += it.costPrice * it.quantity;
       if (it.parentItemId) continue;
       const cat = it.product?.category?.name ?? (it.menuId ? "Formules" : "Sans catégorie");
@@ -220,7 +223,7 @@ export async function getPeriodReport(establishmentId: string, fromDay: string, 
     revenue, revenueHt: revenue - tax, tax, tickets: paid.length, covers,
     avgTicket: paid.length ? Math.round(revenue / paid.length) : 0, avgPerCover: covers ? Math.round(revenue / covers) : 0,
     discounts: paid.reduce((a, o) => a + o.discountTotal, 0), cancellations: orders.filter((o) => o.status === "CANCELLED").length, tips: paid.reduce((a, o) => a + o.tipTotal, 0), refunds,
-    foodCost, foodCostPct: revenue > 0 ? Math.round((foodCost / revenue) * 1000) / 10 : null,
+    foodCost, foodCostPct: revenue - tax > 0 ? Math.round((foodCost / (revenue - tax)) * 1000) / 10 : null, // ratio sur le CA HT (comme le rapport de stock)
     byDay: [...byDay.entries()].map(([day, v]) => ({ day, ...v })),
     byWeekday: [1, 2, 3, 4, 5, 6, 0].map((wd) => ({ weekday: wd, label: WEEKDAYS[wd], ...(byWeekday.get(wd) ?? { revenue: 0, tickets: 0 }) })),
     byHour: [...byHour.entries()].map(([hour, v]) => ({ hour, ...v })).sort((a, b) => a.hour - b.hour),

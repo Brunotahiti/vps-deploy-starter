@@ -12,6 +12,9 @@ import { reserveAttempt, resetAttempts } from "@/server/auth/attempts";
 import { publicCatalog } from "@/server/services/public";
 import { isPrivateAddress, assertPublicUrlShape } from "@/server/net/public-url";
 import { redactSettings } from "@/server/services/establishments";
+import { getPeriodReport } from "@/server/services/reports";
+import { localDay } from "@/lib/dates";
+import { toCsv } from "@/server/reports/export";
 
 let A: Awaited<ReturnType<typeof makeTenant>>;
 let B: Awaited<ReturnType<typeof makeTenant>>;
@@ -151,5 +154,28 @@ describe("Revue : encaissements et envois simultanés", () => {
     const c = await upsertCustomer(A.managerActor, { firstName: "Fidèle", phone: "87000002" });
     await adjustPoints(A.managerActor, c.id, 50, "bonus");
     await expect(adjustPoints(A.managerActor, c.id, -500, "retrait")).rejects.toMatchObject({ code: "NOT_ENOUGH_POINTS" });
+  });
+});
+
+describe("Revue : rapports", () => {
+  it("le coût matière d'une formule n'est compté qu'une fois ; ratio sur le CA HT", async () => {
+    const C = await makeTenant("rev-c");
+    const o = await createOrder(C.actor, { type: "TAKEAWAY" });
+    const entreeSec = C.menu.sections.find((x) => x.name === "Entrée")!;
+    const platSec = C.menu.sections.find((x) => x.name === "Plat")!;
+    await addItem(C.actor, o.id, { menuId: C.menu.id, menuSelections: [{ sectionId: entreeSec.id, productId: C.entree.id }, { sectionId: platSec.id, productId: C.burger.id, modifiers: [{ modifierId: C.cuisson.modifiers[0].id }] }] });
+    const full = await getOrder(C.est.id, o.id);
+    await addPayments(C.actor, o.id, [{ method: "CARD", amount: full.total }]);
+    const day = localDay(new Date(), "Pacific/Tahiti");
+    const r = await getPeriodReport(C.est.id, day, day, "Pacific/Tahiti", false);
+    expect(r.foodCost).toBe(300 + 630); // salade + burger, une seule fois
+    expect(r.foodCostPct).toBe(Math.round((930 / r.revenueHt) * 1000) / 10);
+  });
+
+  it("export CSV : les textes commençant par = + - @ ne sont pas exécutés comme formules", () => {
+    const csv = toCsv([{ name: "x", head: ["a"], rows: [["=HYPERLINK(\"http://evil\")"], ["+1"], [-5], ["Normal"]] }]);
+    expect(csv).toContain("'=HYPERLINK");
+    expect(csv).toContain("'+1");
+    expect(csv).toContain("\n-5");
   });
 });
