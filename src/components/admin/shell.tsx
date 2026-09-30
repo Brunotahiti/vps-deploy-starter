@@ -84,7 +84,11 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
       {open ? <div className="fixed inset-0 z-40 flex lg:hidden"><div className="absolute inset-0 bg-black/50" onClick={() => setOpen(false)} /><div className="relative z-10" style={{ paddingTop: "env(safe-area-inset-top)" }}>{Sidebar}</div></div> : null}
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="glass flex h-14 shrink-0 items-center gap-3 border-b px-4 lg:hidden"><button className="touch rounded-lg p-2" onClick={() => setOpen(true)}><Menu className="h-5 w-5" /></button><Logo size={28} /></header>
-        <main className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden p-4 lg:p-8">{children}</main>
+        <main className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden p-4 pb-28 lg:p-8">{children}</main>
+        {/* Téléphone / tablette : gros bouton d'accès à la caisse, toujours visible */}
+        <div className="pointer-events-none fixed inset-x-0 bottom-0 z-30 flex justify-center p-3 lg:hidden" style={{ paddingBottom: "max(12px, env(safe-area-inset-bottom))" }}>
+          <Link href="/pos" className="bg-accent pointer-events-auto flex h-14 w-full max-w-md items-center justify-center gap-3 rounded-2xl text-base font-extrabold text-white shadow-[0_12px_32px_-8px_rgb(249_124_60/0.6)] ring-1 ring-white/20 transition active:scale-[0.98]"><MonitorSmartphone className="h-5 w-5" />Ouvrir la caisse</Link>
+        </div>
       </div>
     </div>
   );
