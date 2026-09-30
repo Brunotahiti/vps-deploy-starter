@@ -48,6 +48,9 @@ services:
       target: runner
       args:
         BUILD_ID: ${BUILD_ID:-}
+        SENTRY_DSN: ${SENTRY_DSN:-}
+        SENTRY_ENVIRONMENT: ${SENTRY_ENVIRONMENT:-production}
+        SENTRY_AUTH_TOKEN: ${SENTRY_AUTH_TOKEN:-}
     image: ${APP_NAME:-manaresto}:latest
     container_name: ${APP_NAME:-manaresto}
     restart: unless-stopped
