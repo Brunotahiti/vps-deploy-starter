@@ -113,8 +113,9 @@ test("le back-office affiche le tableau de bord et le catalogue", async ({ page 
   await login(page, "demo@manaresto.pf");
   await page.goto("/admin");
   await expect(page.getByRole("heading", { name: "Tableau de bord" })).toBeVisible();
-  await expect(page.getByText("Chiffre d'affaires")).toBeVisible();
-  await expect(page.getByText("CA par heure")).toBeVisible();
+  await expect(page.getByText("Chiffre d'affaires par heure")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "14 derniers jours" })).toBeVisible();
+  await expect(page.getByText("commande", { exact: false }).first()).toBeVisible();
   await page.goto("/admin/catalog/products");
   await expect(page.getByText("Burger Bacon")).toBeVisible();
   await page.goto("/admin/floor");
