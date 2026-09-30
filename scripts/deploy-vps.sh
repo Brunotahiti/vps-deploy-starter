@@ -91,6 +91,13 @@ else
   echo '  ✓ .env existant conservé (mots de passe inchangés)'
 fi"
 
+# Console plateforme : PLATFORM_ADMIN_EMAILS=vous@exemple.com bash scripts/deploy-vps.sh (enregistré dans le .env du VPS)
+if [ -n "${PLATFORM_ADMIN_EMAILS:-}" ]; then
+  if ! printf '%s' "$PLATFORM_ADMIN_EMAILS" | grep -Eq '^[A-Za-z0-9@._+,-]+$'; then echo "✗ PLATFORM_ADMIN_EMAILS invalide (adresses séparées par des virgules, sans espace)"; exit 1; fi
+  $SSH "cd $VPS_PATH && sed -i '/^PLATFORM_ADMIN_EMAILS=/d' .env && printf '\nPLATFORM_ADMIN_EMAILS=%s\n' '$PLATFORM_ADMIN_EMAILS' >> .env"
+  echo "  ✓ Console plateforme ouverte à : $PLATFORM_ADMIN_EMAILS"
+fi
+
 # 4. Construction et démarrage (base → migrations/seed → application)
 echo "→ Construction des images et démarrage (2 à 5 minutes la première fois)…"
 BUILD_ID=$(git rev-parse --short=12 HEAD 2>/dev/null || date +%Y%m%d%H%M)

@@ -20,7 +20,7 @@ export function Modal({ open, onClose, title, children, size = "md", footer }: {
   const width = { sm: "max-w-md", md: "max-w-xl", lg: "max-w-3xl", xl: "max-w-5xl", full: "max-w-[96vw]" }[size];
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-nuit-950/55 p-0 backdrop-blur-[2px] sm:items-center sm:p-4" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className={`surface rise flex max-h-[95vh] w-full ${width} flex-col rounded-t-3xl border shadow-2xl sm:rounded-3xl`}>
+      <div role="dialog" aria-modal="true" aria-label={title} className={`surface rise flex max-h-[95vh] w-full ${width} flex-col rounded-t-3xl border shadow-2xl sm:rounded-3xl`}>
         {title ? (
           <div className="flex items-center justify-between border-b border-line px-5 py-3">
             <h2 className="text-lg font-extrabold tracking-tight">{title}</h2>

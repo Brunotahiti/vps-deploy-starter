@@ -22,3 +22,29 @@ describe("offre commerciale", () => {
     expect(subscriptionInfo({ plan: "SUSPENDED", trialEndsAt: null }, now).expired).toBe(true);
   });
 });
+
+import { accountStatus, formatMinutes, parseAdminEmails, relativeDays } from "@/lib/platform";
+
+describe("console plateforme : formats", () => {
+  const now = new Date("2026-10-01T12:00:00Z");
+  it("statut du compte", () => {
+    expect(accountStatus({ plan: "TRIAL", trialEndsAt: "2026-10-05T00:00:00Z", blockedAt: null }, now)).toBe("TRIAL");
+    expect(accountStatus({ plan: "TRIAL", trialEndsAt: "2026-09-30T00:00:00Z", blockedAt: null }, now)).toBe("EXPIRED");
+    expect(accountStatus({ plan: "ACTIVE", trialEndsAt: null, blockedAt: null }, now)).toBe("ACTIVE");
+    expect(accountStatus({ plan: "ACTIVE", trialEndsAt: null, blockedAt: now }, now)).toBe("BLOCKED");
+  });
+  it("durées et dates relatives", () => {
+    expect(formatMinutes(0)).toBe("0 min");
+    expect(formatMinutes(45)).toBe("45 min");
+    expect(formatMinutes(65)).toBe("1 h 05");
+    expect(formatMinutes(120)).toBe("2 h");
+    expect(relativeDays("2026-09-28T12:00:00Z", now)).toBe("il y a 3 j");
+    expect(relativeDays("2026-10-06T12:00:00Z", now)).toBe("dans 5 j");
+    expect(relativeDays("2026-10-01T10:00:00Z", now)).toBe("il y a 2 h");
+    expect(relativeDays(null, now)).toBe("—");
+  });
+  it("liste des administrateurs", () => {
+    expect(parseAdminEmails(" A@b.com, c@d.fr ;e@f.pf ")).toEqual(["a@b.com", "c@d.fr", "e@f.pf"]);
+    expect(parseAdminEmails(undefined)).toEqual([]);
+  });
+});

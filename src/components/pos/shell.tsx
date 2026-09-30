@@ -7,6 +7,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { LayoutGrid, ListOrdered, Wallet, Settings, Moon, Sun, LogOut, Wifi, WifiOff, RefreshCw, ChefHat, Download, Menu, X, ChevronRight, Clock, CalendarDays } from "lucide-react";
 import { useSession } from "@/hooks/use-session";
 import { useRealtime } from "@/hooks/use-realtime";
+import { SupportBar } from "@/components/support-bar";
 import { useTheme } from "@/hooks/use-theme";
 import { useOffline } from "@/lib/offline/provider";
 import { useInstallPrompt } from "@/hooks/use-install-prompt";
@@ -69,6 +70,7 @@ export function PosShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex h-dvh flex-col">
+      <SupportBar />
       <TodoPanel open={todo} onClose={() => setTodo(false)} data={reminders.data} />
       <header className="no-print glass flex h-14 shrink-0 items-center gap-1.5 border-b px-2 sm:h-16 sm:gap-2 sm:px-4">
         <Link href="/pos" className="mr-1 flex items-center gap-2"><Logo size={32} withText={false} /><span className="hidden flex-col leading-tight md:flex"><span className="text-base font-extrabold tracking-tight">Mana<span className="text-brand">Resto</span></span><span className="truncate text-[11px] font-medium text-muted">{me?.establishment?.name}</span></span></Link>

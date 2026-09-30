@@ -11,7 +11,7 @@ import { Spinner, Badge } from "@/components/ui/misc";
 import { Money } from "@/components/money";
 import { PageHeader, Table, Tr, Td, useAction, useList } from "@/components/admin/common";
 import { CatalogTabs } from "@/components/admin/catalog-tabs";
-import { PhotoField } from "@/components/photo-field";
+import { PhotoField, QuickPhoto } from "@/components/photo-field";
 import type { listProducts, listCategories, listModifierGroups, listKitchenStations } from "@/server/services/catalog";
 import type { TaxRate } from "@/generated/prisma/client";
 
@@ -31,10 +31,13 @@ export default function ProductsPage() {
   const stations = useList<Awaited<ReturnType<typeof listKitchenStations>>>(["stations"], "/api/kitchen-stations");
   const [search, setSearch] = useState("");
   const [cat, setCat] = useState("");
+  const [noPhoto, setNoPhoto] = useState(false);
   const [edit, setEdit] = useState<{ id?: string; form: Form } | null>(null);
   const [saving, setSaving] = useState(false);
 
-  const list = useMemo(() => (products.data ?? []).filter((p) => (!cat || p.categoryId === cat) && (!search || p.name.toLowerCase().includes(search.toLowerCase()) || p.sku?.toLowerCase().includes(search.toLowerCase()))), [products.data, cat, search]);
+  const list = useMemo(() => (products.data ?? []).filter((p) => (!cat || p.categoryId === cat) && (!noPhoto || !p.imageUrl) && (!search || p.name.toLowerCase().includes(search.toLowerCase()) || p.sku?.toLowerCase().includes(search.toLowerCase()))), [products.data, cat, search, noPhoto]);
+  const missingPhotos = (products.data ?? []).filter((p) => p.isActive && !p.imageUrl).length;
+  const setPhoto = (p: Product, url: string) => act(() => api.patch(`/api/products/${p.id}`, { imageUrl: url }), { success: `Photo de « ${p.name} » enregistrée`, invalidate: [["products"], ["pos-catalog"]] });
   const openNew = () => setEdit({ form: { ...empty, taxRateId: taxRates.data?.find((t) => t.isDefault)?.id ?? "", categoryId: cat } });
   const openEdit = (p: Product) => setEdit({ id: p.id, form: { name: p.name, description: p.description ?? "", categoryId: p.categoryId ?? "", taxRateId: p.taxRateId ?? "", kitchenStationId: p.kitchenStationId ?? "", priceTtc: String(p.priceTtc), costPrice: String(p.costPrice), sku: p.sku ?? "", barcode: p.barcode ?? "", color: p.color ?? "", imageUrl: p.imageUrl ?? "", isAvailable: p.isAvailable, isActive: p.isActive, trackStock: p.trackStock, stockQty: String(p.stockQty), stockMin: String(p.stockMin), variants: p.variants.map((v) => ({ id: v.id, name: v.name, priceTtc: String(v.priceTtc) })), modifierGroupIds: p.modifierGroups.map((g) => g.modifierGroupId), availability: (p.availability as Form["availability"]) ?? null } });
   const f = edit?.form;
@@ -54,7 +57,8 @@ export default function ProductsPage() {
     <div>
       <PageHeader title="Catalogue" subtitle="Produits, prix TTC, TVA, coût matière, options, disponibilité" action={can("catalog.manage") ? <Button onClick={openNew}>Nouveau produit</Button> : null} />
       <CatalogTabs />
-      <div className="mb-3 flex flex-wrap gap-2"><Input placeholder="Rechercher…" value={search} onChange={(e) => setSearch(e.target.value)} className="max-w-xs" /><Select value={cat} onChange={(e) => setCat(e.target.value)} className="max-w-xs"><option value="">Toutes catégories</option>{categories.data?.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</Select></div>
+      <div className="mb-3 flex flex-wrap gap-2"><Input placeholder="Rechercher…" value={search} onChange={(e) => setSearch(e.target.value)} className="max-w-xs" /><Select value={cat} onChange={(e) => setCat(e.target.value)} className="max-w-xs"><option value="">Toutes catégories</option>{categories.data?.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</Select>{missingPhotos > 0 || noPhoto ? <button type="button" onClick={() => setNoPhoto(!noPhoto)} aria-pressed={noPhoto} className={`touch inline-flex h-11 items-center gap-2 rounded-xl px-3 text-sm font-semibold ${noPhoto ? "bg-brand text-white" : "surface-2"}`}>Sans photo<span className={`rounded-full px-2 text-xs font-bold ${noPhoto ? "bg-white/20" : "bg-orange-500/15 text-orange-600"}`}>{missingPhotos}</span></button> : null}</div>
+      {can("catalog.manage") && (products.data?.length ?? 0) > 0 ? <p className="mb-3 text-xs text-muted">Astuce : touchez la vignette d&apos;un plat pour le prendre en photo ou choisir une image. Elle apparaît aussitôt en caisse, sur le menu QR et sur la commande en ligne.</p> : null}
       {products.isLoading ? <div className="flex justify-center py-10"><Spinner /></div> : (
         <Table head={["Produit", "Catégorie", "Prix TTC", "TVA", "Coût", "Marge", "Poste", "Options", "Dispo", ""]}>
           {list.map((p) => {
@@ -62,8 +66,10 @@ export default function ProductsPage() {
             return (
               <Tr key={p.id} onClick={() => can("catalog.manage") && openEdit(p)}>
                 <Td><span className="flex items-center gap-2">
-                  {/* eslint-disable-next-line @next/next/no-img-element -- vignette du catalogue */}
-                  {p.imageUrl ? <img src={p.imageUrl} alt="" className="h-9 w-12 shrink-0 rounded-md object-cover" /> : <span className="h-9 w-12 shrink-0 rounded-md surface-2" />}<span><span className="font-semibold">{p.name}</span>{!p.isActive ? <Badge color="gray">archivé</Badge> : null}<span className="block text-xs text-muted">{p.sku ?? ""}</span></span></span></Td><Td><span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: p.category?.color }} /> {p.category?.name ?? "—"}</Td><Td className="font-semibold"><Money amount={p.priceTtc} /></Td><Td>{p.taxRate ? formatBps(p.taxRate.rateBps) : "—"}</Td><Td><Money amount={p.costPrice} /></Td>
+                  {can("catalog.manage") ? <QuickPhoto value={p.imageUrl} label={p.imageUrl ? `Changer la photo de ${p.name}` : `Ajouter une photo à ${p.name}`} onUploaded={(url) => setPhoto(p, url)} /> : p.imageUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element -- vignette du catalogue
+                    <img src={p.imageUrl} alt="" className="h-10 w-14 shrink-0 rounded-lg object-cover" />
+                  ) : <span className="h-10 w-14 shrink-0 rounded-lg surface-2" />}<span><span className="font-semibold">{p.name}</span>{!p.isActive ? <Badge color="gray">archivé</Badge> : null}<span className="block text-xs text-muted">{p.sku ?? ""}</span></span></span></Td><Td><span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: p.category?.color }} /> {p.category?.name ?? "—"}</Td><Td className="font-semibold"><Money amount={p.priceTtc} /></Td><Td>{p.taxRate ? formatBps(p.taxRate.rateBps) : "—"}</Td><Td><Money amount={p.costPrice} /></Td>
                 <Td><span className={m < 60 ? "text-orange-500" : "text-green-600"}>{m} %</span><span className="block text-[10px] text-muted">ratio matière {100 - m} %</span></Td><Td>{p.kitchenStation?.name ?? "—"}</Td><Td>{p.modifierGroups.length || "—"}</Td>
                 <Td><button onClick={(e) => { e.stopPropagation(); act(() => api.post(`/api/products/${p.id}/availability`, { isAvailable: !p.isAvailable }), { invalidate: [["products"], ["pos-catalog"]] }); }} className={`touch rounded-md px-2 py-0.5 text-xs font-bold ${p.isAvailable ? "bg-green-500/15 text-green-600" : "bg-red-500/15 text-red-600"}`}>{p.isAvailable ? "Disponible" : "Rupture"}</button></Td>
                 <Td>{can("catalog.manage") ? <button onClick={(e) => { e.stopPropagation(); if (confirm(`Supprimer / archiver « ${p.name} » ?`)) act(() => api.delete(`/api/products/${p.id}`), { success: "Produit supprimé", invalidate: [["products"], ["pos-catalog"]] }); }} className="text-xs font-semibold text-red-600">Supprimer</button> : null}</Td>

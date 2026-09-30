@@ -20,6 +20,8 @@ export function compact(v: number, currency?: string) {
   if (abs >= 1_000_000) return `${(v / 1_000_000).toLocaleString("fr-FR", { maximumFractionDigits: 1 })} M${unit}`;
   if (abs >= 10_000) return `${Math.round(v / 1000).toLocaleString("fr-FR")} k${unit}`;
   if (abs >= 1_000) return `${(v / 1000).toLocaleString("fr-FR", { maximumFractionDigits: 1 })} k${unit}`;
+  // Petites valeurs (graduations 0,25 / 0,5…) : une décimale plutôt qu'un arrondi trompeur
+  if (!Number.isInteger(v) && abs < 10) return `${v.toLocaleString("fr-FR", { maximumFractionDigits: 1 })}${unit}`;
   return `${Math.round(v).toLocaleString("fr-FR")}${unit}`;
 }
 

@@ -14,6 +14,8 @@ export type Me = {
   terminal: { id: string; name: string; kind: string; establishmentId: string } | null;
   features?: { email: boolean };
   subscription?: import("@/lib/plan").SubscriptionInfo;
+  platformAdmin?: boolean;
+  impersonation?: { by: string } | null;
 };
 
 export function useSession() {

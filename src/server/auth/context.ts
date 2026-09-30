@@ -14,6 +14,7 @@ export type AuthContext = {
   roleKey: string | null;
   permissions: Set<string>;
   terminal: Terminal | null;
+  impersonatorId: string | null;
 };
 
 async function loadContext(): Promise<AuthContext | null> {
@@ -75,6 +76,7 @@ async function loadContext(): Promise<AuthContext | null> {
     roleKey,
     permissions,
     terminal: terminal && establishment && terminal.establishmentId === establishment.id ? terminal : null,
+    impersonatorId: session.impersonatorId,
   };
 }
 
