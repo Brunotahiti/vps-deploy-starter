@@ -4,6 +4,7 @@ import { getTerminalFromCookie } from "@/server/auth/session";
 import { isEmailConfigured } from "@/server/email/mailer";
 import { prisma } from "@/server/db";
 import { subscriptionInfo } from "@/lib/plan";
+import { isPlatformAdminEmail } from "@/server/auth/platform";
 
 export const GET = route(async () => {
   const ctx = await getAuthContext();
@@ -21,5 +22,7 @@ export const GET = route(async () => {
     permissions: [...ctx.permissions],
     terminal: ctx.terminal ? { id: ctx.terminal.id, name: ctx.terminal.name, kind: ctx.terminal.kind, establishmentId: ctx.terminal.establishmentId } : null,
     features: { email: isEmailConfigured() },
+    platformAdmin: !ctx.impersonatorId && isPlatformAdminEmail(user.email),
+    impersonation: ctx.impersonatorId ? { by: (await prisma.user.findUnique({ where: { id: ctx.impersonatorId }, select: { email: true } }))?.email ?? "support" } : null,
   });
 });

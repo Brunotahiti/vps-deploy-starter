@@ -5,7 +5,7 @@ import nodemailer, { type Transporter } from "nodemailer";
  * SMTP_SECURE, SMTP_FROM). En test : EMAIL_TRANSPORT=memory conserve les messages en mémoire.
  * Conçu pour brancher d'autres prestataires (API HTTP) sans toucher aux appels.
  */
-export type OutgoingMail = { to: string; subject: string; text: string; html: string; attachments?: { filename: string; content: Buffer; contentType: string }[] };
+export type OutgoingMail = { to: string; subject: string; text: string; html: string; replyTo?: string; attachments?: { filename: string; content: Buffer; contentType: string }[] };
 
 export const sentMails: OutgoingMail[] = []; // transport mémoire (tests)
 
@@ -33,7 +33,7 @@ export async function sendMail(mail: OutgoingMail): Promise<{ id: string }> {
   }
   if (!process.env.SMTP_HOST) throw new Error("EMAIL_NOT_CONFIGURED");
   const from = process.env.SMTP_FROM || process.env.SMTP_USER || "manaresto@localhost";
-  const info = await getTransporter().sendMail({ from, to: mail.to, subject: mail.subject, text: mail.text, html: mail.html, attachments: mail.attachments });
+  const info = await getTransporter().sendMail({ from, to: mail.to, replyTo: mail.replyTo, subject: mail.subject, text: mail.text, html: mail.html, attachments: mail.attachments });
   return { id: String(info.messageId ?? "") };
 }
 
@@ -93,4 +93,25 @@ ${input.message ? `<p style="margin:16px 0 0;font-size:14px;line-height:1.5;whit
 </table></td></tr></table></body></html>`;
   const text = `Nouvelle demande de démonstration\n\n${rows.map(([k, v]) => `${k} : ${v}`).join("\n")}${input.message ? `\n\nMessage :\n${input.message}` : ""}`;
   return { to: input.to, subject: `Démo ManaResto — ${input.restaurantName} (${input.commune})`, text, html };
+}
+
+/**
+ * E-mail de la plateforme ManaResto vers un restaurateur (bienvenue, fin d'essai, message du support).
+ * Paragraphes en texte brut (échappés), bouton d'action facultatif, réponse vers l'adresse de contact.
+ */
+export function platformMail(input: { to: string; subject: string; kicker: string; title: string; paragraphs: string[]; cta?: { label: string; url: string }; replyTo: string; footer: string }): OutgoingMail {
+  const paras = input.paragraphs.map((p) => `<p style="margin:0 0 14px;font-size:15px;line-height:1.55">${esc(p).replace(/\n/g, "<br>")}</p>`).join("");
+  const html = `<!doctype html><html lang="fr"><body style="margin:0;background:#f3f5f8;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#0f172a">
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td align="center" style="padding:24px 12px">
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:540px;background:#fff;border-radius:20px;overflow:hidden;box-shadow:0 6px 20px -8px rgba(15,23,42,.15)">
+<tr><td style="background:linear-gradient(135deg,#14aaa3,#0f6e6c);padding:28px 28px 24px;color:#fff">
+<div style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;opacity:.85">${esc(input.kicker)}</div>
+<div style="font-size:24px;font-weight:800;margin-top:6px;line-height:1.25">${esc(input.title)}</div></td></tr>
+<tr><td style="padding:24px 28px 10px">${paras}
+${input.cta ? `<p style="margin:6px 0 20px;text-align:center"><a href="${esc(input.cta.url)}" style="display:inline-block;background:#f97c3c;color:#fff;text-decoration:none;font-weight:800;font-size:16px;padding:14px 26px;border-radius:14px">${esc(input.cta.label)}</a></p>` : ""}
+<p style="margin:0 0 18px;font-size:14px">Māuruuru,<br><strong>L'équipe ManaResto</strong><br><a href="mailto:${esc(input.replyTo)}" style="color:#0f6e6c">${esc(input.replyTo)}</a></p></td></tr>
+<tr><td style="padding:14px 28px;background:#f8fafc;font-size:11px;color:#94a3b8;text-align:center">${esc(input.footer)}</td></tr>
+</table></td></tr></table></body></html>`;
+  const text = `${input.title}\n\n${input.paragraphs.join("\n\n")}${input.cta ? `\n\n${input.cta.label} : ${input.cta.url}` : ""}\n\nMāuruuru,\nL'équipe ManaResto — ${input.replyTo}`;
+  return { to: input.to, subject: input.subject, text, html, replyTo: input.replyTo };
 }

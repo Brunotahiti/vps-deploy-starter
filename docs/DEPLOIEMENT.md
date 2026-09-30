@@ -48,20 +48,37 @@ Le script enregistre la clé SSH et les secrets GitHub (`VPS_SSH_KEY`, `VPS_HOST
 | Certificat HTTPS absent (Cloudflare répond 526) | Traefik ne demande le certificat qu'à la mise en place du routeur ; si le DNS n'existait pas encore à ce moment, la demande a échoué et n'est pas réessayée. Mettre le DNS en place **avant** le premier déploiement. Sinon, Traefik refait toutes les demandes manquantes à son redémarrage : `docker restart traefik` (coupure d'environ une seconde pour tous les sites, configuration et certificats existants intacts), puis vérifier `docker exec traefik grep -c manaresto.manaprocess.cloud /letsencrypt/acme.json` (≥ 1). |
 | Désactiver la démo | mettre `SEED_DEMO=false` dans `/opt/manaresto/.env` (la démo déjà chargée reste en base ; supprimer l'entreprise « demo-mana-beach » si besoin) |
 
-## Reçus par e-mail (SMTP)
+## E-mails (Brevo, adresse contact@manaresto.com)
 
-Pour envoyer les reçus PDF aux clients, ajouter dans `/opt/manaresto/.env` (sur le VPS) puis relancer `docker compose up -d app` :
+L'application envoie les reçus PDF, les invitations d'équipe, l'e-mail de **bienvenue** à l'inscription, le **rappel 3 jours avant la fin de l'essai**, l'e-mail **« essai expiré »** et les messages écrits depuis la console plateforme. Expéditeur recommandé : `contact@manaresto.com` via le relais SMTP de **Brevo**.
+
+1. Dans Brevo : *Expéditeurs, domaines et IP dédiées → Domaines* → ajouter `manaresto.com`, puis copier dans la zone DNS (Cloudflare) les enregistrements proposés : **TXT brevo-code**, **DKIM** (CNAME ou TXT) et **DMARC** (TXT `_dmarc`). Attendre la validation (coches vertes).
+2. Dans Brevo : *Expéditeurs* → ajouter `contact@manaresto.com` (nom affiché « ManaResto »).
+3. Dans Brevo : *Paramètres → SMTP & API → SMTP* → noter l'**identifiant SMTP** et générer une **clé SMTP**.
+4. Sur le VPS, ajouter dans `/opt/manaresto/.env` puis relancer `docker compose up -d app` (ou redéployer) :
 
 ```
-SMTP_HOST=smtp.hostinger.com
-SMTP_PORT=465
-SMTP_SECURE=true
-SMTP_USER=contact@votre-restaurant.pf
-SMTP_PASS=le-mot-de-passe-de-la-boite
-SMTP_FROM="Le Mana Beach <contact@votre-restaurant.pf>"
+SMTP_HOST=smtp-relay.brevo.com
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=identifiant-smtp-brevo
+SMTP_PASS=cle-smtp-brevo
+SMTP_FROM="ManaResto <contact@manaresto.com>"
 ```
 
-Avec une boîte e-mail Hostinger, ce sont les réglages standard. Tout autre serveur SMTP (Gmail avec mot de passe d'application, OVH, Brevo…) fonctionne de la même façon. L'état apparaît dans *Administration → Paramètres → Reçus par e-mail*.
+Les réponses des restaurateurs arrivent sur `contact@manaresto.com` (en-tête « Répondre à »). La boîte de réception elle-même reste celle de votre hébergeur de messagerie (enregistrements MX inchangés). L'état apparaît dans *Administration → Paramètres → Reçus par e-mail* et en haut de la console plateforme.
+
+## Console plateforme (/platform)
+
+Vue d'ensemble de tous les restaurants inscrits, réservée à l'équipe ManaResto : revenu mensuel, inscriptions, essais en cours et expirés, abonnés, restaurants actifs, parcours inscription → abonnement, dernières connexions, demandes de démonstration du site. Pour chaque restaurant : propriétaire, statut, fin d'essai ou de période, temps d'utilisation sur 7 et 30 jours, dernier e-mail, page publique, et les actions **Prendre la main** (ouvrir l'application comme le restaurateur, bandeau violet pour revenir), **E-mail**, **Bloquer / Débloquer** et **Statut** (prolonger l'essai, activer l'abonnement 12 mois, suspendre).
+
+Accès : ajouter dans `/opt/manaresto/.env` l'adresse du compte ManaResto avec lequel vous vous connectez, puis redéployer ; le lien « Console ManaResto » apparaît dans le menu de l'administration.
+
+```
+PLATFORM_ADMIN_EMAILS=contact@manaresto.com
+```
+
+Les relances automatiques (rappel J-3 et essai expiré) partent toutes les heures, une seule fois par restaurant ; le bouton « Lancer les relances » de la console les déclenche tout de suite. `LIFECYCLE_EMAILS=off` les désactive.
 
 ## Site vitrine et domaine manaresto.com
 
@@ -100,9 +117,9 @@ Les erreurs des routes API non gérées, les erreurs de rendu serveur et les pla
 
 ## Abonnements (offre commerciale)
 
-Chaque entreprise créée via `/signup` démarre avec **15 jours d'essai gratuits** (toutes fonctions, sans carte bancaire) ; l'offre est ensuite de 12 000 F CFP par mois avec un engagement de 12 mois et 0 % de commission (`src/lib/plan.ts`). Un bandeau dans l'administration indique les jours restants ; à l'échéance l'application continue de fonctionner mais signale l'essai terminé, et la page Paramètres → Abonnement propose de vous contacter. Tarif : 15 000 F de mise en place puis 12 000 F par mois, 0 % de commission.
+Chaque entreprise créée via `/signup` démarre avec **15 jours d'essai gratuits** (toutes fonctions, sans carte bancaire) ; l'offre est ensuite de 12 000 F CFP par mois avec un engagement de 12 mois et 0 % de commission (`src/lib/plan.ts`). Un bandeau dans l'administration indique les jours restants ; à l'échéance l'application continue de fonctionner mais signale l'essai terminé, et la page Paramètres → Abonnement propose de vous contacter.
 
-Activer, suspendre ou prolonger l'essai d'une entreprise, sur le VPS :
+Activer, suspendre ou prolonger l'essai d'une entreprise : depuis la console plateforme (`/platform`, bouton **Statut**), ou sur le VPS :
 
 ```
 cd /opt/manaresto

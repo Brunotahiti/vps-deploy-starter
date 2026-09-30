@@ -29,6 +29,9 @@ model Organization {
   trialEndsAt   DateTime? @map("trial_ends_at")
   planStartedAt DateTime? @map("plan_started_at")
   billingEmail  String?   @map("billing_email")
+  periodEndsAt  DateTime? @map("period_ends_at") // fin de la période d'abonnement en cours (engagement)
+  blockedAt     DateTime? @map("blocked_at")     // compte bloqué depuis la console plateforme
+  blockedReason String?   @map("blocked_reason")
   createdAt     DateTime  @default(now()) @map("created_at")
   updatedAt     DateTime  @updatedAt @map("updated_at")
 
@@ -39,6 +42,8 @@ model Organization {
   auditLogs      AuditLog[]
 
     apiKeys       ApiKey[]
+  activityDays   ActivityDay[]
+  platformEmails PlatformEmail[]
 
   @@map("organizations")
 }
@@ -146,6 +151,7 @@ model User {
   auditLogs    AuditLog[]
   refunds      Refund[]
   inventoryMovements InventoryMovement[]
+  activityDays ActivityDay[]
 
   @@index([organizationId])
   @@map("users")
@@ -214,6 +220,7 @@ model Session {
   expiresAt       DateTime  @map("expires_at")
   createdAt       DateTime  @default(now()) @map("created_at")
   lastSeenAt      DateTime  @default(now()) @map("last_seen_at")
+  impersonatorId  String?   @map("impersonator_id") @db.Uuid // administrateur ManaResto en mode « prendre la main »
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -1454,4 +1461,43 @@ model DemoRequest {
 
   @@index([createdAt])
   @@map("demo_requests")
+}
+
+// ---------------------------------------------------------------------------
+// CONSOLE PLATEFORME : activité des comptes et e-mails envoyés aux restaurateurs
+// ---------------------------------------------------------------------------
+
+/** Temps d'utilisation par utilisateur et par jour (battement de cœur minute par minute). */
+model ActivityDay {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  userId         String   @map("user_id") @db.Uuid
+  day            DateTime @db.Date
+  minutes        Int      @default(0)
+  lastAt         DateTime @default(now()) @map("last_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, day])
+  @@index([organizationId, day])
+  @@map("activity_days")
+}
+
+/** Journal des e-mails envoyés par la plateforme (bienvenue, fin d'essai, message manuel). */
+model PlatformEmail {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  kind           String   // WELCOME | TRIAL_REMINDER | TRIAL_EXPIRED | MANUAL
+  to             String
+  subject        String
+  status         String   // SENT | FAILED
+  error          String?
+  sentById       String?  @map("sent_by_id") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, createdAt])
+  @@map("platform_emails")
 }

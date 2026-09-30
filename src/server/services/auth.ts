@@ -8,6 +8,7 @@ import { slugify } from "@/lib/slug";
 import { OFFER } from "@/lib/plan";
 import { ensureSystemRoles } from "./roles";
 import { createEstablishmentDefaults } from "./establishments";
+import { sendWelcomeEmail } from "./platform-emails";
 
 const attempts = new Map<string, { count: number; until: number }>();
 
@@ -31,16 +32,22 @@ export function clearFailures(key: string) {
 export async function loginWithPassword(email: string, password: string, establishmentId?: string) {
   const key = `pw:${email.toLowerCase()}`;
   checkRateLimit(key);
-  const user = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
+  const user = await prisma.user.findUnique({ where: { email: email.toLowerCase() }, include: { organization: { select: { blockedAt: true } } } });
   if (!user || !user.isActive || !(await verifyPassword(password, user.passwordHash))) {
     recordFailure(key);
     throw new ApiError(401, "INVALID_CREDENTIALS", "Email ou mot de passe incorrect");
   }
   clearFailures(key);
+  assertNotBlocked(user.organization.blockedAt);
   const meta = await requestMeta();
   const { token } = await createSession({ userId: user.id, establishmentId: establishmentId ?? null, ...meta });
   await setSessionCookie(token);
   return user;
+}
+
+/** Compte bloqué depuis la console plateforme : connexion refusée avec un message clair. */
+export function assertNotBlocked(blockedAt: Date | null) {
+  if (blockedAt) throw new ApiError(403, "ACCOUNT_BLOCKED", `Ce compte est suspendu. Contactez ${OFFER.contactEmail} pour le réactiver.`);
 }
 
 /** Connexion rapide par PIN sur un terminal enregistré (établissement lié au terminal). */
@@ -57,6 +64,8 @@ export async function loginWithPin(establishmentId: string, pin: string, termina
       ],
     },
   });
+  const est = await prisma.establishment.findUnique({ where: { id: establishmentId }, select: { organization: { select: { blockedAt: true } } } });
+  assertNotBlocked(est?.organization.blockedAt ?? null);
   let matched = null;
   for (const u of candidates) {
     if (await verifyPin(pin, u.pinHash)) {
@@ -137,6 +146,8 @@ export async function signup(input: {
     return { org, owner, est };
   });
   await audit({ organizationId: result.org.id, establishmentId: result.est.id, userId: result.owner.id, action: "org.signup", entityType: "organization", entityId: result.org.id });
+  // E-mail de bienvenue (journalisé dans la console plateforme), sans bloquer l'inscription
+  void sendWelcomeEmail(result.org.id).catch(() => {});
   const meta = await requestMeta();
   const { token } = await createSession({ userId: result.owner.id, establishmentId: result.est.id, ...meta });
   await setSessionCookie(token);

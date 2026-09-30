@@ -16,6 +16,8 @@ export async function createSession(opts: {
   terminalId?: string | null;
   ip?: string | null;
   userAgent?: string | null;
+  impersonatorId?: string | null; // console plateforme : « prendre la main »
+  ttlMs?: number;
 }) {
   const token = randomToken(32);
   const session = await prisma.session.create({
@@ -26,21 +28,23 @@ export async function createSession(opts: {
       terminalId: opts.terminalId ?? null,
       ip: opts.ip ?? null,
       userAgent: opts.userAgent?.slice(0, 255) ?? null,
-      expiresAt: new Date(Date.now() + ttlMs()),
+      impersonatorId: opts.impersonatorId ?? null,
+      expiresAt: new Date(Date.now() + (opts.ttlMs ?? ttlMs())),
     },
   });
-  await prisma.user.update({ where: { id: opts.userId }, data: { lastLoginAt: new Date() } });
+  // Une prise en main par le support ne compte pas comme une connexion du restaurateur
+  if (!opts.impersonatorId) await prisma.user.update({ where: { id: opts.userId }, data: { lastLoginAt: new Date() } });
   return { session, token };
 }
 
-export async function setSessionCookie(token: string) {
+export async function setSessionCookie(token: string, maxAgeMs = ttlMs()) {
   const store = await cookies();
   store.set(SESSION_COOKIE, token, {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
     path: "/",
-    maxAge: Math.floor(ttlMs() / 1000),
+    maxAge: Math.floor(maxAgeMs / 1000),
   });
 }
 
@@ -55,11 +59,16 @@ export async function getSessionToken(): Promise<string | null> {
 }
 
 export async function findSessionByToken(token: string) {
-  const session = await prisma.session.findUnique({
+  const found = await prisma.session.findUnique({
     where: { tokenHash: sha256(token) },
-    include: { user: true },
+    include: { user: { include: { organization: { select: { blockedAt: true } } } } },
   });
-  if (!session || session.expiresAt < new Date() || !session.user.isActive) return null;
+  if (!found || found.expiresAt < new Date() || !found.user.isActive) return null;
+  // Compte bloqué depuis la console plateforme : seules les prises en main du support restent possibles
+  if (found.user.organization.blockedAt && !found.impersonatorId) return null;
+  const { organization: _org, ...user } = found.user;
+  void _org;
+  const session = { ...found, user };
   // Rafraîchir lastSeenAt au plus toutes les 5 minutes pour limiter les écritures
   if (Date.now() - session.lastSeenAt.getTime() > 5 * 60 * 1000) {
     await prisma.session.update({ where: { id: session.id }, data: { lastSeenAt: new Date() } }).catch(() => {});

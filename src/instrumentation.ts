@@ -1,8 +1,15 @@
 import * as Sentry from "@sentry/nextjs";
 
-/** Chargement de Sentry selon le runtime, et capture des erreurs de rendu côté serveur. */
+/** Chargement de Sentry selon le runtime, capture des erreurs de rendu côté serveur, relances e-mail planifiées. */
 export async function register() {
-  if (process.env.NEXT_RUNTIME === "nodejs") await import("../sentry.server.config");
+  if (process.env.NEXT_RUNTIME === "nodejs") {
+    await import("../sentry.server.config");
+    // Relances automatiques (rappel de fin d'essai, essai expiré) : production uniquement
+    if (process.env.NODE_ENV === "production") {
+      const { startLifecycleScheduler } = await import("@/server/services/platform-emails");
+      startLifecycleScheduler();
+    }
+  }
   if (process.env.NEXT_RUNTIME === "edge") await import("../sentry.edge.config");
 }
 

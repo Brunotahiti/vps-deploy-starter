@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 
-const PROTECTED = ["/pos", "/admin", "/onboarding", "/kds"];
+const PROTECTED = ["/pos", "/admin", "/onboarding", "/kds", "/platform"];
 const PUBLIC_POS = ["/pos/login"];
 
 /** Garde de routes : redirige vers la connexion si aucune session n'est présente (vérification réelle côté serveur). */
@@ -20,4 +20,4 @@ export function proxy(req: NextRequest) {
   return NextResponse.next();
 }
 
-export const config = { matcher: ["/pos/:path*", "/admin/:path*", "/onboarding/:path*", "/kds/:path*"] };
+export const config = { matcher: ["/pos/:path*", "/admin/:path*", "/onboarding/:path*", "/kds/:path*", "/platform/:path*", "/platform"] };
