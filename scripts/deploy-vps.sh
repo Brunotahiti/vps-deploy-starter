@@ -16,8 +16,22 @@ TARGET="$VPS_USER@$VPS_HOST"
 echo ""
 echo "🚀 Déploiement ManaResto → $TARGET:$VPS_PATH"
 echo "=============================================="
+# Domaine : proposé depuis le .env déjà présent sur le VPS (Entrée pour le garder), sinon demandé.
+KEY="$HOME/.ssh/manaresto_vps"
 if [ -z "${PUBLIC_HOST:-}" ]; then
-  read -rp "Nom de domaine de l'application (ex. manaresto.manaprocess.cloud) : " PUBLIC_HOST
+  CURRENT_HOST=$(ssh -i "$KEY" -o BatchMode=yes -o ConnectTimeout=8 "$TARGET" "grep -s '^PUBLIC_HOST=' $VPS_PATH/.env | cut -d= -f2-" 2>/dev/null | tr -d '[:space:]:' || true)
+  if [ -n "$CURRENT_HOST" ]; then
+    read -rp "Nom de domaine de l'application [$CURRENT_HOST] : " PUBLIC_HOST
+    PUBLIC_HOST="${PUBLIC_HOST:-$CURRENT_HOST}"
+  else
+    read -rp "Nom de domaine de l'application (ex. manaresto.manaprocess.cloud) : " PUBLIC_HOST
+  fi
+fi
+# Nettoyage : espaces, « : » ou « / » parasites, préfixe http(s)://, majuscules
+PUBLIC_HOST=$(printf '%s' "$PUBLIC_HOST" | tr -d '[:space:]' | tr 'A-Z' 'a-z' | sed -E 's|^https?://||; s|[/:]+$||')
+if ! printf '%s' "$PUBLIC_HOST" | grep -Eq '^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$'; then
+  echo "✗ Nom de domaine invalide : « $PUBLIC_HOST » (attendu : manaresto.manaprocess.cloud)" >&2
+  exit 1
 fi
 if [ -z "${SEED_DEMO:-}" ]; then
   read -rp "Charger le restaurant de démonstration « Le Mana Beach » ? [Y/n] : " SD
@@ -29,7 +43,6 @@ echo "  Démo     : $SEED_DEMO"
 echo ""
 
 # 1. Accès SSH sans mot de passe (clé dédiée)
-KEY="$HOME/.ssh/manaresto_vps"
 if [ ! -f "$KEY" ]; then
   ssh-keygen -t ed25519 -C "manaresto-deploy" -f "$KEY" -N "" -q
 fi
