@@ -98,7 +98,7 @@ export function PosShell({ children }: { children: React.ReactNode }) {
             {syncing ? <RefreshCw className="h-3 w-3 animate-spin" /> : null}
           </button>
           <Link href="/pos/cash" className={`hidden h-9 items-center gap-1 whitespace-nowrap rounded-full px-3 text-[11px] font-bold xl:flex ${cash.data ? "bg-lagon-500/10 text-lagon-700 dark:text-lagon-300" : "bg-orange-500/15 text-orange-600"}`}>
-            {cash.data ? <><span className="hidden xl:inline">Caisse ouverte ·</span><Money amount={cash.data.summary.cashExpected} /></> : "Caisse fermée"}
+            {cash.data?.summary ? <><span className="hidden xl:inline">Caisse ouverte ·</span><Money amount={cash.data.summary.cashExpected} /></> : "Caisse fermée"}
           </Link>
           {canInstall ? <button onClick={install} className="touch hidden h-9 items-center gap-1 rounded-lg bg-corail-500/15 px-2 text-xs font-bold text-corail-600 xl:flex" title="Installer ManaResto sur cet appareil"><Download className="h-4 w-4" /><span className="hidden xl:inline">Installer</span></button> : null}
           <button onClick={toggle} className="touch hidden rounded-lg p-2 hover:surface-2 xl:block" aria-label="Changer de thème"><Sun className="h-4 w-4 dark:hidden" /><Moon className="hidden h-4 w-4 dark:block" /></button>
