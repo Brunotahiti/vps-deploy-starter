@@ -114,12 +114,14 @@ export async function runLifecycleEmails(now = new Date()) {
   if (!isEmailConfigured()) return { reminders: 0, expired: 0 };
   const orgs = await prisma.organization.findMany({
     where: { plan: "TRIAL", blockedAt: null, slug: { not: DEMO_ORG_SLUG }, trialEndsAt: { gte: new Date(now.getTime() - EXPIRED_WINDOW_DAYS * DAY), lte: new Date(now.getTime() + REMINDER_DAYS_BEFORE * DAY) } },
-    select: { id: true, trialEndsAt: true, platformEmails: { where: { kind: { in: ["TRIAL_REMINDER", "TRIAL_EXPIRED"] } }, select: { kind: true } } },
+    select: { id: true, trialEndsAt: true, platformEmails: { where: { kind: { in: ["TRIAL_REMINDER", "TRIAL_EXPIRED"] } }, select: { kind: true, status: true } } },
   });
   let reminders = 0;
   let expired = 0;
   for (const o of orgs) {
-    const sent = new Set(o.platformEmails.map((e) => e.kind));
+    // Déjà ENVOYÉ, ou 3 échecs : on ne relance plus. Un échec isolé (panne SMTP) est retenté à l'heure suivante.
+    const sent = new Set(o.platformEmails.filter((e) => e.status === "SENT").map((e) => e.kind));
+    for (const k of ["TRIAL_REMINDER", "TRIAL_EXPIRED"]) if (o.platformEmails.filter((e) => e.kind === k && e.status !== "SENT").length >= 3) sent.add(k);
     const ended = o.trialEndsAt!.getTime() <= now.getTime();
     const kind: PlatformEmailKind | null = ended ? (sent.has("TRIAL_EXPIRED") ? null : "TRIAL_EXPIRED") : sent.has("TRIAL_REMINDER") ? null : "TRIAL_REMINDER";
     if (!kind) continue;

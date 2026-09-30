@@ -6,7 +6,7 @@ import { NumPad } from "@/components/ui/numpad";
 import { ApiClientError } from "@/lib/api-client";
 import { PERMISSIONS, type PermissionKey } from "@/lib/permissions";
 
-export type PinRequest = { permission: PermissionKey; run: (managerPin: string) => Promise<unknown> } | null;
+export type PinRequest = { permission: PermissionKey; run: (managerPin: string) => Promise<unknown>; cancel?: () => void } | null;
 
 /** Demande de PIN manager pour une opération sensible, puis relance l'opération. */
 export function PinModal({ request, onClose }: { request: PinRequest; onClose: () => void }) {
@@ -29,7 +29,7 @@ export function PinModal({ request, onClose }: { request: PinRequest; onClose: (
     }
   };
   return (
-    <Modal open={!!request} onClose={() => { setPin(""); setError(null); onClose(); }} title="Autorisation manager" size="sm">
+    <Modal open={!!request} onClose={() => { request?.cancel?.(); setPin(""); setError(null); onClose(); }} title="Autorisation manager" size="sm">
       <p className="mb-3 text-sm text-muted">Opération : <strong>{request ? PERMISSIONS[request.permission].description : ""}</strong>. Un manager doit saisir son PIN.</p>
       <div className="mb-3 flex justify-center gap-3">{[0, 1, 2, 3, 4, 5].map((i) => <span key={i} className={`h-3.5 w-3.5 rounded-full ${i < pin.length ? "bg-lagon-500" : "bg-slate-400/30"}`} />)}</div>
       {error ? <p className="mb-2 rounded-lg bg-red-500/10 px-3 py-2 text-center text-sm text-red-600">{error}</p> : null}
@@ -42,7 +42,13 @@ export function PinModal({ request, onClose }: { request: PinRequest; onClose: (
 export function withPin(setRequest: (r: PinRequest) => void, permission: PermissionKey, run: (managerPin?: string) => Promise<unknown>) {
   return run().catch((e) => {
     if (e instanceof ApiClientError && e.isPinRequired) {
-      return new Promise((resolve, reject) => setRequest({ permission, run: (pin) => run(pin).then(resolve, (err) => { reject(err); throw err; }) }));
+      // Mauvais PIN : l'erreur s'affiche dans la fenêtre et on peut réessayer (la promesse reste en attente) ;
+      // bon PIN : l'opération aboutit ; fenêtre fermée : l'opération est annulée (les boutons se débloquent).
+      return new Promise((resolve, reject) => setRequest({
+        permission,
+        run: (pin) => run(pin).then(resolve),
+        cancel: () => reject(new ApiClientError(0, "PIN_CANCELLED", "Opération annulée")),
+      }));
     }
     throw e;
   });

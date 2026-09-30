@@ -34,7 +34,7 @@ export default function ShiftsPage() {
   const newShift = (d: string) => setEdit({ employeeId: employees.data?.[0]?.id ?? "", startsAt: `${d}T11:00`, endsAt: `${d}T15:00`, notes: "" });
   const save = async () => {
     if (!edit) return;
-    const body = { employeeId: edit.employeeId, startsAt: fromLocalInput(edit.startsAt), endsAt: fromLocalInput(edit.endsAt), notes: edit.notes || null };
+    const body = { employeeId: edit.employeeId, startsAt: fromLocalInput(edit.startsAt, timezone), endsAt: fromLocalInput(edit.endsAt, timezone), notes: edit.notes || null };
     const r = await act(() => (edit.id ? api.patch(`/api/staff/shifts/${edit.id}`, body) : api.post("/api/staff/shifts", body)), { success: "Service enregistré", invalidate: [["staff"]] });
     if (r) setEdit(null);
   };
@@ -73,7 +73,7 @@ export default function ShiftsPage() {
                     <ul className="space-y-1.5">
                       {list.map((s) => { const c = colorOf(s.employeeId); return (
                         <li key={s.id}>
-                          <button onClick={() => setEdit({ id: s.id, employeeId: s.employeeId, startsAt: toLocalInput(s.startsAt), endsAt: toLocalInput(s.endsAt), notes: s.notes ?? "" })} className="touch flex w-full items-center gap-2 rounded-xl px-2 py-1.5 text-left text-xs transition hover:brightness-95" style={{ background: `color-mix(in srgb, ${c} 12%, transparent)`, borderLeft: `3px solid ${c}` }}>
+                          <button onClick={() => setEdit({ id: s.id, employeeId: s.employeeId, startsAt: toLocalInput(s.startsAt, timezone), endsAt: toLocalInput(s.endsAt, timezone), notes: s.notes ?? "" })} className="touch flex w-full items-center gap-2 rounded-xl px-2 py-1.5 text-left text-xs transition hover:brightness-95" style={{ background: `color-mix(in srgb, ${c} 12%, transparent)`, borderLeft: `3px solid ${c}` }}>
                             <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-extrabold text-white" style={{ background: c }}>{s.employee.firstName.slice(0, 1)}{s.employee.lastName.slice(0, 1)}</span>
                             <span className="min-w-0 flex-1"><span className="block truncate font-bold">{s.employee.firstName} {s.employee.lastName.slice(0, 1)}.</span><span className="block text-muted"><Clock className="mr-1 inline h-3 w-3" />{formatTime(s.startsAt, timezone)} – {formatTime(s.endsAt, timezone)} · {fmtHours(hours(s))}{s.notes ? ` · ${s.notes}` : ""}</span></span>
                           </button>

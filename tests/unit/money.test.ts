@@ -44,3 +44,12 @@ describe("arithmétique", () => {
     expect(roundHalfUp(-2.5)).toBe(-3);
   });
 });
+
+import { dateToZonedInput, zonedInputToDate } from "@/lib/dates";
+describe("saisies à l'heure de l'établissement", () => {
+  it("19:30 à Tahiti = 05:30 UTC le lendemain, et retour", () => {
+    const d = zonedInputToDate("2026-10-01T19:30", "Pacific/Tahiti");
+    expect(d.toISOString()).toBe("2026-10-02T05:30:00.000Z");
+    expect(dateToZonedInput(d, "Pacific/Tahiti")).toBe("2026-10-01T19:30");
+  });
+});

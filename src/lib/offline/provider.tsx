@@ -22,23 +22,29 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState({ pending: 0, syncing: false, lastError: null as string | null });
 
   useEffect(() => {
-    const after = async (r: { sent: number; failed: number }) => {
+    const after = async (r: { sent: number; failed: number; authRequired?: boolean }) => {
+      if (r.authRequired) toast("Session expirée : reconnectez-vous pour transmettre les opérations en attente (elles sont conservées)", "error");
       if (r.sent > 0 || r.failed > 0) {
-        if ((await outbox.count()) === 0) await clearOfflineCreatedOrders().catch(() => {});
+        // Copies locales des commandes créées hors ligne : effacées seulement si TOUT a été accepté
+        if (r.failed === 0 && (await outbox.count()) === 0) await clearOfflineCreatedOrders().catch(() => {});
         qc.invalidateQueries();
         if (r.sent > 0) toast(`Synchronisation : ${r.sent} opération${r.sent > 1 ? "s" : ""} transmise${r.sent > 1 ? "s" : ""}`, "success");
-        if (r.failed > 0) toast(`${r.failed} opération${r.failed > 1 ? "s" : ""} refusée${r.failed > 1 ? "s" : ""} par le serveur (voir l'historique)`, "error");
+        if (r.failed > 0) toast(`${r.failed} opération${r.failed > 1 ? "s" : ""} refusée${r.failed > 1 ? "s" : ""} par le serveur : ${outbox.lastErrorMessage() ?? "vérifiez la commande concernée"}`, "error");
       }
     };
     const on = async () => after(await outbox.flush());
     window.addEventListener("online", on);
     const unsub = outbox.subscribe(setState);
-    // Tentative de synchro au chargement
+    // Tentative de synchro au chargement, au retour au premier plan, puis toutes les 20 s tant que la file n'est pas vide
+    // (box sans internet : le Wi-Fi reste « en ligne » et l'événement online n'arrive jamais)
     if (navigator.onLine) outbox.flush().then(after);
-    return () => { window.removeEventListener("online", on); unsub(); };
+    const tick = window.setInterval(async () => { if (navigator.onLine && (await outbox.count()) > 0) after(await outbox.flush()); }, 20_000);
+    const onVisible = () => { if (document.visibilityState === "visible" && navigator.onLine) outbox.flush().then(after); };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => { window.removeEventListener("online", on); document.removeEventListener("visibilitychange", onVisible); window.clearInterval(tick); unsub(); };
   }, [qc, toast]);
 
-  const flush = async () => { const r = await outbox.flush(); if ((await outbox.count()) === 0) await clearOfflineCreatedOrders().catch(() => {}); if (r.sent > 0) qc.invalidateQueries(); };
+  const flush = async () => { const r = await outbox.flush(); if (r.failed === 0 && (await outbox.count()) === 0) await clearOfflineCreatedOrders().catch(() => {}); if (r.sent > 0) qc.invalidateQueries(); };
   return <Ctx.Provider value={{ online, ...state, flush }}>{children}</Ctx.Provider>;
 }
 

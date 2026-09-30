@@ -39,7 +39,7 @@ test("intégrations : créer une clé API et interroger l'API publique", async (
   // Webhook : création, secret affiché une fois, test (URL injoignable → échec journalisé)
   await page.getByRole("button", { name: "Webhooks" }).click();
   await page.getByRole("button", { name: "Nouveau webhook" }).click();
-  const hookUrl = `https://127.0.0.1:9/manaresto-e2e-${Date.now()}`;
+  const hookUrl = `https://webhook.manaresto-e2e.invalid/${Date.now()}`; // domaine réservé : jamais résolu
   await field(page, "URL (https)").fill(hookUrl);
   await page.getByRole("button", { name: "Créer" }).click();
   await expect(page.locator("code", { hasText: /^whsec_/ })).toBeVisible();

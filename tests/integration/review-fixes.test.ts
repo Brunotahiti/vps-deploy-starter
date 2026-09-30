@@ -179,3 +179,20 @@ describe("Revue : rapports", () => {
     expect(csv).toContain("\n-5");
   });
 });
+
+import { NextRequest, NextResponse } from "next/server";
+import { withIdempotency } from "@/server/idempotency";
+describe("Revue : idempotence atomique", () => {
+  it("deux requêtes simultanées avec la même clé n'exécutent l'opération qu'une fois ; le rejeu renvoie la réponse", async () => {
+    let runs = 0;
+    const fn = async () => { runs++; await new Promise((r) => setTimeout(r, 50)); return NextResponse.json({ data: { n: runs } }, { status: 201 }); };
+    const mk = () => new NextRequest("http://localhost/api/orders", { method: "POST", headers: { "idempotency-key": "k-123" } });
+    const [a, b] = await Promise.all([withIdempotency(mk(), A.est.id, fn), withIdempotency(mk(), A.est.id, fn)]);
+    expect(runs).toBe(1);
+    expect([a.status, b.status].sort()).toEqual([201, 409]);
+    const replay = await withIdempotency(mk(), A.est.id, fn);
+    expect(runs).toBe(1);
+    expect(replay.status).toBe(201);
+    expect(replay.headers.get("Idempotent-Replayed")).toBe("true");
+  });
+});

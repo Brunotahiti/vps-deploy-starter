@@ -1,5 +1,6 @@
 import type { NextRequest } from "next/server";
 import { ApiError } from "@/server/errors";
+import { resolveClientIp } from "@/server/net/client-ip";
 
 /**
  * Limitation de débit en mémoire (fenêtre glissante) pour les points d'entrée publics et l'API.
@@ -9,7 +10,7 @@ const buckets = new Map<string, number[]>();
 let lastSweep = Date.now();
 
 function sweep(now: number) {
-  if (now - lastSweep < 60_000) return;
+  if (now - lastSweep < 60_000 && buckets.size < 50_000) return; // taille bornée même sous une avalanche d'adresses
   lastSweep = now;
   for (const [k, v] of buckets) if (!v.length || v[v.length - 1] < now - 10 * 60_000) buckets.delete(k);
 }
@@ -28,7 +29,7 @@ export function rateLimit(key: string, limit: number, windowMs = 60_000) {
 }
 
 export function clientIp(req: NextRequest) {
-  return req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || req.headers.get("x-real-ip") || "local";
+  return resolveClientIp((n) => req.headers.get(n));
 }
 
 /** Limite par adresse IP et par périmètre (ex. "public-order"). */

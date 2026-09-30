@@ -10,14 +10,14 @@ import { Modal } from "@/components/ui/modal";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
 import { Spinner, Badge } from "@/components/ui/misc";
 import { useToast } from "@/components/ui/toast";
-import { addDays, formatTime, localDay } from "@/lib/dates";
+import { addDays, dateToZonedInput, formatTime, localDay, zonedInputToDate } from "@/lib/dates";
 import { useAction } from "@/components/admin/common";
 import { useFloor } from "./floor";
 import type { listReservations } from "@/server/services/reservations";
 
 type R = Awaited<ReturnType<typeof listReservations>>[number];
 const STATUS: Record<string, [string, "gray" | "green" | "orange" | "red" | "blue" | "purple" | "teal"]> = { PENDING: ["À confirmer", "orange"], CONFIRMED: ["Confirmée", "blue"], ARRIVED: ["Arrivée", "teal"], SEATED: ["Installée", "green"], COMPLETED: ["Terminée", "gray"], CANCELLED: ["Annulée", "red"], NO_SHOW: ["No-show", "red"] };
-const toLocal = (d: Date | string) => { const x = new Date(d); const p = (n: number) => String(n).padStart(2, "0"); return `${x.getFullYear()}-${p(x.getMonth() + 1)}-${p(x.getDate())}T${p(x.getHours())}:${p(x.getMinutes())}`; };
+
 
 /** Réservations du jour : prise, confirmation, arrivée, installation (ouvre la commande), no-show. */
 export function ReservationsScreen() {
@@ -33,7 +33,7 @@ export function ReservationsScreen() {
   const [seat, setSeat] = useState<R | null>(null);
   const save = async () => {
     if (!edit) return;
-    const body = { name: edit.name, phone: edit.phone || null, email: edit.email || null, startsAt: new Date(edit.startsAt).toISOString(), partySize: Number(edit.partySize), tableId: edit.tableId || null, notes: edit.notes || null, allergies: edit.allergies || null };
+    const body = { name: edit.name, phone: edit.phone || null, email: edit.email || null, startsAt: zonedInputToDate(edit.startsAt, timezone).toISOString(), partySize: Number(edit.partySize), tableId: edit.tableId || null, notes: edit.notes || null, allergies: edit.allergies || null };
     const r = await act(() => (edit.id ? api.patch(`/api/reservations/${edit.id}`, body) : api.post("/api/reservations", body)), { success: "Réservation enregistrée", invalidate: [["reservations"], ["floor"]] });
     if (r) setEdit(null);
   };
@@ -71,7 +71,7 @@ export function ReservationsScreen() {
               {r.status === "ARRIVED" ? <Button size="sm" onClick={() => setSeat(r)}>Installer</Button> : null}
               {r.status === "SEATED" ? <Button size="sm" variant="secondary" onClick={() => setStatus(r, "COMPLETED")}>Terminée</Button> : null}
               {(r.status === "CANCELLED" || r.status === "NO_SHOW") ? <Button size="sm" variant="ghost" onClick={() => setStatus(r, "CONFIRMED")}>Rétablir</Button> : null}
-              {can("customers.manage") && r.status !== "COMPLETED" ? <Button size="sm" variant="ghost" onClick={() => setEdit({ id: r.id, name: r.name, phone: r.phone ?? "", email: r.email ?? "", startsAt: toLocal(r.startsAt), partySize: String(r.partySize), tableId: r.tableId ?? "", notes: r.notes ?? "", allergies: r.allergies ?? "" })}>Modifier</Button> : null}
+              {can("customers.manage") && r.status !== "COMPLETED" ? <Button size="sm" variant="ghost" onClick={() => setEdit({ id: r.id, name: r.name, phone: r.phone ?? "", email: r.email ?? "", startsAt: dateToZonedInput(r.startsAt, timezone), partySize: String(r.partySize), tableId: r.tableId ?? "", notes: r.notes ?? "", allergies: r.allergies ?? "" })}>Modifier</Button> : null}
             </div>
           </div>
         ))}

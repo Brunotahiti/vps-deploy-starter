@@ -8,6 +8,7 @@ import { LayoutGrid, ListOrdered, Wallet, Settings, Moon, Sun, LogOut, Wifi, Wif
 import { useSession } from "@/hooks/use-session";
 import { useRealtime } from "@/hooks/use-realtime";
 import { SupportBar } from "@/components/support-bar";
+import { confirmLogoutWithPending, purgeLocalData } from "@/lib/offline/purge";
 import { useTheme } from "@/hooks/use-theme";
 import { useOffline } from "@/lib/offline/provider";
 import { useInstallPrompt } from "@/hooks/use-install-prompt";
@@ -54,7 +55,9 @@ export function PosShell({ children }: { children: React.ReactNode }) {
   if (me?.user && !can("pos.use")) return <div className="flex h-dvh items-center justify-center p-6 text-center text-sm text-muted">Ce compte n&apos;a pas accès à la caisse. Redirection…</div>;
 
   const logout = async () => {
-    await api.post("/api/auth/logout");
+    if (!(await confirmLogoutWithPending())) return;
+    await api.post("/api/auth/logout").catch(() => {}); // hors ligne : on nettoie quand même l'appareil
+    await purgeLocalData();
     qc.clear();
     router.replace(me?.terminal ? "/pos/login" : "/login");
   };

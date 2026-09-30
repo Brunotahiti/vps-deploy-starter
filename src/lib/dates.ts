@@ -54,3 +54,19 @@ export function formatElapsed(since: Date | string, now = new Date()): string {
   const h = Math.floor(min / 60);
   return `${h} h ${String(min % 60).padStart(2, "0")}`;
 }
+
+/** Saisie « AAAA-MM-JJTHH:mm » à l'heure de l'ÉTABLISSEMENT (pas de l'appareil) → instant réel. */
+export function zonedInputToDate(local: string, timeZone = "Pacific/Tahiti"): Date {
+  const [d, t = "00:00"] = local.split("T");
+  const [y, m, dd] = d.split("-").map(Number);
+  const [hh, mm] = t.split(":").map(Number);
+  const guess = Date.UTC(y, m - 1, dd, hh || 0, mm || 0);
+  return new Date(guess - tzOffsetMinutes(new Date(guess), timeZone) * 60_000);
+}
+
+/** Instant → valeur d'un champ « datetime-local » à l'heure de l'établissement. */
+export function dateToZonedInput(date: Date | string, timeZone = "Pacific/Tahiti"): string {
+  const parts = new Intl.DateTimeFormat("en-CA", { timeZone, hourCycle: "h23", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }).formatToParts(new Date(date));
+  const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "00";
+  return `${get("year")}-${get("month")}-${get("day")}T${get("hour")}:${get("minute")}`;
+}

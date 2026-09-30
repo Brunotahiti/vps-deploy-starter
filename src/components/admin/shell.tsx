@@ -15,6 +15,7 @@ import { api } from "@/lib/api-client";
 import { Logo } from "@/components/brand";
 import { Spinner } from "@/components/ui/misc";
 import { SupportBar } from "@/components/support-bar";
+import { confirmLogoutWithPending, purgeLocalData } from "@/lib/offline/purge";
 
 export function AdminShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -50,8 +51,8 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
     { href: "/platform", label: "Console ManaResto", icon: ShieldCheck, show: !!me?.platformAdmin },
   ].filter((n) => n.show);
 
-  const switchEst = async (id: string) => { await api.post("/api/auth/switch-establishment", { establishmentId: id }); qc.clear(); router.refresh(); qc.invalidateQueries(); };
-  const logout = async () => { await api.post("/api/auth/logout"); qc.clear(); router.replace("/login"); };
+  const switchEst = async (id: string) => { try { await api.post("/api/auth/switch-establishment", { establishmentId: id }); } catch { return; } await purgeLocalData(); qc.clear(); router.refresh(); qc.invalidateQueries(); };
+  const logout = async () => { if (!(await confirmLogoutWithPending())) return; await api.post("/api/auth/logout").catch(() => {}); await purgeLocalData(); qc.clear(); router.replace("/login"); };
 
   const Sidebar = (
     <aside className="flex h-full w-[268px] flex-col border-r border-line surface">
@@ -87,7 +88,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
       {open ? <div className="fixed inset-0 z-40 flex lg:hidden"><div className="absolute inset-0 bg-black/50" onClick={() => setOpen(false)} /><div className="relative z-10" style={{ paddingTop: "env(safe-area-inset-top)" }}>{Sidebar}</div></div> : null}
       <div className="flex min-w-0 flex-1 flex-col">
         <SupportBar />
-        <header className="glass flex h-14 shrink-0 items-center gap-3 border-b px-4 lg:hidden"><button className="touch rounded-lg p-2" onClick={() => setOpen(true)}><Menu className="h-5 w-5" /></button><Logo size={28} /></header>
+        <header className="glass flex h-14 shrink-0 items-center gap-3 border-b px-4 lg:hidden"><button className="touch rounded-lg p-2" aria-label="Ouvrir le menu" onClick={() => setOpen(true)}><Menu className="h-5 w-5" /></button><Logo size={28} /></header>
         <main className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden p-4 pb-28 lg:p-8"><SubscriptionBanner />{children}</main>
         {/* Téléphone / tablette : gros bouton d'accès à la caisse, toujours visible */}
         <div className="pointer-events-none fixed inset-x-0 bottom-0 z-30 flex justify-center p-3 lg:hidden" style={{ paddingBottom: "max(12px, env(safe-area-inset-bottom))" }}>

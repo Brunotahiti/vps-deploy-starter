@@ -4,12 +4,14 @@ import { audit } from "@/server/audit";
 import { formatMoney } from "@/lib/money";
 import { formatDateTime } from "@/lib/dates";
 import { isEmailConfigured, receiptMail, sendMail } from "@/server/email/mailer";
+import { assertNotDemoEmail } from "./demo";
 import { renderReceiptPdfElegant } from "@/server/receipts/pdf-elegant";
 import type { Actor } from "./orders";
 
 /** Envoie le reçu PDF d'une commande à l'adresse indiquée et trace l'envoi. */
 export async function emailReceipt(actor: Actor, orderId: string, to: string) {
   if (!isEmailConfigured()) throw new ApiError(503, "EMAIL_NOT_CONFIGURED", "L'envoi d'e-mails n'est pas configuré (variables SMTP_* du serveur)");
+  await assertNotDemoEmail(actor.organizationId);
   const order = await prisma.order.findFirst({ where: { id: orderId, establishmentId: actor.establishmentId }, include: { establishment: true } });
   if (!order) throw new ApiError(404, "NOT_FOUND", "Commande introuvable");
   if (order.status === "CANCELLED") throw new ApiError(409, "ORDER_CANCELLED", "Commande annulée");

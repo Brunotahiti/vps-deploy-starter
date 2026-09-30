@@ -15,13 +15,19 @@ type Options = { idempotencyKey?: string; queueIfOffline?: boolean; signal?: Abo
 async function request<T>(method: string, url: string, body?: unknown, opts: Options = {}): Promise<T> {
   const headers: Record<string, string> = { Accept: "application/json" };
   if (body !== undefined) headers["Content-Type"] = "application/json";
-  if (opts.idempotencyKey) headers["Idempotency-Key"] = opts.idempotencyKey;
+  // Clé d'idempotence dès le PREMIER envoi : si la réponse se perd, le rejeu ne s'applique pas deux fois
+  const idempotencyKey = opts.idempotencyKey ?? (opts.queueIfOffline && method !== "GET" ? crypto.randomUUID() : undefined);
+  if (idempotencyKey) headers["Idempotency-Key"] = idempotencyKey;
+  // Délai maximal (Wi-Fi saturé) : au-delà, l'opération part en file d'attente au lieu de tourner indéfiniment
+  const timeout = typeof AbortSignal !== "undefined" && "timeout" in AbortSignal ? AbortSignal.timeout(method === "GET" ? 15_000 : 12_000) : undefined;
+  const signal = opts.signal && timeout && "any" in AbortSignal ? AbortSignal.any([opts.signal, timeout]) : (opts.signal ?? timeout);
   let res: Response;
   try {
-    res = await fetch(url, { method, headers, body: body === undefined ? undefined : JSON.stringify(body), credentials: "same-origin", signal: opts.signal });
+    res = await fetch(url, { method, headers, body: body === undefined ? undefined : JSON.stringify(body), credentials: "same-origin", signal });
   } catch (e) {
+    if (opts.signal?.aborted) throw e; // annulation voulue par l'appelant : ni file d'attente ni erreur réseau
     if (opts.queueIfOffline && method !== "GET") {
-      await outbox.enqueue({ method, url, body, idempotencyKey: opts.idempotencyKey ?? crypto.randomUUID() });
+      await outbox.enqueue({ method, url, body, idempotencyKey: idempotencyKey ?? crypto.randomUUID() });
       throw new ApiClientError(0, "QUEUED", "Hors ligne : opération mise en file d'attente");
     }
     throw new ApiClientError(0, "NETWORK", "Connexion indisponible", e);

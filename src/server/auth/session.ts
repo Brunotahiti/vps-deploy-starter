@@ -1,6 +1,7 @@
 import { cookies, headers } from "next/headers";
 import { prisma } from "@/server/db";
 import { randomToken, sha256 } from "./password";
+import { resolveClientIp } from "@/server/net/client-ip";
 
 export const SESSION_COOKIE = "mr_session";
 export const TERMINAL_COOKIE = "mr_terminal";
@@ -87,7 +88,7 @@ export async function switchSessionEstablishment(sessionId: string, establishmen
 export async function requestMeta() {
   const h = await headers();
   return {
-    ip: h.get("x-forwarded-for")?.split(",")[0]?.trim() ?? h.get("x-real-ip") ?? null,
+    ip: resolveClientIp((n) => h.get(n)),
     userAgent: h.get("user-agent"),
   };
 }

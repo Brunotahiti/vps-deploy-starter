@@ -23,3 +23,14 @@ describe("client API : déballage de l'enveloppe { data }", () => {
     await expect(api.get("/x")).rejects.toBeInstanceOf(ApiClientError);
   });
 });
+
+import { safeNext } from "@/lib/safe-next";
+describe("redirection après connexion", () => {
+  it("n'accepte que les chemins internes", () => {
+    expect(safeNext("/platform", "/")).toBe("/platform");
+    expect(safeNext("https://evil.tld/login", "/")).toBe("/");
+    expect(safeNext("//evil.tld", "/")).toBe("/");
+    expect(safeNext("/\\evil.tld", "/")).toBe("/");
+    expect(safeNext(null, "/pos")).toBe("/pos");
+  });
+});
