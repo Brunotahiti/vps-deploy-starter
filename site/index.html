@@ -25,9 +25,7 @@
   <link rel="apple-touch-icon" href="assets/icon-192.png">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="preload" href="assets/fonts/PlusJakartaSans-latin.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="preload" href="assets/img/order.webp" as="image" type="image/webp" fetchpriority="high">
-  <link rel="preload" href="assets/img/hero-bg-m.webp" as="image" type="image/webp" media="(max-width: 899px)">
-  <link rel="preload" href="assets/img/hero-bg.webp" as="image" type="image/webp" media="(min-width: 900px)">
+    <link rel="preload" href="assets/img/banner-iaorana.webp" as="image" type="image/webp" fetchpriority="high">
   <link rel="stylesheet" href="styles.css">
   <script type="application/ld+json">
   {
@@ -75,7 +73,7 @@
   <a class="skip" href="#contenu">Aller au contenu</a>
   <header class="nav">
     <div class="wrap">
-      <a class="brand" href="/" aria-label="ManaResto, accueil"><img src="assets/img/logo.png" alt="" width="38" height="38">Mana<b>Resto</b></a>
+      <a class="brand" href="/" aria-label="ManaResto, accueil"><img src="assets/img/logo.png" alt="" width="38" height="38"><span>Mana<b>Resto</b></span></a>
       <nav class="nav-links" aria-label="Navigation principale">
         <a href="#fonctionnalites">Fonctionnalités</a><a href="#service">Suivi du service</a><a href="#commande-en-ligne">Commande en ligne</a><a href="#tarif">Tarif</a><a href="#faq">FAQ</a>
       </nav>
@@ -92,22 +90,23 @@
   </nav>
 
   <main id="contenu">
+    <div class="top-banner"><img src="assets/img/banner-iaorana.webp" alt="Iaorana et Maeva : ManaResto sur une tablette, à la table d'un restaurant face au lagon au coucher du soleil" width="1800" height="684" fetchpriority="high" decoding="async"></div>
     <section class="hero" aria-labelledby="titre">
       <div class="wrap">
         <div class="stagger">
           <span class="badge">🌺 Conçu et développé à Tahiti</span>
           <h1 id="titre">Toute la gestion de votre restaurant <span>dans une seule application</span></h1>
-          <p class="lead">ManaResto réunit votre caisse, votre salle, votre cuisine, vos stocks, votre équipe et vos commandes en ligne dans un logiciel de caisse et de gestion pensé pour les restaurants, roulottes, snacks et bars de Polynésie française.</p>
+          <p class="lead"><span class="long">ManaResto réunit votre caisse, votre salle, votre cuisine, vos stocks, votre équipe et vos commandes en ligne dans un logiciel de caisse et de gestion pensé pour les restaurants, roulottes, snacks et bars de Polynésie française.</span><span class="short">Caisse, salle, cuisine, stock, équipe et commandes en ligne pour les restaurants, roulottes, snacks et bars du fenua.</span></p>
           <p class="price-line"><span class="price">12 000 F CFP</span><span class="per">/ mois</span></p>
           <p class="perks"><span><i data-icon="check"></i>0 % de commission</span><span><i data-icon="check"></i>15 jours gratuits</span><span><i data-icon="check"></i>Sans carte bancaire</span></p>
           <div class="hero-cta">
             <a class="btn btn-primary" data-signup data-track="cta_trial" href="#">Essayer gratuitement</a>
-            <a class="btn btn-ghost" href="#demo" data-track="cta_demo">Demander une démonstration</a>
+            <a class="btn btn-ghost" href="#demo" data-track="cta_demo"><span class="long">Demander une démonstration</span><span class="short">Demander une démo</span></a>
           </div>
           <p class="hero-note">Fonctionne sur tablette, ordinateur et smartphone · Caisse • Salle • Cuisine • Stock • Personnel • Commandes • Livraison • Réservations</p>
         </div>
         <div class="devices" aria-label="ManaResto sur ordinateur et sur téléphone">
-          <div class="frame anim-laptop"><img src="assets/img/order.webp" alt="Écran de caisse ManaResto : prise de commande avec photos des plats, table et services" width="1280" height="800" fetchpriority="high" decoding="async"></div>
+          <div class="frame anim-laptop"><img src="assets/img/order.webp" alt="Écran de caisse ManaResto : prise de commande avec photos des plats, table et services" width="1280" height="800" loading="lazy" decoding="async"></div>
           <div class="phone-frame anim-phone"><img src="assets/img/m-floor.webp" alt="Plan de salle ManaResto sur smartphone avec l'état de chaque table" width="640" height="1090" loading="lazy" decoding="async"></div>
         </div>
       </div>
@@ -204,7 +203,6 @@
           <div class="card reveal"><span class="ico" data-icon="tablet"></span><h3>Vos équipements courants</h3><p>Tablettes, téléphones et ordinateurs que vous avez déjà, sans matériel imposé.</p></div>
           <div class="card reveal"><span class="ico" data-icon="globe"></span><h3>Site web pour votre restaurant</h3><p>Une page publique à votre nom avec votre menu, vos horaires et vos boutons commander et réserver.</p></div>
         </div>
-        <div class="tahiti-banner reveal"><img src="assets/img/banner-iaorana.webp" alt="Iaorana et Maeva : ManaResto sur une tablette, à la table d'un restaurant face au lagon au coucher du soleil" width="1800" height="684" loading="lazy" decoding="async"></div>
       </div>
     </section>
 
@@ -289,8 +287,7 @@
             <label class="field">Commune<input name="commune" type="text" autocomplete="address-level2" required maxlength="80" placeholder="Papeete, Punaauia, Uturoa…"><span class="err"></span></label>
             <label class="field">Type d'établissement<select name="kind" required><option value="">Choisir…</option><option value="RESTAURANT">Restaurant</option><option value="ROULOTTE">Roulotte</option><option value="SNACK">Snack</option><option value="BAR">Bar</option><option value="CAFE">Café</option><option value="AUTRE">Autre</option></select><span class="err"></span></label>
             <label class="field full">Message (facultatif)<textarea name="message" maxlength="1000" placeholder="Vos horaires préférés, vos questions…"></textarea></label>
-            <label class="field full consent"><input name="consent" type="checkbox" value="1"><span>J'accepte que ManaResto utilise ces informations pour me recontacter au sujet de ma demande. <a href="confidentialite" style="text-decoration:underline">Politique de confidentialité</a>.</span></label>
-            <div class="field full"><span class="err"></span></div>
+            <div class="field full"><label class="consent"><input name="consent" type="checkbox" value="1"><span>J'accepte que ManaResto utilise ces informations pour me recontacter au sujet de ma demande. <a href="confidentialite" style="text-decoration:underline">Politique de confidentialité</a>.</span></label><span class="err"></span></div>
             <label class="hp" aria-hidden="true">Site web<input name="website" type="text" tabindex="-1" autocomplete="off"></label>
             <div class="full"><button class="btn btn-primary" type="submit" style="width:100%" data-track="cta_demo_submit">Demander ma démonstration</button></div>
           </div>
@@ -312,7 +309,7 @@
   <footer>
     <div class="wrap">
       <div class="foot-grid">
-        <div><a class="brand" href="/"><img src="assets/img/logo.png" alt="" width="38" height="38">Mana<b>Resto</b></a><p style="margin-top:12px;max-width:34ch">La solution de gestion des restaurants de Polynésie française.</p><p style="margin-top:12px"><a data-install href="#" style="display:inline-flex;align-items:center;gap:8px;font-weight:700;color:#9be9e2"><i data-icon="download"></i>Installer l'application</a></p></div>
+        <div><a class="brand" href="/"><img src="assets/img/logo.png" alt="" width="38" height="38"><span>Mana<b>Resto</b></span></a><p style="margin-top:12px;max-width:34ch">La solution de gestion des restaurants de Polynésie française.</p><p style="margin-top:12px"><a data-install href="#" style="display:inline-flex;align-items:center;gap:8px;font-weight:700;color:#9be9e2"><i data-icon="download"></i>Installer l'application</a></p></div>
         <div><h3>Produit</h3><ul><li><a href="#fonctionnalites">Fonctionnalités</a></li><li><a href="#tarif">Tarif</a></li><li><a data-signup data-track="cta_trial" href="#">Essai gratuit</a></li><li><a href="#demo">Démonstration</a></li><li><a data-login href="#">Se connecter</a></li></ul></div>
         <div><h3>Informations</h3><ul><li><a href="#faq">FAQ</a></li><li><a data-email href="#">Contact</a></li><li><a href="mentions-legales">Mentions légales</a></li><li><a href="confidentialite">Confidentialité</a></li><li><a href="conditions">Conditions d'abonnement</a></li></ul></div>
       </div>

@@ -89,7 +89,7 @@
       var ok = true;
       Object.keys(rules).forEach(function (name) {
         var el = form.elements[name], field = el.closest(".field"), r = rules[name](el.value, el);
-        if (r !== true) { ok = false; field.classList.add("error"); $(".err", field).textContent = r; } else { field.classList.remove("error"); }
+        var err = $(".err", field); if (r !== true) { ok = false; field.classList.add("error"); if (err) err.textContent = r; } else { field.classList.remove("error"); }
       });
       return ok;
     };
