@@ -31,7 +31,9 @@ async function request<T>(method: string, url: string, body?: unknown, opts: Opt
     const err = json?.error ?? { code: "HTTP_" + res.status, message: res.statusText };
     throw new ApiClientError(res.status, err.code, err.message, err.details);
   }
-  return (json?.data ?? json) as T;
+  // Enveloppe { data } : une donnée nulle (ex. aucune caisse ouverte) doit rester null, pas devenir l'enveloppe elle-même
+  if (json && typeof json === "object" && "data" in json) return json.data as T;
+  return json as T;
 }
 
 export const api = {

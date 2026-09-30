@@ -7,7 +7,7 @@ import { getPeriodReport } from "@/server/services/reports";
 import { buildExport, toCsv, toPdf, toXlsx } from "@/server/reports/export";
 import { addItem, createOrder, sendCourse } from "@/server/services/orders";
 import { addPayments } from "@/server/services/payments";
-import { localDay } from "@/lib/dates";
+import { addDays, localDay, startOfLocalDay } from "@/lib/dates";
 
 let T: Awaited<ReturnType<typeof makeTenant>>;
 const TZ = "Pacific/Tahiti";
@@ -67,19 +67,20 @@ describe("Phase 5 — personnel, pointage, coût et rapports", () => {
   });
 
   it("planning, corrections de pointage et synthèse heures / coût", async () => {
-    const today = localDay(new Date(), TZ);
+    // Journée de référence fixe (hier, heure de Tahiti) : le test ne dépend plus de l'heure à laquelle il tourne
+    const day = addDays(localDay(new Date(), TZ), -1);
+    const base = startOfLocalDay(day, TZ).getTime() + 8 * 3600_000; // 8 h du matin, heure locale
     const extra = (await listEmployees(T.est.id)).find((e) => e.firstName === "Tehani")!;
-    const shift = await upsertShift(T.managerActor, { employeeId: extra.id, startsAt: new Date(Date.now() - 5 * 3600_000).toISOString(), endsAt: new Date(Date.now() - 1 * 3600_000).toISOString(), notes: "Midi" });
+    const shift = await upsertShift(T.managerActor, { employeeId: extra.id, startsAt: new Date(base).toISOString(), endsAt: new Date(base + 4 * 3600_000).toISOString(), notes: "Midi" });
     await expect(upsertShift(T.managerActor, { employeeId: extra.id, startsAt: new Date().toISOString(), endsAt: new Date(Date.now() - 1000).toISOString() })).rejects.toMatchObject({ code: "BAD_RANGE" });
     // Correction manager : l'extra a travaillé 4 h (pointages recalés)
     const entries = await listEntries(T.est.id, new Date(Date.now() - 86400_000), new Date(Date.now() + 86400_000), extra.id);
     const [cin, bs, be, cout] = entries;
-    const base = Date.now() - 5 * 3600_000;
     await upsertEntry(T.managerActor, { id: cin.id, at: new Date(base).toISOString(), reason: "Recalage" });
     await upsertEntry(T.managerActor, { id: bs.id, at: new Date(base + 2 * 3600_000).toISOString(), reason: "Recalage" });
     await upsertEntry(T.managerActor, { id: be.id, at: new Date(base + 2.5 * 3600_000).toISOString(), reason: "Recalage" });
     await upsertEntry(T.managerActor, { id: cout.id, at: new Date(base + 4.5 * 3600_000).toISOString(), reason: "Recalage" });
-    const s = await staffSummary(T.est.id, today, today, TZ);
+    const s = await staffSummary(T.est.id, day, day, TZ);
     const row = s.rows.find((r) => r.id === extra.id)!;
     expect(row.hours).toBe(4);
     expect(row.breakHours).toBe(0.5);
