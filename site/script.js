@@ -104,7 +104,7 @@
       fetch(form.getAttribute("action") || "/api/demo", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) })
         .then(function (r) {
           // Réponse non JSON (page d'erreur du serveur) : message clair plutôt qu'une erreur technique du navigateur
-          return r.text().then(function (t) { var j = null; try { j = JSON.parse(t); } catch (e) { j = null; } return { ok: r.ok && !!j, j: j, status: r.status }; });
+          return r.text().then(function (t) { var j = null; try { j = JSON.parse(t); } catch { j = null; } return { ok: r.ok && !!j, j: j, status: r.status }; });
         })
         .then(function (res) {
           if (!res.ok) throw new Error((res.j && res.j.error && res.j.error.message) || "Le service est momentanément indisponible, réessayez dans quelques minutes (erreur " + res.status + ").");

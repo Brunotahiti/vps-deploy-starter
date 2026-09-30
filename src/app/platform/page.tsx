@@ -3,9 +3,9 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Activity, AlertTriangle, Ban, Building2, CalendarClock, Clock3, ExternalLink, Globe, Hourglass, LogIn, Mail, MailCheck, Moon, RefreshCw, Search, ShieldCheck, Sparkles, Sun, TrendingUp, Unlock, UserPlus, Users, Wallet } from "lucide-react";
+import { Activity, AlertTriangle, Ban, Building2, CalendarClock, Clock3, ExternalLink, Globe, Eye, EyeOff, Hourglass, Lock, LogIn, Mail, MailCheck, Moon, RefreshCw, Search, ShieldCheck, Sparkles, Sun, TrendingUp, Unlock, UserPlus, Users, Wallet } from "lucide-react";
 import { api, ApiClientError } from "@/lib/api-client";
-import { useSession } from "@/hooks/use-session";
+import { useSession, type Me } from "@/hooks/use-session";
 import { useTheme } from "@/hooks/use-theme";
 import { useAction } from "@/components/admin/common";
 import { ChartCard, ColumnChart, HBars, Stat } from "@/components/admin/charts";
@@ -62,18 +62,7 @@ export default function PlatformPage() {
   }, [data, showDemo]);
 
   if (meLoading) return <div className="flex h-dvh items-center justify-center"><Spinner /></div>;
-  if (!me?.platformAdmin) {
-    return (
-      <div className="flex min-h-dvh items-center justify-center bg-[var(--bg)] p-6">
-        <div className="card max-w-md p-6 text-center">
-          <ShieldCheck className="mx-auto h-10 w-10 text-lagon-600" />
-          <h1 className="mt-3 text-xl font-extrabold">Console réservée à l&apos;équipe ManaResto</h1>
-          <p className="mt-2 text-sm text-muted">Votre compte n&apos;a pas accès à cette page. L&apos;accès est donné aux adresses listées dans la variable <code className="rounded surface-2 px-1">PLATFORM_ADMIN_EMAILS</code> du serveur.</p>
-          <Link href="/admin" className="mt-4 inline-flex h-11 items-center rounded-xl bg-brand px-4 text-sm font-bold text-white">Retour à mon restaurant</Link>
-        </div>
-      </div>
-    );
-  }
+  if (!me?.platformAdmin) return <AdminLogin current={me?.user?.email ?? null} />;
 
   const refresh = () => { qc.invalidateQueries({ queryKey: ["platform"] }); if (detailId) qc.invalidateQueries({ queryKey: ["platform-org", detailId] }); };
   const impersonate = async (r: PlatformRow) => {
@@ -394,4 +383,61 @@ function OrgDetail({ id, row, mine, onClose, ...a }: RowActions & { id: string |
 
 function Mini({ icon, label, value, hint }: { icon: React.ReactNode; label: string; value: React.ReactNode; hint?: string }) {
   return <div className="rounded-2xl border border-line p-3"><p className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-muted">{icon}{label}</p><p className="mt-1 text-xl font-extrabold">{value}</p>{hint ? <p className="text-xs text-muted">{hint}</p> : null}</div>;
+}
+
+/** Connexion administrateur de la console : e-mail et mot de passe d'un compte listé dans PLATFORM_ADMIN_EMAILS. */
+function AdminLogin({ current }: { current: string | null }) {
+  const qc = useQueryClient();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [show, setShow] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    setError(null);
+    try {
+      await api.post("/api/auth/login", { email: email.trim(), password });
+      const me = await api.get<Me>("/api/auth/me");
+      if (!me.platformAdmin) {
+        // Compte valide mais sans droits d'administration : on ne le laisse pas connecté ici
+        await api.post("/api/auth/logout").catch(() => null);
+        qc.setQueryData(["me"], { user: null, terminal: null });
+        setError("Ce compte n'a pas les droits d'administration de la console ManaResto.");
+        setBusy(false);
+        return;
+      }
+      qc.setQueryData(["me"], me);
+    } catch (err) {
+      setError(err instanceof ApiClientError ? err.message : "Connexion impossible, réessayez.");
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="flex min-h-dvh items-center justify-center bg-[linear-gradient(135deg,#0b4f4e,#0f6e6c_45%,#14aaa3)] p-4">
+      <div className="w-full max-w-md">
+        <div className="mb-5 flex justify-center"><Logo size={40} light /></div>
+        <form onSubmit={submit} className="card space-y-4 p-6 shadow-2xl" aria-labelledby="admin-login-title">
+          <div className="text-center">
+            <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-lagon-500/12 text-lagon-600"><ShieldCheck className="h-6 w-6" /></span>
+            <h1 id="admin-login-title" className="mt-3 text-xl font-extrabold tracking-tight">Console ManaResto</h1>
+            <p className="mt-1 text-sm text-muted">Connexion administrateur</p>
+          </div>
+          {current ? <p className="rounded-xl surface-2 px-3 py-2 text-xs text-muted">Vous êtes connecté avec <b className="text-[var(--text)]">{current}</b>, qui n&apos;a pas accès à la console. Connectez-vous avec votre compte administrateur.</p> : null}
+          <Field label="Adresse e-mail"><Input type="email" autoComplete="username" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="vous@manaresto.com" /></Field>
+          <Field label="Mot de passe">
+            <div className="relative">
+              <Input type={show ? "text" : "password"} autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} className="pr-11" />
+              <button type="button" onClick={() => setShow(!show)} className="absolute right-1 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-lg text-muted hover:surface-2" aria-label={show ? "Masquer la saisie" : "Afficher la saisie"}>{show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button>
+            </div>
+          </Field>
+          {error ? <p role="alert" className="rounded-xl bg-red-500/10 px-3 py-2 text-sm font-semibold text-red-600">{error}</p> : null}
+          <Button type="submit" loading={busy} disabled={!email || !password} className="h-12 w-full"><Lock className="h-4 w-4" />Se connecter à la console</Button>
+          <p className="text-center text-xs text-muted">Accès réservé aux adresses listées dans la variable PLATFORM_ADMIN_EMAILS du serveur.</p>
+        </form>
+        <p className="mt-4 text-center text-sm text-white/85"><a href="https://www.manaresto.com" className="underline">Retour au site</a>{current ? <> · <Link href="/admin" className="underline">Mon restaurant</Link></> : null}</p>
+      </div>
+    </div>
+  );
 }

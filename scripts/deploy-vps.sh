@@ -97,6 +97,12 @@ if [ -n "${PLATFORM_ADMIN_EMAILS:-}" ]; then
   $SSH "cd $VPS_PATH && sed -i '/^PLATFORM_ADMIN_EMAILS=/d' .env && printf '\nPLATFORM_ADMIN_EMAILS=%s\n' '$PLATFORM_ADMIN_EMAILS' >> .env"
   echo "  ✓ Console plateforme ouverte à : $PLATFORM_ADMIN_EMAILS"
 fi
+# Alertes e-mail (nouvelle inscription, demande de démo) : PLATFORM_NOTIFY_EMAILS=a@x.com,b@y.com bash scripts/deploy-vps.sh
+if [ -n "${PLATFORM_NOTIFY_EMAILS:-}" ]; then
+  if ! printf '%s' "$PLATFORM_NOTIFY_EMAILS" | grep -Eq '^[A-Za-z0-9@._+,-]+$'; then echo "✗ PLATFORM_NOTIFY_EMAILS invalide (adresses séparées par des virgules, sans espace)"; exit 1; fi
+  $SSH "cd $VPS_PATH && sed -i '/^PLATFORM_NOTIFY_EMAILS=/d' .env && printf '\nPLATFORM_NOTIFY_EMAILS=%s\n' '$PLATFORM_NOTIFY_EMAILS' >> .env"
+  echo "  ✓ Alertes (inscriptions, démos) envoyées à : $PLATFORM_NOTIFY_EMAILS"
+fi
 
 # 4. Construction et démarrage (base → migrations/seed → application)
 echo "→ Construction des images et démarrage (2 à 5 minutes la première fois)…"

@@ -65,3 +65,26 @@ test("console : voir un nouvel inscrit, prendre la main, revenir, activer puis b
   await other.dispose();
   expect(errors).toEqual([]);
 });
+
+test("console : écran de connexion administrateur, refus d'un compte non administrateur", async ({ page, baseURL }) => {
+  const probe = await pwRequest.newContext({ baseURL });
+  await probe.post("/api/auth/login", { data: { email: "demo@manaresto.pf", password: "demo1234" } });
+  const admin = (await (await probe.get("/api/auth/me")).json()).data.platformAdmin;
+  test.skip(!admin, "PLATFORM_ADMIN_EMAILS ne contient pas demo@manaresto.pf sur ce serveur");
+  const stamp = Date.now();
+  const email = `simple${stamp}@test.pf`;
+  await probe.post("/api/auth/signup", { data: { organizationName: `Snack ${stamp}`, establishmentName: "Snack", firstName: "Moana", lastName: "Test", email, password: "motdepasse1" } });
+  await probe.dispose();
+
+  await page.goto("/platform");
+  await expect(page.getByRole("heading", { name: "Console ManaResto" })).toBeVisible();
+  await page.getByLabel("Adresse e-mail").fill(email);
+  await page.getByLabel("Mot de passe").fill("motdepasse1");
+  await page.getByRole("button", { name: "Se connecter à la console" }).click();
+  await expect(page.getByRole("alert").filter({ hasText: "n'a pas les droits d'administration" })).toBeVisible();
+
+  await page.getByLabel("Adresse e-mail").fill("demo@manaresto.pf");
+  await page.getByLabel("Mot de passe").fill("demo1234");
+  await page.getByRole("button", { name: "Se connecter à la console" }).click();
+  await expect(page.getByRole("heading", { name: "Vos restaurants ManaResto" })).toBeVisible();
+});

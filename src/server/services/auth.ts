@@ -8,7 +8,7 @@ import { slugify } from "@/lib/slug";
 import { OFFER } from "@/lib/plan";
 import { ensureSystemRoles } from "./roles";
 import { createEstablishmentDefaults } from "./establishments";
-import { sendWelcomeEmail } from "./platform-emails";
+import { sendSignupAlert, sendWelcomeEmail } from "./platform-emails";
 
 const attempts = new Map<string, { count: number; until: number }>();
 
@@ -148,6 +148,8 @@ export async function signup(input: {
   await audit({ organizationId: result.org.id, establishmentId: result.est.id, userId: result.owner.id, action: "org.signup", entityType: "organization", entityId: result.org.id });
   // E-mail de bienvenue (journalisé dans la console plateforme), sans bloquer l'inscription
   void sendWelcomeEmail(result.org.id).catch(() => {});
+  // Alerte à l'équipe ManaResto (PLATFORM_NOTIFY_EMAILS ou contact@manaresto.com)
+  void sendSignupAlert(result.org.id).catch((e) => console.error("[inscription] alerte non envoyée", e));
   const meta = await requestMeta();
   const { token } = await createSession({ userId: result.owner.id, establishmentId: result.est.id, ...meta });
   await setSessionCookie(token);
