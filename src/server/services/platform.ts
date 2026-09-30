@@ -2,6 +2,7 @@ import { prisma } from "@/server/db";
 import { ApiError } from "@/server/errors";
 import { audit } from "@/server/audit";
 import { isEmailConfigured } from "@/server/email/mailer";
+import { emailSettings } from "./platform-emails";
 import { addDays, localDay } from "@/lib/dates";
 import { OFFER } from "@/lib/plan";
 import { DEMO_ORG_SLUG, accountStatus, type AccountStatus, type PlatformEmailKind } from "@/lib/platform";
@@ -153,8 +154,9 @@ export async function platformOverview(now = new Date()) {
     series,
     rows,
     recentLogins: recentLogins.map((u) => ({ id: u.id, name: `${u.firstName} ${u.lastName}`.trim(), email: u.email, isOwner: u.isOwner, at: u.lastLoginAt!.toISOString(), organization: u.organization })),
-    demoRequests: demoRequests.map((d) => ({ id: d.id, restaurantName: d.restaurantName, contactName: d.contactName, phone: d.phone, email: d.email, commune: d.commune, kind: d.kind, message: d.message, status: d.status, createdAt: d.createdAt.toISOString() })),
+    demoRequests: demoRequests.map((d) => ({ id: d.id, restaurantName: d.restaurantName, contactName: d.contactName, phone: d.phone, email: d.email, commune: d.commune, kind: d.kind, message: d.message, status: d.status, emailSent: d.emailSent, createdAt: d.createdAt.toISOString() })),
     emailConfigured: isEmailConfigured(),
+    email: emailSettings(),
     offer: { monthly: OFFER.monthly, trialDays: OFFER.trialDays, commitmentMonths: OFFER.commitmentMonths },
   };
 }

@@ -85,7 +85,7 @@ export function manualMail(org: Org, owner: Owner, subject: string, message: str
 async function deliver(organizationId: string, kind: PlatformEmailKind, mail: OutgoingMail, sentById?: string | null) {
   let status = "SENT";
   let error: string | null = null;
-  try { await sendMail(mail); } catch (e) { status = "FAILED"; error = e instanceof Error ? e.message.slice(0, 300) : "Erreur d'envoi"; }
+  try { await sendMail(mail); } catch (e) { status = "FAILED"; error = explainSmtpError(e instanceof Error ? e.message : String(e)); }
   await prisma.platformEmail.create({ data: { organizationId, kind, to: mail.to, subject: mail.subject, status, error, sentById: sentById ?? null } });
   return { status, error };
 }
@@ -169,4 +169,32 @@ export async function sendSignupAlert(organizationId: string) {
     total,
   }));
   return { sent: true };
+}
+
+/** Traduit une erreur SMTP (Brevo) en explication actionnable. */
+export function explainSmtpError(raw: string): string {
+  const m = raw || "";
+  if (/not yet activated|account is not activated|not activated/i.test(m)) return "Le compte SMTP Brevo n'est pas encore activé : demandez son activation au support Brevo (Aide → Contacter le support).";
+  if (/sender|expéditeur|unauthori[sz]ed|550|553|554/i.test(m)) return "Brevo refuse l'expéditeur : ajoutez et validez contact@manaresto.com dans Brevo → Expéditeurs, et vérifiez que le domaine manaresto.com est authentifié.";
+  if (/535|invalid login|authentication failed|EAUTH/i.test(m)) return "Brevo refuse l'identifiant ou la clé SMTP. SMTP_USER doit être l'identifiant affiché dans Brevo (…@smtp-brevo.com) et SMTP_PASS une clé SMTP (xsmtpsib-…), pas une clé API (xkeysib-…).";
+  if (/ETIMEDOUT|ECONNREFUSED|ENOTFOUND|ECONNRESET|timeout|greeting/i.test(m)) return "Le serveur n'arrive pas à joindre smtp-relay.brevo.com sur le port 587 (réseau ou pare-feu du VPS).";
+  if (/EMAIL_NOT_CONFIGURED/.test(m)) return "L'envoi d'e-mails n'est pas configuré : ajoutez les variables SMTP_* dans le fichier .env du serveur.";
+  return m.slice(0, 300) || "Erreur d'envoi inconnue";
+}
+
+/** Réglages d'envoi visibles dans la console (sans la clé). */
+export function emailSettings() {
+  return { configured: isEmailConfigured(), host: process.env.SMTP_HOST ?? null, user: process.env.SMTP_USER ?? null, from: process.env.SMTP_FROM || process.env.SMTP_USER || null, keyKind: process.env.SMTP_PASS?.startsWith("xkeysib-") ? "API" : process.env.SMTP_PASS ? "SMTP" : null, recipients: teamRecipients() };
+}
+
+/** E-mail de test vers les destinataires des alertes : confirme que Brevo accepte l'envoi, ou explique pourquoi pas. */
+export async function sendTestEmail() {
+  if (!isEmailConfigured()) throw new ApiError(400, "EMAIL_NOT_CONFIGURED", explainSmtpError("EMAIL_NOT_CONFIGURED"));
+  const to = teamRecipients();
+  try {
+    await sendMail(platformMail({ to, subject: "Test d'envoi ManaResto", kicker: "ManaResto · console", title: "L'envoi d'e-mails fonctionne", paragraphs: ["Cet e-mail de test a été envoyé depuis la console ManaResto.", "Vous recevrez ici les alertes à chaque nouvelle inscription et à chaque demande de démonstration du site."], cta: { label: "Ouvrir la console", url: consoleUrl() }, replyTo: OFFER.contactEmail, footer: "E-mail de test envoyé depuis la console plateforme." }));
+  } catch (e) {
+    throw new ApiError(502, "EMAIL_FAILED", explainSmtpError(e instanceof Error ? e.message : String(e)));
+  }
+  return { to };
 }

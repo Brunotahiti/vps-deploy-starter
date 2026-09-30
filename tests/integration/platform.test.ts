@@ -6,7 +6,7 @@ import { sentMails } from "@/server/email/mailer";
 import { createSession, findSessionByToken } from "@/server/auth/session";
 import { loginWithPassword } from "@/server/services/auth";
 import { platformOrgDetail, platformOverview, recordActivity, setOrganizationBlocked, setOrganizationPlan } from "@/server/services/platform";
-import { runLifecycleEmails, sendManualEmail, sendSignupAlert, sendWelcomeEmail, teamRecipients } from "@/server/services/platform-emails";
+import { emailSettings, explainSmtpError, runLifecycleEmails, sendManualEmail, sendSignupAlert, sendTestEmail, sendWelcomeEmail, teamRecipients } from "@/server/services/platform-emails";
 import { isPlatformAdminEmail } from "@/server/auth/platform";
 
 const DAY = 86_400_000;
@@ -119,6 +119,22 @@ describe("Console plateforme", () => {
     expect(m.replyTo).toBe("owner-plat-a@test.pf");
     expect(m.html).toContain("/platform");
     delete process.env.PLATFORM_NOTIFY_EMAILS;
+  });
+
+  it("test d'envoi : e-mail aux destinataires des alertes, erreurs SMTP expliquées, clé API détectée", async () => {
+    const n = sentMails.length;
+    expect(await sendTestEmail()).toEqual({ to: "contact@manaresto.com" });
+    expect(sentMails.length).toBe(n + 1);
+    expect(sentMails.at(-1)!.subject).toBe("Test d'envoi ManaResto");
+    expect(explainSmtpError("Invalid login: 535 5.7.8 Authentication failed")).toMatch(/clé SMTP \(xsmtpsib-…\), pas une clé API/);
+    expect(explainSmtpError("Your SMTP account is not yet activated")).toMatch(/pas encore activé/);
+    expect(explainSmtpError("550 5.7.1 Sender not authorized")).toMatch(/Expéditeurs/);
+    expect(explainSmtpError("connect ETIMEDOUT 1.2.3.4:587")).toMatch(/port 587/);
+    process.env.SMTP_PASS = "xkeysib-abc";
+    expect(emailSettings().keyKind).toBe("API");
+    process.env.SMTP_PASS = "xsmtpsib-abc";
+    expect(emailSettings().keyKind).toBe("SMTP");
+    delete process.env.SMTP_PASS;
   });
 
   it("relances : rappel à J-3 puis essai expiré, une seule fois chacun, comptes anciens et démo ignorés", async () => {

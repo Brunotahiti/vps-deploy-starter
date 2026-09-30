@@ -71,15 +71,13 @@ test("console : écran de connexion administrateur, refus d'un compte non admini
   await probe.post("/api/auth/login", { data: { email: "demo@manaresto.pf", password: "demo1234" } });
   const admin = (await (await probe.get("/api/auth/me")).json()).data.platformAdmin;
   test.skip(!admin, "PLATFORM_ADMIN_EMAILS ne contient pas demo@manaresto.pf sur ce serveur");
-  const stamp = Date.now();
-  const email = `simple${stamp}@test.pf`;
-  await probe.post("/api/auth/signup", { data: { organizationName: `Snack ${stamp}`, establishmentName: "Snack", firstName: "Moana", lastName: "Test", email, password: "motdepasse1" } });
   await probe.dispose();
 
+  // Compte d'équipe de la démo (non administrateur) : pas d'inscription, donc pas de limite de débit en jeu
   await page.goto("/platform");
   await expect(page.getByRole("heading", { name: "Console ManaResto" })).toBeVisible();
-  await page.getByLabel("Adresse e-mail").fill(email);
-  await page.getByLabel("Mot de passe").fill("motdepasse1");
+  await page.getByLabel("Adresse e-mail").fill("manager@manaresto.pf");
+  await page.getByLabel("Mot de passe").fill("demo1234");
   await page.getByRole("button", { name: "Se connecter à la console" }).click();
   await expect(page.getByRole("alert").filter({ hasText: "n'a pas les droits d'administration" })).toBeVisible();
 
