@@ -68,12 +68,12 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=traefik"
-      - "traefik.http.routers.${APP_NAME:-manaresto}-http.rule=Host(`${PUBLIC_HOST}`)"
+      - "traefik.http.routers.${APP_NAME:-manaresto}-http.rule=Host(`${PUBLIC_HOST}`) || Host(`${PUBLIC_HOST_ALT:-${PUBLIC_HOST}}`)"
       - "traefik.http.routers.${APP_NAME:-manaresto}-http.entrypoints=web"
       - "traefik.http.routers.${APP_NAME:-manaresto}-http.middlewares=${APP_NAME:-manaresto}-https-redirect"
       - "traefik.http.middlewares.${APP_NAME:-manaresto}-https-redirect.redirectscheme.scheme=https"
       - "traefik.http.middlewares.${APP_NAME:-manaresto}-https-redirect.redirectscheme.permanent=true"
-      - "traefik.http.routers.${APP_NAME:-manaresto}.rule=Host(`${PUBLIC_HOST}`)"
+      - "traefik.http.routers.${APP_NAME:-manaresto}.rule=Host(`${PUBLIC_HOST}`) || Host(`${PUBLIC_HOST_ALT:-${PUBLIC_HOST}}`)"
       - "traefik.http.routers.${APP_NAME:-manaresto}.entrypoints=websecure"
       - "traefik.http.routers.${APP_NAME:-manaresto}.tls=true"
       - "traefik.http.routers.${APP_NAME:-manaresto}.tls.certresolver=letsencrypt"
@@ -85,6 +85,34 @@ services:
       - "traefik.http.middlewares.${APP_NAME:-manaresto}-headers.headers.stsPreload=true"
       - "traefik.http.middlewares.${APP_NAME:-manaresto}-headers.headers.contentTypeNosniff=true"
       - "traefik.http.middlewares.${APP_NAME:-manaresto}-headers.headers.referrerPolicy=strict-origin-when-cross-origin"
+
+  # Site vitrine (www.manaresto.com) : pages statiques servies par nginx, HTTPS par Traefik
+  site:
+    image: nginx:1.27-alpine
+    container_name: ${APP_NAME:-manaresto}-site
+    restart: unless-stopped
+    volumes:
+      - ./site:/usr/share/nginx/html:ro
+      - ./site/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    networks:
+      - traefik
+    mem_limit: ${SITE_MEM_LIMIT:-64m}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik"
+      - "traefik.http.routers.${APP_NAME:-manaresto}-site-http.rule=Host(`${SITE_HOST:-www.manaresto.com}`) || Host(`${SITE_HOST_ALT:-manaresto.com}`)"
+      - "traefik.http.routers.${APP_NAME:-manaresto}-site-http.entrypoints=web"
+      - "traefik.http.routers.${APP_NAME:-manaresto}-site-http.middlewares=${APP_NAME:-manaresto}-site-https"
+      - "traefik.http.middlewares.${APP_NAME:-manaresto}-site-https.redirectscheme.scheme=https"
+      - "traefik.http.middlewares.${APP_NAME:-manaresto}-site-https.redirectscheme.permanent=true"
+      - "traefik.http.routers.${APP_NAME:-manaresto}-site.rule=Host(`${SITE_HOST:-www.manaresto.com}`) || Host(`${SITE_HOST_ALT:-manaresto.com}`)"
+      - "traefik.http.routers.${APP_NAME:-manaresto}-site.entrypoints=websecure"
+      - "traefik.http.routers.${APP_NAME:-manaresto}-site.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.${APP_NAME:-manaresto}-site.middlewares=${APP_NAME:-manaresto}-site-www"
+      - "traefik.http.middlewares.${APP_NAME:-manaresto}-site-www.redirectregex.regex=^https://${SITE_HOST_ALT:-manaresto.com}/(.*)"
+      - "traefik.http.middlewares.${APP_NAME:-manaresto}-site-www.redirectregex.replacement=https://${SITE_HOST:-www.manaresto.com}/$${1}"
+      - "traefik.http.middlewares.${APP_NAME:-manaresto}-site-www.redirectregex.permanent=true"
+      - "traefik.http.services.${APP_NAME:-manaresto}-site.loadbalancer.server.port=80"
 
   # Optionnel (plusieurs instances de l'application) : docker compose --profile redis up -d
   redis:

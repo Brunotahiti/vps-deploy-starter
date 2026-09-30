@@ -63,6 +63,20 @@ SMTP_FROM="Le Mana Beach <contact@votre-restaurant.pf>"
 
 Avec une boîte e-mail Hostinger, ce sont les réglages standard. Tout autre serveur SMTP (Gmail avec mot de passe d'application, OVH, Brevo…) fonctionne de la même façon. L'état apparaît dans *Administration → Paramètres → Reçus par e-mail*.
 
+## Site vitrine et domaine manaresto.com
+
+Le site de présentation (`site/`, pages statiques) est servi par un petit conteneur nginx à côté de l'application, avec HTTPS par Traefik. Domaines par défaut : **www.manaresto.com** (le nom nu `manaresto.com` redirige vers www) pour le site, **app.manaresto.com** pour l'application. Les boutons « Créer mon compte gratuit » du site ouvrent `https://app.manaresto.com/signup`.
+
+DNS chez Hostinger pour `manaresto.com` (enregistrements A vers l'IP du VPS, sans proxy) :
+
+| Type | Nom | Valeur |
+|---|---|---|
+| A | `@` | 187.127.105.242 |
+| A | `www` | 187.127.105.242 |
+| A | `app` | 187.127.105.242 |
+
+Puis, depuis votre Mac : `bash scripts/deploy-vps.sh` en répondant `app.manaresto.com` au domaine de l'application. L'ancien domaine reste accepté si `PUBLIC_HOST_ALT=manaresto.manaprocess.cloud` est présent dans `/opt/manaresto/.env` ; les domaines du site se règlent avec `SITE_HOST` et `SITE_HOST_ALT`. Traefik demande les certificats automatiquement une fois le DNS en place (comptez quelques minutes). Pour changer l'adresse de l'application utilisée par le site, modifiez `data-app` dans `site/index.html`.
+
 ## Sécurité en production
 
 - Changer le mot de passe du compte propriétaire de démo, ou créer votre entreprise via `/signup` et ne pas charger la démo.
