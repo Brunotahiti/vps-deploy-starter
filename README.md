@@ -72,4 +72,4 @@ Détails, déploiement automatique à chaque `git push` et exploitation : `docs/
 - `docs/ROADMAP.md` — phases 1 à 8 et leur état
 - `docs/GUIDE-UTILISATEUR.md` — guide d'utilisation par module
 - `docs/API-PUBLIQUE.md` — API v1, webhooks, TPE, impression
-- `docs/DEPLOIEMENT.md` — mise en ligne sur le VPS Hostinger
+- `docs/DEPLOIEMENT.md` — mise en ligne sur le VPS Hostinger, domaine manaresto.com et site vitrine (`site/`)
