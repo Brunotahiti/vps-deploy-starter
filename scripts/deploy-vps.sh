@@ -33,12 +33,26 @@ if ! printf '%s' "$PUBLIC_HOST" | grep -Eq '^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?
   echo "✗ Nom de domaine invalide : « $PUBLIC_HOST » (attendu : manaresto.manaprocess.cloud)" >&2
   exit 1
 fi
+# Le nom nu et www sont réservés au site vitrine : l'application vit sur un sous-domaine (app.manaresto.com)
+case "$PUBLIC_HOST" in
+  manaresto.com|www.manaresto.com)
+    echo "✗ « $PUBLIC_HOST » est réservé au site vitrine. Pour l'application, répondez app.manaresto.com (ou relancez avec PUBLIC_HOST=app.manaresto.com)." >&2
+    exit 1 ;;
+esac
+# Ancien domaine conservé comme alias (PUBLIC_HOST_ALT) quand on change de domaine, sauf s'il est réservé au site
+if [ -z "${PUBLIC_HOST_ALT:-}" ]; then
+  PREV_HOST=$(ssh -i "$KEY" -o BatchMode=yes -o ConnectTimeout=8 "$TARGET" "grep -s '^PUBLIC_HOST=' $VPS_PATH/.env | cut -d= -f2-" 2>/dev/null | tr -d '[:space:]:' || true)
+  PREV_ALT=$(ssh -i "$KEY" -o BatchMode=yes -o ConnectTimeout=8 "$TARGET" "grep -s '^PUBLIC_HOST_ALT=' $VPS_PATH/.env | cut -d= -f2-" 2>/dev/null | tr -d '[:space:]' || true)
+  case "$PREV_HOST" in ""|"$PUBLIC_HOST"|manaresto.com|www.manaresto.com) PUBLIC_HOST_ALT="$PREV_ALT" ;; *) PUBLIC_HOST_ALT="$PREV_HOST" ;; esac
+  case "$PUBLIC_HOST_ALT" in manaresto.com|www.manaresto.com|"$PUBLIC_HOST") PUBLIC_HOST_ALT="" ;; esac
+fi
 if [ -z "${SEED_DEMO:-}" ]; then
   read -rp "Charger le restaurant de démonstration « Le Mana Beach » ? [Y/n] : " SD
   SEED_DEMO=$([ "${SD:-Y}" = "n" ] || [ "${SD:-Y}" = "N" ] && echo false || echo true)
 fi
 echo ""
 echo "  Domaine  : $PUBLIC_HOST   (doit pointer vers $VPS_HOST — enregistrement DNS A)"
+[ -n "$PUBLIC_HOST_ALT" ] && echo "  Alias    : $PUBLIC_HOST_ALT   (ancien domaine, toujours servi)"
 echo "  Démo     : $SEED_DEMO"
 echo ""
 
@@ -71,6 +85,8 @@ $SSH "cd $VPS_PATH && if [ ! -f .env ]; then
   echo '  ✓ .env créé (mots de passe générés)'
 else
   sed -i \"s|^PUBLIC_HOST=.*|PUBLIC_HOST=$PUBLIC_HOST|; s|^PUBLIC_URL=.*|PUBLIC_URL=https://$PUBLIC_HOST|\" .env
+  sed -i '/^PUBLIC_HOST_ALT=/d' .env
+  [ -n '$PUBLIC_HOST_ALT' ] && printf 'PUBLIC_HOST_ALT=%s\n' '$PUBLIC_HOST_ALT' >> .env
   grep -q '^SITE_HOST=' .env || printf '\nSITE_HOST=www.manaresto.com\nSITE_HOST_ALT=manaresto.com\n' >> .env
   echo '  ✓ .env existant conservé (mots de passe inchangés)'
 fi"
