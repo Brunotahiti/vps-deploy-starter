@@ -14,6 +14,7 @@ import type { ProductChoice } from "@/components/pos/product-modal";
  *   qrMode : MENU | MENU_CALL | ORDER | ORDER_DIRECT
  *   online : { enabled, pickup, delivery, pickupLeadMin, deliveryFee, deliveryMinOrder, deliveryZones: string[], message }
  *   kiosk  : { enabled, dineIn, takeaway }
+ * Site du restaurant (Phase 10) dans establishment.settings.site : { enabled, tagline, description, coverUrl, logoUrl, photos, facebook, instagram, showMenu, showPrices, accent }
  */
 export type QrMode = "MENU" | "MENU_CALL" | "ORDER" | "ORDER_DIRECT";
 export type DigitalSettings = {
@@ -27,6 +28,16 @@ export const DEFAULT_DIGITAL: DigitalSettings = {
   kiosk: { enabled: false, dineIn: true, takeaway: true },
 };
 
+export type SiteSettings = { enabled: boolean; tagline: string; description: string; coverUrl: string; logoUrl: string; photos: string[]; facebook: string; instagram: string; showMenu: boolean; showPrices: boolean; accent: string };
+export const DEFAULT_SITE: SiteSettings = { enabled: true, tagline: "", description: "", coverUrl: "", logoUrl: "", photos: [], facebook: "", instagram: "", showMenu: true, showPrices: true, accent: "#14aaa3" };
+
+/** Réglages du site public du restaurant (fusionnés avec les valeurs par défaut). */
+export async function siteSettings(establishmentId: string): Promise<SiteSettings> {
+  const est = await prisma.establishment.findUniqueOrThrow({ where: { id: establishmentId }, select: { settings: true } });
+  const s = ((est.settings ?? {}) as { site?: Partial<SiteSettings> }).site ?? {};
+  return { ...DEFAULT_SITE, ...s, photos: Array.isArray(s.photos) ? s.photos : [] };
+}
+
 export async function digitalSettings(establishmentId: string): Promise<DigitalSettings> {
   const est = await prisma.establishment.findUniqueOrThrow({ where: { id: establishmentId }, select: { settings: true } });
   const s = ((est.settings ?? {}) as { digital?: Partial<DigitalSettings> }).digital ?? {};
@@ -34,6 +45,26 @@ export async function digitalSettings(establishmentId: string): Promise<DigitalS
 }
 
 const estPublic = { id: true, organizationId: true, name: true, slug: true, city: true, island: true, phone: true, email: true, addressLine1: true, currency: true, timezone: true, locale: true, openingHours: true, organization: { select: { slug: true } } } as const;
+
+/** Menu allégé pour le site du restaurant : catégories, produits (nom, description, prix, photo, variantes) et formules, sans options ni stocks. */
+export async function siteMenu(establishmentId: string) {
+  const c = await publicCatalog(establishmentId);
+  return {
+    categories: c.categories.map(({ id, name, parentId, imageUrl }) => ({ id, name, parentId, imageUrl })),
+    products: c.products.map((p) => ({ id: p.id, name: p.name, description: p.description, categoryId: p.categoryId, priceTtc: p.priceTtc, imageUrl: p.imageUrl, variants: p.variants.map((v) => ({ name: v.name, priceTtc: v.priceTtc })) })),
+    menus: c.menus.map((m) => ({ id: m.id, name: m.name, description: m.description, priceTtc: m.priceTtc, imageUrl: m.imageUrl, sections: m.sections.map((sec) => ({ name: sec.name, items: sec.items.map((i) => i.product.name) })) })),
+  };
+}
+
+/** Site public du restaurant : coordonnées, horaires, réglages du site, canaux ouverts (commande en ligne, réservation) et menu. */
+export async function restaurantSite(orgSlug: string, estSlug: string) {
+  const est = await prisma.establishment.findFirst({ where: { slug: estSlug, isActive: true, organization: { slug: orgSlug } }, select: { ...estPublic, addressLine2: true, postalCode: true } });
+  if (!est) throw new ApiError(404, "NOT_FOUND", "Établissement introuvable");
+  const [site, digital] = await Promise.all([siteSettings(est.id), digitalSettings(est.id)]);
+  if (!site.enabled) throw new ApiError(404, "SITE_DISABLED", "Ce restaurant n'a pas activé son site");
+  const menu = site.showMenu ? await siteMenu(est.id) : null;
+  return { establishment: est, site, online: { enabled: digital.online.enabled, pickup: digital.online.pickup, delivery: digital.online.delivery }, menu };
+}
 
 /** Catalogue public : produits disponibles uniquement, sans coûts ni stocks. */
 export async function publicCatalog(establishmentId: string) {

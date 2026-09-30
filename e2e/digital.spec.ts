@@ -61,3 +61,31 @@ test("commande en ligne → suivi public → acceptation en caisse", async ({ pa
   await expect.poll(async () => (await (await request.get(`/api/public/track/${created.data.publicToken}`)).json()).data.stage).toBe("ACCEPTED");
   await page.request.post(`/api/orders/${created.data.id}/cancel`, { data: { reason: "Test / formation" } });
 });
+
+/** Phase 10 : site public propre au restaurant, réglé depuis Digital. */
+test("site du restaurant : page publique, menu, boutons, langue, réglages", async ({ page }) => {
+  await page.goto("/site/demo-mana-beach/le-mana-beach");
+  await expect(page.getByRole("heading", { level: 1, name: "Le Mana Beach" })).toBeVisible();
+  await expect(page.getByText("Cuisine du lagon, les pieds dans le sable")).toBeVisible();
+  await expect(page.getByTestId("site-order")).toHaveAttribute("href", /\/commander\/demo-mana-beach\/le-mana-beach$/);
+  await expect(page.getByTestId("site-reserve")).toHaveAttribute("href", /\/reserver\/demo-mana-beach\/le-mana-beach$/);
+  await expect(page.getByTestId("site-menu").getByText("Poisson cru au lait de coco").first()).toBeVisible();
+  await page.goto("/site/demo-mana-beach/le-mana-beach?lang=en");
+  await expect(page.getByTestId("site-reserve")).toHaveText(/Book a table/);
+  await expect(page.getByText(/Open today|Closed today/)).toBeVisible();
+
+  await page.goto("/login");
+  await page.getByPlaceholder("vous@restaurant.pf").fill("manager@manaresto.pf");
+  await page.getByLabel("Mot de passe").fill("demo1234");
+  await page.getByRole("button", { name: "Se connecter" }).click();
+  await page.waitForURL(/\/(pos|admin)/);
+  await page.goto("/admin/digital");
+  await page.getByLabel("Accroche (une phrase)").fill("Nouvelle accroche e2e");
+  await page.getByRole("button", { name: "Enregistrer" }).click();
+  await expect(page.getByText("Réglages enregistrés")).toBeVisible();
+  await page.goto("/site/demo-mana-beach/le-mana-beach");
+  await expect(page.getByText("Nouvelle accroche e2e")).toBeVisible();
+  await page.request.patch("/api/digital/settings", { data: { site: { tagline: "Cuisine du lagon, les pieds dans le sable" } } });
+  const off = await page.request.get("/api/public/site/demo-mana-beach/inexistant");
+  expect(off.status()).toBe(404);
+});
