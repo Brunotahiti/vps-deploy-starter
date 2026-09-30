@@ -22,7 +22,7 @@ test("mise à jour de l'application : bandeau et bouton « Mettre à jour »", a
   await page.evaluate(() => navigator.serviceWorker.register("/sw.js?deploiement=2"));
   await expect(page.getByText("Nouvelle version disponible")).toBeVisible({ timeout: 15000 });
   await Promise.all([page.waitForEvent("load"), page.getByRole("button", { name: "Mettre à jour" }).click()]);
-  await expect(page.locator("header").getByText("EN LIGNE")).toBeVisible();
+  await expect(page.locator("header [data-testid=network-status][data-online=true]")).toBeVisible();
   // La nouvelle version a pris le contrôle après le rechargement
   await expect.poll(() => page.evaluate(() => navigator.serviceWorker.controller?.scriptURL ?? "")).toContain("deploiement=2");
 });

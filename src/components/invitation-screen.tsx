@@ -8,7 +8,7 @@ import { api, ApiClientError } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/field";
 import { Spinner } from "@/components/ui/misc";
-import { Logo, BrandPanel } from "@/components/brand";
+import { BrandPanel, BrandHeaderMobile } from "@/components/brand";
 import { WelcomeSplash } from "@/components/welcome-splash";
 import type { getInvitation } from "@/server/services/invitations";
 
@@ -36,11 +36,11 @@ export function InvitationScreen({ token }: { token: string }) {
     } catch (err) { setError(err instanceof ApiClientError ? err.message : "Erreur"); setBusy(false); }
   };
   return (
-    <main className="grid min-h-screen lg:grid-cols-[1.1fr_1fr]">
+    <main className="grid min-h-screen lg:grid-cols-[1.15fr_1fr]">
       <BrandPanel />
-      <section className="flex items-center justify-center p-6 sm:p-10">
+      <section className="flex items-center justify-center bg-[var(--bg)] p-6 sm:p-10">
         <div className="w-full max-w-md">
-          <Logo className="mb-8 lg:hidden" />
+          <div className="lg:hidden"><BrandHeaderMobile /></div>
           {q.isLoading ? <div className="flex justify-center py-10"><Spinner /></div> : !inv ? (
             <div className="card p-6 text-center"><p className="text-lg font-extrabold">Invitation introuvable</p><p className="mt-2 text-sm text-muted">Ce lien a déjà été utilisé ou n&apos;existe pas. Demandez à votre manager de vous renvoyer une invitation.</p><Link href="/login" className="mt-4 inline-block text-sm font-bold text-lagon-600">Aller à la connexion</Link></div>
           ) : inv.expired ? (
