@@ -154,3 +154,16 @@ export const terminalChargeSchema = z.object({ orderId: uuid, amount: z.number()
 export const terminalSettingsSchema = z.object({ adapter: z.enum(["manual", "bridge"]), url: z.string().url().max(300).optional().or(z.literal("")), apiKey: z.string().max(200).optional(), terminalId: z.string().max(80).optional(), timeoutMs: z.number().int().min(5000).max(300000).optional() });
 export const copyCatalogSchema = z.object({ fromId: uuid, products: z.boolean().optional(), menus: z.boolean().optional() });
 export const apiOrdersQuery = z.object({ from: daySchema.optional(), to: daySchema.optional(), status: z.string().optional(), take: z.coerce.number().int().min(1).max(500).optional(), skip: z.coerce.number().int().min(0).optional() });
+
+// ---------------------------------------------------------------- Suivi de service (Phase 9)
+export const snoozeSchema = z.object({ minutes: z.number().int().min(1).max(120) });
+export const serviceStepSchema = z.object({ status: z.enum(["PENDING", "DONE", "SKIPPED", "NOT_NEEDED"]), reason: z.string().max(200).nullable().optional() });
+export const assignServerSchema = z.object({ serverId: uuid.nullable().optional() });
+export const serviceSettingsSchema = z.object({
+  enabled: z.boolean().optional(),
+  assignTo: z.enum(["SERVER", "TEAM"]).optional(),
+  sound: z.boolean().optional(),
+  vibrate: z.boolean().optional(),
+  delays: z.object({ welcome: z.number().int().min(0).max(120), drinksCheck: z.number().int().min(0).max(120), foodCheck: z.number().int().min(0).max(120), dessertOffer: z.number().int().min(0).max(120), dessertCheck: z.number().int().min(0).max(120), bill: z.number().int().min(0).max(120), late: z.number().int().min(1).max(120) }).partial().optional(),
+  steps: z.array(z.object({ key: z.string().min(1).max(40).regex(/^[a-z0-9_]+$/), label: z.string().min(1).max(120) })).min(1).max(20).optional(),
+});

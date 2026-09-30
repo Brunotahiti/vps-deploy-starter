@@ -7,6 +7,7 @@ import { applyBps } from "@/lib/money";
 import { localDay } from "@/lib/dates";
 import { consumeForItems } from "./stock";
 import { autoPrintKitchenTickets } from "@/server/hardware/printers";
+import { startTracking, onCoursesSent, onServed, onBillRequested, onOrderClosed, onTicketNotReady } from "./service-tracking";
 import type { CourseStatus, OrderType, Prisma } from "@/generated/prisma/client";
 
 export type Actor = { organizationId: string; establishmentId: string; userId: string; terminalId?: string | null; authorizedById?: string | null };
@@ -112,6 +113,7 @@ export async function createOrder(actor: Actor, input: CreateOrderInput) {
       },
     });
     if (input.tableId) await tx.table.update({ where: { id: input.tableId }, data: { state: "FREE" } });
+    await startTracking(tx, actor, o); // Phase 9 : parcours de service et premier rappel
     return getOrder(actor.establishmentId, o.id, tx);
   });
   publish("order.created", actor.establishmentId, { orderId: order.id, tableId: order.tableId });
@@ -280,6 +282,7 @@ export async function removeItem(actor: Actor, orderId: string, itemId: string, 
       for (const ticketId of ticketIds) {
         const remaining = await tx.orderItem.count({ where: { kitchenTicketId: ticketId, status: { not: "VOIDED" } } });
         if (remaining === 0) await tx.kitchenTicket.updateMany({ where: { id: ticketId, status: { in: ["NEW", "ACCEPTED", "IN_PROGRESS", "READY"] } }, data: { status: "CANCELLED", completedAt: new Date() } });
+        if (remaining === 0) await onTicketNotReady(tx, orderId, ticketId);
       }
       await audit({ ...actor, action: "item.void", entityType: "order_item", entityId: item.id, oldValue: { name: item.name, quantity: item.quantity, lineTotal: item.lineTotal, orderNumber: order.number }, reason }, tx);
     } else {
@@ -324,7 +327,9 @@ export async function sendCourse(actor: Actor, orderId: string, opts: { courseId
     const courseIds = [...new Set(pending.map((i) => i.courseId).filter(Boolean))] as string[];
     await tx.course.updateMany({ where: { id: { in: courseIds } }, data: { status: "SENT", sentAt: now } });
     await tx.order.update({ where: { id: orderId }, data: { status: order.status === "OPEN" ? "SENT" : order.status, version: { increment: 1 } } });
+    await onCoursesSent(tx, actor, orderId, order.courses.filter((c) => courseIds.includes(c.id)).map((c) => c.name));
   });
+  publish("service.updated", actor.establishmentId, { orderId, tableId: order.tableId });
   publish("order.updated", actor.establishmentId, { orderId, tableId: order.tableId });
   publish("kitchen.updated", actor.establishmentId, { orderId });
   publish("table.updated", actor.establishmentId, { tableId: order.tableId });
@@ -346,9 +351,15 @@ export async function setCourseStatus(actor: Actor, orderId: string, courseId: s
   await prisma.$transaction(async (tx) => {
     await tx.course.update({ where: { id: courseId }, data: { status, ...(status === "FIRE" ? { firedAt: new Date() } : {}) } });
     if (status === "FIRE") await tx.kitchenTicket.updateMany({ where: { courseId, status: { in: ["NEW", "ACCEPTED"] } }, data: { isUrgent: true } });
-    if (status === "SERVED") await tx.orderItem.updateMany({ where: { courseId, status: { in: ["SENT", "PREPARING", "READY"] } }, data: { status: "SERVED", servedAt: new Date() } });
+    if (status === "SERVED") {
+      await tx.orderItem.updateMany({ where: { courseId, status: { in: ["SENT", "PREPARING", "READY"] } }, data: { status: "SERVED", servedAt: new Date() } });
+      await tx.kitchenTicket.updateMany({ where: { courseId, status: "READY" }, data: { status: "DONE", completedAt: new Date() } });
+      const ticketIds = [...new Set(order.items.filter((i) => i.courseId === courseId && i.kitchenTicketId).map((i) => i.kitchenTicketId!))];
+      await onServed(tx, actor, order, [course.name], ticketIds); // Phase 9 : programme la vérification suivante
+    }
     await tx.order.update({ where: { id: orderId }, data: { version: { increment: 1 } } });
   });
+  if (status === "SERVED") publish("service.updated", actor.establishmentId, { orderId, tableId: order.tableId });
   publish("order.updated", actor.establishmentId, { orderId, tableId: order.tableId });
   publish("kitchen.updated", actor.establishmentId, { orderId });
   return getOrder(actor.establishmentId, orderId);
@@ -372,7 +383,11 @@ export async function applyDiscount(actor: Actor, orderId: string, input: { amou
 export async function requestBill(actor: Actor, orderId: string) {
   const order = await getOrder(actor.establishmentId, orderId);
   assertOpen(order);
-  await prisma.order.update({ where: { id: orderId }, data: { status: "BILL_REQUESTED", billRequestedAt: new Date(), version: { increment: 1 } } });
+  await prisma.$transaction(async (tx) => {
+    await tx.order.update({ where: { id: orderId }, data: { status: "BILL_REQUESTED", billRequestedAt: new Date(), version: { increment: 1 } } });
+    await onBillRequested(tx, actor, orderId);
+  });
+  publish("service.updated", actor.establishmentId, { orderId, tableId: order.tableId });
   publish("order.updated", actor.establishmentId, { orderId, tableId: order.tableId });
   publish("table.updated", actor.establishmentId, { tableId: order.tableId });
   return getOrder(actor.establishmentId, orderId);
@@ -385,12 +400,14 @@ export async function cancelOrder(actor: Actor, orderId: string, reason: string)
   await prisma.$transaction(async (tx) => {
     await tx.order.update({ where: { id: orderId }, data: { status: "CANCELLED", cancelReason: reason, closedAt: new Date(), version: { increment: 1 } } });
     await tx.kitchenTicket.updateMany({ where: { orderId, status: { in: ["NEW", "ACCEPTED", "IN_PROGRESS", "READY"] } }, data: { status: "CANCELLED", completedAt: new Date() } });
+    await onOrderClosed(tx, orderId);
     await consumeForItems(tx, actor.establishmentId, order.items.filter((i) => i.status !== "PENDING" && i.status !== "VOIDED"), 1, orderId, actor.userId);
     await audit({ ...actor, action: "order.cancel", entityType: "order", entityId: orderId, oldValue: { status: order.status, total: order.total, number: order.number, items: order.items.length }, reason }, tx);
   });
   publish("order.closed", actor.establishmentId, { orderId, tableId: order.tableId });
   publish("table.updated", actor.establishmentId, { tableId: order.tableId });
   publish("kitchen.updated", actor.establishmentId, { orderId });
+  publish("service.updated", actor.establishmentId, { orderId, tableId: order.tableId });
   return getOrder(actor.establishmentId, orderId);
 }
 
@@ -423,5 +440,6 @@ export async function closeOrderIfPaid(tx: Tx, establishmentId: string, orderId:
   await tx.orderItem.updateMany({ where: { orderId, status: { in: ["SENT", "PREPARING", "READY"] } }, data: { status: "SERVED", servedAt: new Date() } });
   await tx.kitchenTicket.updateMany({ where: { orderId, status: { in: ["NEW", "ACCEPTED", "IN_PROGRESS", "READY"] } }, data: { status: "DONE", completedAt: new Date() } });
   if (order.tableId) await tx.table.update({ where: { id: order.tableId }, data: { state: settings.markTablesToClean ? "TO_CLEAN" : "FREE" } });
+  await onOrderClosed(tx, orderId);
   return closed;
 }

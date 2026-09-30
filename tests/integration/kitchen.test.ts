@@ -2,7 +2,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { resetDb } from "../setup/db";
 import { makeTenant } from "../setup/fixtures";
 import { prisma } from "@/server/db";
-import { addItem, cancelOrder, createOrder, getOrder, removeItem, sendCourse } from "@/server/services/orders";
+import { addItem, cancelOrder, createOrder, getOrder, removeItem, sendCourse, setCourseStatus } from "@/server/services/orders";
 import { kitchenSummary, listKitchenTickets, setItemReady, setTicketStatus } from "@/server/services/kitchen";
 import { renderKitchenTicketEscPos, renderKitchenTicketHtml } from "@/server/receipts/kitchen-ticket";
 import { getFloorStatus } from "@/server/services/floor";
@@ -60,6 +60,11 @@ describe("Phase 3 — écran cuisine", () => {
     expect(floor.rooms[0].tables.find((x) => x.id === T.t1.id)!.order!.readyCount).toBe(1);
     t = await setTicketStatus(T.actor, ticket.id, "DONE");
     expect(t.completedAt).not.toBeNull();
+    order = await getOrder(T.est.id, o.id);
+    // Phase 9 : « terminé » en cuisine ne vaut pas « apporté à la table » (suivi de service actif)
+    expect(order.items.find((i) => i.name === "Burger")!.status).toBe("READY");
+    expect(order.courses.find((c) => c.name === "PLATS")!.status).toBe("READY");
+    await setCourseStatus(T.actor, o.id, order.courses.find((c) => c.name === "PLATS")!.id, "SERVED"); // apporté
     order = await getOrder(T.est.id, o.id);
     expect(order.items.find((i) => i.name === "Burger")!.status).toBe("SERVED");
     expect(order.courses.find((c) => c.name === "PLATS")!.status).toBe("SERVED");

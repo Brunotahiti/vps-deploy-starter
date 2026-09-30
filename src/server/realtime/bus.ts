@@ -9,8 +9,8 @@ import { EventEmitter } from "node:events";
  */
 export type RealtimeEventType =
   | "order.updated" | "order.created" | "order.closed" | "table.updated" | "product.availability"
-  | "cash.updated" | "kitchen.updated" | "catalog.updated" | "floor.updated";
-export const REALTIME_EVENT_TYPES: RealtimeEventType[] = ["order.updated", "order.created", "order.closed", "table.updated", "product.availability", "cash.updated", "kitchen.updated", "catalog.updated", "floor.updated"];
+  | "cash.updated" | "kitchen.updated" | "catalog.updated" | "floor.updated" | "service.updated";
+export const REALTIME_EVENT_TYPES: RealtimeEventType[] = ["order.updated", "order.created", "order.closed", "table.updated", "product.availability", "cash.updated", "kitchen.updated", "catalog.updated", "floor.updated", "service.updated"];
 
 export type RealtimeEvent = { type: RealtimeEventType; establishmentId: string; payload: Record<string, unknown>; at: string };
 
