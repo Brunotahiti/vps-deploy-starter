@@ -26,6 +26,8 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="preload" href="assets/fonts/PlusJakartaSans-latin.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="assets/img/order.webp" as="image" type="image/webp" fetchpriority="high">
+  <link rel="preload" href="assets/img/hero-bg-m.webp" as="image" type="image/webp" media="(max-width: 899px)">
+  <link rel="preload" href="assets/img/hero-bg.webp" as="image" type="image/webp" media="(min-width: 900px)">
   <link rel="stylesheet" href="styles.css">
   <script type="application/ld+json">
   {
@@ -69,10 +71,11 @@
   </script>
 </head>
 <body>
+  <div id="intro" aria-hidden="true"><div class="intro-inner"><img src="assets/img/logo.png" alt="" width="96" height="96"><p>Mana<b>Resto</b></p><span>Ia ora na</span></div><svg class="intro-wave" viewBox="0 0 1440 120" preserveAspectRatio="none"><path d="M0 60c120-40 240-40 360 0s240 40 360 0 240-40 360 0 240 40 360 0v60H0z" fill="#fff"/></svg></div>
   <a class="skip" href="#contenu">Aller au contenu</a>
   <header class="nav">
     <div class="wrap">
-      <a class="brand" href="/" aria-label="ManaResto, accueil"><img src="assets/img/logo.png" alt="" width="36" height="36">Mana<b>Resto</b></a>
+      <a class="brand" href="/" aria-label="ManaResto, accueil"><img src="assets/img/logo.png" alt="" width="38" height="38">Mana<b>Resto</b></a>
       <nav class="nav-links" aria-label="Navigation principale">
         <a href="#fonctionnalites">Fonctionnalités</a><a href="#service">Suivi du service</a><a href="#commande-en-ligne">Commande en ligne</a><a href="#tarif">Tarif</a><a href="#faq">FAQ</a>
       </nav>
@@ -91,56 +94,57 @@
   <main id="contenu">
     <section class="hero" aria-labelledby="titre">
       <div class="wrap">
-        <div>
+        <div class="stagger">
           <span class="badge">🌺 Conçu et développé à Tahiti</span>
           <h1 id="titre">Toute la gestion de votre restaurant <span>dans une seule application</span></h1>
           <p class="lead">ManaResto réunit votre caisse, votre salle, votre cuisine, vos stocks, votre équipe et vos commandes en ligne dans un logiciel de caisse et de gestion pensé pour les restaurants, roulottes, snacks et bars de Polynésie française.</p>
           <p class="price-line"><span class="price">12 000 F CFP</span><span class="per">/ mois</span></p>
-          <p class="perks"><span>0 % de commission</span><span>15 jours gratuits</span><span>Sans carte bancaire</span></p>
+          <p class="perks"><span><i data-icon="check"></i>0 % de commission</span><span><i data-icon="check"></i>15 jours gratuits</span><span><i data-icon="check"></i>Sans carte bancaire</span></p>
           <div class="hero-cta">
             <a class="btn btn-primary" data-signup data-track="cta_trial" href="#">Essayer gratuitement</a>
-            <a class="btn btn-secondary" href="#demo" data-track="cta_demo">Demander une démonstration</a>
+            <a class="btn btn-ghost" href="#demo" data-track="cta_demo">Demander une démonstration</a>
           </div>
           <p class="hero-note">Fonctionne sur tablette, ordinateur et smartphone · Caisse • Salle • Cuisine • Stock • Personnel • Commandes • Livraison • Réservations</p>
         </div>
         <div class="devices" aria-label="ManaResto sur ordinateur et sur téléphone">
-          <img class="laptop" src="assets/img/order.webp" alt="Écran de caisse ManaResto : prise de commande avec photos des plats, table et services" width="1280" height="800" fetchpriority="high" decoding="async">
-          <img class="phone" src="assets/img/m-floor.webp" alt="Plan de salle ManaResto sur smartphone avec l'état de chaque table" width="640" height="1090" loading="lazy" decoding="async">
+          <div class="frame anim-laptop"><img src="assets/img/order.webp" alt="Écran de caisse ManaResto : prise de commande avec photos des plats, table et services" width="1280" height="800" fetchpriority="high" decoding="async"></div>
+          <div class="phone-frame anim-phone"><img src="assets/img/m-floor.webp" alt="Plan de salle ManaResto sur smartphone avec l'état de chaque table" width="640" height="1090" loading="lazy" decoding="async"></div>
         </div>
       </div>
+      <div class="wave" aria-hidden="true"><svg viewBox="0 0 1440 64" preserveAspectRatio="none"><path d="M0 32c160-40 320-40 480 0s320 40 480 0 320-40 480 0v32H0z" fill="#fff"/></svg></div>
     </section>
 
     <section class="reassure" aria-label="Points clés">
       <div class="wrap">
         <ul>
-          <li><b>0 % de commission</b><span>Gardez l'intégralité de vos ventes en ligne.</span></li>
-          <li><b>12 000 F CFP/mois</b><span>Un tarif simple et prévisible.</span></li>
-          <li><b>Conçu à Tahiti</b><span>Une solution adaptée aux réalités de la Polynésie.</span></li>
-          <li><b>Multi-appareils</b><span>Tablette, ordinateur et smartphone.</span></li>
+          <li><i data-icon="percent"></i><div><b>0 % de commission</b><span>Gardez l'intégralité de vos ventes en ligne.</span></div></li>
+          <li><i data-icon="coins"></i><div><b>12 000 F CFP/mois</b><span>Un tarif simple et prévisible.</span></div></li>
+          <li><i data-icon="tree-palm"></i><div><b>Conçu à Tahiti</b><span>Une solution adaptée aux réalités de la Polynésie.</span></div></li>
+          <li><i data-icon="smartphone"></i><div><b>Multi-appareils</b><span>Tablette, ordinateur et smartphone.</span></div></li>
         </ul>
       </div>
     </section>
 
-    <section id="fonctionnalites" class="soft">
+    <section id="fonctionnalites">
       <div class="wrap">
         <div class="section-head reveal"><span class="eyebrow">Logiciel restaurant Tahiti</span><h2>Tout votre restaurant. Un seul logiciel.</h2><p class="lead">Plus besoin de multiplier les applications. ManaResto centralise les opérations essentielles de votre établissement, de la caisse à la commande en ligne.</p></div>
         <div class="grid grid-5">
-          <div class="card reveal"><div class="ico">🧾</div><h3>Caisse</h3><p>Prise de commande rapide, encaissement et suivi des ventes.</p></div>
-          <div class="card reveal"><div class="ico">🗺️</div><h3>Plan de salle</h3><p>Visualisez vos tables et l'état du service en temps réel.</p></div>
-          <div class="card reveal"><div class="ico">👨‍🍳</div><h3>Cuisine</h3><p>Les commandes arrivent directement en cuisine et leur avancement est visible par l'équipe.</p></div>
-          <div class="card reveal"><div class="ico">📦</div><h3>Stocks</h3><p>Suivez vos produits et anticipez les ruptures.</p></div>
-          <div class="card reveal"><div class="ico">👥</div><h3>Personnel</h3><p>Organisation de l'équipe et suivi de l'activité.</p></div>
-          <div class="card reveal"><div class="ico">🛍️</div><h3>Commande en ligne</h3><p>Recevez directement les commandes de vos clients sans commission.</p></div>
-          <div class="card reveal"><div class="ico">🛵</div><h3>Livraison et retrait</h3><p>Gérez sur place, à emporter et livraison depuis la même interface.</p></div>
-          <div class="card reveal"><div class="ico">📅</div><h3>Réservations</h3><p>Centralisez vos réservations et l'organisation de votre salle.</p></div>
-          <div class="card reveal"><div class="ico">💛</div><h3>Fidélité</h3><p>Développez la relation avec vos clients.</p></div>
-          <div class="card reveal"><div class="ico">🔳</div><h3>QR Code</h3><p>Permettez aux clients d'accéder facilement aux services du restaurant.</p></div>
+          <div class="card reveal"><span class="ico" data-icon="receipt"></span><h3>Caisse</h3><p>Prise de commande rapide, encaissement et suivi des ventes.</p></div>
+          <div class="card reveal"><span class="ico" data-icon="map"></span><h3>Plan de salle</h3><p>Visualisez vos tables et l'état du service en temps réel.</p></div>
+          <div class="card reveal"><span class="ico" data-icon="chef-hat"></span><h3>Cuisine</h3><p>Les commandes arrivent directement en cuisine et leur avancement est visible par l'équipe.</p></div>
+          <div class="card reveal"><span class="ico" data-icon="package"></span><h3>Stocks</h3><p>Suivez vos produits et anticipez les ruptures.</p></div>
+          <div class="card reveal"><span class="ico" data-icon="users"></span><h3>Personnel</h3><p>Organisation de l'équipe et suivi de l'activité.</p></div>
+          <div class="card reveal"><span class="ico corail" data-icon="shopping-bag"></span><h3>Commande en ligne</h3><p>Recevez directement les commandes de vos clients sans commission.</p></div>
+          <div class="card reveal"><span class="ico corail" data-icon="bike"></span><h3>Livraison et retrait</h3><p>Gérez sur place, à emporter et livraison depuis la même interface.</p></div>
+          <div class="card reveal"><span class="ico" data-icon="calendar-days"></span><h3>Réservations</h3><p>Centralisez vos réservations et l'organisation de votre salle.</p></div>
+          <div class="card reveal"><span class="ico corail" data-icon="heart"></span><h3>Fidélité</h3><p>Développez la relation avec vos clients.</p></div>
+          <div class="card reveal"><span class="ico" data-icon="qr-code"></span><h3>QR Code</h3><p>Permettez aux clients d'accéder facilement aux services du restaurant.</p></div>
         </div>
         <div class="section-cta reveal"><a class="btn btn-primary" data-signup data-track="cta_trial" href="#">Essayer gratuitement</a><a class="btn btn-secondary" href="#demo" data-track="cta_demo">Demander une démonstration</a></div>
       </div>
     </section>
 
-    <section id="service">
+    <section id="service" class="soft">
       <div class="wrap">
         <div class="section-head reveal"><span class="eyebrow">Suivi du service</span><h2>Vos serveurs savent toujours quelle table nécessite leur attention</h2><p class="lead">ManaResto accompagne l'équipe pendant tout le repas et aide à éviter les tables oubliées.</p></div>
         <ol class="flow reveal">
@@ -152,8 +156,8 @@
           <li><b>Dessert / café</b><span>Un rappel évite d'oublier de revenir à la table.</span></li>
           <li><b>Addition</b><span>Le serveur voit immédiatement qu'une table attend son règlement.</span></li>
         </ol>
-        <p class="strong-line reveal">Même pendant un gros service, chaque table reste visible et suivie.</p>
-        <figure class="shot reveal" style="margin-top:26px"><img src="assets/img/service.webp" alt="Plan de salle ManaResto avec l'état de chaque table et le panneau « À faire maintenant » listant les actions des serveurs" width="1280" height="800" loading="lazy" decoding="async"><figcaption><b>Interface réelle</b><span>tables, retards et actions à faire maintenant</span></figcaption></figure>
+        <p class="strong-line reveal"><i data-icon="bell-ring"></i>Même pendant un gros service, chaque table reste visible et suivie.</p>
+        <div class="frame reveal" style="margin-top:28px"><img src="assets/img/service.webp" alt="Plan de salle ManaResto avec l'état de chaque table et le panneau « À faire maintenant » listant les actions des serveurs" width="1280" height="800" loading="lazy" decoding="async"></div>
       </div>
     </section>
 
@@ -163,7 +167,7 @@
           <span class="eyebrow">Commande en ligne restaurant Tahiti</span>
           <h2 style="margin-top:12px">Vos commandes en ligne. Vos clients. Votre chiffre d'affaires.</h2>
           <p class="lead" style="margin-top:12px">Permettez à vos clients de commander directement auprès de votre établissement sans reverser de commission sur chaque commande.</p>
-          <p class="zero" style="margin-top:18px">0 %<small>de commission</small></p>
+          <p class="zero" style="margin-top:20px">0 %<small>de commission</small></p>
           <ul class="checks">
             <li>commande à emporter ;</li>
             <li>livraison si disponible (communes, frais et minimum de commande) ;</li>
@@ -173,7 +177,7 @@
           </ul>
           <div class="section-cta"><a class="btn btn-lagon" href="#demo" data-track="cta_demo">Découvrir la commande en ligne</a></div>
         </div>
-        <figure class="shot reveal"><img src="assets/img/online.webp" alt="Commande en ligne ManaResto : menu avec photos, retrait ou livraison, coordonnées du client" width="1280" height="800" loading="lazy" decoding="async"><figcaption><b>Boutique en ligne</b><span>à emporter et livraison</span></figcaption></figure>
+        <div class="frame reveal"><img src="assets/img/online.webp" alt="Commande en ligne ManaResto : menu avec photos, retrait ou livraison, coordonnées du client" width="1280" height="800" loading="lazy" decoding="async"></div>
       </div>
     </section>
 
@@ -193,12 +197,12 @@
       <div class="wrap">
         <div class="section-head reveal"><span class="badge-pf">Développé à Tahiti 🇵🇫</span><h2 style="margin-top:14px">Pensé à Tahiti pour les professionnels du fenua</h2><p class="lead">ManaResto a été conçu pour répondre aux besoins des restaurants, roulottes, snacks et bars de Polynésie française.</p></div>
         <div class="grid grid-3">
-          <div class="card reveal"><div class="ico">🪙</div><h3>Prix en F CFP</h3><p>Tickets, rapports et exports en francs Pacifique, sans décimales inutiles.</p></div>
-          <div class="card reveal"><div class="ico">🧾</div><h3>TVA locale lorsque applicable</h3><p>Taux configurables par produit, N° Tahiti et mentions sur vos tickets.</p></div>
-          <div class="card reveal"><div class="ico">🏝️</div><h3>Adapté aux établissements polynésiens</h3><p>Terrasses, roulottes, coupures de réseau : la caisse continue et se synchronise au retour d'Internet.</p></div>
-          <div class="card reveal"><div class="ico">🤝</div><h3>Accompagnement local</h3><p>Une équipe basée à Tahiti, joignable par e-mail, qui parle votre langue et connaît vos horaires.</p></div>
-          <div class="card reveal"><div class="ico">📱</div><h3>Vos équipements courants</h3><p>Tablettes, téléphones et ordinateurs que vous avez déjà, sans matériel imposé.</p></div>
-          <div class="card reveal"><div class="ico">🌐</div><h3>Site web pour votre restaurant</h3><p>Une page publique à votre nom avec votre menu, vos horaires et vos boutons commander et réserver.</p></div>
+          <div class="card reveal"><span class="ico" data-icon="coins"></span><h3>Prix en F CFP</h3><p>Tickets, rapports et exports en francs Pacifique, sans décimales inutiles.</p></div>
+          <div class="card reveal"><span class="ico" data-icon="file-text"></span><h3>TVA locale lorsque applicable</h3><p>Taux configurables par produit, N° Tahiti et mentions sur vos tickets.</p></div>
+          <div class="card reveal"><span class="ico" data-icon="wifi-off"></span><h3>Adapté aux établissements polynésiens</h3><p>Terrasses, roulottes, coupures de réseau : la caisse continue et se synchronise au retour d'Internet.</p></div>
+          <div class="card reveal"><span class="ico corail" data-icon="handshake"></span><h3>Accompagnement local</h3><p>Une équipe basée à Tahiti, joignable par e-mail, qui parle votre langue et connaît vos horaires.</p></div>
+          <div class="card reveal"><span class="ico" data-icon="tablet"></span><h3>Vos équipements courants</h3><p>Tablettes, téléphones et ordinateurs que vous avez déjà, sans matériel imposé.</p></div>
+          <div class="card reveal"><span class="ico" data-icon="globe"></span><h3>Site web pour votre restaurant</h3><p>Une page publique à votre nom avec votre menu, vos horaires et vos boutons commander et réserver.</p></div>
         </div>
         <div class="tahiti-banner reveal"><img src="assets/img/banner-iaorana.webp" alt="Iaorana et Maeva : ManaResto sur une tablette, à la table d'un restaurant face au lagon au coucher du soleil" width="1800" height="684" loading="lazy" decoding="async"></div>
       </div>
@@ -206,12 +210,12 @@
 
     <section id="materiel">
       <div class="wrap">
-        <div class="section-head reveal"><span class="eyebrow">Compatibilité</span><h2>Utilisez le matériel que vous avez déjà</h2><p class="lead">ManaResto fonctionne depuis un navigateur moderne et s'adapte à vos différents écrans. Il peut être installé comme une application sur les appareils compatibles.</p></div>
-        <div class="devices-list reveal"><div><span>📱</span>Smartphone</div><div><span>💻</span>Ordinateur</div><div><span>📲</span>Tablette</div></div>
+        <div class="section-head center reveal"><span class="eyebrow">Compatibilité</span><h2>Utilisez le matériel que vous avez déjà</h2><p class="lead" style="margin-inline:auto">ManaResto fonctionne depuis un navigateur moderne et s'adapte à vos différents écrans. Il peut être installé comme une application sur les appareils compatibles.</p></div>
+        <div class="devices-list reveal"><div><i data-icon="smartphone"></i>Smartphone</div><div><i data-icon="monitor"></i>Ordinateur</div><div><i data-icon="tablet"></i>Tablette</div></div>
       </div>
     </section>
 
-    <section id="comment" class="soft">
+    <section id="comment" class="sand">
       <div class="wrap">
         <div class="section-head reveal"><span class="eyebrow">Comment ça marche ?</span><h2>Commencez simplement</h2></div>
         <div class="grid grid-3 how">
@@ -230,18 +234,18 @@
       </div>
     </section>
 
-    <section id="tarif" class="sand">
+    <section id="tarif">
       <div class="wrap pricing-wrap">
         <div class="reveal">
           <span class="eyebrow">Tarif</span>
           <h2 style="margin-top:12px">Un tarif simple, tout inclus, zéro commission.</h2>
           <p class="lead" style="margin-top:12px">Une seule formule pour tous les établissements : restaurant, roulotte, snack, bar ou café. Pas de module payant, pas de limite d'appareils ni d'utilisateurs, pas de pourcentage prélevé sur vos ventes.</p>
-          <p style="margin-top:18px;font-weight:700">Vous préférez voir ManaResto en fonctionnement ?</p>
+          <p style="margin-top:20px;font-weight:700">Vous préférez voir ManaResto en fonctionnement ?</p>
           <div class="section-cta" style="margin-top:10px"><a class="btn btn-secondary" href="#demo" data-track="cta_demo">Demander une démonstration</a></div>
         </div>
         <div class="pricing-card reveal">
-          <p style="font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;font-size:.8rem">ManaResto</p>
-          <p class="amount" style="margin-top:6px">12 000 F CFP<small>/ mois</small></p>
+          <span class="ribbon"><i data-icon="gift"></i>15 jours d'essai gratuit</span>
+          <p class="amount">12 000 F CFP<small>/ mois</small></p>
           <p class="commit">Engagement 12 mois</p>
           <ul class="checks">
             <li>Caisse</li><li>Plan de salle</li><li>Cuisine</li><li>Gestion des stocks</li><li>Gestion du personnel</li><li>Commande en ligne</li><li>0 % de commission</li><li>QR Code</li><li>Réservations</li><li>Utilisation multi-appareils</li><li>Mises à jour incluses</li><li>Support par e-mail</li>
@@ -252,7 +256,7 @@
       </div>
     </section>
 
-    <section id="faq">
+    <section id="faq" class="soft">
       <div class="wrap">
         <div class="section-head reveal"><span class="eyebrow">Questions fréquentes</span><h2>Ce que les restaurateurs nous demandent</h2></div>
         <div class="reveal">
@@ -268,13 +272,13 @@
       </div>
     </section>
 
-    <section id="demo" class="soft">
+    <section id="demo">
       <div class="wrap split">
         <div class="reveal">
           <span class="eyebrow">Démonstration</span>
           <h2 style="margin-top:12px">Demander une démonstration</h2>
           <p class="lead" style="margin-top:12px">Nous vous présentons ManaResto sur vos propres cas : votre carte, votre salle, votre organisation. Sans engagement de votre part.</p>
-          <p style="margin-top:16px;color:var(--muted)">Vous pouvez aussi nous écrire : <a data-email href="#" style="font-weight:700;color:var(--lagon-700)">contact@manaresto.com</a><span data-phone-row> ou nous appeler au <a data-phone href="#" style="font-weight:700;color:var(--lagon-700)"></a></span>.</p>
+          <div class="contact-lines"><a data-email href="#"><i data-icon="mail"></i>contact@manaresto.com</a><span data-phone-row><a data-phone href="#"><i data-icon="phone"></i></a></span></div>
         </div>
         <form id="demo-form" class="form-card reveal" action="/api/demo" method="post" novalidate>
           <div class="form-grid">
@@ -300,7 +304,7 @@
         <h2>Prêt à simplifier la gestion de votre restaurant ?</h2>
         <p class="lead">Découvrez ManaResto gratuitement pendant 15 jours.</p>
         <p class="price-line"><span class="price">12 000 F CFP/mois</span><span class="per">• 0 % de commission</span></p>
-        <div class="hero-cta" style="justify-content:center"><a class="btn btn-primary" data-signup data-track="cta_trial" href="#">Essayer gratuitement</a><a class="btn btn-secondary" href="#demo" data-track="cta_demo">Demander une démonstration</a></div>
+        <div class="hero-cta" style="justify-content:center"><a class="btn btn-primary" data-signup data-track="cta_trial" href="#">Essayer gratuitement</a><a class="btn btn-ghost" href="#demo" data-track="cta_demo">Demander une démonstration</a></div>
       </div>
     </section>
   </main>
@@ -308,7 +312,7 @@
   <footer>
     <div class="wrap">
       <div class="foot-grid">
-        <div><a class="brand" href="/"><img src="assets/img/logo.png" alt="" width="36" height="36">Mana<b>Resto</b></a><p style="margin-top:10px;color:var(--muted);max-width:34ch">La solution de gestion des restaurants de Polynésie française.</p><p style="margin-top:10px"><a data-install href="#" style="font-weight:700;color:var(--lagon-700)">📲 Installer l'application</a></p></div>
+        <div><a class="brand" href="/"><img src="assets/img/logo.png" alt="" width="38" height="38">Mana<b>Resto</b></a><p style="margin-top:12px;max-width:34ch">La solution de gestion des restaurants de Polynésie française.</p><p style="margin-top:12px"><a data-install href="#" style="display:inline-flex;align-items:center;gap:8px;font-weight:700;color:#9be9e2"><i data-icon="download"></i>Installer l'application</a></p></div>
         <div><h3>Produit</h3><ul><li><a href="#fonctionnalites">Fonctionnalités</a></li><li><a href="#tarif">Tarif</a></li><li><a data-signup data-track="cta_trial" href="#">Essai gratuit</a></li><li><a href="#demo">Démonstration</a></li><li><a data-login href="#">Se connecter</a></li></ul></div>
         <div><h3>Informations</h3><ul><li><a href="#faq">FAQ</a></li><li><a data-email href="#">Contact</a></li><li><a href="mentions-legales">Mentions légales</a></li><li><a href="confidentialite">Confidentialité</a></li><li><a href="conditions">Conditions d'abonnement</a></li></ul></div>
       </div>
@@ -317,6 +321,7 @@
   </footer>
   <a class="wa" href="#" target="_blank" rel="noopener" data-track="whatsapp" data-on="false" aria-label="Parler avec nous sur WhatsApp">💬 <span>Parler avec nous sur WhatsApp</span></a>
   <script src="config.js"></script>
+  <script src="icons.js" defer></script>
   <script src="testimonials.js" defer></script>
   <script src="script.js" defer></script>
 </body>
