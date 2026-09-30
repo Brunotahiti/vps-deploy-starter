@@ -102,13 +102,16 @@
       data.startedAt = started || Date.now();
       btn.disabled = true; btn.textContent = "Envoi…";
       fetch(form.getAttribute("action") || "/api/demo", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) })
-        .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+        .then(function (r) {
+          // Réponse non JSON (page d'erreur du serveur) : message clair plutôt qu'une erreur technique du navigateur
+          return r.text().then(function (t) { var j = null; try { j = JSON.parse(t); } catch (e) { j = null; } return { ok: r.ok && !!j, j: j, status: r.status }; });
+        })
         .then(function (res) {
-          if (!res.ok) throw new Error((res.j && res.j.error && res.j.error.message) || "Envoi impossible");
+          if (!res.ok) throw new Error((res.j && res.j.error && res.j.error.message) || "Le service est momentanément indisponible, réessayez dans quelques minutes (erreur " + res.status + ").");
           track("demo_form_submit", { kind: data.kind });
           form.reset(); msg.textContent = "Merci ! Votre demande est bien reçue : nous vous contactons rapidement pour convenir d'une démonstration."; msg.className = "form-msg ok";
         })
-        .catch(function (err) { msg.textContent = (err && err.message ? err.message : "Envoi impossible") + " Vous pouvez aussi nous écrire à " + B.email + "."; msg.className = "form-msg ko"; })
+        .catch(function (err) { msg.textContent = (err && err.message && !/pattern|JSON|fetch/i.test(err.message) ? err.message : "Envoi impossible pour le moment, vérifiez votre connexion.") + " Vous pouvez aussi nous écrire à " + B.email + "."; msg.className = "form-msg ko"; })
         .then(function () { btn.disabled = false; btn.textContent = "Demander ma démonstration"; });
     });
   }
