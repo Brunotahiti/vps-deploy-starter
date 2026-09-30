@@ -249,7 +249,7 @@ export async function listMenus(establishmentId: string, includeInactive = false
 }
 
 export type MenuInput = {
-  name: string; description?: string | null; priceTtc: number; taxRateId?: string | null; color?: string | null; isActive?: boolean; sortOrder?: number;
+  name: string; description?: string | null; priceTtc: number; taxRateId?: string | null; color?: string | null; imageUrl?: string | null; isActive?: boolean; sortOrder?: number;
   sections: { id?: string; name: string; minSelect: number; maxSelect: number; items: { productId: string; supplement: number }[] }[];
 };
 
@@ -261,7 +261,7 @@ export async function upsertMenu(actor: Actor, input: MenuInput & { id?: string 
   }
   const menu = await prisma.$transaction(async (tx) => {
     let menuId = input.id;
-    const base = { name: input.name, description: input.description ?? null, priceTtc: input.priceTtc, taxRateId: input.taxRateId ?? null, color: input.color ?? null, isActive: input.isActive ?? true, sortOrder: input.sortOrder ?? 0 };
+    const base = { name: input.name, description: input.description ?? null, priceTtc: input.priceTtc, taxRateId: input.taxRateId ?? null, color: input.color ?? null, imageUrl: input.imageUrl ?? null, isActive: input.isActive ?? true, sortOrder: input.sortOrder ?? 0 };
     if (menuId) {
       const existing = await tx.menu.findFirst({ where: { id: menuId, establishmentId: actor.establishmentId } });
       if (!existing) throw new ApiError(404, "NOT_FOUND", "Formule introuvable");

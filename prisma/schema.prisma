@@ -88,6 +88,7 @@ model Establishment {
   webhooks         Webhook[]
   serviceSteps     TableServiceStep[]
   serviceReminders ServiceReminder[]
+  uploads          Upload[]
   paymentMethods   PaymentMethodConfig[]
   orders           Order[]
   payments         Payment[]
@@ -1415,4 +1416,21 @@ model ServiceReminder {
   @@index([establishmentId, status, dueAt])
   @@index([orderId])
   @@map("service_reminders")
+}
+
+/// Fichiers envoyés (photos de plats, formules, couverture du site) : stockés en base, servis par /api/uploads/:id
+model Upload {
+  id              String   @id @default(uuid()) @db.Uuid
+  establishmentId String   @map("establishment_id") @db.Uuid
+  mime            String
+  size            Int
+  width           Int?
+  height          Int?
+  data            Bytes
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  establishment Establishment @relation(fields: [establishmentId], references: [id], onDelete: Cascade)
+
+  @@index([establishmentId])
+  @@map("uploads")
 }

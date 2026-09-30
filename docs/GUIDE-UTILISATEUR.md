@@ -13,6 +13,8 @@ ManaResto est une caisse et un back-office pour les restaurants de Polynésie fr
 
 **Administration → Catalogue** : catégories, produits (prix TTC, taux de TVA, coût, variantes, code-barres, photo), groupes d'options (cuisson, suppléments…), formules (entrée + plat…), taux de TVA. **Import CSV** pour charger un catalogue existant.
 
+**Photos des plats** : dans la fiche d'un produit ou d'une formule, « Prendre ou choisir une photo » ouvre l'appareil photo ou la galerie du téléphone ; la photo est réduite automatiquement (1000 px) et stockée avec vos données (incluse dans les sauvegardes). Elle apparaît en grand sur les vignettes de la caisse, sur le menu QR, la commande en ligne, la borne et le site du restaurant. Une URL d'image reste possible.
+
 ## 3. Salle et caisse
 
 - **Plan de salle** : salles, tables (forme, places, position), statut en temps réel (libre, occupée, addition demandée, plats prêts, appel serveur, réservée).

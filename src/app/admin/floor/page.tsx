@@ -1,5 +1,7 @@
 "use client";
 
+import { TableTop } from "@/components/floor/table-shape";
+
 import { useRef, useState } from "react";
 import { Pencil, Plus, Save, Trash2 } from "lucide-react";
 import { api } from "@/lib/api-client";
@@ -80,14 +82,16 @@ export default function FloorEditor() {
       </div>
       {room ? (
         <div className="grid min-h-0 flex-1 auto-rows-min gap-3 lg:grid-cols-[1fr_260px] lg:gap-4">
-          <div ref={canvas} onPointerMove={onMove} onPointerUp={onUp} className="relative select-none overflow-hidden rounded-2xl border border-line surface-2 shadow-inner" style={{ aspectRatio: `${room.width} / ${room.height}`, containerType: "inline-size", backgroundImage: "linear-gradient(var(--border) 1px, transparent 1px), linear-gradient(90deg, var(--border) 1px, transparent 1px)", backgroundSize: "8.333% 12.5%" }}>
+          <div ref={canvas} onPointerMove={onMove} onPointerUp={onUp} className="relative select-none overflow-hidden rounded-2xl border border-line surface-2 shadow-inner" style={{ aspectRatio: `${room.width} / ${room.height}`, containerType: "inline-size", background: "var(--surface)", backgroundImage: "linear-gradient(color-mix(in srgb, var(--border) 70%, transparent) 1px, transparent 1px), linear-gradient(90deg, color-mix(in srgb, var(--border) 70%, transparent) 1px, transparent 1px)", backgroundSize: "8.333% 12.5%" }}>
             {tables.map((t) => {
               const w = (t.width / room.width) * 100, h = (t.height / room.height) * 100;
               return (
-                <div key={t.id} onPointerDown={(e) => onDown(e, t)} className={`absolute flex cursor-grab flex-col items-center justify-center bg-brand leading-none text-white shadow-lift transition-shadow active:cursor-grabbing ${sel === t.id ? "ring-4 ring-corail-500 ring-offset-2 ring-offset-[var(--surface-2)]" : ""}`}
-                  style={{ left: `${(t.x / room.width) * 100}%`, top: `${(t.y / room.height) * 100}%`, width: `${w}%`, height: `${h}%`, borderRadius: t.shape === "ROUND" ? "9999px" : "16%", transform: `rotate(${t.rotation}deg)`, touchAction: "none", fontSize: `clamp(9px, ${Math.min(w, h) * 0.22}cqw, 18px)` }}>
-                  <span className="font-extrabold">{t.name}</span>
-                  <span className="mt-[0.2em] text-[0.7em] font-semibold opacity-85">{t.seats} pl.</span>
+                <div key={t.id} onPointerDown={(e) => onDown(e, t)} className="absolute cursor-grab select-none leading-none text-white active:cursor-grabbing"
+                  style={{ left: `${(t.x / room.width) * 100}%`, top: `${(t.y / room.height) * 100}%`, width: `${w}%`, height: `${h}%`, transform: `rotate(${t.rotation}deg)`, touchAction: "none", fontSize: `clamp(9px, ${Math.min(w, h) * 0.22}cqw, 18px)` }}>
+                  <TableTop shape={t.shape} seats={t.seats} width={t.width} height={t.height} color="linear-gradient(145deg, #37c8bf, #14aaa3 55%, #0f6e6c)" className={`h-full w-full ${sel === t.id ? "ring-4 ring-corail-500 ring-offset-2 ring-offset-[var(--surface-2)]" : ""}`} style={{ borderRadius: t.shape === "ROUND" ? "9999px" : "16%" }}>
+                    <span className="font-extrabold">{t.name}</span>
+                    <span className="mt-[0.2em] text-[0.7em] font-semibold opacity-85">{t.seats} pl.</span>
+                  </TableTop>
                 </div>
               );
             })}

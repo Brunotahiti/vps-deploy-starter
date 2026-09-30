@@ -51,7 +51,7 @@ export const modifierGroupSchema = z.object({
 });
 export const menuSchema = z.object({
   name: z.string().min(1).max(80), description: z.string().max(500).nullable().optional(), priceTtc: money, taxRateId: uuid.nullable().optional(), color: z.string().max(20).nullable().optional(),
-  isActive: z.boolean().optional(), sortOrder: z.number().int().optional(),
+  imageUrl: z.string().max(500).nullable().optional(), isActive: z.boolean().optional(), sortOrder: z.number().int().optional(),
   sections: z.array(z.object({ name: z.string().min(1).max(60), minSelect: z.number().int().min(0), maxSelect: z.number().int().min(1), items: z.array(z.object({ productId: uuid, supplement: z.number().int().min(0) })) })).min(1),
 });
 export const kitchenStationSchema = z.object({ name: z.string().min(1).max(40), color: z.string().max(20).optional(), warnAfterSec: z.number().int().min(0).optional(), alertAfterSec: z.number().int().min(0).optional(), isActive: z.boolean().optional(), sortOrder: z.number().int().optional() });
