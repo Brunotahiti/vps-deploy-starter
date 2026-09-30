@@ -6,7 +6,7 @@ import { sentMails } from "@/server/email/mailer";
 import { createSession, findSessionByToken } from "@/server/auth/session";
 import { loginWithPassword } from "@/server/services/auth";
 import { platformOrgDetail, platformOverview, recordActivity, setOrganizationBlocked, setOrganizationPlan } from "@/server/services/platform";
-import { runLifecycleEmails, sendManualEmail, sendWelcomeEmail } from "@/server/services/platform-emails";
+import { runLifecycleEmails, sendManualEmail, sendSignupAlert, sendWelcomeEmail, teamRecipients } from "@/server/services/platform-emails";
 import { isPlatformAdminEmail } from "@/server/auth/platform";
 
 const DAY = 86_400_000;
@@ -103,6 +103,22 @@ describe("Console plateforme", () => {
     expect(detail.emails.map((e) => e.kind)).toEqual(["MANUAL", "WELCOME"]);
     const ov = await platformOverview();
     expect(ov.rows.find((r) => r.id === A.org.id)).toMatchObject({ emailsTotal: 2, lastEmail: { kind: "MANUAL", status: "SENT" } });
+  });
+
+  it("alerte à l'équipe à chaque nouvelle inscription (destinataires réglables, démo ignorée)", async () => {
+    delete process.env.PLATFORM_NOTIFY_EMAILS;
+    expect(teamRecipients()).toBe("contact@manaresto.com");
+    process.env.PLATFORM_NOTIFY_EMAILS = "Contact@manaresto.com,moi@icloud.com";
+    expect(teamRecipients()).toBe("contact@manaresto.com, moi@icloud.com");
+    const n = sentMails.length;
+    await sendSignupAlert(A.org.id);
+    const m = sentMails.at(-1)!;
+    expect(sentMails.length).toBe(n + 1);
+    expect(m.to).toBe("contact@manaresto.com, moi@icloud.com");
+    expect(m.subject).toBe("Nouveau compte ManaResto — Resto plat-a (Owner plat-a)");
+    expect(m.replyTo).toBe("owner-plat-a@test.pf");
+    expect(m.html).toContain("/platform");
+    delete process.env.PLATFORM_NOTIFY_EMAILS;
   });
 
   it("relances : rappel à J-3 puis essai expiré, une seule fois chacun, comptes anciens et démo ignorés", async () => {

@@ -1,9 +1,9 @@
 import { prisma } from "@/server/db";
 import { ApiError } from "@/server/errors";
-import { isEmailConfigured, platformMail, sendMail, type OutgoingMail } from "@/server/email/mailer";
+import { isEmailConfigured, platformMail, sendMail, signupAlertMail, type OutgoingMail } from "@/server/email/mailer";
 import { OFFER } from "@/lib/plan";
 import { formatDate } from "@/lib/dates";
-import { DEMO_ORG_SLUG, type PlatformEmailKind } from "@/lib/platform";
+import { DEMO_ORG_SLUG, parseAdminEmails, type PlatformEmailKind } from "@/lib/platform";
 
 /*
  * E-mails de la plateforme vers les restaurateurs : bienvenue à l'inscription, rappel avant la fin de l'essai,
@@ -141,4 +141,32 @@ export function startLifecycleScheduler() {
   setTimeout(tick, 2 * 60_000);
   g.__mrLifecycleTimer = setInterval(tick, 60 * 60_000);
   g.__mrLifecycleTimer.unref?.();
+}
+
+/** Destinataires des alertes internes (nouvelle inscription, demande de démo) : PLATFORM_NOTIFY_EMAILS, sinon l'adresse de contact. */
+export function teamRecipients(): string {
+  const list = parseAdminEmails(process.env.PLATFORM_NOTIFY_EMAILS);
+  return (list.length ? list : [OFFER.contactEmail]).join(", ");
+}
+export const consoleUrl = () => `${appUrl()}/platform`;
+
+/** Alerte à l'équipe ManaResto : un restaurant vient de s'inscrire. */
+export async function sendSignupAlert(organizationId: string) {
+  if (!isEmailConfigured()) return null;
+  const org = await prisma.organization.findUnique({ where: { id: organizationId }, select: { name: true, slug: true, trialEndsAt: true, establishments: { orderBy: { createdAt: "asc" }, take: 1, select: { name: true } } } });
+  if (!org || org.slug === DEMO_ORG_SLUG) return null;
+  const owner = await prisma.user.findFirst({ where: { organizationId, isOwner: true }, orderBy: { createdAt: "asc" }, select: { firstName: true, lastName: true, email: true } });
+  if (!owner) return null;
+  const total = await prisma.organization.count({ where: { slug: { not: DEMO_ORG_SLUG } } });
+  await sendMail(signupAlertMail({
+    to: teamRecipients(),
+    organizationName: org.name,
+    establishmentName: org.establishments[0]?.name ?? org.name,
+    ownerName: `${owner.firstName} ${owner.lastName}`.trim(),
+    email: owner.email,
+    trialEndsLabel: org.trialEndsAt ? formatDate(org.trialEndsAt, TZ) : "—",
+    consoleUrl: consoleUrl(),
+    total,
+  }));
+  return { sent: true };
 }

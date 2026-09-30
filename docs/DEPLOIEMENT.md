@@ -78,6 +78,8 @@ Accès : ajouter dans `/opt/manaresto/.env` l'adresse du compte ManaResto avec l
 PLATFORM_ADMIN_EMAILS=contact@manaresto.com
 ```
 
+**Alertes à l'équipe** : un e-mail part à chaque nouvelle inscription et à chaque demande de démonstration du site, vers `contact@manaresto.com` par défaut. Pour choisir les destinataires : `PLATFORM_NOTIFY_EMAILS=contact@manaresto.com,vous@icloud.com bash scripts/deploy-vps.sh`.
+
 Les relances automatiques (rappel J-3 et essai expiré) partent toutes les heures, une seule fois par restaurant ; le bouton « Lancer les relances » de la console les déclenche tout de suite. `LIFECYCLE_EMAILS=off` les désactive.
 
 ## Site vitrine et domaine manaresto.com
