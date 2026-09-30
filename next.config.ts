@@ -1,11 +1,12 @@
 import type { NextConfig } from "next";
+import { withSentryConfig } from "@sentry/nextjs/config";
 
 /** Identifiant de build : commit (BUILD_ID/GIT_SHA fournis par le déploiement) ou horodatage. */
 const buildId = (process.env.BUILD_ID || process.env.GIT_SHA || "").slice(0, 12) || new Date().toISOString().replace(/\D/g, "").slice(0, 12);
 
 const nextConfig: NextConfig = {
   output: "standalone",
-  env: { NEXT_PUBLIC_BUILD_ID: buildId },
+  env: { NEXT_PUBLIC_BUILD_ID: buildId, NEXT_PUBLIC_SENTRY_DSN: process.env.SENTRY_DSN ?? "", NEXT_PUBLIC_SENTRY_ENVIRONMENT: process.env.SENTRY_ENVIRONMENT ?? "production" },
   reactStrictMode: true,
   poweredByHeader: false,
   serverExternalPackages: ["pdfkit", "pg"],
@@ -33,4 +34,18 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+/**
+ * Sentry : suivi des erreurs (client, serveur, edge). Sans SENTRY_DSN, rien n'est envoyé.
+ * Les source maps ne sont téléversées que si SENTRY_AUTH_TOKEN est fourni au build (facultatif).
+ */
+export default withSentryConfig(nextConfig, {
+  org: process.env.SENTRY_ORG || "manaprocess-rd",
+  project: process.env.SENTRY_PROJECT || "manaresto",
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+  silent: true,
+  telemetry: false,
+  sourcemaps: { disable: !process.env.SENTRY_AUTH_TOKEN },
+  release: { create: !!process.env.SENTRY_AUTH_TOKEN, name: buildId ? `manaresto@${buildId}` : undefined },
+  tunnelRoute: "/monitoring", // contourne les bloqueurs de publicité
+  widenClientFileUpload: true,
+});

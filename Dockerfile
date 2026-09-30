@@ -17,7 +17,11 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 # Identifiant de build (commit) : affiché dans l'application et utilisé pour détecter les nouvelles versions (PWA)
 ARG BUILD_ID=
-ENV NEXT_TELEMETRY_DISABLED=1 DATABASE_URL=postgresql://build:build@localhost:5432/build BUILD_ID=$BUILD_ID
+# Sentry (facultatif) : la DSN est embarquée côté navigateur au build ; le jeton ne sert qu'aux source maps
+ARG SENTRY_DSN=
+ARG SENTRY_ENVIRONMENT=production
+ARG SENTRY_AUTH_TOKEN=
+ENV NEXT_TELEMETRY_DISABLED=1 DATABASE_URL=postgresql://build:build@localhost:5432/build BUILD_ID=$BUILD_ID SENTRY_DSN=$SENTRY_DSN SENTRY_ENVIRONMENT=$SENTRY_ENVIRONMENT SENTRY_AUTH_TOKEN=$SENTRY_AUTH_TOKEN
 RUN pnpm prisma generate && pnpm next build
 
 # Image de migration / seed : contient le CLI Prisma et le seed (lancée une fois avant l'app)

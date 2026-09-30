@@ -10,6 +10,7 @@ import { useRealtime } from "@/hooks/use-realtime";
 import { useTheme } from "@/hooks/use-theme";
 import { useOffline } from "@/lib/offline/provider";
 import { useInstallPrompt } from "@/hooks/use-install-prompt";
+import { InstallAppButton } from "@/components/install-app";
 import { Logo } from "@/components/brand";
 import { api } from "@/lib/api-client";
 import { Money } from "@/components/money";
@@ -137,7 +138,7 @@ export function PosShell({ children }: { children: React.ReactNode }) {
           <div className="space-y-2 border-t border-line p-3">
             <div className="flex gap-2">
               <button onClick={toggle} className="touch flex h-12 flex-1 items-center justify-center gap-2 rounded-xl surface-2 text-sm font-semibold"><Sun className="h-4 w-4 dark:hidden" /><Moon className="hidden h-4 w-4 dark:block" />Thème</button>
-              {canInstall ? <button onClick={install} className="touch flex h-12 flex-1 items-center justify-center gap-2 rounded-xl bg-corail-500/15 text-sm font-bold text-corail-600"><Download className="h-4 w-4" />Installer</button> : null}
+              <InstallAppButton variant="accent" className="h-12 flex-1" label="Installer" compact />
             </div>
             <button onClick={logout} className="touch flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-line text-sm font-bold"><LogOut className="h-4 w-4" />Changer d&apos;utilisateur</button>
           </div>

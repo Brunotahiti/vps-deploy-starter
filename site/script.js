@@ -3,6 +3,7 @@
   var app = document.body.getAttribute("data-app") || "https://app.manaresto.com";
   document.querySelectorAll("[data-signup]").forEach(function (a) { a.href = app + "/signup"; });
   document.querySelectorAll("[data-login]").forEach(function (a) { a.href = app + "/login"; });
+  document.querySelectorAll("[data-install]").forEach(function (a) { a.href = app + "/login?install=1"; });
   var year = document.getElementById("year"); if (year) year.textContent = String(new Date().getFullYear());
   if ("IntersectionObserver" in window) {
     var io = new IntersectionObserver(function (entries) { entries.forEach(function (e) { if (e.isIntersecting) { e.target.classList.add("in"); io.unobserve(e.target); } }); }, { threshold: 0.12 });

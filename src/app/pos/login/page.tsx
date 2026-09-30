@@ -7,6 +7,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { api, ApiClientError } from "@/lib/api-client";
 import { NumPad } from "@/components/ui/numpad";
 import { Logo } from "@/components/brand";
+import { InstallAppButton } from "@/components/install-app";
 import { useSession } from "@/hooks/use-session";
 import { WelcomeSplash } from "@/components/welcome-splash";
 
@@ -70,8 +71,9 @@ function PinLogin() {
 
 export default function PosLoginPage() {
   return (
-    <main className="flex min-h-screen items-center justify-center p-4">
+    <main className="flex min-h-screen flex-col items-center justify-center gap-4 p-4">
       <Suspense><PinLogin /></Suspense>
+      <InstallAppButton variant="secondary" label="Installer l'application" compact />
     </main>
   );
 }

@@ -9,6 +9,7 @@ import { Field, Input } from "@/components/ui/field";
 import { Logo, BrandPanel } from "@/components/brand";
 import { useQueryClient } from "@tanstack/react-query";
 import { WelcomeSplash } from "@/components/welcome-splash";
+import { InstallAppButton } from "@/components/install-app";
 
 function LoginForm() {
   const router = useRouter();
@@ -60,7 +61,19 @@ export default function LoginPage() {
       <section className="flex flex-col items-center justify-center p-6 sm:p-10">
         <div className="bg-lagoon mb-8 flex w-full max-w-sm items-center gap-3 rounded-3xl p-4 text-white shadow-lift lg:hidden"><Logo size={40} light withText={false} /><span className="text-sm font-semibold leading-snug">La caisse pensée pour les restaurants du fenua.<span className="block text-xs font-normal text-lagon-100/90">Hors ligne, TVA PF, cuisine et statistiques en temps réel.</span></span></div>
         <Suspense><LoginForm /></Suspense>
+        <Suspense><InstallCta /></Suspense>
       </section>
     </main>
+  );
+}
+
+/** Bouton d'installation sous le formulaire (guide ouvert automatiquement depuis le site vitrine avec ?install=1). */
+function InstallCta() {
+  const params = useSearchParams();
+  return (
+    <div className="mt-8 w-full max-w-sm rounded-2xl border border-line p-4 text-center">
+      <p className="mb-3 text-sm text-muted">Sur tablette ou téléphone, installez ManaResto comme une application : plein écran, icône sur l&apos;écran d&apos;accueil, fonctionnement hors ligne.</p>
+      <InstallAppButton variant="secondary" className="w-full" autoOpen={params.get("install") === "1"} label="Installer l'application" />
+    </div>
   );
 }
