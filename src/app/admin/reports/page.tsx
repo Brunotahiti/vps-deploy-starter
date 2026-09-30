@@ -49,7 +49,7 @@ export default function ReportsPage() {
             <Stat label="Remboursements" value={<Money amount={d.refunds} />} />
             <Stat label="Annulations" value={d.cancellations} />
             <Stat label="Coût matière" value={<Money amount={d.foodCost} />} />
-            <Stat label="Food cost" value={d.foodCostPct !== null ? `${d.foodCostPct} %` : "—"} hint={d.previous?.foodCostPct !== null && d.previous?.foodCostPct !== undefined ? `période précédente ${d.previous.foodCostPct} %` : undefined} accent={d.foodCostPct !== null && d.foodCostPct > 35 ? "#ef4444" : "#22c55e"} />
+            <Stat label="Ratio coût matière" value={d.foodCostPct !== null ? `${d.foodCostPct} %` : "—"} hint={d.previous?.foodCostPct !== null && d.previous?.foodCostPct !== undefined ? `période précédente ${d.previous.foodCostPct} %` : undefined} accent={d.foodCostPct !== null && d.foodCostPct > 35 ? "#ef4444" : "#22c55e"} />
           </div>
           <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
             <Card title="CA par jour"><BarChart data={d.byDay.map((x) => ({ label: x.day.slice(8) + "/" + x.day.slice(5, 7), value: x.revenue }))} currency={currency} /></Card>

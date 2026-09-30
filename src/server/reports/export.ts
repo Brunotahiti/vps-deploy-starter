@@ -25,7 +25,7 @@ export async function buildExport(establishmentId: string, type: ExportType, fro
     const kpi: Sheet = { name: "Synthèse", head: ["Indicateur", "Valeur", "Période précédente"], rows: [
       ["Période", period, r.previous ? `${r.previous.from} → ${r.previous.to}` : null], ["CA TTC", r.revenue, r.previous?.revenue ?? null], ["CA HT", r.revenueHt, r.previous?.revenueHt ?? null], ["TVA", r.tax, null],
       ["Tickets", r.tickets, r.previous?.tickets ?? null], ["Couverts", r.covers, r.previous?.covers ?? null], ["Panier moyen", r.avgTicket, r.previous?.avgTicket ?? null], ["CA / couvert", r.avgPerCover, null],
-      ["Remises", r.discounts, null], ["Remboursements", r.refunds, null], ["Annulations", r.cancellations, null], ["Coût matière", r.foodCost, null], ["Food cost %", r.foodCostPct ?? "", r.previous?.foodCostPct ?? null],
+      ["Remises", r.discounts, null], ["Remboursements", r.refunds, null], ["Annulations", r.cancellations, null], ["Coût matière", r.foodCost, null], ["Ratio coût matière %", r.foodCostPct ?? "", r.previous?.foodCostPct ?? null],
     ] };
     return { title: `Rapport ${period}`, sheets: [kpi,
       { name: "Par jour", head: ["Jour", "CA TTC", "Tickets", "Couverts"], rows: r.byDay.map((d) => [d.day, d.revenue, d.tickets, d.covers]) },

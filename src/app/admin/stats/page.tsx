@@ -76,9 +76,9 @@ export default function StatsPage() {
             <Stat label="Annulations" value={p.cancellations} hint={`${p.refunds ? formatMoney(p.refunds, currency) + " remboursés" : "aucun remboursement"}`} accent="#e5602a" upIsGood={false} />
           </section>
           <section className="card grid gap-5 p-5 md:grid-cols-2 xl:grid-cols-4">
-            <Meter label="Food cost" value={p.foodCostPct} display={p.foodCostPct !== null ? `${p.foodCostPct} %` : undefined} warn={30} bad={35} max={60} hint="Coût matière sur le CA TTC · objectif ≤ 30 %" />
+            <Meter label="Ratio coût matière" value={p.foodCostPct} display={p.foodCostPct !== null ? `${p.foodCostPct} %` : undefined} warn={30} bad={35} max={60} hint="Coût matière sur le CA TTC · objectif ≤ 30 %" />
             <Meter label="Coût du personnel" value={s.staff.laborCostPct} display={s.staff.laborCostPct !== null ? `${s.staff.laborCostPct} %` : undefined} warn={30} bad={35} max={60} hint="Salaires sur le CA HT · objectif ≤ 30 %" />
-            <Meter label="Prime cost" value={s.primeCostPct} display={s.primeCostPct !== null ? `${s.primeCostPct} %` : undefined} warn={60} bad={65} max={100} hint="Matière + personnel sur le CA HT · objectif ≤ 60 %" />
+            <Meter label="Matière + personnel" value={s.primeCostPct} display={s.primeCostPct !== null ? `${s.primeCostPct} %` : undefined} warn={60} bad={65} max={100} hint="Matière + personnel sur le CA HT · objectif ≤ 60 %" />
             <Meter label="No-show" value={s.reservations.noShowPct} display={s.reservations.noShowPct !== null ? `${s.reservations.noShowPct} %` : undefined} warn={10} bad={20} max={40} hint={`${s.reservations.noShow} sur ${s.reservations.completed + s.reservations.noShow} réservations honorables`} />
           </section>
 

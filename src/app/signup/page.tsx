@@ -6,7 +6,7 @@ import Link from "next/link";
 import { api, ApiClientError } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/field";
-import { Logo, BrandPanel } from "@/components/brand";
+import { Logo, BrandPanel, BrandHeaderMobile } from "@/components/brand";
 import { OFFER } from "@/lib/plan";
 
 export default function SignupPage() {
@@ -31,12 +31,14 @@ export default function SignupPage() {
   };
 
   return (
-    <main className="grid min-h-screen lg:grid-cols-[1.1fr_1fr]">
+    <main className="grid min-h-screen lg:grid-cols-[1.15fr_1fr]">
       <BrandPanel />
-      <section className="flex items-center justify-center p-6 sm:p-10">
-      <form onSubmit={submit} className="rise w-full max-w-lg space-y-4">
-        <Logo size={44} />
-        <h1 className="text-2xl font-extrabold tracking-tight">Créer votre espace ManaResto</h1>
+      <section className="flex flex-col items-center justify-center bg-[var(--bg)] p-6 sm:p-10">
+      <div className="w-full max-w-lg lg:hidden"><BrandHeaderMobile /></div>
+      <form onSubmit={submit} className="brand-rise w-full max-w-lg space-y-4">
+        <div className="hidden lg:block"><Logo size={48} /></div>
+        <p className="text-sm font-bold uppercase tracking-[0.18em] text-lagon-600 lg:pt-4">Maeva 🌺</p>
+        <h1 className="text-3xl font-extrabold tracking-tight">Créer votre espace ManaResto</h1>
         <p className="text-sm text-muted">Entreprise, premier établissement et compte propriétaire. Vous pourrez ajouter d&apos;autres restaurants ensuite.</p>
         <p className="rounded-xl bg-lagon-500/12 px-3 py-2 text-sm font-semibold text-lagon-800 dark:text-lagon-200">{OFFER.trialDays} jours d&apos;essai gratuits, sans carte bancaire · ensuite {OFFER.monthly.toLocaleString("fr-FR")} F CFP par mois, engagement {OFFER.commitmentMonths} mois, {OFFER.commission} % de commission sur vos ventes.</p>
         <div className="grid gap-4 sm:grid-cols-2">

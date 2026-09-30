@@ -102,10 +102,10 @@ export function Dashboard() {
           <div className="grid gap-4 lg:grid-cols-[1.2fr_1fr]">
             <ChartCard title="Rentabilité" subtitle="Ratios du jour sur le CA HT, seuils usuels de la restauration">
               <div className="grid gap-4 sm:grid-cols-2">
-                <Meter label="Food cost (coût matière)" value={d.foodCostPct} warn={32} bad={38} max={60} hint={`matière ${formatMoney(d.foodCost, currency)}`} />
+                <Meter label="Ratio coût matière" value={d.foodCostPct} warn={32} bad={38} max={60} hint={`matière ${formatMoney(d.foodCost, currency)}`} />
                 {staff.data ? <Meter label="Coût du personnel" value={staff.data.laborCostPct} warn={30} bad={36} max={60} hint={`${staff.data.totalHours} h · ${formatMoney(staff.data.totalCost, currency)}`} /> : <Meter label="Coût du personnel" value={null} warn={30} bad={36} max={60} hint="pointages non disponibles" />}
-                {staff.data ? <Meter label="Prime cost" value={d.foodCostPct !== null && staff.data.laborCostPct !== null ? Math.round((d.foodCostPct + staff.data.laborCostPct) * 10) / 10 : null} warn={60} bad={68} max={100} hint="matière + personnel" /> : null}
-                {staff.data ? <div><p className="mb-1 text-xs font-semibold">Marge après prime cost</p><p className="text-2xl font-extrabold tracking-tight">{formatMoney(d.revenueHt - d.foodCost - staff.data.totalCost, currency)}</p><p className="text-[11px] text-muted">CA HT − matière − personnel</p></div> : null}
+                {staff.data ? <Meter label="Matière + personnel" value={d.foodCostPct !== null && staff.data.laborCostPct !== null ? Math.round((d.foodCostPct + staff.data.laborCostPct) * 10) / 10 : null} warn={60} bad={68} max={100} hint="matière + personnel" /> : null}
+                {staff.data ? <div><p className="mb-1 text-xs font-semibold">Marge après matière et personnel</p><p className="text-2xl font-extrabold tracking-tight">{formatMoney(d.revenueHt - d.foodCost - staff.data.totalCost, currency)}</p><p className="text-[11px] text-muted">CA HT − matière − personnel</p></div> : null}
               </div>
             </ChartCard>
             <ChartCard title="À surveiller" subtitle="Remises, annulations et coût matière du jour">
