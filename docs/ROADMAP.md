@@ -12,4 +12,7 @@
 
 | **8 — Consolidation** | limitation de débit sur les formulaires publics (commande, appel, réservation), l'inscription et l'API (par IP et par clé, en-tête `Retry-After`), index de performance pour les rapports, tests E2E stock et intégrations, guide utilisateur (`docs/GUIDE-UTILISATEUR.md`), revue de la documentation | ✅ livré |
 
+| **9 — Suivi de service** | parcours par table (accueil, boissons, plats, dessert, addition), rappels priorisés « À faire maintenant », badges sur le plan de salle, chronologie de la commande, réglages des délais, son et vibration, hors ligne | ✅ livré |
+| **10 — Site du restaurant** | page publique propre à chaque établissement `/site/:org/:etab` : présentation, horaires (ouvert / fermé aujourd'hui), adresse et itinéraire, téléphone, photos, réseaux sociaux, **menu en ligne** avec prix et formules, boutons Commander en ligne / Réserver / Appeler, FR / EN / reo tahiti, référencement (titre, description, Open Graph), réglages dans Digital, API publique `/api/public/site/:org/:etab` | ✅ livré |
+
 Toutes les phases de la feuille de route sont livrées. Pistes suivantes possibles : application native (notifications push cuisine), paiement en ligne (prestataire local), comptabilité connectée, multi-devise.

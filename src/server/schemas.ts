@@ -138,11 +138,13 @@ export const attachCustomerSchema = z.object({ customerId: uuid.nullable() });
 export const redeemSchema = z.object({ rewards: z.number().int().min(1).max(10).optional() });
 export const adjustPointsSchema = z.object({ points: z.number().int().min(-100000).max(100000), reason: z.string().min(1).max(200) });
 export const rejectSchema = z.object({ reason: z.string().min(1).max(200) });
+const httpUrl = z.string().max(500).refine((v) => v === "" || /^https?:\/\//.test(v), "Adresse web attendue (https://…)");
 export const digitalSettingsSchema = z.object({
   qrMode: z.enum(["MENU", "MENU_CALL", "ORDER", "ORDER_DIRECT"]).optional(),
   online: z.object({ enabled: z.boolean(), pickup: z.boolean(), delivery: z.boolean(), pickupLeadMin: z.number().int().min(0).max(240), deliveryFee: money, deliveryMinOrder: money, deliveryZones: z.array(z.string().min(1).max(80)).max(50), message: z.string().max(300) }).partial().optional(),
   kiosk: z.object({ enabled: z.boolean(), dineIn: z.boolean(), takeaway: z.boolean() }).partial().optional(),
   loyalty: z.object({ enabled: z.boolean(), pointsPer100: z.number().int().min(0).max(100), rewardPoints: z.number().int().min(1).max(100000), rewardValue: money }).partial().optional(),
+  site: z.object({ enabled: z.boolean(), tagline: z.string().max(120), description: z.string().max(2000), coverUrl: httpUrl, logoUrl: httpUrl, photos: z.array(httpUrl.pipe(z.string().min(1))).max(12), facebook: httpUrl, instagram: httpUrl, showMenu: z.boolean(), showPrices: z.boolean(), accent: z.string().regex(/^#[0-9a-fA-F]{6}$/) }).partial().optional(),
 });
 
 // Avancé (Phase 7)

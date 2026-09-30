@@ -66,7 +66,7 @@ export function PosShell({ children }: { children: React.ReactNode }) {
         <nav className="ml-auto hidden items-center gap-1 sm:flex">
           {nav.map((n) => (
             <Link key={n.href} href={n.href} className={`touch flex h-10 items-center gap-2 rounded-xl px-3 text-sm font-semibold transition sm:px-3.5 ${isActive(n.href) ? "bg-brand text-white shadow-glow" : "text-muted hover:surface-2 hover:text-[var(--text)]"}`}>
-              <n.icon className="h-4 w-4" /><span className="hidden md:inline">{n.label}</span>
+              <n.icon className="h-4 w-4" /><span className="hidden lg:inline">{n.label}</span>
             </Link>
           ))}
           {can("kds.use") ? <Link href="/kds" className="touch flex h-10 items-center gap-2 rounded-xl px-3 text-sm font-semibold hover:surface-2" title="Écran cuisine"><ChefHat className="h-4 w-4" /></Link> : null}
@@ -83,17 +83,17 @@ export function PosShell({ children }: { children: React.ReactNode }) {
         <div className="ml-1 hidden items-center gap-1 border-l border-line pl-1.5 sm:ml-2 sm:flex sm:gap-2 sm:pl-2">
           <button onClick={() => (pending > 0 ? flush() : undefined)} className={`touch flex h-9 items-center gap-1.5 rounded-full px-3 text-[11px] font-bold tracking-wide ${!online ? "bg-red-500/15 text-red-600 dark:text-red-400" : pending > 0 ? "bg-orange-500/15 text-orange-600" : connected ? "bg-green-500/10 text-green-600 dark:text-green-400" : "surface-2 text-muted"}`} title={online ? (connected ? "En ligne, temps réel actif" : "En ligne") : "Hors ligne : les opérations sont mises en file d'attente"}>
             {online ? <Wifi className="h-4 w-4" /> : <WifiOff className="h-4 w-4" />}
-            <span className="hidden sm:inline">{!online ? "HORS LIGNE" : "EN LIGNE"}{pending > 0 ? ` · ${pending} à synchroniser` : ""}</span>
+            <span className="hidden xl:inline">{!online ? "HORS LIGNE" : "EN LIGNE"}{pending > 0 ? ` · ${pending} à synchroniser` : ""}</span>{pending > 0 ? <span className="xl:hidden">{pending}</span> : null}
             {syncing ? <RefreshCw className="h-3 w-3 animate-spin" /> : null}
           </button>
-          <Link href="/pos/cash" className={`hidden h-9 items-center gap-1 whitespace-nowrap rounded-full px-3 text-[11px] font-bold md:flex ${cash.data ? "bg-lagon-500/10 text-lagon-700 dark:text-lagon-300" : "bg-orange-500/15 text-orange-600"}`}>
-            {cash.data ? <><span className="hidden lg:inline">Caisse ouverte ·</span><Money amount={cash.data.summary.cashExpected} /></> : "Caisse fermée"}
+          <Link href="/pos/cash" className={`hidden h-9 items-center gap-1 whitespace-nowrap rounded-full px-3 text-[11px] font-bold xl:flex ${cash.data ? "bg-lagon-500/10 text-lagon-700 dark:text-lagon-300" : "bg-orange-500/15 text-orange-600"}`}>
+            {cash.data ? <><span className="hidden xl:inline">Caisse ouverte ·</span><Money amount={cash.data.summary.cashExpected} /></> : "Caisse fermée"}
           </Link>
-          {canInstall ? <button onClick={install} className="touch hidden h-9 items-center gap-1 rounded-lg bg-corail-500/15 px-2 text-xs font-bold text-corail-600 sm:flex" title="Installer ManaResto sur cet appareil"><Download className="h-4 w-4" /><span className="hidden sm:inline">Installer</span></button> : null}
-          <button onClick={toggle} className="touch hidden rounded-lg p-2 hover:surface-2 sm:block" aria-label="Changer de thème"><Sun className="h-4 w-4 dark:hidden" /><Moon className="hidden h-4 w-4 dark:block" /></button>
+          {canInstall ? <button onClick={install} className="touch hidden h-9 items-center gap-1 rounded-lg bg-corail-500/15 px-2 text-xs font-bold text-corail-600 xl:flex" title="Installer ManaResto sur cet appareil"><Download className="h-4 w-4" /><span className="hidden xl:inline">Installer</span></button> : null}
+          <button onClick={toggle} className="touch hidden rounded-lg p-2 hover:surface-2 xl:block" aria-label="Changer de thème"><Sun className="h-4 w-4 dark:hidden" /><Moon className="hidden h-4 w-4 dark:block" /></button>
           <button onClick={logout} className="touch flex items-center gap-2 rounded-full py-1 pl-1 pr-1 text-sm font-semibold hover:surface-2 sm:pr-2.5" title="Changer d'utilisateur">
             <span className="flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold text-white shadow-soft" style={{ background: me?.user?.color ?? "#0ea5a4" }}>{(me?.user?.displayName || me?.user?.firstName || "?").slice(0, 1)}</span>
-            <span className="hidden lg:inline">{me?.user?.displayName || me?.user?.firstName}</span>
+            <span className="hidden xl:inline">{me?.user?.displayName || me?.user?.firstName}</span>
             <LogOut className="hidden h-4 w-4 text-muted sm:block" />
           </button>
         </div>

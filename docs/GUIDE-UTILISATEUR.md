@@ -45,7 +45,8 @@ ManaResto est une caisse et un back-office pour les restaurants de Polynésie fr
 - **Borne** `/kiosk` sur un appareil enregistré de type Borne.
 - **Fidélité** : points au paiement, récompense en remise, fiche client en caisse.
 - **Réservations** : formulaire public `/reserver/…`, écran caisse (confirmer, arrivée, installer, no-show).
-- Interfaces clients en français, anglais et reo tahiti.
+- **Site du restaurant** `/site/<entreprise>/<établissement>` : page publique propre à votre restaurant (présentation, horaires, adresse avec itinéraire, téléphone, photos, réseaux sociaux, menu en ligne avec prix) et boutons Commander, Réserver, Appeler. Réglages dans Digital → « Site du restaurant » (accroche, description, image de couverture, logo, photos, couleur, afficher le menu / les prix). Le site existe dès la création du compte ; partagez son adresse ou faites-y pointer votre nom de domaine.
+- Interfaces clients en français, anglais et reo tahiti (site du restaurant : `?lang=en` ou `?lang=ty`).
 
 ## 9. Intégrations
 
