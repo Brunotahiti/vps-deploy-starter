@@ -38,7 +38,7 @@ export default function SignupPage() {
         <Logo size={44} />
         <h1 className="text-2xl font-extrabold tracking-tight">Créer votre espace ManaResto</h1>
         <p className="text-sm text-muted">Entreprise, premier établissement et compte propriétaire. Vous pourrez ajouter d&apos;autres restaurants ensuite.</p>
-        <p className="rounded-xl bg-lagon-500/12 px-3 py-2 text-sm font-semibold text-lagon-800 dark:text-lagon-200">{OFFER.trialDays} jours d&apos;essai gratuits, sans engagement ni carte bancaire · ensuite 15 000 F de mise en place puis 12 000 F par mois, 0 % de commission sur vos ventes.</p>
+        <p className="rounded-xl bg-lagon-500/12 px-3 py-2 text-sm font-semibold text-lagon-800 dark:text-lagon-200">{OFFER.trialDays} jours d&apos;essai gratuits, sans carte bancaire · ensuite {OFFER.monthly.toLocaleString("fr-FR")} F CFP par mois, engagement {OFFER.commitmentMonths} mois, {OFFER.commission} % de commission sur vos ventes.</p>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Entreprise" className="sm:col-span-2"><Input required value={form.organizationName} onChange={set("organizationName")} placeholder="Ma société SARL" /></Field>
           <Field label="Nom du restaurant" className="sm:col-span-2"><Input required value={form.establishmentName} onChange={set("establishmentName")} placeholder="Le Mana Beach" /></Field>

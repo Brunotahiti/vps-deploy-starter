@@ -4,7 +4,7 @@ import { OFFER, subscriptionInfo } from "@/lib/plan";
 describe("offre commerciale", () => {
   it("décrit l'essai gratuit, son échéance et l'abonnement", () => {
     expect(OFFER.trialDays).toBe(15);
-    expect(OFFER.setupFee).toBe(15_000);
+    expect(OFFER.commitmentMonths).toBe(12);
     expect(OFFER.monthly).toBe(12_000);
     expect(OFFER.commission).toBe(0);
     const now = new Date("2026-10-01T10:00:00Z");

@@ -75,7 +75,18 @@ DNS chez Hostinger pour `manaresto.com` : modifiez l'enregistrement A `@` exista
 | CNAME | `www` | manaresto.com (déjà présent chez Hostinger, à conserver) |
 | A | `app` | 187.127.105.242 |
 
+Le formulaire « Demander une démonstration » du site est relayé par nginx (`site/nginx.conf`, `location /api/demo`) vers l'application (`/api/public/demo-request`) : les demandes sont enregistrées dans la table `demo_requests` et envoyées par e-mail à `contact@manaresto.com` si le SMTP est configuré. Les informations légales et commerciales du site se règlent dans `site/config.js` ; la bannière « Iaorana et Maeva » et le logo officiel sont à déposer dans `site/assets/img/banner-iaorana.jpg` et `site/assets/img/logo.png` (affichés automatiquement s'ils existent).
+
 Puis, depuis votre Mac : `bash scripts/deploy-vps.sh` en répondant `app.manaresto.com` au domaine de l'application. L'ancien domaine reste accepté si `PUBLIC_HOST_ALT=manaresto.manaprocess.cloud` est présent dans `/opt/manaresto/.env` ; les domaines du site se règlent avec `SITE_HOST` et `SITE_HOST_ALT`. Traefik demande les certificats automatiquement une fois le DNS en place (comptez quelques minutes). Pour changer l'adresse de l'application utilisée par le site, modifiez `data-app` dans `site/index.html`.
+
+## Référencement Google (Search Console)
+
+1. Ouvrez https://search.google.com/search-console, « Ajouter une propriété » → type **Domaine** → `manaresto.com`.
+2. Google fournit un enregistrement **TXT** (`google-site-verification=…`) : ajoutez-le chez Hostinger (DNS, type TXT, nom `@`), puis cliquez sur « Vérifier » (quelques minutes de propagation).
+3. Dans Search Console → Sitemaps, soumettez `https://www.manaresto.com/sitemap.xml` ; dans Inspection d'URL, demandez l'indexation de `https://www.manaresto.com/`.
+4. Facultatif mais utile localement : créez une fiche **Google Business Profile** « ManaResto » (catégorie éditeur de logiciels, Tahiti) pointant vers le site, et faites la même déclaration sur Bing Webmaster Tools (import direct depuis Search Console).
+
+Le site expose déjà `robots.txt`, `sitemap.xml`, la balise canonique, les données structurées (Organization, SoftwareApplication, FAQPage) et les balises Open Graph.
 
 ## Suivi des erreurs (Sentry)
 
@@ -89,7 +100,7 @@ Les erreurs des routes API non gérées, les erreurs de rendu serveur et les pla
 
 ## Abonnements (offre commerciale)
 
-Chaque entreprise créée via `/signup` démarre avec **15 jours d'essai gratuits** (toutes fonctions). Un bandeau dans l'administration indique les jours restants ; à l'échéance l'application continue de fonctionner mais signale l'essai terminé, et la page Paramètres → Abonnement propose de vous contacter. Tarif : 15 000 F de mise en place puis 12 000 F par mois, 0 % de commission.
+Chaque entreprise créée via `/signup` démarre avec **15 jours d'essai gratuits** (toutes fonctions, sans carte bancaire) ; l'offre est ensuite de 12 000 F CFP par mois avec un engagement de 12 mois et 0 % de commission (`src/lib/plan.ts`). Un bandeau dans l'administration indique les jours restants ; à l'échéance l'application continue de fonctionner mais signale l'essai terminé, et la page Paramètres → Abonnement propose de vous contacter. Tarif : 15 000 F de mise en place puis 12 000 F par mois, 0 % de commission.
 
 Activer, suspendre ou prolonger l'essai d'une entreprise, sur le VPS :
 

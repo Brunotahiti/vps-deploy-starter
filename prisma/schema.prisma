@@ -1434,3 +1434,24 @@ model Upload {
   @@index([establishmentId])
   @@map("uploads")
 }
+
+/// Demandes de démonstration envoyées depuis le site vitrine (www.manaresto.com)
+model DemoRequest {
+  id             String   @id @default(uuid()) @db.Uuid
+  restaurantName String   @map("restaurant_name")
+  contactName    String   @map("contact_name")
+  phone          String
+  email          String
+  commune        String
+  kind           String   // RESTAURANT | ROULOTTE | SNACK | BAR | CAFE | AUTRE
+  message        String?
+  consent        Boolean  @default(false)
+  status         String   @default("NEW") // NEW | CONTACTED | DONE
+  ip             String?
+  userAgent      String?  @map("user_agent")
+  emailSent      Boolean  @default(false) @map("email_sent")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@index([createdAt])
+  @@map("demo_requests")
+}

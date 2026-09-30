@@ -1,0 +1,1 @@
+{ "name": "ManaResto", "short_name": "ManaResto", "start_url": "https://app.manaresto.com/", "display": "browser", "background_color": "#ffffff", "theme_color": "#14aaa3", "icons": [{ "src": "assets/icon-192.png", "sizes": "192x192", "type": "image/png" }] }

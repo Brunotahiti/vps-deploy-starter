@@ -3,34 +3,39 @@
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Mentions légales — ManaResto</title>
+  <meta name="description" content="Mentions légales du site www.manaresto.com et de l'application ManaResto.">
+  <link rel="canonical" href="https://www.manaresto.com/mentions-legales">
+  <meta name="robots" content="noindex, follow">
   <link rel="icon" href="assets/logo.svg" type="image/svg+xml">
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
 </head>
-<body data-app="https://app.manaresto.com">
-  <header class="nav"><div class="wrap"><a class="brand" href="index.html"><img src="assets/logo.svg" alt="" width="34" height="34">Mana<b>Resto</b></a><div class="nav-cta"><a class="btn btn-primary" data-signup href="#">Créer mon compte gratuit</a></div></div></header>
-  <section><div class="wrap" style="max-width:760px">
+<body>
+  <a class="skip" href="#contenu">Aller au contenu</a>
+  <header class="nav"><div class="wrap"><a class="brand" href="/" aria-label="ManaResto, accueil"><img src="assets/img/logo.png" onerror="this.onerror=null;this.src='assets/logo.svg'" alt="" width="36" height="36">Mana<b>Resto</b></a><div class="nav-cta always"><a class="btn btn-primary btn-sm" data-signup href="#">Essayer gratuitement</a></div></div></header>
+  <main id="contenu" class="legal"><div class="wrap">
     <span class="eyebrow">Informations</span>
-    <h2 style="margin-top:14px">Mentions légales</h2>
-    <div class="card" style="margin-top:22px">
-      <h3>Éditeur du site et du service</h3>
-      <p>ManaResto — <em>[raison sociale, forme juridique et capital à compléter]</em><br>Siège : <em>[adresse à compléter]</em>, Polynésie française<br>N° Tahiti : <em>[à compléter]</em> · RCS Papeete : <em>[à compléter]</em><br>Directeur de la publication : <em>[nom à compléter]</em><br>Contact : <a href="mailto:contact@manaresto.com">contact@manaresto.com</a></p>
-    </div>
-    <div class="card" style="margin-top:14px">
-      <h3>Hébergement</h3>
-      <p>Site et application hébergés sur un serveur privé virtuel Hostinger International Ltd. (61 Lordou Vironos Street, 6023 Larnaca, Chypre). Données chiffrées en transit (HTTPS) et sauvegardées quotidiennement.</p>
-    </div>
-    <div class="card" style="margin-top:14px">
-      <h3>Données personnelles</h3>
-      <p>Les données saisies dans ManaResto (établissements, équipes, ventes, clients) appartiennent au restaurant abonné, qui en est responsable de traitement ; ManaResto agit comme sous-traitant et ne les utilise que pour fournir le service. Le site vitrine ne dépose aucun cookie de suivi. Pour exercer vos droits d'accès, de rectification ou de suppression : <a href="mailto:contact@manaresto.com">contact@manaresto.com</a>.</p>
-    </div>
-    <div class="card" style="margin-top:14px">
-      <h3>Tarifs</h3>
-      <p>Essai gratuit de 15 jours sans engagement, puis 15 000 F CFP de frais de mise en place (une fois) et 12 000 F CFP par mois, sans commission sur les ventes. Prix hors TVA applicable en Polynésie française, résiliables à tout moment pour le mois suivant.</p>
-    </div>
-    <p style="margin-top:22px"><a href="index.html">← Retour au site</a></p>
-  </div></section>
-  <footer><div class="wrap"><span>© <span id="year">2026</span> ManaResto · Polynésie française</span><span><a href="index.html">Accueil</a> · <a href="mailto:contact@manaresto.com">Contact</a></span></div></footer>
-  <script src="script.js" defer></script>
+    <h1 style="font-size:2rem;margin-top:12px">Mentions légales</h1>
+    <h2>Éditeur du site et du service</h2>
+    <p>Le site www.manaresto.com et l'application ManaResto (app.manaresto.com) sont édités par <span data-legal="publisher">ManaProcess</span>, Polynésie française.</p>
+    <dl data-legal-group>
+      <div style="display:contents" data-legal-row><dt>Raison sociale</dt><dd data-legal="legalName"></dd></div>
+      <div style="display:contents" data-legal-row><dt>Capital</dt><dd data-legal="capital"></dd></div>
+      <div style="display:contents" data-legal-row><dt>N° Tahiti</dt><dd data-legal="tahitiNumber"></dd></div>
+      <div style="display:contents" data-legal-row><dt>RCS</dt><dd data-legal="rcs"></dd></div>
+      <div style="display:contents" data-legal-row><dt>Siège</dt><dd data-legal="address"></dd></div>
+      <div style="display:contents" data-legal-row><dt>Directeur de la publication</dt><dd data-legal="publicationDirector"></dd></div>
+      <div style="display:contents" data-legal-row><dt>Téléphone</dt><dd><a data-phone href="#"></a></dd></div>
+      <div style="display:contents"><dt>Contact</dt><dd><a data-email href="#">contact@manaresto.com</a></dd></div>
+    </dl>
+    <h2>Hébergement</h2>
+    <p>Site et application hébergés sur un serveur privé virtuel : <span data-legal="hosting"></span>. Données chiffrées en transit (HTTPS) et sauvegardées quotidiennement.</p>
+    <h2>Propriété intellectuelle</h2>
+    <p>Le nom ManaResto, le logo, les textes, les captures d'écran et l'application sont la propriété de leur éditeur. Toute reproduction sans autorisation est interdite.</p>
+    <h2>Données personnelles et cookies</h2>
+    <p>Voir la <a href="confidentialite" style="text-decoration:underline">politique de confidentialité</a>. Le site vitrine ne dépose aucun cookie.</p>
+    <p style="margin-top:32px"><a href="/" style="font-weight:700;color:var(--lagon-700)">← Retour à l'accueil</a></p>
+  </div></main>
+  <footer><div class="wrap"><div class="foot-bottom" style="border:0;margin:0;padding:0"><span>ManaResto — Une solution ManaProcess</span><span><a href="/">Accueil</a> · <a href="mentions-legales">Mentions légales</a> · <a href="confidentialite">Confidentialité</a> · <a href="conditions">Conditions</a> · © <span data-year>2026</span></span></div></div></footer>
+  <script src="config.js"></script><script src="script.js" defer></script>
 </body>
 </html>
