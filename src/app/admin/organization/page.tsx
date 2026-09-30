@@ -24,14 +24,14 @@ export default function OrganizationPage() {
   const today = localDay(new Date(), timezone);
   const [from, setFrom] = useState(addDays(today, -6));
   const [to, setTo] = useState(today);
-  const q = useList<Overview>(["organization", from, to], `/api/organization/overview?from=${from}&to=${to}`);
+  const q = useList<Overview>(["organization", from, to], `/api/organization/overview?from=${from}&to=${to}`, can("reports.view_global"));
   const [copy, setCopy] = useState<{ fromId: string; toId: string; products: boolean; menus: boolean } | null>(null);
   const d = q.data;
   const pct = (a: number, b: number) => (b > 0 ? ((a - b) / b) * 100 : null);
   return (
     <div>
       <PageHeader title="Multi-sites" subtitle="Tous vos établissements, consolidés" action={<div className="flex flex-wrap items-center gap-2"><Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="w-40!" /><span>→</span><Input type="date" value={to} max={today} onChange={(e) => setTo(e.target.value)} className="w-40!" />{can("establishments.manage") && (me?.establishments?.length ?? 0) > 1 ? <Button variant="secondary" onClick={() => setCopy({ fromId: me!.establishments![0].id, toId: me!.establishments![1].id, products: true, menus: true })}>Copier un catalogue</Button> : null}</div>} />
-      {q.isLoading || !d ? <div className="flex justify-center py-10"><Spinner /></div> : (
+      {!can("reports.view_global") ? <p className="card p-6 text-sm text-muted">La vue multi-sites est réservée aux comptes disposant du droit « Consulter le CA global ».</p> : q.isLoading || !d ? <div className="flex justify-center py-10"><Spinner /></div> : (
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
             <Stat label="CA TTC consolidé" value={<Money amount={d.total.revenue} />} delta={pct(d.total.revenue, d.total.previousRevenue)} />

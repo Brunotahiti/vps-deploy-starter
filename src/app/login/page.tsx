@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/field";
 import { Logo, BrandPanel } from "@/components/brand";
 import { useQueryClient } from "@tanstack/react-query";
+import { WelcomeSplash } from "@/components/welcome-splash";
 
 function LoginForm() {
   const router = useRouter();
@@ -17,22 +18,25 @@ function LoginForm() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [welcome, setWelcome] = useState<{ name: string; next: string } | null>(null);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
     try {
-      await api.post("/api/auth/login", { email, password });
+      const u = await api.post<{ firstName: string }>("/api/auth/login", { email, password });
       await qc.invalidateQueries();
-      router.replace(params.get("next") || "/");
+      const next = params.get("next") || "/";
+      router.prefetch(next);
+      setWelcome({ name: u.firstName, next });
     } catch (err) {
       setError(err instanceof ApiClientError ? err.message : "Connexion impossible");
-    } finally {
       setLoading(false);
     }
   };
 
+  if (welcome) return <WelcomeSplash name={welcome.name} onDone={() => router.replace(welcome.next)} />;
   return (
     <form onSubmit={submit} className="rise w-full max-w-sm space-y-5">
       <div><Logo size={44} /><h1 className="mt-6 text-2xl font-extrabold tracking-tight">Bon retour</h1><p className="text-sm text-muted">Connectez-vous pour ouvrir la caisse ou l&apos;administration.</p></div>

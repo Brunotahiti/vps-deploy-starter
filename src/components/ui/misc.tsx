@@ -24,7 +24,7 @@ export function Empty({ title, hint, action }: { title: string; hint?: string; a
 
 export function Card({ children, className = "", title, action }: { children: React.ReactNode; className?: string; title?: string; action?: React.ReactNode }) {
   return (
-    <section className={`card p-4 ${className}`}>
+    <section className={`card min-w-0 p-4 ${className}`}>
       {title ? (
         <header className="mb-3 flex items-center justify-between">
           <h3 className="text-sm font-bold uppercase tracking-wide text-muted">{title}</h3>

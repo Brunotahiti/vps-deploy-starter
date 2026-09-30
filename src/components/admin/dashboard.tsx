@@ -17,13 +17,15 @@ export function Dashboard() {
   const { me, can, currency, timezone } = useSession();
   const today = localDay(new Date(), timezone);
   const [day, setDay] = useState(today);
-  const daily = useQuery({ queryKey: ["reports", "daily", day], queryFn: () => api.get<DailySummary>(`/api/reports/daily?day=${day}`), refetchInterval: 60_000 });
-  const range = useQuery({ queryKey: ["reports", "range", day], queryFn: () => api.get<{ day: string; revenue: number; tickets: number; covers: number }[]>(`/api/reports/range?from=${addDays(day, -13)}&to=${day}`) });
+  const allowed = can("reports.view");
+  const daily = useQuery({ queryKey: ["reports", "daily", day], queryFn: () => api.get<DailySummary>(`/api/reports/daily?day=${day}`), refetchInterval: 60_000, enabled: allowed });
+  const range = useQuery({ queryKey: ["reports", "range", day], queryFn: () => api.get<{ day: string; revenue: number; tickets: number; covers: number }[]>(`/api/reports/range?from=${addDays(day, -13)}&to=${day}`), enabled: allowed });
   const overview = useQuery({ queryKey: ["reports", "overview", day], queryFn: () => api.get<{ establishment: { id: string; name: string; city: string | null; currency: string }; revenue: number; tickets: number; covers: number; openOrders: number; previousRevenue: number }[]>(`/api/reports/overview?day=${day}`), enabled: can("reports.view_global") && (me?.establishments?.length ?? 0) > 1 });
   const staff = useQuery({ queryKey: ["staff", "summary", day], queryFn: () => api.get<{ totalCost: number; totalHours: number; laborCostPct: number | null }>(`/api/staff/summary?from=${day}&to=${day}`), enabled: can("staff.manage") });
   const d = daily.data;
   const pct = (a: number, b: number) => (b > 0 ? ((a - b) / b) * 100 : null);
 
+  if (!allowed) return <div><PageHeader title="Tableau de bord" subtitle={me?.establishment?.name} /><p className="card p-6 text-sm text-muted">Ce compte n&apos;a pas accès aux rapports. Utilisez le menu pour rejoindre les écrans qui vous sont ouverts.</p></div>;
   return (
     <div>
       <PageHeader title="Tableau de bord" subtitle={me?.establishment?.name} action={

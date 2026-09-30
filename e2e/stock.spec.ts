@@ -33,7 +33,7 @@ test("stock : créer un ingrédient, enregistrer une perte, voir l'alerte", asyn
   await expect(row).toContainText("3");
   const alerts = await (await page.request.get("/api/stock/alerts")).json();
   expect(alerts.data.ingredients.some((a: { name: string }) => a.name === name)).toBe(true);
-  const day = new Date().toISOString().slice(0, 10);
+  const day = new Intl.DateTimeFormat("en-CA", { timeZone: "Pacific/Tahiti" }).format(new Date()); // jour local de l'établissement
   const report = await (await page.request.get(`/api/stock/report?from=${day}&to=${day}`)).json();
   expect(report.data.losses).toBeGreaterThanOrEqual(350); // 7 × 50 F
   expect(report.data.topLosses.some((l: { name: string; value: number }) => l.name === name && l.value === 350)).toBe(true);

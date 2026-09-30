@@ -15,7 +15,9 @@ WORKDIR /app
 RUN corepack enable pnpm
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-ENV NEXT_TELEMETRY_DISABLED=1 DATABASE_URL=postgresql://build:build@localhost:5432/build
+# Identifiant de build (commit) : affiché dans l'application et utilisé pour détecter les nouvelles versions (PWA)
+ARG BUILD_ID=
+ENV NEXT_TELEMETRY_DISABLED=1 DATABASE_URL=postgresql://build:build@localhost:5432/build BUILD_ID=$BUILD_ID
 RUN pnpm prisma generate && pnpm next build
 
 # Image de migration / seed : contient le CLI Prisma et le seed (lancée une fois avant l'app)

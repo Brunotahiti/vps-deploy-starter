@@ -46,6 +46,8 @@ services:
       context: .
       dockerfile: Dockerfile
       target: runner
+      args:
+        BUILD_ID: ${BUILD_ID:-}
     image: ${APP_NAME:-manaresto}:latest
     container_name: ${APP_NAME:-manaresto}
     restart: unless-stopped

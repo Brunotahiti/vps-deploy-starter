@@ -40,7 +40,7 @@ export function MenuBrowser({ catalog, cart, setCart, t, readOnly = false, big =
   const qtyIn = (productId: string) => cart.filter((l) => l.productId === productId).reduce((a, l) => a + l.quantity, 0);
   const tile = big ? "h-52" : "h-44";
   return (
-    <div>
+    <div className="min-w-0">
       <div className="sticky top-0 z-10 -mx-1 mb-3 space-y-2 bg-[var(--bg)] px-1 py-2">
         <div className="card flex h-11 items-center gap-2 px-3 shadow-none"><Search className="h-4 w-4 text-muted" /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={t("search")} className="h-9 flex-1 bg-transparent text-sm outline-none" /></div>
         <div className="flex gap-2 overflow-x-auto no-scrollbar">

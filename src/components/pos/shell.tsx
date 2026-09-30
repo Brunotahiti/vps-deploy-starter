@@ -24,7 +24,12 @@ export function PosShell({ children }: { children: React.ReactNode }) {
   const { online, pending, syncing, flush } = useOffline();
   const connected = useRealtime(!!me?.user);
   const { canInstall, install } = useInstallPrompt();
-  const cash = useQuery({ queryKey: ["cash", "current"], queryFn: () => api.get<SessionReport | null>("/api/cash/current"), enabled: !!me?.user });
+  const posAllowed = !!me?.user && can("pos.use");
+  const cash = useQuery({ queryKey: ["cash", "current"], queryFn: () => api.get<SessionReport | null>("/api/cash/current"), enabled: posAllowed });
+  // Un compte sans accès caisse (ex. rôle Cuisine) est envoyé vers son écran, sans charger la salle
+  useEffect(() => {
+    if (me?.user && !can("pos.use")) router.replace(can("kds.use") ? "/kds" : "/admin");
+  }, [me, can, router]);
   // Tiroir de navigation (téléphone) : fermé automatiquement à chaque changement de page
   const [menuState, setMenuState] = useState<{ open: boolean; path: string }>({ open: false, path: pathname });
   const menu = menuState.open && menuState.path === pathname;
@@ -37,6 +42,7 @@ export function PosShell({ children }: { children: React.ReactNode }) {
   }, [menu, pathname]);
 
   if (pathname === "/pos/login") return <>{children}</>;
+  if (me?.user && !can("pos.use")) return <div className="flex h-dvh items-center justify-center p-6 text-center text-sm text-muted">Ce compte n&apos;a pas accès à la caisse. Redirection…</div>;
 
   const logout = async () => {
     await api.post("/api/auth/logout");

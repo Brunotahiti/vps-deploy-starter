@@ -7,6 +7,7 @@ ManaResto est une caisse et un back-office pour les restaurants de Polynésie fr
 1. **Créer votre entreprise** : `/onboarding` (nom, N° Tahiti, premier établissement, compte propriétaire).
 2. **Se connecter** : `/login` avec e-mail et mot de passe. Sur une tablette de caisse, enregistrez l'appareil (**Paramètres → Terminaux**) : l'équipe se connecte ensuite par **PIN** sur `/pos/login`.
 3. **Installer l'application** : bouton « Installer l'application » dans le menu (ou « Sur l'écran d'accueil » depuis Safari sur iPhone / iPad).
+4. **Mettre à jour** : après chaque déploiement, un bandeau « Nouvelle version disponible » apparaît en bas de l'écran (au retour au premier plan ou dans la demi-heure). Touchez **Mettre à jour** : l'application se recharge avec la nouvelle version. Le numéro de version installé est affiché en bas du menu d'administration.
 
 ## 2. Catalogue
 
