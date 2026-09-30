@@ -85,6 +85,14 @@ export default function PlatformPage() {
     const r = await act(() => api.post<{ reminders: number; expired: number }>("/api/platform/lifecycle"), { invalidate: [["platform"]] });
     if (r) alert(`Relances envoyées : ${r.reminders} rappel(s) de fin d'essai, ${r.expired} e-mail(s) « essai expiré ».`);
   };
+  const testEmail = async () => {
+    try {
+      const r = await api.post<{ to: string }>("/api/platform/test-email");
+      alert(`E-mail de test envoyé à ${r.to}.\n\nS'il n'arrive pas d'ici quelques minutes, regardez dans les indésirables et dans Brevo → Statistiques → E-mails transactionnels.`);
+    } catch (e) {
+      alert(`Échec de l'envoi :\n\n${e instanceof ApiClientError ? e.message : "erreur inconnue"}`);
+    }
+  };
   const actions = { impersonate, quickPlan, toggleBlock, email: (r: PlatformRow) => setMail({ row: r, subject: "", message: "" }) };
 
   return (
@@ -99,6 +107,7 @@ export default function PlatformPage() {
             <div className="flex flex-wrap items-center gap-2">
               <button onClick={refresh} className="touch inline-flex h-10 items-center gap-2 rounded-xl bg-white/15 px-3 text-sm font-semibold hover:bg-white/25" aria-label="Actualiser"><RefreshCw className={`h-4 w-4 ${q.isFetching ? "animate-spin" : ""}`} /><span className="hidden sm:inline">Actualiser</span></button>
               <button onClick={runLifecycle} className="touch inline-flex h-10 items-center gap-2 rounded-xl bg-white/15 px-3 text-sm font-semibold hover:bg-white/25" title="Envoie tout de suite les rappels de fin d'essai et les e-mails « essai expiré » en attente"><MailCheck className="h-4 w-4" /><span className="hidden sm:inline">Lancer les relances</span></button>
+              <button onClick={testEmail} className="touch inline-flex h-10 items-center gap-2 rounded-xl bg-white/15 px-3 text-sm font-semibold hover:bg-white/25" title="Envoie un e-mail de test aux destinataires des alertes"><Mail className="h-4 w-4" /><span className="hidden sm:inline">Tester l&apos;e-mail</span></button>
               <Link href="/admin" className="touch inline-flex h-10 items-center gap-2 rounded-xl bg-white px-3 text-sm font-bold text-[#0f6e6c]"><Building2 className="h-4 w-4" />Mon restaurant</Link>
               <button onClick={toggle} className="touch rounded-xl bg-white/15 p-2.5 hover:bg-white/25" aria-label="Changer de thème"><Sun className="h-4 w-4 dark:hidden" /><Moon className="hidden h-4 w-4 dark:block" /></button>
             </div>
@@ -119,6 +128,7 @@ export default function PlatformPage() {
           <div className="card flex items-center gap-3 p-4 text-sm text-red-600"><AlertTriangle className="h-5 w-5" />{q.error instanceof ApiClientError ? q.error.message : "Chargement impossible"}</div>
         ) : data ? (
           <>
+            {data.email.keyKind === "API" ? <div className="card flex items-start gap-3 border-red-300 p-4 text-sm"><AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-red-500" /><p><b>La clé Brevo du serveur est une clé API (xkeysib-…), pas une clé SMTP.</b> Aucun e-mail ne peut partir. Dans Brevo → SMTP &amp; API → onglet SMTP, générez une clé SMTP (xsmtpsib-…) et remplacez SMTP_PASS dans le fichier .env du serveur.</p></div> : null}
             {!data.emailConfigured ? <div className="card flex items-start gap-3 border-orange-300 p-4 text-sm"><AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-orange-500" /><p><b>Envoi d&apos;e-mails non configuré.</b> Les e-mails de bienvenue, de fin d&apos;essai et vos messages ne partent pas. Renseignez les variables SMTP (relais Brevo) dans le fichier .env du serveur puis redéployez.</p></div> : null}
 
             {/* Indicateurs */}
@@ -187,6 +197,7 @@ export default function PlatformPage() {
               {/* Demandes de démo */}
               <div className="card p-4 lg:col-span-3">
                 <h2 className="mb-3 flex items-center gap-2 text-sm font-extrabold"><Sparkles className="h-4 w-4 text-pink-600" />Demandes de démonstration <span className="text-xs font-semibold text-muted">(site vitrine)</span></h2>
+                <p className="-mt-2 mb-3 text-xs text-muted">{data.email.configured ? <>Alertes envoyées à <b className="text-[var(--text)]">{data.email.recipients}</b>{data.email.from ? <> · expéditeur {data.email.from}</> : null}</> : "Envoi d'e-mails non configuré : aucune alerte ne part."}</p>
                 {data.demoRequests.length === 0 ? <p className="py-6 text-center text-sm text-muted">Aucune demande pour l&apos;instant.</p> : (
                   <div className="max-h-[420px] overflow-auto">
                     <table className="w-full min-w-[620px] text-sm">
@@ -196,7 +207,7 @@ export default function PlatformPage() {
                           <tr key={d.id} className="border-b border-line align-top last:border-0">
                             <td className="py-2 pr-3"><span className="font-semibold">{d.restaurantName}</span><span className="block text-xs text-muted">{d.kind.toLowerCase()} · {d.commune}</span>{d.message ? <span className="mt-1 block max-w-xs text-xs italic text-muted">« {d.message} »</span> : null}</td>
                             <td className="py-2 pr-3"><span className="font-semibold">{d.contactName}</span><a href={`tel:${d.phone.replace(/[^+\d]/g, "")}`} className="block text-xs text-lagon-700 underline">{d.phone}</a><a href={`mailto:${d.email}`} className="block text-xs text-lagon-700 underline">{d.email}</a></td>
-                            <td className="py-2 pr-3 text-xs text-muted" title={formatDateTime(d.createdAt, TZ)}>{relativeDays(d.createdAt)}</td>
+                            <td className="py-2 pr-3 text-xs text-muted" title={formatDateTime(d.createdAt, TZ)}>{relativeDays(d.createdAt)}<span className={`mt-1 block font-semibold ${d.emailSent ? "text-green-600" : "text-orange-600"}`}>{d.emailSent ? "alerte envoyée" : "alerte non envoyée"}</span></td>
                             <td className="py-2"><Select value={d.status} onChange={(e) => act(() => api.patch(`/api/platform/demo-requests/${d.id}`, { status: e.target.value }), { invalidate: [["platform"]] })} className="h-9 w-32 text-xs" aria-label={`Suivi de ${d.restaurantName}`}>{Object.entries(DEMO_STATUS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</Select></td>
                           </tr>
                         ))}
