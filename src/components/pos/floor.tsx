@@ -10,6 +10,7 @@ import { outbox } from "@/lib/offline/outbox";
 import { cacheGet, cacheSet } from "@/lib/offline/db";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
+import { TableTop } from "@/components/floor/table-shape";
 import { Spinner, Empty } from "@/components/ui/misc";
 import { useToast } from "@/components/ui/toast";
 import { Money } from "@/components/money";
@@ -107,7 +108,6 @@ export function FloorPlan() {
     );
   }
 
-  const scaleW = 1000 / room.width;
   const occupied = rooms.flatMap((r) => r.tables).filter((t) => t.order).length;
 
   return (
@@ -146,35 +146,36 @@ export function FloorPlan() {
         </div>
       </div>
       <div className="relative hidden min-h-0 flex-1 overflow-auto px-3 pb-3 sm:block sm:px-4">
-        <div className="card relative mx-auto overflow-hidden" style={{ width: "min(100%, 1000px)", aspectRatio: `${room.width} / ${room.height}`, backgroundImage: "radial-gradient(circle, color-mix(in srgb, var(--muted) 22%, transparent) 1px, transparent 1px)", backgroundSize: "28px 28px" }}>
+        <div className="card relative mx-auto overflow-hidden" style={{ width: "min(100%, 1000px)", aspectRatio: `${room.width} / ${room.height}`, background: "var(--surface)", backgroundImage: "linear-gradient(color-mix(in srgb, var(--border) 70%, transparent) 1px, transparent 1px), linear-gradient(90deg, color-mix(in srgb, var(--border) 70%, transparent) 1px, transparent 1px)", backgroundSize: "40px 40px" }}>
           {room.tables.map((t) => {
             const color = TABLE_STATUS_COLOR[t.status];
-            const w = t.width * scaleW, h = t.height * scaleW;
             return (
               <button
                 key={t.id}
                 onClick={() => onTable(t)}
-                className={`touch absolute flex flex-col items-center justify-center text-white transition hover:brightness-105 active:scale-95 ${t.order ? "shadow-lift" : "shadow-soft"}`}
-                style={{
-                  left: `${(t.x / room.width) * 100}%`, top: `${(t.y / room.height) * 100}%`, width: `${(t.width / room.width) * 100}%`, height: `${(t.height / room.height) * 100}%`,
-                  background: `linear-gradient(145deg, color-mix(in srgb, ${color} 82%, white), ${color} 55%, color-mix(in srgb, ${color} 80%, black))`, borderRadius: t.shape === "ROUND" ? "9999px" : "18px", transform: `rotate(${t.rotation}deg)`, minWidth: 64, minHeight: 64, fontSize: Math.max(11, Math.min(w, h) / 6),
-                  outline: t.service?.late ? "3px solid rgb(220 38 38 / 0.7)" : t.status === "BILL" ? "3px solid rgb(168 85 247 / 0.35)" : undefined, outlineOffset: 4,
-                }}
+                className="touch absolute transition hover:brightness-105 active:scale-95"
+                style={{ left: `${(t.x / room.width) * 100}%`, top: `${(t.y / room.height) * 100}%`, width: `${(t.width / room.width) * 100}%`, height: `${(t.height / room.height) * 100}%`, transform: `rotate(${t.rotation}deg)`, minWidth: 84, minHeight: 84 }}
                 title={TABLE_STATUS_LABEL[t.status]}
               >
-                <span className="text-lg font-extrabold leading-tight drop-shadow-sm">{t.name}</span>
+                <TableTop shape={t.shape} seats={t.seats} width={t.width} height={t.height} color={`linear-gradient(145deg, color-mix(in srgb, ${color} 80%, white), ${color} 55%, color-mix(in srgb, ${color} 82%, black))`} chairColor={`color-mix(in srgb, ${color} 55%, var(--surface-2))`} className="h-full w-full text-white" style={{ outline: t.service?.late ? "3px solid rgb(220 38 38 / 0.7)" : t.status === "BILL" ? "3px solid rgb(168 85 247 / 0.35)" : undefined, outlineOffset: 2, borderRadius: t.shape === "ROUND" ? "9999px" : "18px" }}>
+                  <span className="text-base font-extrabold leading-none drop-shadow-sm">{t.name}</span>
+                  {t.order ? (
+                    <>
+                      <span className="mt-1 text-xs font-extrabold leading-none"><Money amount={t.order.total} /></span>
+                      <span className="mt-1 text-[10px] font-semibold leading-none opacity-90">{formatElapsed(t.order.openedAt)} · {t.order.covers} cvts</span>
+                    </>
+                  ) : (
+                    <span className="mt-1 text-[11px] font-medium leading-none opacity-90">{t.status === "FREE" ? `${t.seats} places` : TABLE_STATUS_LABEL[t.status]}</span>
+                  )}
+                </TableTop>
                 {t.callRequestedAt ? <span className="absolute -left-1.5 -top-1.5 flex items-center gap-0.5 rounded-full bg-corail-500 px-1.5 py-0.5 text-[10px] font-extrabold text-white shadow-lift pulse-soft" title="Appel serveur"><Hand className="h-3 w-3" />appel</span> : null}
                 {t.order ? (
                   <>
-                    <span className="mt-0.5 rounded-full bg-black/15 px-2 py-0.5 text-[11px] font-semibold">{formatElapsed(t.order.openedAt)} · {t.order.covers} cvts</span>
-                    <span className="text-xs font-bold"><Money amount={t.order.total} /></span>
                     {t.order.readyCount ? <span className="absolute -right-1.5 -top-1.5 flex items-center gap-0.5 rounded-full bg-green-500 px-1.5 py-0.5 text-[10px] font-extrabold text-white shadow-lift pulse-soft" title="Plats prêts en cuisine"><BellRing className="h-3 w-3" />{t.order.readyCount}</span> : null}
                     {t.serverInitials && !t.callRequestedAt ? <span className="absolute -left-1.5 -top-1.5 flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-extrabold text-white shadow-lift ring-2 ring-[var(--surface)]" style={{ background: t.serverColor ?? "#334155" }} title="Serveur responsable">{t.serverInitials}</span> : null}
                     {t.service ? <span className={`absolute -bottom-2.5 left-1/2 flex -translate-x-1/2 items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-extrabold shadow-lift ${t.service.late ? "bg-red-600 text-white pulse-soft" : "text-white"}`} style={t.service.late ? undefined : { background: KIND_COLOR[t.service.kind] }} title={t.service.label}>{KIND_SHORT[t.service.kind]}{t.service.count > 1 ? ` +${t.service.count - 1}` : ""}{t.service.waitingMin ? ` · ${t.service.waitingMin} min` : ""}</span> : null}
                   </>
-                ) : (
-                  <span className="text-xs font-medium opacity-90">{t.status === "FREE" ? `${t.seats} places` : TABLE_STATUS_LABEL[t.status]}</span>
-                )}
+                ) : null}
               </button>
             );
           })}

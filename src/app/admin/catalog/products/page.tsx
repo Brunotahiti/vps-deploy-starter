@@ -11,6 +11,7 @@ import { Spinner, Badge } from "@/components/ui/misc";
 import { Money } from "@/components/money";
 import { PageHeader, Table, Tr, Td, useAction, useList } from "@/components/admin/common";
 import { CatalogTabs } from "@/components/admin/catalog-tabs";
+import { PhotoField } from "@/components/photo-field";
 import type { listProducts, listCategories, listModifierGroups, listKitchenStations } from "@/server/services/catalog";
 import type { TaxRate } from "@/generated/prisma/client";
 
@@ -84,7 +85,7 @@ export default function ProductsPage() {
             <Field label="Couleur (hex, facultatif)"><Input value={f.color} onChange={(e) => set({ color: e.target.value })} placeholder="#F97316" /></Field>
             <Field label="Référence / SKU"><Input value={f.sku} onChange={(e) => set({ sku: e.target.value })} /></Field>
             <Field label="Code-barres"><Input value={f.barcode} onChange={(e) => set({ barcode: e.target.value })} /></Field>
-            <Field label="URL photo" className="md:col-span-2"><Input value={f.imageUrl} onChange={(e) => set({ imageUrl: e.target.value })} placeholder="https://…" /></Field>
+            <div className="md:col-span-2"><PhotoField value={f.imageUrl} onChange={(v) => set({ imageUrl: v })} label="Photo du plat" /></div>
             <div className="flex flex-wrap gap-4 md:col-span-2"><Toggle checked={f.isAvailable} onChange={(v) => set({ isAvailable: v })} label="Disponible" /><Toggle checked={f.isActive} onChange={(v) => set({ isActive: v })} label="Actif (visible)" /><Toggle checked={f.trackStock} onChange={(v) => set({ trackStock: v })} label="Suivre le stock produit" /></div>
             {f.trackStock ? <><Field label="Stock actuel"><Input type="number" value={f.stockQty} onChange={(e) => set({ stockQty: e.target.value })} /></Field><Field label="Stock minimum"><Input type="number" value={f.stockMin} onChange={(e) => set({ stockMin: e.target.value })} /></Field></> : null}
             <div className="md:col-span-2">

@@ -233,9 +233,9 @@ export function OrderScreen({ orderId: orderIdProp }: { orderId: string }) {
         <div className="grid flex-1 auto-rows-min grid-cols-2 gap-2.5 overflow-y-auto p-2 pb-24 md:pb-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
           {categoryId === FORMULES && !search
             ? catalog.data.menus.map((m) => (
-                <button key={m.id} disabled={closed} onClick={() => setMenuOpen(m)} className="touch card relative flex h-36 flex-col overflow-hidden text-left transition hover:-translate-y-0.5 hover:shadow-lift active:scale-[0.98] disabled:opacity-50">
+                <button key={m.id} disabled={closed} onClick={() => setMenuOpen(m)} className="touch card relative flex h-[190px] flex-col overflow-hidden text-left transition hover:-translate-y-0.5 hover:shadow-lift active:scale-[0.98] disabled:opacity-50">
                   {/* eslint-disable-next-line @next/next/no-img-element -- image du catalogue (URL libre) */}
-                  {m.imageUrl ? <img src={m.imageUrl} alt="" loading="lazy" className="h-20 w-full shrink-0 object-cover" /> : <span className="flex h-20 w-full shrink-0 items-end bg-lagoon p-2.5"><span className="rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">Formule</span></span>}
+                  {m.imageUrl ? <img src={m.imageUrl} alt="" loading="lazy" className="h-[118px] w-full shrink-0 object-cover" /> : <span className="flex h-[118px] w-full shrink-0 items-end bg-lagoon p-2.5"><span className="rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">Formule</span></span>}
                   <span className="flex min-h-0 flex-1 flex-col justify-between p-2.5">
                     <span className="line-clamp-2 text-[13px] font-bold leading-tight">{m.name}</span>
                     <span className="text-sm font-extrabold text-brand"><Money amount={m.priceTtc} /></span>
@@ -247,15 +247,15 @@ export function OrderScreen({ orderId: orderIdProp }: { orderId: string }) {
                 const cat = catalog.data!.categories.find((c) => c.id === p.categoryId);
                 const tint = p.color ?? cat?.color ?? "#14aaa3";
                 return (
-                  <div key={p.id} className={`card relative flex h-[172px] flex-col overflow-hidden transition hover:-translate-y-0.5 hover:shadow-lift ${closed ? "opacity-50" : ""} ${off ? "opacity-60 grayscale" : ""}`}>
+                  <div key={p.id} className={`card relative flex h-[190px] flex-col overflow-hidden transition hover:-translate-y-0.5 hover:shadow-lift ${closed ? "opacity-50" : ""} ${off ? "opacity-60 grayscale" : ""}`}>
                     <button disabled={closed} onClick={() => onProduct(p)} className="touch flex min-h-0 flex-1 flex-col text-left active:scale-[0.99]" aria-label={`${p.name} : détail`}>
                       {/* eslint-disable-next-line @next/next/no-img-element -- images du catalogue (URL libre), non optimisables */}
-                      {p.imageUrl ? <img src={p.imageUrl} alt="" loading="lazy" className="h-[88px] w-full shrink-0 object-cover" /> : (
-                        <span className="flex h-[88px] w-full shrink-0 items-center justify-center text-3xl font-extrabold text-white/90" style={{ background: `linear-gradient(140deg, color-mix(in srgb, ${tint} 85%, white), ${tint} 60%, color-mix(in srgb, ${tint} 75%, black))` }}>{p.name.slice(0, 1).toUpperCase()}</span>
+                      {p.imageUrl ? <img src={p.imageUrl} alt="" loading="lazy" className="h-[118px] w-full shrink-0 object-cover" /> : (
+                        <span className="flex h-[118px] w-full shrink-0 items-center justify-center text-4xl font-extrabold text-white/90" style={{ background: `linear-gradient(140deg, color-mix(in srgb, ${tint} 85%, white), ${tint} 60%, color-mix(in srgb, ${tint} 75%, black))` }}>{p.name.slice(0, 1).toUpperCase()}</span>
                       )}
-                      <span className="flex min-h-0 flex-1 flex-col justify-between gap-1 p-2.5 pr-11">
+                      <span className="flex min-h-0 flex-1 flex-col justify-between gap-0.5 px-2.5 py-2 pr-11">
                         <span className="line-clamp-2 text-[13px] font-bold leading-tight">{p.name}</span>
-                        <span className="flex items-center gap-1.5 text-xs font-extrabold"><Money amount={p.priceTtc} />{p.variants.length ? <span className="text-[10px] font-bold uppercase tracking-wide text-muted">dès</span> : null}{p.modifierGroups.length ? <span className="rounded-md surface-2 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-muted">options</span> : null}</span>
+                        <span className="flex items-center gap-1.5 text-sm font-extrabold text-brand"><Money amount={p.priceTtc} />{p.variants.length ? <span className="text-[10px] font-bold uppercase tracking-wide text-muted">dès</span> : null}{p.modifierGroups.length ? <span className="rounded-md surface-2 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-muted">options</span> : null}</span>
                       </span>
                     </button>
                     {!closed && !off ? <button onClick={(e) => { e.stopPropagation(); quickAdd(p); }} className="touch absolute bottom-2 right-2 flex h-9 w-9 items-center justify-center rounded-full bg-brand text-white shadow-glow active:scale-90" aria-label={`Ajouter ${p.name}`}><Plus className="h-5 w-5" /></button> : null}
