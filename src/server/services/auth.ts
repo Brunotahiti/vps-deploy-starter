@@ -5,6 +5,7 @@ import { createSession, requestMeta, setSessionCookie, setTerminalCookie } from 
 import { hasPermission, type PermissionKey } from "@/lib/permissions";
 import { audit } from "@/server/audit";
 import { slugify } from "@/lib/slug";
+import { OFFER } from "@/lib/plan";
 import { ensureSystemRoles } from "./roles";
 import { createEstablishmentDefaults } from "./establishments";
 
@@ -124,7 +125,7 @@ export async function signup(input: {
 
   const passwordHash = await hashPassword(input.password);
   const result = await prisma.$transaction(async (tx) => {
-    const org = await tx.organization.create({ data: { name: input.organizationName, slug } });
+    const org = await tx.organization.create({ data: { name: input.organizationName, slug, plan: "TRIAL", trialEndsAt: new Date(Date.now() + OFFER.trialDays * 86_400_000) } }); // essai gratuit
     const owner = await tx.user.create({
       data: { organizationId: org.id, email, passwordHash, firstName: input.firstName, lastName: input.lastName, isOwner: true },
     });

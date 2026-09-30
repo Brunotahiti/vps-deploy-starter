@@ -15,12 +15,22 @@ datasource db {
 // TENANCY : Compte → Entreprise (organization) → Établissement → Zones/Caisses
 // ---------------------------------------------------------------------------
 
+enum Plan {
+  TRIAL     // essai gratuit (15 jours)
+  ACTIVE    // abonnement actif
+  SUSPENDED // suspendu (impayé, résiliation)
+}
+
 model Organization {
-  id        String   @id @default(uuid()) @db.Uuid
-  name      String
-  slug      String   @unique
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  id            String    @id @default(uuid()) @db.Uuid
+  name          String
+  slug          String    @unique
+  plan          Plan      @default(TRIAL)
+  trialEndsAt   DateTime? @map("trial_ends_at")
+  planStartedAt DateTime? @map("plan_started_at")
+  billingEmail  String?   @map("billing_email")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
 
   establishments Establishment[]
   users          User[]

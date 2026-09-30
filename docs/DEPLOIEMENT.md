@@ -63,6 +63,21 @@ SMTP_FROM="Le Mana Beach <contact@votre-restaurant.pf>"
 
 Avec une boîte e-mail Hostinger, ce sont les réglages standard. Tout autre serveur SMTP (Gmail avec mot de passe d'application, OVH, Brevo…) fonctionne de la même façon. L'état apparaît dans *Administration → Paramètres → Reçus par e-mail*.
 
+## Abonnements (offre commerciale)
+
+Chaque entreprise créée via `/signup` démarre avec **15 jours d'essai gratuits** (toutes fonctions). Un bandeau dans l'administration indique les jours restants ; à l'échéance l'application continue de fonctionner mais signale l'essai terminé, et la page Paramètres → Abonnement propose de vous contacter. Tarif : 15 000 F de mise en place puis 12 000 F par mois, 0 % de commission.
+
+Activer, suspendre ou prolonger l'essai d'une entreprise, sur le VPS :
+
+```
+cd /opt/manaresto
+bash scripts/plan.sh <slug-entreprise> ACTIVE        # abonnement actif
+bash scripts/plan.sh <slug-entreprise> SUSPENDED     # suspendu
+bash scripts/plan.sh <slug-entreprise> TRIAL 30      # nouvel essai de 30 jours
+```
+
+Le slug figure dans l'URL des pages publiques de l'entreprise (`/commander/<slug>/…`) et dans la table `organizations`.
+
 ## Sécurité en production
 
 - Changer le mot de passe du compte propriétaire de démo, ou créer votre entreprise via `/signup` et ne pas charger la démo.

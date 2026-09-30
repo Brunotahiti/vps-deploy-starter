@@ -65,6 +65,10 @@ ManaResto est une caisse et un back-office pour les restaurants de Polynésie fr
 
 Sessions chiffrées par cookie, PIN et mots de passe hachés, tentatives limitées (connexion, PIN, formulaires publics, API), en-têtes de sécurité HTTP, permissions vérifiées côté serveur sur chaque route, isolation stricte par établissement.
 
+## Offre et abonnement
+
+15 jours d'essai gratuits à la création de votre espace, sans engagement. Ensuite 15 000 F de mise en place puis 12 000 F par mois, toutes fonctions comprises, 0 % de commission sur vos ventes. L'état de votre essai est affiché en haut de l'administration et dans **Paramètres → Abonnement**.
+
 ## Compte de démonstration
 
 `demo@manaresto.pf` / `demo1234` (PIN 1234) — établissement « Le Mana Beach ». Manager : PIN 2000, cuisine : 3000, bar : 4000, serveurs : 1001 à 1005.
