@@ -49,15 +49,18 @@ p { margin: 0; }
 .nav-cta { margin-left: auto; display: none; gap: 10px; align-items: center; }
 .nav-cta.always { display: flex; }
 /* Se connecter : visible sur tous les écrans (clients qui ont déjà un compte) */
-.nav-login { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 12px; border-radius: 12px; font-weight: 700; font-size: .92rem; color: var(--lagon-700); white-space: nowrap; transition: background .2s; }
-.nav-login:hover, .nav-login:focus-visible { background: var(--soft); }
-.nav-login svg { width: 17px; height: 17px; }
+.nav-login { margin-left: auto; display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 16px 0 6px; border-radius: 999px; border: 1.5px solid var(--lagon-100); background: #fff; color: var(--lagon-800); font-weight: 800; font-size: .93rem; white-space: nowrap; box-shadow: 0 8px 20px -12px rgb(15 110 108 / .55); transition: background .18s, color .18s, border-color .18s, box-shadow .18s, transform .12s; }
+.nav-login .ico { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 999px; background: linear-gradient(135deg, var(--lagon), var(--lagon-700)); color: #fff; transition: background .18s; }
+.nav-login .ico svg { width: 16px; height: 16px; }
+.nav-login:hover, .nav-login:focus-visible { background: var(--lagon-700); border-color: var(--lagon-700); color: #fff; box-shadow: 0 12px 26px -12px rgb(15 110 108 / .75); }
+.nav-login:hover .ico, .nav-login:focus-visible .ico { background: rgb(255 255 255 / .2); }
+.nav-login:active { transform: scale(.97); }
 .nav-login + .nav-cta { margin-left: 0; }
+.nav-login .short { display: none; }
+@media (max-width: 439px) { .nav-login { min-height: 42px; padding: 0 12px 0 5px; gap: 6px; font-size: .9rem; margin-right: 4px; } .nav-login .ico { width: 30px; height: 30px; } .nav-login .long { display: none; } .nav-login .short { display: inline; } }
+@media (max-width: 349px) { .nav-login { padding: 5px; } .nav-login .short { display: none; } }
 /* Liens secondaires retirés de la barre d'ordinateur (place pour « Se connecter ») ; ils restent dans le menu mobile */
 .nav-links .nav-more { display: none; }
-.nav-login .short { display: none; }
-@media (max-width: 439px) { .nav-login .long { display: none; } .nav-login .short { display: inline; } .nav-login { padding: 0 10px; min-height: 44px; margin-right: 4px; } }
-@media (max-width: 349px) { .nav-login .short { display: none; } .nav-login { width: 44px; padding: 0; justify-content: center; } }
 @media (max-width: 479px) { .nav-cta.always { display: none; } }
 .burger { margin-left: auto; width: 46px; height: 46px; border: 1px solid var(--line); background: #fff; border-radius: 12px; display: grid; place-items: center; cursor: pointer; }
 .burger span { display: block; width: 20px; height: 2px; background: var(--text); position: relative; }

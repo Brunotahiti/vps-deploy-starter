@@ -76,6 +76,10 @@ rsync -az --delete -e "ssh -i $KEY" \
 echo "→ Vérification des prérequis du VPS…"
 $SSH "bash $VPS_PATH/scripts/vps-bootstrap.sh"
 
+# 2 bis. Site vitrine : version des styles et scripts = commit déployé (le navigateur et Cloudflare rechargent les nouveaux fichiers)
+BUILD_ID=$(git rev-parse --short=12 HEAD 2>/dev/null || date +%Y%m%d%H%M)
+$SSH "cd $VPS_PATH && sed -i -E 's/\.(css|js)\?v=[A-Za-z0-9]+/.\1?v=$BUILD_ID/g' site/*.html"
+
 # 3. Fichier .env de production (créé une seule fois, mots de passe générés sur le VPS)
 $SSH "cd $VPS_PATH && if [ ! -f .env ]; then
   cp .env.vps.example .env
