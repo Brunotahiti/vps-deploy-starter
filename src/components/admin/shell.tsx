@@ -9,6 +9,7 @@ import { useSession } from "@/hooks/use-session";
 import { useRealtime } from "@/hooks/use-realtime";
 import { useTheme } from "@/hooks/use-theme";
 import { useInstallPrompt } from "@/hooks/use-install-prompt";
+import { BUILD_ID } from "@/lib/build";
 import { api } from "@/lib/api-client";
 import { Logo } from "@/components/brand";
 import { Spinner } from "@/components/ui/misc";
@@ -72,6 +73,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
           <button onClick={toggle} className="touch rounded-lg p-2 hover:surface-2"><Sun className="h-4 w-4 dark:hidden" /><Moon className="hidden h-4 w-4 dark:block" /></button>
           <button onClick={logout} className="touch rounded-lg p-2 hover:surface-2" title="Déconnexion"><LogOut className="h-4 w-4" /></button>
         </div>
+        <p className="mt-1 px-1 text-[10px] text-muted" title="Version installée">ManaResto · version {BUILD_ID}</p>
       </div>
     </aside>
   );
@@ -79,10 +81,10 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex h-dvh">
       <div className="hidden lg:block">{Sidebar}</div>
-      {open ? <div className="fixed inset-0 z-40 flex lg:hidden"><div className="absolute inset-0 bg-black/50" onClick={() => setOpen(false)} /><div className="relative z-10">{Sidebar}</div></div> : null}
+      {open ? <div className="fixed inset-0 z-40 flex lg:hidden"><div className="absolute inset-0 bg-black/50" onClick={() => setOpen(false)} /><div className="relative z-10" style={{ paddingTop: "env(safe-area-inset-top)" }}>{Sidebar}</div></div> : null}
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="glass flex h-14 shrink-0 items-center gap-3 border-b px-4 lg:hidden"><button className="touch rounded-lg p-2" onClick={() => setOpen(true)}><Menu className="h-5 w-5" /></button><Logo size={28} /></header>
-        <main className="min-h-0 flex-1 overflow-y-auto p-4 lg:p-8">{children}</main>
+        <main className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden p-4 lg:p-8">{children}</main>
       </div>
     </div>
   );

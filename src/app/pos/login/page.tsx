@@ -8,6 +8,7 @@ import { api, ApiClientError } from "@/lib/api-client";
 import { NumPad } from "@/components/ui/numpad";
 import { Logo } from "@/components/brand";
 import { useSession } from "@/hooks/use-session";
+import { WelcomeSplash } from "@/components/welcome-splash";
 
 function PinLogin() {
   const router = useRouter();
@@ -17,22 +18,26 @@ function PinLogin() {
   const [pin, setPin] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [welcome, setWelcome] = useState<{ name: string; next: string } | null>(null);
 
   const submit = async () => {
     if (pin.length < 4) return;
     setLoading(true);
     setError(null);
     try {
-      await api.post("/api/auth/pin", { pin });
+      const u = await api.post<{ firstName: string; displayName?: string | null }>("/api/auth/pin", { pin });
       await qc.invalidateQueries();
-      router.replace(params.get("next") || "/pos");
+      const next = params.get("next") || "/pos";
+      router.prefetch(next);
+      setWelcome({ name: u.displayName || u.firstName, next });
     } catch (err) {
       setError(err instanceof ApiClientError ? err.message : "Erreur");
       setPin("");
-    } finally {
       setLoading(false);
     }
   };
+
+  if (welcome) return <WelcomeSplash name={welcome.name} onDone={() => router.replace(welcome.next)} />;
 
   if (me && !me.terminal) {
     return (

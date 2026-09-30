@@ -76,7 +76,8 @@ fi"
 
 # 4. Construction et démarrage (base → migrations/seed → application)
 echo "→ Construction des images et démarrage (2 à 5 minutes la première fois)…"
-$SSH "cd $VPS_PATH && set -a && . ./.env && set +a && docker compose build migrate app && docker compose up -d && docker image prune -f >/dev/null && docker compose ps"
+BUILD_ID=$(git rev-parse --short=12 HEAD 2>/dev/null || date +%Y%m%d%H%M)
+$SSH "cd $VPS_PATH && set -a && . ./.env && set +a && export BUILD_ID=$BUILD_ID && docker compose build migrate app && docker compose up -d && docker image prune -f >/dev/null && docker compose ps"
 
 # 5. Sauvegarde quotidienne (3 h du matin) — uniquement la ligne ManaResto de la crontab
 $SSH "chmod +x $VPS_PATH/scripts/db-backup.sh; (crontab -l 2>/dev/null | grep -v '$VPS_PATH/scripts/db-backup.sh'; echo '0 3 * * * $VPS_PATH/scripts/db-backup.sh >> /var/log/manaresto-backup.log 2>&1') | crontab -"

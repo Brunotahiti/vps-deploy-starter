@@ -86,12 +86,12 @@ test("salle, utilisateurs, paramètres et import CSV", async ({ page }) => {
   await login(page);
   const tag = Date.now().toString(36).slice(-4);
   await page.goto("/admin/floor");
-  await page.getByRole("button", { name: "+ Salle" }).click();
+  await page.getByRole("button", { name: "Salle", exact: true }).click();
   await page.getByPlaceholder("Salle, Terrasse…").fill(`Bar ${tag}`);
   await page.getByRole("button", { name: "Enregistrer" }).last().click();
   await expect(page.getByRole("button", { name: new RegExp(`Bar ${tag}`) })).toBeVisible();
   await page.getByRole("button", { name: new RegExp(`Bar ${tag}`) }).click();
-  await page.getByRole("button", { name: "+ Table" }).click();
+  await page.getByRole("button", { name: "Table", exact: true }).click();
   await expect(page.getByText("Table ajoutée")).toBeVisible();
 
   await page.goto("/admin/users");

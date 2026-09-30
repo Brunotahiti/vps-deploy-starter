@@ -1,7 +1,11 @@
 import type { NextConfig } from "next";
 
+/** Identifiant de build : commit (BUILD_ID/GIT_SHA fournis par le déploiement) ou horodatage. */
+const buildId = (process.env.BUILD_ID || process.env.GIT_SHA || "").slice(0, 12) || new Date().toISOString().replace(/\D/g, "").slice(0, 12);
+
 const nextConfig: NextConfig = {
   output: "standalone",
+  env: { NEXT_PUBLIC_BUILD_ID: buildId },
   reactStrictMode: true,
   poweredByHeader: false,
   serverExternalPackages: ["pdfkit", "pg"],

@@ -68,6 +68,7 @@ jobs:
             cd ${{ secrets.VPS_PATH }}
             if [ -f .env ]; then set -a && source .env && set +a; fi
             docker network create traefik 2>/dev/null || true
+            export BUILD_ID=$(echo "${{ github.sha }}" | cut -c1-12)
             docker compose build migrate app
             docker compose up -d
             docker image prune -f
