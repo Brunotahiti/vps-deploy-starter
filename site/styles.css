@@ -130,6 +130,7 @@ section { padding: 60px 0; }
 @media (min-width: 900px) { .shots { grid-template-columns: repeat(3, 1fr); } .shots .wide { grid-column: span 2; } }
 
 /* Tahiti */
+#tahiti .grid-3 { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
 .tahiti-banner { margin-top: 26px; border-radius: var(--radius); overflow: hidden; }
 .tahiti-banner img { width: 100%; aspect-ratio: 1800 / 684; object-fit: cover; }
 .badge-pf { display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 999px; background: var(--lagon-700); color: #fff; font-weight: 800; }
