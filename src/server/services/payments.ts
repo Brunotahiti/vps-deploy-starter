@@ -11,8 +11,7 @@ export type PaymentInput = {
   id?: string;
   method: PaymentMethod;
   amount: number;       // montant imputé à l'addition
-  tipAmount?: number;
-  tendered?: number;    // espèces reçues (≥ amount + tip)
+  tendered?: number;    // espèces reçues (≥ amount)
   reference?: string | null;
   splitLabel?: string | null;
 };
@@ -40,7 +39,7 @@ export async function addPayments(actor: Actor, orderId: string, inputs: Payment
     const out = [];
     for (const p of inputs) {
       if (p.id && (await tx.payment.findUnique({ where: { id: p.id } }))) continue; // rejeu idempotent
-      const tip = Math.max(0, p.tipAmount ?? 0);
+      const tip = 0; // pas de pourboires en Polynésie : le champ reste à zéro
       let changeGiven = 0;
       if (p.method === "CASH" && p.tendered !== undefined) {
         if (p.tendered < p.amount + tip) throw new ApiError(400, "INSUFFICIENT_CASH", "Espèces reçues insuffisantes");

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Receipt, Users, ShoppingBag, UtensilsCrossed, ChevronLeft, ChevronRight, Percent, BadgeMinus, Ban, HandCoins } from "lucide-react";
+import { Receipt, Users, ShoppingBag, UtensilsCrossed, ChevronLeft, ChevronRight, Percent, BadgeMinus, Ban, TrendingUp, TrendingDown } from "lucide-react";
 import { api } from "@/lib/api-client";
 import { useSession } from "@/hooks/use-session";
 import { formatMoney } from "@/lib/money";
@@ -108,12 +108,11 @@ export function Dashboard() {
                 {staff.data ? <div><p className="mb-1 text-xs font-semibold">Marge après prime cost</p><p className="text-2xl font-extrabold tracking-tight">{formatMoney(d.revenueHt - d.foodCost - staff.data.totalCost, currency)}</p><p className="text-[11px] text-muted">CA HT − matière − personnel</p></div> : null}
               </div>
             </ChartCard>
-            <ChartCard title="À surveiller" subtitle="Remises, annulations et pourboires du jour">
+            <ChartCard title="À surveiller" subtitle="Remises, annulations et coût matière du jour">
               <ul className="divide-y divide-line">
                 {[
                   { icon: <Percent className="h-4 w-4" />, label: "Remises accordées", value: formatMoney(d.discounts, currency), tone: "#4a3aa7" },
                   { icon: <Ban className="h-4 w-4" />, label: "Annulations", value: `${d.cancellations}`, tone: "#dc2626" },
-                  { icon: <HandCoins className="h-4 w-4" />, label: "Pourboires", value: formatMoney(d.tips, currency), tone: "#16a34a" },
                   { icon: <BadgeMinus className="h-4 w-4" />, label: "Coût matière estimé", value: formatMoney(d.foodCost, currency), tone: "#f97c3c" },
                 ].map((r) => (
                   <li key={r.label} className="flex items-center gap-3 py-2.5 text-sm"><span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full" style={{ background: `color-mix(in srgb, ${r.tone} 14%, transparent)`, color: r.tone }}>{r.icon}</span><span className="flex-1 font-semibold">{r.label}</span><span className="font-extrabold tabular-nums">{r.value}</span></li>
@@ -121,6 +120,17 @@ export function Dashboard() {
               </ul>
             </ChartCard>
           </div>
+
+          {/* ---- Rentabilité par plat */}
+          <ChartCard title="Plats les plus et les moins rentables" subtitle="Marge brute HT du jour (prix HT − coût matière), produits dont le coût est renseigné" table={{ head: ["Plat", "Marge %", "Marge", "CA HT", "Coût", "Qté"], rows: [...d.profitability.best, ...d.profitability.worst].map((p) => [p.name, p.marginPct !== null ? `${p.marginPct} %` : "—", formatMoney(p.margin, currency), formatMoney(p.revenueHt, currency), formatMoney(p.cost, currency), p.quantity]) }}>
+            {d.profitability.best.length === 0 ? <p className="py-6 text-center text-sm text-muted">Renseignez le coût des produits (fiche produit ou recette) pour voir leur rentabilité.</p> : (
+              <div className="grid gap-5 lg:grid-cols-2">
+                <ProfitList title="Les plus rentables" icon={<TrendingUp className="h-4 w-4" />} tone="var(--viz-good)" rows={d.profitability.best} currency={currency} />
+                <ProfitList title="Les moins rentables" icon={<TrendingDown className="h-4 w-4" />} tone="var(--viz-bad)" rows={d.profitability.worst} currency={currency} />
+              </div>
+            )}
+            {d.profitability.unknownCost > 0 ? <p className="mt-3 text-[11px] text-muted">{d.profitability.unknownCost} produit{d.profitability.unknownCost > 1 ? "s" : ""} vendu{d.profitability.unknownCost > 1 ? "s" : ""} sans coût matière renseigné, non classé{d.profitability.unknownCost > 1 ? "s" : ""}.</p> : null}
+          </ChartCard>
 
           {/* ---- Établissements */}
           {overview.data && overview.data.length > 1 ? (
@@ -155,6 +165,25 @@ export function Dashboard() {
             </ChartCard>
           </div>
         </div>
+      )}
+    </div>
+  );
+}
+
+/** Liste de plats avec marge en % (barre sur 100 %), marge en F et quantité vendue. */
+function ProfitList({ title, icon, tone, rows, currency }: { title: string; icon: React.ReactNode; tone: string; rows: DailySummary["byProduct"]; currency: string }) {
+  return (
+    <div>
+      <p className="mb-2 flex items-center gap-2 text-xs font-extrabold"><span className="flex h-6 w-6 items-center justify-center rounded-full" style={{ background: `color-mix(in srgb, ${tone} 14%, transparent)`, color: tone }}>{icon}</span>{title}</p>
+      {rows.length === 0 ? <p className="text-xs text-muted">Aucun plat à afficher.</p> : (
+        <ul className="space-y-2.5">
+          {rows.map((p, i) => (
+            <li key={p.name} className="text-xs">
+              <div className="mb-1 flex items-baseline justify-between gap-3"><span className="min-w-0 truncate font-semibold">{p.name}<span className="ml-1.5 font-normal text-muted">× {p.quantity}</span></span><span className="shrink-0 tabular-nums"><b>{p.marginPct} %</b><span className="ml-1.5 text-muted">{formatMoney(p.margin, currency)}</span></span></div>
+              <div className="h-2 w-full rounded-full" style={{ background: "var(--viz-grid)" }}><div className="viz-bar h-2 rounded-full" style={{ width: `${Math.max(0, Math.min(100, p.marginPct ?? 0))}%`, background: tone, animationDelay: `${i * 30}ms` }} /></div>
+            </li>
+          ))}
+        </ul>
       )}
     </div>
   );

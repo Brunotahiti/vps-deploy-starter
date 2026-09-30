@@ -33,8 +33,6 @@ function SettingsForm({ initial }: { initial: Est }) {
   const initSettings = (e.settings ?? {}) as { courses?: string[]; markTablesToClean?: boolean };
   const initHours = (e.openingHours ?? {}) as Record<string, string[]>;
   const [f, setF] = useState<Record<string, string>>({ name: e.name, legalName: e.legalName ?? "", tahitiNumber: e.tahitiNumber ?? "", addressLine1: e.addressLine1 ?? "", city: e.city ?? "", postalCode: e.postalCode ?? "", island: e.island ?? "", phone: e.phone ?? "", email: e.email ?? "", currency: e.currency, timezone: e.timezone });
-  const [tips, setTips] = useState(e.tipsEnabled);
-  const [presets, setPresets] = useState(((e.tipPresetsBps as number[]) ?? []).map((b) => b / 100).join(","));
   const [courses, setCourses] = useState((initSettings.courses ?? ["APÉRITIFS", "ENTRÉES", "PLATS", "DESSERTS"]).join(", "));
   const [toClean, setToClean] = useState(!!initSettings.markTablesToClean);
   const [hours, setHours] = useState<Record<string, string>>(Object.fromEntries(DAYS.map(([k]) => [k, (initHours[k] ?? []).join(", ")])));
@@ -42,7 +40,7 @@ function SettingsForm({ initial }: { initial: Est }) {
   const [station, setStation] = useState({ name: "", warn: "600", alert: "900" });
 
   const save = async () => {
-    const body = { ...f, legalName: f.legalName || null, tahitiNumber: f.tahitiNumber || null, addressLine1: f.addressLine1 || null, city: f.city || null, postalCode: f.postalCode || null, island: f.island || null, phone: f.phone || null, email: f.email || null, tipsEnabled: tips, tipPresetsBps: presets.split(",").map((s) => Math.round(Number(s.trim()) * 100)).filter((n) => n > 0), settings: { ...((est.data?.settings as object) ?? {}), courses: courses.split(",").map((s) => s.trim()).filter(Boolean), markTablesToClean: toClean }, openingHours: Object.fromEntries(DAYS.map(([k]) => [k, (hours[k] ?? "").split(",").map((s) => s.trim()).filter(Boolean)])) };
+    const body = { ...f, legalName: f.legalName || null, tahitiNumber: f.tahitiNumber || null, addressLine1: f.addressLine1 || null, city: f.city || null, postalCode: f.postalCode || null, island: f.island || null, phone: f.phone || null, email: f.email || null, settings: { ...((est.data?.settings as object) ?? {}), courses: courses.split(",").map((s) => s.trim()).filter(Boolean), markTablesToClean: toClean }, openingHours: Object.fromEntries(DAYS.map(([k]) => [k, (hours[k] ?? "").split(",").map((s) => s.trim()).filter(Boolean)])) };
     await act(() => api.patch(`/api/establishments/${id}`, body), { success: "Paramètres enregistrés", invalidate: [["establishment"], ["me"], ["pos-catalog"]] });
   };
   const s = (k: string) => ({ value: f[k] ?? "", onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setF({ ...f, [k]: e.target.value }) });
@@ -64,8 +62,6 @@ function SettingsForm({ initial }: { initial: Est }) {
         </Card>
         <Card title="Caisse">
           <div className="space-y-3">
-            <Toggle checked={tips} onChange={setTips} label="Pourboires activés" />
-            {tips ? <Field label="Propositions (%)" hint="séparées par des virgules"><Input value={presets} onChange={(e) => setPresets(e.target.value)} /></Field> : null}
             <Field label="Services (étapes de commande)" hint="ordre d'envoi en cuisine, séparés par des virgules"><Input value={courses} onChange={(e) => setCourses(e.target.value)} /></Field>
             <Toggle checked={toClean} onChange={setToClean} label="Passer la table « à nettoyer » après paiement (sinon libre immédiatement)" />
           </div>
