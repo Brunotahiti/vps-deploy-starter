@@ -231,6 +231,7 @@ export async function upsertSupplierProduct(actor: Actor, input: { id?: string; 
   const supplier = await prisma.supplier.findFirst({ where: { id: input.supplierId, establishmentId: actor.establishmentId } });
   if (!supplier) throw new ApiError(404, "NOT_FOUND", "Fournisseur introuvable");
   if (input.ingredientId && !(await prisma.ingredient.findFirst({ where: { id: input.ingredientId, establishmentId: actor.establishmentId } }))) throw new ApiError(400, "BAD_INGREDIENT", "Ingrédient inconnu");
+  if (input.productId && !(await prisma.product.findFirst({ where: { id: input.productId, establishmentId: actor.establishmentId } }))) throw new ApiError(400, "BAD_PRODUCT", "Produit inconnu");
   const data = { supplierId: input.supplierId, ingredientId: input.ingredientId ?? null, productId: input.productId ?? null, reference: input.reference ?? null, name: input.name, packSize: input.packSize ?? 1, lastPrice: input.lastPrice ?? 0 };
   if (input.id) {
     const existing = await prisma.supplierProduct.findFirst({ where: { id: input.id, supplier: { establishmentId: actor.establishmentId } } });

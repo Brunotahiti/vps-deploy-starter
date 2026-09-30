@@ -2,6 +2,7 @@ import { route, parseBody, ok, created } from "@/server/http";
 import { requirePermission } from "@/server/auth/context";
 import { userCreateSchema } from "@/server/schemas";
 import { createUser, listUsers } from "@/server/services/users";
+import { assertCanAssign, assertEmailAllowed } from "@/server/auth/guards";
 
 export const GET = route(async (req) => {
   const ctx = await requirePermission("users.manage");
@@ -12,6 +13,8 @@ export const GET = route(async (req) => {
 export const POST = route(async (req) => {
   const ctx = await requirePermission("users.manage");
   const body = await parseBody(req, userCreateSchema);
+  assertEmailAllowed(body.email);
+  await assertCanAssign(ctx, body.memberships);
   const u = await createUser(ctx.organizationId, ctx.user.id, body);
   return created({ id: u.id, email: u.email });
 });

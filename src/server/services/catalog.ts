@@ -38,6 +38,7 @@ export async function listCategories(establishmentId: string) {
 }
 
 export async function upsertCategory(actor: Actor, input: { id?: string; name: string; color?: string; parentId?: string | null; sortOrder?: number; isActive?: boolean; imageUrl?: string | null }) {
+  if (input.parentId && (input.parentId === input.id || !(await prisma.category.findFirst({ where: { id: input.parentId, establishmentId: actor.establishmentId } })))) throw new ApiError(400, "BAD_CATEGORY", "Catégorie parente invalide");
   const data = { name: input.name, color: input.color, parentId: input.parentId, sortOrder: input.sortOrder, isActive: input.isActive, imageUrl: input.imageUrl };
   if (input.id) {
     const existing = await prisma.category.findFirst({ where: { id: input.id, establishmentId: actor.establishmentId } });
@@ -143,7 +144,11 @@ export async function updateProduct(actor: Actor, id: string, input: Partial<Pro
       const keep = input.variants.filter((v) => v.id).map((v) => v.id!);
       await tx.productVariant.deleteMany({ where: { productId: id, id: { notIn: keep } } });
       for (const [i, v] of input.variants.entries()) {
-        if (v.id) await tx.productVariant.update({ where: { id: v.id }, data: { name: v.name, priceTtc: v.priceTtc, sku: v.sku ?? null, sortOrder: i } });
+        if (v.id) {
+          // La variante doit appartenir à CE produit (les identifiants de variantes sont visibles sur le menu public)
+          const r = await tx.productVariant.updateMany({ where: { id: v.id, productId: id }, data: { name: v.name, priceTtc: v.priceTtc, sku: v.sku ?? null, sortOrder: i } });
+          if (r.count === 0) throw new ApiError(400, "BAD_VARIANT", "Variante invalide pour ce produit");
+        }
         else await tx.productVariant.create({ data: { productId: id, name: v.name, priceTtc: v.priceTtc, sku: v.sku ?? null, sortOrder: i } });
       }
     }
@@ -222,7 +227,11 @@ export async function upsertModifierGroup(actor: Actor, input: ModifierGroupInpu
     }
     for (const [i, m] of input.modifiers.entries()) {
       const data = { name: m.name, priceDelta: m.priceDelta, isDefault: m.isDefault ?? false, isAvailable: m.isAvailable ?? true, sortOrder: i };
-      if (m.id) await tx.modifier.update({ where: { id: m.id }, data });
+      if (m.id) {
+        // L'option doit appartenir à CE groupe (les identifiants d'options sont visibles sur le menu public)
+        const r = await tx.modifier.updateMany({ where: { id: m.id, groupId }, data });
+        if (r.count === 0) throw new ApiError(400, "BAD_MODIFIER", "Option invalide pour ce groupe");
+      }
       else await tx.modifier.create({ data: { groupId, ...data } });
     }
     return tx.modifierGroup.findUniqueOrThrow({ where: { id: groupId }, include: { modifiers: { orderBy: { sortOrder: "asc" } } } });
@@ -259,6 +268,7 @@ export async function upsertMenu(actor: Actor, input: MenuInput & { id?: string 
     const count = await prisma.product.count({ where: { id: { in: productIds }, establishmentId: actor.establishmentId } });
     if (count !== new Set(productIds).size) throw new ApiError(400, "BAD_PRODUCT", "Produit invalide dans la formule");
   }
+  if (input.taxRateId && !(await prisma.taxRate.findFirst({ where: { id: input.taxRateId, establishmentId: actor.establishmentId } }))) throw new ApiError(400, "BAD_TAX", "Taux de TVA invalide");
   const menu = await prisma.$transaction(async (tx) => {
     let menuId = input.id;
     const base = { name: input.name, description: input.description ?? null, priceTtc: input.priceTtc, taxRateId: input.taxRateId ?? null, color: input.color ?? null, imageUrl: input.imageUrl ?? null, isActive: input.isActive ?? true, sortOrder: input.sortOrder ?? 0 };

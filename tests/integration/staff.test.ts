@@ -22,7 +22,8 @@ describe("Phase 5 — personnel, pointage, coût et rapports", () => {
     const r = await createEmployeesFromUsers(T.managerActor);
     expect(r.created).toBe(3); // owner, manager, server
     const extra = await upsertEmployee(T.managerActor, { firstName: "Tehani", lastName: "Extra", jobTitle: "Plonge", hourlyCost: 1400, pin: "7777" });
-    expect(extra.pinHash).not.toBeNull();
+    expect(extra.hasPin).toBe(true);
+    expect(extra).not.toHaveProperty("pinHash");
     const list = await listEmployees(T.est.id);
     expect(list.length).toBe(4);
     expect(list.find((e) => e.id === extra.id)!.hasPin).toBe(true);

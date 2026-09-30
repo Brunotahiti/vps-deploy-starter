@@ -1,13 +1,13 @@
 import { route, parseBody, ok, created } from "@/server/http";
 import { requireAuth, requirePermission } from "@/server/auth/context";
 import { establishmentCreateSchema } from "@/server/schemas";
-import { createEstablishment, listEstablishments } from "@/server/services/establishments";
+import { createEstablishment, listEstablishments, publicEstablishment } from "@/server/services/establishments";
 
 export const GET = route(async () => {
   const ctx = await requireAuth();
   const all = await listEstablishments(ctx.organizationId);
   const allowed = new Set(ctx.establishments.map((e) => e.id));
-  return ok(all.filter((e) => allowed.has(e.id)));
+  return ok(all.filter((e) => allowed.has(e.id)).map(publicEstablishment));
 });
 
 export const POST = route(async (req) => {

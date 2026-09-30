@@ -28,7 +28,7 @@ export const userCreateSchema = z.object({
   email: z.string().email(), password: z.string().min(8).max(128), firstName: z.string().min(1).max(60), lastName: z.string().min(1).max(60),
   displayName: z.string().max(40).nullable().optional(), color: z.string().max(20).nullable().optional(), pin: pin.nullable().optional(), memberships: z.array(membershipSchema).min(1),
 });
-export const userUpdateSchema = userCreateSchema.partial().extend({ isActive: z.boolean().optional() });
+export const userUpdateSchema = userCreateSchema.partial().extend({ isActive: z.boolean().optional(), currentPassword: z.string().max(200).optional() });
 export const inviteSchema = z.object({ email: z.string().email(), firstName: z.string().min(1).max(60), lastName: z.string().min(1).max(60), color: z.string().max(20).nullable().optional(), memberships: z.array(membershipSchema).min(1) });
 export const acceptInviteSchema = z.object({ password: z.string().min(8).max(128), pin: pin.nullable().optional() });
 export const roleSchema = z.object({ name: z.string().min(1).max(60), permissions: z.array(z.string()) });

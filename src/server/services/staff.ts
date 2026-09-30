@@ -1,4 +1,5 @@
 import { prisma } from "@/server/db";
+import { reserveAttempt } from "@/server/auth/attempts";
 import { ApiError } from "@/server/errors";
 import { audit } from "@/server/audit";
 import { publish } from "@/server/realtime/bus";
@@ -33,11 +34,13 @@ export async function upsertEmployee(actor: Actor, input: { id?: string; userId?
     if (!existing) throw new ApiError(404, "NOT_FOUND", "Employé introuvable");
     const row = await prisma.employee.update({ where: { id: input.id }, data: { userId: input.userId, firstName: input.firstName, lastName: input.lastName, jobTitle: input.jobTitle, hourlyCost: input.hourlyCost, isActive: input.isActive, ...(pinHash ? { pinHash } : {}) } });
     await audit({ ...actor, action: "employee.update", entityType: "employee", entityId: row.id, oldValue: { hourlyCost: existing.hourlyCost, jobTitle: existing.jobTitle }, newValue: { hourlyCost: row.hourlyCost, jobTitle: row.jobTitle, pinChanged: !!pinHash } });
-    return row;
+    const { pinHash: _h, ...safe } = row;
+    return { ...safe, hasPin: !!_h };
   }
   const row = await prisma.employee.create({ data: { establishmentId: actor.establishmentId, userId: input.userId ?? null, firstName: input.firstName, lastName: input.lastName, jobTitle: input.jobTitle ?? null, hourlyCost: input.hourlyCost ?? null, pinHash: pinHash ?? null } });
   await audit({ ...actor, action: "employee.create", entityType: "employee", entityId: row.id, newValue: { name: `${row.firstName} ${row.lastName}`, jobTitle: row.jobTitle } });
-  return row;
+  const { pinHash: _h, ...safe } = row;
+  return { ...safe, hasPin: !!_h };
 }
 
 /** Crée une fiche employé pour chaque utilisateur de l'établissement qui n'en a pas encore. */
@@ -85,28 +88,17 @@ export async function deleteShift(actor: Actor, id: string) {
 }
 
 // ------------------------------------------------------------------ Pointage
-const attempts = new Map<string, { count: number; until: number }>();
-function limitPin(key: string) {
-  const a = attempts.get(key);
-  if (a && a.count >= 10 && Date.now() < a.until) throw new ApiError(429, "TOO_MANY_ATTEMPTS", "Trop de tentatives, réessayez dans une minute");
-}
-function notePinFailure(key: string) {
-  const a = attempts.get(key) ?? { count: 0, until: 0 };
-  attempts.set(key, { count: a.count + 1, until: Date.now() + 60_000 });
-}
-
 /** Retrouve l'employé par son PIN (PIN employé, sinon PIN de l'utilisateur lié). */
 export async function identifyEmployee(establishmentId: string, pin: string) {
-  const key = `clock:${establishmentId}`;
-  limitPin(key);
+  // Même compteur que la connexion par PIN : le pointage ne doit pas servir à deviner un PIN
+  const release = reserveAttempt(`pin:${establishmentId}`, 12, 15 * 60_000, "Trop de PIN erronés sur cet établissement, réessayez dans quelques minutes");
   const employees = await prisma.employee.findMany({ where: { establishmentId, isActive: true }, include: { user: { select: { pinHash: true, isActive: true } } } });
   for (const e of employees) {
-    if (e.pinHash && (await verifyPin(pin, e.pinHash))) { attempts.delete(key); return e; }
+    if (e.pinHash && (await verifyPin(pin, e.pinHash))) { release(); return e; }
   }
   for (const e of employees) {
-    if (!e.pinHash && e.user?.isActive && e.user.pinHash && (await verifyPin(pin, e.user.pinHash))) { attempts.delete(key); return e; }
+    if (!e.pinHash && e.user?.isActive && e.user.pinHash && (await verifyPin(pin, e.user.pinHash))) { release(); return e; }
   }
-  notePinFailure(key);
   throw new ApiError(401, "BAD_PIN", "PIN inconnu");
 }
 

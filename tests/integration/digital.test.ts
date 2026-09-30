@@ -38,10 +38,19 @@ describe("Phase 6 — QR à table", () => {
   });
 
   it("commande depuis la table en mode validation : ouverte, articles en attente, visible côté salle ; mode direct → envoyée", async () => {
-    const o = await orderFromTable(T.t1.qrToken, { id: crypto.randomUUID(), lines: [{ id: crypto.randomUUID(), productId: T.eau.id, quantity: 2 }], covers: 3 });
+    const batch = { id: crypto.randomUUID(), lines: [{ id: crypto.randomUUID(), productId: T.eau.id, quantity: 2 }], covers: 3 };
+    const pub = await orderFromTable(T.t1.qrToken, batch);
+    // Réponse publique : suivi seulement, aucune donnée interne (serveur, paiements, prix de revient)
+    expect(pub).not.toHaveProperty("server");
+    expect(pub).not.toHaveProperty("payments");
+    expect(JSON.stringify(pub)).not.toContain("costPrice");
+    expect(pub.items[0].status).toBe("PENDING");
+    // Rejeu du même panier : pas de doublon
+    expect((await orderFromTable(T.t1.qrToken, batch)).id).toBe(pub.id);
+    const o = await getOrder(T.est.id, pub.id);
     expect(o.tableId).toBe(T.t1.id);
     expect(o.covers).toBe(3);
-    expect(o.items[0].status).toBe("PENDING");
+    expect(o.items.length).toBe(1);
     expect((o.channelMeta as { awaitingValidation: boolean }).awaitingValidation).toBe(true);
     // Le serveur valide en envoyant
     await sendCourse(T.actor, o.id, { all: true });
@@ -49,9 +58,19 @@ describe("Phase 6 — QR à table", () => {
     expect(menu.order!.items[0].status).toBe("SENT");
     // Mode direct
     await prisma.establishment.update({ where: { id: T.est.id }, data: { settings: { digital: { qrMode: "ORDER_DIRECT", online: { enabled: true, pickup: true, delivery: true, pickupLeadMin: 15, deliveryFee: 500, deliveryMinOrder: 1000, deliveryZones: ["Punaauia"] }, kiosk: { enabled: true } }, loyalty: { enabled: true, pointsPer100: 1, rewardPoints: 10, rewardValue: 500 } } } });
+    // Le serveur a déjà saisi un article gardé pour plus tard sur la table 2 : l'envoi direct QR ne doit pas l'envoyer
+    const held = await createOrder(T.actor, { type: "DINE_IN", tableId: T.t2.id });
+    await addItem(T.actor, held.id, { productId: T.biere.id, quantity: 1 });
     const o2 = await orderFromTable(T.t2.qrToken, { id: crypto.randomUUID(), lines: [{ id: crypto.randomUUID(), productId: T.eau.id, quantity: 1 }] });
-    expect(o2.items[0].status).toBe("SENT");
+    expect(o2.id).toBe(held.id);
+    expect(o2.items.find((i) => i.name === "Eau")!.status).toBe("SENT");
+    expect(o2.items.find((i) => i.name === "Bière")!.status).toBe("PENDING");
     expect(await prisma.kitchenTicket.count({ where: { orderId: o2.id } })).toBe(1);
+    // Panier contenant une ligne refusée : rien n'est ajouté
+    await prisma.product.update({ where: { id: T.burger.id }, data: { isAvailable: false } });
+    await expect(orderFromTable(T.t2.qrToken, { id: crypto.randomUUID(), lines: [{ id: crypto.randomUUID(), productId: T.eau.id, quantity: 1 }, { id: crypto.randomUUID(), productId: T.burger.id, quantity: 1 }] })).rejects.toMatchObject({ code: "PRODUCT_UNAVAILABLE" });
+    expect((await getOrder(T.est.id, o2.id)).items.filter((i) => i.name === "Eau").length).toBe(1);
+    await prisma.product.update({ where: { id: T.burger.id }, data: { isAvailable: true } });
     await prisma.establishment.update({ where: { id: T.est.id }, data: { settings: { digital: { qrMode: "MENU" }, loyalty: { enabled: true, pointsPer100: 1, rewardPoints: 10, rewardValue: 500 } } } });
     await expect(callWaiter(T.t2.qrToken)).rejects.toMatchObject({ code: "MODE_OFF" });
   });

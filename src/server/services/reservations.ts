@@ -19,6 +19,7 @@ export async function upsertReservation(actor: Actor, input: { id?: string; name
     const t = await prisma.table.findFirst({ where: { id: input.tableId, establishmentId: actor.establishmentId } });
     if (!t) throw new ApiError(400, "BAD_TABLE", "Table invalide");
   }
+  if (input.customerId && !(await prisma.customer.findFirst({ where: { id: input.customerId, organizationId: actor.organizationId } }))) throw new ApiError(400, "BAD_CUSTOMER", "Client invalide");
   const data = { name: input.name, phone: input.phone ?? null, email: input.email ?? null, startsAt: new Date(input.startsAt), partySize: input.partySize, tableId: input.tableId ?? null, notes: input.notes ?? null, allergies: input.allergies ?? null, ...(input.status ? { status: input.status } : {}), ...(input.customerId !== undefined ? { customerId: input.customerId } : {}) };
   let row;
   if (input.id) {
@@ -58,6 +59,7 @@ export async function setReservationStatus(actor: Actor, id: string, status: Res
   if (!r) throw new ApiError(404, "NOT_FOUND", "Réservation introuvable");
   if (!TRANSITIONS[r.status].includes(status)) throw new ApiError(409, "BAD_TRANSITION", `Passage ${r.status} → ${status} impossible`);
   const table = tableId ?? r.tableId;
+  if (tableId && !(await prisma.table.findFirst({ where: { id: tableId, establishmentId: actor.establishmentId } }))) throw new ApiError(400, "BAD_TABLE", "Table invalide");
   let orderId: string | null = null;
   if (status === "SEATED") {
     if (!table) throw new ApiError(400, "TABLE_REQUIRED", "Choisissez une table pour installer les clients");
@@ -65,8 +67,8 @@ export async function setReservationStatus(actor: Actor, id: string, status: Res
     if (r.customerId) await prisma.order.update({ where: { id: order.id }, data: { customerId: r.customerId } });
     orderId = order.id;
   }
-  if (status === "CONFIRMED" || status === "ARRIVED") { if (table) await prisma.table.updateMany({ where: { id: table, state: "FREE" }, data: { state: "RESERVED" } }); }
-  if (status === "SEATED" || status === "CANCELLED" || status === "NO_SHOW" || status === "COMPLETED") { if (table) await prisma.table.updateMany({ where: { id: table, state: "RESERVED" }, data: { state: "FREE" } }); }
+  if (status === "CONFIRMED" || status === "ARRIVED") { if (table) await prisma.table.updateMany({ where: { id: table, establishmentId: actor.establishmentId, state: "FREE" }, data: { state: "RESERVED" } }); }
+  if (status === "SEATED" || status === "CANCELLED" || status === "NO_SHOW" || status === "COMPLETED") { if (table) await prisma.table.updateMany({ where: { id: table, establishmentId: actor.establishmentId, state: "RESERVED" }, data: { state: "FREE" } }); }
   const updated = await prisma.reservation.update({ where: { id }, data: { status, tableId: table ?? null }, include });
   await audit({ ...actor, action: "reservation.status", entityType: "reservation", entityId: id, oldValue: { status: r.status }, newValue: { status, orderId } });
   publish("floor.updated", actor.establishmentId, { reservationId: id });

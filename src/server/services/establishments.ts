@@ -64,12 +64,45 @@ export type EstablishmentUpdate = Partial<
 export async function updateEstablishment(organizationId: string, establishmentId: string, actorId: string, input: EstablishmentUpdate) {
   const before = await prisma.establishment.findFirst({ where: { id: establishmentId, organizationId } });
   if (!before) throw new ApiError(404, "NOT_FOUND", "Établissement introuvable");
-  const after = await prisma.establishment.update({ where: { id: establishmentId }, data: input });
+  // Les réglages renvoyés au navigateur ont leurs secrets masqués : on ne réécrit jamais le masque à la place du secret
+  const data = input.settings !== undefined ? { ...input, settings: restoreSecrets(input.settings, before.settings) as Prisma.InputJsonValue } : input;
+  const after = await prisma.establishment.update({ where: { id: establishmentId }, data });
   await audit({
     organizationId, establishmentId, userId: actorId, action: "establishment.update", entityType: "establishment", entityId: establishmentId,
-    oldValue: pick(before, Object.keys(input)), newValue: pick(after, Object.keys(input)),
+    oldValue: redactFields(pick(before, Object.keys(input))), newValue: redactFields(pick(after, Object.keys(input))),
   });
-  return after;
+  return publicEstablishment(after);
+}
+
+// ------------------------------------------------------------------ Secrets des réglages
+const SECRET_MASK = "••••";
+type Json = Record<string, unknown>;
+
+/** Copie des réglages avec les secrets masqués (clé du pont de paiement TPE). */
+export function redactSettings(settings: unknown): unknown {
+  if (!settings || typeof settings !== "object") return settings;
+  const copy = JSON.parse(JSON.stringify(settings)) as Json;
+  const terminal = (copy.payments as Json | undefined)?.terminal as Json | undefined;
+  if (terminal?.apiKey) terminal.apiKey = SECRET_MASK;
+  return copy;
+}
+
+/** Établissement présentable au navigateur : réglages sans secrets. */
+export function publicEstablishment<T extends { settings?: unknown }>(e: T): T {
+  return { ...e, settings: redactSettings(e.settings) };
+}
+
+/** Remet le secret enregistré si le navigateur renvoie le masque (ou omet la clé). */
+function restoreSecrets(next: unknown, prev: unknown): unknown {
+  if (!next || typeof next !== "object") return next;
+  const nextTerminal = ((next as Json).payments as Json | undefined)?.terminal as Json | undefined;
+  const prevKey = (((prev as Json | null)?.payments as Json | undefined)?.terminal as Json | undefined)?.apiKey;
+  if (nextTerminal && (nextTerminal.apiKey === SECRET_MASK || (nextTerminal.apiKey === undefined && prevKey))) nextTerminal.apiKey = prevKey;
+  return next;
+}
+
+function redactFields(o: Record<string, unknown>) {
+  return "settings" in o ? { ...o, settings: redactSettings(o.settings) } : o;
 }
 
 function pick<T extends object>(obj: T, keys: string[]) {
