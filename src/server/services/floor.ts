@@ -5,6 +5,7 @@ import { audit } from "@/server/audit";
 import { randomUUID } from "node:crypto";
 import type { RoomKind, TableShape, TableState } from "@/generated/prisma/client";
 import { floorService } from "./service-tracking";
+import { mealStage } from "@/lib/meal-stage";
 
 type Actor = { organizationId: string; establishmentId: string; userId: string };
 
@@ -83,10 +84,10 @@ export async function getFloorStatus(establishmentId: string) {
   const rooms = await listRooms(establishmentId);
   const openOrders = await prisma.order.findMany({
     where: { establishmentId, status: { in: ["OPEN", "SENT", "BILL_REQUESTED"] }, tableId: { not: null } },
-    select: { id: true, tableId: true, status: true, covers: true, total: true, paidTotal: true, openedAt: true, serverId: true, server: { select: { firstName: true, lastName: true, displayName: true, color: true } }, _count: { select: { items: true } }, items: { where: { status: "READY" }, select: { id: true } } },
+    select: { id: true, tableId: true, status: true, covers: true, total: true, paidTotal: true, openedAt: true, serverId: true, server: { select: { firstName: true, lastName: true, displayName: true, color: true } }, _count: { select: { items: true } }, items: { where: { status: { not: "VOIDED" } }, select: { status: true, courseId: true, parentItemId: true } }, courses: { select: { id: true, name: true, sortOrder: true } } },
   });
-  // readyCount : plats marqués PRÊT par la cuisine et pas encore servis (Phase 3)
-  const byTable = new Map(openOrders.map((o) => [o.tableId!, { ...o, items: undefined, readyCount: o.items.length }]));
+  // readyCount : plats marqués PRÊT par la cuisine et pas encore servis (Phase 3) ; meal : où en est le repas (suite en cours)
+  const byTable = new Map(openOrders.map(({ items, courses, ...o }) => [o.tableId!, { ...o, items: undefined, readyCount: items.filter((i) => i.status === "READY" && !i.parentItemId).length, meal: mealStage(courses, items) }]));
   const service = await floorService(establishmentId); // Phase 9 : prochaine action par table
   return {
     rooms: rooms.map((room) => ({

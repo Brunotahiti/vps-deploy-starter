@@ -16,7 +16,9 @@ test("écran cuisine : accepter → en préparation → prêt → terminé", asy
   await page.request.post(`/api/orders/${created.data.id}/send`, { data: { all: true } });
 
   await page.goto("/kds");
-  const card = page.locator("article", { hasText: "Test KDS" }).first();
+  // Le ticket de CETTE commande (des tests précédents peuvent avoir laissé d'autres tickets « Test KDS »)
+  const num = String(created.data.number).split("-").pop();
+  const card = page.locator("article", { hasText: "Test KDS" }).filter({ hasText: `n° ${num}` }).first();
   await expect(card).toBeVisible();
   await expect(card.getByText("2 × Eau minérale 50 cl")).toBeVisible();
   await card.getByRole("button", { name: /^ACCEPTER/ }).click();
@@ -27,7 +29,7 @@ test("écran cuisine : accepter → en préparation → prêt → terminé", asy
 
   // Le ticket passe dans « Prêts » ; la commande voit l'article prêt
   await page.getByRole("button", { name: /Prêts/ }).click();
-  const ready = page.locator("article", { hasText: "Test KDS" }).first();
+  const ready = page.locator("article", { hasText: "Test KDS" }).filter({ hasText: `n° ${num}` }).first();
   await expect(ready).toBeVisible();
   const itemStatus = async () => (await (await page.request.get(`/api/orders/${created.data.id}`)).json()).data.items[0].status;
   await expect.poll(itemStatus).toBe("READY");
