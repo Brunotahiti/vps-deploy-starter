@@ -170,5 +170,9 @@ describe("E-mail de bienvenue", () => {
     expect(m.html).toContain("Voir un exemple de page restaurant");
     expect(m.text).toMatch(/Voir un exemple de page restaurant : https?:\/\/\S+\/site\/demo-mana-beach\/le-mana-beach/);
     expect(m.html).toContain("Ouvrir ManaResto");
+    // Photo d'accueil en haut : liée par son adresse (jamais jointe), avec un texte de remplacement
+    expect(m.html).toMatch(/<img src="https?:\/\/\S+\/email\/bienvenue\.jpg" alt="Ia ora na, bienvenue sur ManaResto !"/);
+    expect(m.html.indexOf("bienvenue.jpg")).toBeLessThan(m.html.indexOf("Ia ora na Teva"));
+    expect(m.html.length).toBeLessThan(20_000);
   });
 });

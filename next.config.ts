@@ -24,7 +24,7 @@ const nextConfig: NextConfig = {
         ],
       },
       // Photos de démonstration, icônes et polices : gardées 30 jours par le navigateur et par Cloudflare
-      ...["/demo/:path*", "/icons/:path*", "/brand/:path*", "/fonts/:path*"].map((source) => ({
+      ...["/demo/:path*", "/email/:path*", "/icons/:path*", "/brand/:path*", "/fonts/:path*"].map((source) => ({
         source,
         headers: [{ key: "Cache-Control", value: "public, max-age=2592000, stale-while-revalidate=86400" }],
       })),
