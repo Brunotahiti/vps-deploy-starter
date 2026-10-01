@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Search, Send, Receipt, CreditCard, Percent, XCircle, ArrowRightLeft, Printer, Flame, PauseCircle, CheckCircle2, AlertTriangle, ChevronDown, Plus, X, ShoppingBasket, UserRound } from "lucide-react";
@@ -23,6 +23,7 @@ import { ServicePanel } from "./service-panel";
 import { useFloor } from "./floor";
 import { useOffline } from "@/lib/offline/provider";
 import { getLocalOrder, markOfflineOrderClosed, saveLocalOrder } from "@/lib/offline/local-orders";
+import { mergedOrderId } from "@/lib/offline/outbox";
 import { computeOrderTotals } from "@/lib/order-calc";
 import { ORDER_TYPE_LABEL, type Order, type OrderItem, type PosMenu, type PosProduct } from "./types";
 import { NumPad } from "@/components/ui/numpad";
@@ -43,7 +44,13 @@ export function OrderScreen({ orderId: orderIdProp }: { orderId: string }) {
   const { toast } = useToast();
   const { can } = useSession();
   const catalog = usePosCatalog();
-  const { online } = useOffline();
+  const { online, pending } = useOffline();
+  // Table ouverte hors ligne alors qu'un autre appareil l'avait déjà ouverte : on rejoint la commande existante
+  useEffect(() => {
+    let live = true;
+    mergedOrderId(orderId).then((to) => { if (live && to) router.replace(`/pos/order/${to}`); }).catch(() => {});
+    return () => { live = false; };
+  }, [orderId, pending, router]);
   const order = useQuery({
     queryKey: ["order", orderId],
     refetchInterval: online ? 15_000 : false,

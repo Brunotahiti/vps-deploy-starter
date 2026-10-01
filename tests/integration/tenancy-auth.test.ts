@@ -91,4 +91,22 @@ describe("catalogue", () => {
     expect(p?.name).toBe("Tarte coco maison");
     expect(await prisma.taxRate.count({ where: { establishmentId: A.est.id, rateBps: 800 } })).toBe(1);
   });
+  it("import CSV sans doublon : même nom (accents, majuscules) mis à jour, lignes répétées ignorées", async () => {
+    const before = await prisma.product.count({ where: { establishmentId: A.est.id } });
+    const r = await importProducts(A.managerActor, [
+      { category: "Desserts", name: "GLACE", priceTtc: 850 }, // existe déjà (réf. DES-002) : mise à jour, la référence est conservée
+      { category: "Desserts", name: "Crème brûlée", priceTtc: 900 },
+      { category: "Desserts", name: "creme  brulee", priceTtc: 950 }, // répétée dans le fichier
+      { category: "Desserts", name: "Autre", priceTtc: 500, sku: "DES-001" }, // même référence qu'un produit existant
+      { category: "Desserts", name: "Autre bis", priceTtc: 500, sku: "des-001" }, // même référence, répétée
+    ]);
+    expect(r).toMatchObject({ createdCount: 1, updatedCount: 2, errors: [] });
+    expect(r.duplicates).toEqual([{ row: 3, sameAs: 2 }, { row: 5, sameAs: 4 }]);
+    expect(await prisma.product.count({ where: { establishmentId: A.est.id } })).toBe(before + 1);
+    const glace = await prisma.product.findFirstOrThrow({ where: { establishmentId: A.est.id, sku: "DES-002" } });
+    expect(glace).toMatchObject({ name: "GLACE", priceTtc: 850 });
+    // Réimporter le même fichier ne crée rien
+    const again = await importProducts(A.managerActor, [{ category: "Desserts", name: "Crème brûlée", priceTtc: 900 }]);
+    expect(again).toMatchObject({ createdCount: 0, updatedCount: 1 });
+  });
 });

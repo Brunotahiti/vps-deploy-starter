@@ -28,6 +28,7 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
         // Copies locales des commandes créées hors ligne : effacées seulement si TOUT a été accepté
         if (r.failed === 0 && (await outbox.count()) === 0) await clearOfflineCreatedOrders().catch(() => {});
         qc.invalidateQueries();
+        for (const m of outbox.takeMergeNotices()) toast(`${m.tableName ? `Table ${m.tableName}` : "Table"} déjà ouverte sur un autre appareil : les articles saisis hors ligne ont été ajoutés à sa commande n° ${m.number.split("-").pop()}`, "info");
         if (r.sent > 0) toast(`Synchronisation : ${r.sent} opération${r.sent > 1 ? "s" : ""} transmise${r.sent > 1 ? "s" : ""}`, "success");
         if (r.failed > 0) toast(`${r.failed} opération${r.failed > 1 ? "s" : ""} refusée${r.failed > 1 ? "s" : ""} par le serveur : ${outbox.lastErrorMessage() ?? "vérifiez la commande concernée"}`, "error");
       }

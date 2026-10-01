@@ -1,6 +1,8 @@
 import { prisma } from "@/server/db";
 import { ApiError } from "@/server/errors";
 import { publish } from "@/server/realtime/bus";
+import { audit } from "@/server/audit";
+import { randomUUID } from "node:crypto";
 import type { RoomKind, TableShape, TableState } from "@/generated/prisma/client";
 import { floorService } from "./service-tracking";
 
@@ -102,4 +104,16 @@ export async function getFloorStatus(establishmentId: string) {
       }),
     })),
   };
+}
+
+/**
+ * Nouveau QR code pour une table (chevalet perdu, photographié, ou commandes farfelues) :
+ * l'ancien cesse aussitôt de fonctionner, le nouveau est à imprimer.
+ */
+export async function regenerateTableQr(actor: Actor, id: string) {
+  const table = await prisma.table.findFirst({ where: { id, establishmentId: actor.establishmentId } });
+  if (!table) throw new ApiError(404, "NOT_FOUND", "Table introuvable");
+  const updated = await prisma.table.update({ where: { id }, data: { qrToken: randomUUID(), callRequestedAt: null }, select: { id: true, name: true, qrToken: true } });
+  await audit({ ...actor, action: "table.qr_regenerated", entityType: "table", entityId: id, newValue: { name: table.name } });
+  return updated;
 }

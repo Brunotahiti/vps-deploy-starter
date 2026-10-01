@@ -33,7 +33,7 @@ export default function ImportPage() {
   const act = useAction();
   const [text, setText] = useState("");
   const [mapping, setMapping] = useState<Record<number, string>>({});
-  const [result, setResult] = useState<{ createdCount: number; updatedCount: number; errors: { row: number; message: string }[] } | null>(null);
+  const [result, setResult] = useState<{ createdCount: number; updatedCount: number; duplicates?: { row: number; sameAs: number }[]; errors: { row: number; message: string }[] } | null>(null);
   const [loading, setLoading] = useState(false);
   const rows = useMemo(() => parseCsv(text), [text]);
   const header = rows[0] ?? [];
@@ -83,7 +83,7 @@ export default function ImportPage() {
               <Button size="lg" loading={loading} disabled={preview.length === 0} onClick={submit}>Importer {preview.length} produit{preview.length > 1 ? "s" : ""}</Button>
             </div>
           ) : null}
-          {result ? <div className="mt-3 rounded-xl surface-2 p-3 text-sm"><p><strong>{result.createdCount}</strong> créés · <strong>{result.updatedCount}</strong> mis à jour (par référence) · <strong>{result.errors.length}</strong> erreurs</p>{result.errors.map((e) => <p key={e.row} className="text-red-600">Ligne {e.row} : {e.message}</p>)}</div> : null}
+          {result ? <div className="mt-3 rounded-xl surface-2 p-3 text-sm"><p><strong>{result.createdCount}</strong> créés · <strong>{result.updatedCount}</strong> mis à jour (même référence ou même nom) · <strong>{result.duplicates?.length ?? 0}</strong> doublons ignorés · <strong>{result.errors.length}</strong> erreurs</p>{result.duplicates?.length ? <p className="text-muted">Lignes répétées dans le fichier, non importées : {result.duplicates.map((d) => `${d.row} (= ligne ${d.sameAs})`).join(", ")}</p> : null}{result.errors.map((e) => <p key={e.row} className="text-red-600">Ligne {e.row} : {e.message}</p>)}</div> : null}
         </div>
       </div>
       {preview.length > 0 ? <div className="mt-4"><Table head={["Catégorie", "Produit", "Prix", "TVA", "Coût", "Réf."]}>{preview.slice(0, 20).map((r, i) => <Tr key={i}><Td>{String(r.category)}</Td><Td>{String(r.name)}</Td><Td>{String(r.priceTtc)}</Td><Td>{r.taxRateBps === null || r.taxRateBps === undefined ? "défaut" : `${Number(r.taxRateBps) / 100} %`}</Td><Td>{String(r.costPrice ?? 0)}</Td><Td>{String(r.sku ?? "")}</Td></Tr>)}</Table>{preview.length > 20 ? <p className="mt-1 text-xs text-muted">… et {preview.length - 20} autres</p> : null}</div> : null}

@@ -38,9 +38,22 @@ export async function upsertReservation(actor: Actor, input: { id?: string; name
 }
 
 /** Réservation publique (formulaire client) : statut PENDING, à confirmer par le restaurant. */
+const PUBLIC_MAX_DAYS_AHEAD = 180;
+const PUBLIC_MAX_PER_PHONE = 3;
+
 export async function createPublicReservation(establishmentId: string, organizationId: string, input: { name: string; phone: string; email?: string | null; startsAt: string; partySize: number; notes?: string | null; allergies?: string | null }) {
   const startsAt = new Date(input.startsAt);
   if (!(startsAt.getTime() > Date.now() - 5 * 60_000)) throw new ApiError(400, "BAD_DATE", "La date doit être dans le futur");
+  if (startsAt.getTime() > Date.now() + PUBLIC_MAX_DAYS_AHEAD * 86_400_000) throw new ApiError(400, "BAD_DATE", `Réservation possible jusqu'à ${PUBLIC_MAX_DAYS_AHEAD} jours à l'avance`);
+  // Contre les fausses réservations : un même numéro ne bloque pas la salle avec des demandes à répétition
+  // Comparaison sur les 8 derniers chiffres : « +689 87 00 00 01 » et « 87000001 » sont le même numéro
+  const phoneKey = (p: string) => p.replace(/\D/g, "").slice(-8);
+  const digits = phoneKey(input.phone);
+  const upcoming = await prisma.reservation.findMany({ where: { establishmentId, status: { in: ["PENDING", "CONFIRMED"] }, startsAt: { gte: new Date(Date.now() - 3 * 3600_000) } }, select: { phone: true, startsAt: true }, take: 2000 });
+  const mine = upcoming.filter((r) => r.phone && phoneKey(r.phone) === digits);
+  // Même service (moins de 4 h d'écart) : c'est un doublon, pas une seconde table
+  if (mine.some((r) => Math.abs(r.startsAt.getTime() - startsAt.getTime()) < 4 * 3600_000)) throw new ApiError(409, "ALREADY_BOOKED", "Une réservation existe déjà à ce numéro pour ce service : contactez le restaurant pour la modifier");
+  if (mine.length >= PUBLIC_MAX_PER_PHONE) throw new ApiError(409, "TOO_MANY_RESERVATIONS", `${PUBLIC_MAX_PER_PHONE} réservations à venir au plus par numéro de téléphone : contactez le restaurant`);
   const row = await prisma.$transaction(async (tx) => {
     const customer = await findOrCreatePublicCustomer(tx, organizationId, { name: input.name, phone: input.phone, email: input.email });
     return tx.reservation.create({ data: { establishmentId, customerId: customer.id, name: input.name, phone: input.phone, email: input.email ?? null, startsAt, partySize: input.partySize, notes: input.notes ?? null, allergies: input.allergies ?? null, status: "PENDING" }, include });

@@ -17,14 +17,14 @@ export function ReserveScreen({ org, est }: { org: string; est: string }) {
   const { toast } = useToast();
   const { lang, setLang, t } = usePublicLang();
   const q = useQuery({ queryKey: ["public-shop", org, est], queryFn: () => api.get<{ establishment: { name: string; phone: string | null; addressLine1: string | null; city: string | null; timezone?: string } }>(`/api/public/shop/${org}/${est}`) });
-  const [f, setF] = useState({ name: "", phone: "", email: "", date: localDay(new Date()), time: "19:30", partySize: "2", notes: "", allergies: "" });
+  const [f, setF] = useState({ name: "", phone: "", email: "", date: localDay(new Date()), time: "19:30", partySize: "2", notes: "", allergies: "", website: "" });
   const [done, setDone] = useState(false);
   const [sending, setSending] = useState(false);
   if (q.isLoading) return <div className="flex h-dvh items-center justify-center"><Spinner /></div>;
   if (!q.data) return <main className="p-8 text-center text-muted">Établissement introuvable.</main>;
   const submit = async () => {
     setSending(true);
-    try { await api.post(`/api/public/shop/${org}/${est}/reserve`, { name: f.name, phone: f.phone, email: f.email || null, startsAt: zonedInputToDate(`${f.date}T${f.time}`, q.data.establishment.timezone ?? "Pacific/Tahiti").toISOString(), partySize: Number(f.partySize), notes: f.notes || null, allergies: f.allergies || null }); setDone(true); }
+    try { await api.post(`/api/public/shop/${org}/${est}/reserve`, { name: f.name, phone: f.phone, email: f.email || null, startsAt: zonedInputToDate(`${f.date}T${f.time}`, q.data.establishment.timezone ?? "Pacific/Tahiti").toISOString(), partySize: Number(f.partySize), notes: f.notes || null, allergies: f.allergies || null, ...(f.website ? { website: f.website } : {}) }); setDone(true); }
     catch (e) { toast(e instanceof ApiClientError ? e.message : "Erreur", "error"); }
     finally { setSending(false); }
   };
@@ -41,6 +41,8 @@ export function ReserveScreen({ org, est }: { org: string; est: string }) {
           <Field label={t("email")}><Input type="email" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} /></Field>
           <Field label={t("allergies")}><Input value={f.allergies} onChange={(e) => setF({ ...f, allergies: e.target.value })} /></Field>
           <Field label={t("specialRequests")}><Textarea value={f.notes} onChange={(e) => setF({ ...f, notes: e.target.value })} /></Field>
+          {/* Champ piège invisible : laissé vide par les personnes, rempli par les robots */}
+          <input type="text" name="website" tabIndex={-1} autoComplete="off" aria-hidden="true" value={f.website} onChange={(e) => setF({ ...f, website: e.target.value })} className="pointer-events-none absolute -left-[9999px] h-px w-px opacity-0" />
           <Button size="lg" className="w-full" loading={sending} disabled={f.name.trim().length < 2 || f.phone.trim().length < 6} onClick={submit}>{t("book")}</Button>
         </div>
       )}

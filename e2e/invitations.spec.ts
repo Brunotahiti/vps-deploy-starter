@@ -28,7 +28,8 @@ test("inviter un membre, accepter l'invitation, statistiques", async ({ page, br
   await expect(guest.getByRole("heading", { name: /Bienvenue, Vaimiti/ })).toBeVisible();
   await guest.getByLabel("Mot de passe (8 caractères minimum)").fill("motdepasse1");
   await guest.getByLabel("Confirmer le mot de passe").fill("motdepasse1");
-  await guest.getByLabel(/PIN de caisse/).fill("5678");
+  // PIN unique par établissement : un PIN à 6 chiffres tiré au hasard, pour pouvoir relancer le test
+  await guest.getByLabel(/PIN de caisse/).fill(String(100000 + Math.floor(Math.random() * 900000)));
   await guest.getByRole("button", { name: "Créer mon accès et entrer" }).click();
   await guest.waitForURL(/\/pos/, { timeout: 15_000 });
   const me = await (await guest.request.get("/api/auth/me")).json();

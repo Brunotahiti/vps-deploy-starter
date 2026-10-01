@@ -2,7 +2,9 @@ import { route } from "@/server/http";
 import { requirePermission } from "@/server/auth/context";
 import { ApiError } from "@/server/errors";
 import { prisma } from "@/server/db";
-import { contentDisposition } from "@/server/http";
+import { contentDisposition, ok } from "@/server/http";
+import { actorFrom } from "@/server/auth/authorize";
+import { regenerateTableQr } from "@/server/services/floor";
 
 /** Image PNG du QR code d'une table (à imprimer sur les chevalets). */
 export const GET = route<{ id: string }>(async (req, { params }) => {
@@ -13,4 +15,10 @@ export const GET = route<{ id: string }>(async (req, { params }) => {
   const QRCode = (await import("qrcode")).default;
   const png = await QRCode.toBuffer(`${base}/m/${table.qrToken}`, { type: "png", width: Math.min(2048, Math.max(64, Number(req.nextUrl.searchParams.get("size")) || 512)), margin: 1, color: { dark: "#0f172a", light: "#ffffff" } });
   return new Response(new Uint8Array(png), { headers: { "Content-Type": "image/png", "Cache-Control": "private, max-age=3600", "Content-Disposition": contentDisposition("inline", `qr-table-${table.name}.png`) } });
+});
+
+/** Nouveau QR code : l'ancien ne fonctionne plus. */
+export const POST = route<{ id: string }>(async (_req, { params }) => {
+  const ctx = await requirePermission("floor.manage");
+  return ok(await regenerateTableQr(actorFrom(ctx), params.id));
 });
