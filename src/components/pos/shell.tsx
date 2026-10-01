@@ -13,6 +13,7 @@ import { useTheme } from "@/hooks/use-theme";
 import { useOffline } from "@/lib/offline/provider";
 import { useInstallPrompt } from "@/hooks/use-install-prompt";
 import { InstallAppButton } from "@/components/install-app";
+import { PortalButtons } from "@/components/portal/portal-buttons";
 import { Logo } from "@/components/brand";
 import { api } from "@/lib/api-client";
 import { Money } from "@/components/money";
@@ -129,11 +130,12 @@ export function PosShell({ children }: { children: React.ReactNode }) {
             </div>
           </div>
           <nav className="flex-1 overflow-y-auto p-3">
-            {[...nav, ...(can("kds.use") ? [{ href: "/kds", label: "Écran cuisine", icon: ChefHat }] : []), ...(can("reports.view") || can("catalog.manage") ? [{ href: "/admin", label: "Administration", icon: Settings }] : [])].map((n, i) => (
+            {[...nav, ...(can("reports.view") || can("catalog.manage") ? [{ href: "/admin", label: "Administration", icon: Settings }] : [])].map((n, i) => (
               <Link key={n.href} href={n.href} style={{ transitionDelay: menu ? `${60 + i * 40}ms` : "0ms" }} className={`mb-1.5 flex h-14 items-center gap-3 rounded-2xl px-4 text-[15px] font-bold transition-all duration-300 ${menu ? "translate-x-0 opacity-100" : "translate-x-6 opacity-0"} ${isActive(n.href) ? "bg-brand text-white shadow-glow" : "surface-2 text-[var(--text)]"}`}>
                 <span className={`flex h-9 w-9 items-center justify-center rounded-xl ${isActive(n.href) ? "bg-white/15" : "surface"}`}><n.icon className="h-5 w-5" /></span>{n.label}<ChevronRight className="ml-auto h-4 w-4 opacity-60" />
               </Link>
             ))}
+            <div className="mt-4"><PortalButtons onNavigate={() => setMenu(false)} /></div>
             <div className="mt-4 rounded-2xl border border-line p-3 text-sm">
               <div className="flex items-center justify-between"><span className="font-semibold">Caisse</span><span className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${cash.data ? "bg-lagon-500/15 text-lagon-700 dark:text-lagon-300" : "bg-orange-500/15 text-orange-600"}`}>{cash.data ? <>ouverte · <Money amount={cash.data.summary.cashExpected} /></> : "fermée"}</span></div>
               <div className="mt-2 flex items-center justify-between"><span className="font-semibold">Réseau</span><span className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${!online ? "bg-red-500/15 text-red-600" : "bg-green-500/10 text-green-600"}`}>{online ? (connected ? "en ligne · temps réel" : "en ligne") : "hors ligne"}{pending > 0 ? ` · ${pending} à synchroniser` : ""}</span></div>

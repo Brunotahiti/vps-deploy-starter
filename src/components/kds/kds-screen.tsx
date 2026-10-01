@@ -97,7 +97,7 @@ export function KdsScreen() {
     if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
     else document.documentElement.requestFullscreen?.().catch(() => toast("Plein écran non disponible sur cet appareil : utilisez « Ajouter à l'écran d'accueil »", "info"));
   }, [toast]);
-  const logout = async () => { await api.post("/api/auth/logout"); qc.clear(); router.replace(me?.terminal ? "/pos/login" : "/login"); };
+  const logout = async () => { await api.post("/api/auth/logout"); qc.clear(); router.replace(me?.terminal ? "/kds/login" : "/login"); };
 
   const list = useMemo(() => {
     const all = tickets.data ?? [];
@@ -113,7 +113,10 @@ export function KdsScreen() {
         <Logo size={44} />
         <p className="mt-6 text-lg font-bold">Écran cuisine</p>
         <p className="mt-2 text-sm text-muted">Votre rôle n&apos;inclut pas la permission « Utiliser l&apos;écran cuisine ». Demandez à un manager d&apos;ajouter <code>kds.use</code> à votre rôle.</p>
-        <Link href="/pos" className="mt-6 inline-block rounded-xl bg-brand px-5 py-3 font-semibold text-white">Retour à la caisse</Link>
+        <div className="mt-6 flex flex-wrap justify-center gap-2">
+          <button onClick={logout} className="touch rounded-xl bg-brand px-5 py-3 font-semibold text-white">Changer d&apos;utilisateur</button>
+          {can("pos.use") ? <Link href="/pos" className="touch rounded-xl surface-2 px-5 py-3 font-semibold">Retour à la caisse</Link> : null}
+        </div>
       </main>
     );
   }

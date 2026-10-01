@@ -51,3 +51,70 @@ test("le rôle cuisine arrive directement sur l'écran cuisine", async ({ page }
   await page.waitForURL(/\/kds/);
   await expect(page.getByRole("button", { name: /^Tous/ })).toBeVisible();
 });
+
+/** Portail cuisine : une tablette enregistrée « Écran cuisine » ouvre sur le PIN, puis directement sur les tickets. */
+test("portail cuisine : tablette cuisine, PIN incorrect puis connexion", async ({ page }) => {
+  await page.goto("/login");
+  await page.getByPlaceholder("vous@restaurant.pf").fill("manager@manaresto.pf");
+  await page.getByLabel("Mot de passe").fill("demo1234");
+  await page.getByRole("button", { name: "Se connecter" }).click();
+  await page.waitForURL(/\/(pos|admin)/);
+  expect((await page.request.post("/api/auth/terminal/register", { data: { name: "Tablette passe", kind: "KDS" } })).ok()).toBe(true);
+  await page.request.post("/api/auth/logout");
+
+  // L'accueil d'une tablette cuisine mène au portail
+  await page.goto("/");
+  await page.waitForURL(/\/kds\/login/);
+  const portal = page.getByTestId("portal-cuisine");
+  await expect(portal.getByText("Terminal · Tablette passe")).toBeVisible();
+
+  // PIN incorrect (clavier physique) : message d'erreur, saisie remise à zéro
+  await page.keyboard.type("9999");
+  await page.keyboard.press("Enter");
+  await expect(portal.getByRole("alert")).toBeVisible();
+
+  // PIN du cuisinier au pavé tactile : accueil puis tickets
+  for (const d of "3000") await portal.getByRole("button", { name: d, exact: true }).click();
+  await portal.getByRole("button", { name: "Entrer en cuisine" }).click();
+  await expect(page.getByTestId("welcome-splash")).toBeVisible();
+  await page.waitForURL(/\/kds$/);
+  await expect(page.getByRole("button", { name: /En cours/ })).toBeVisible();
+
+  // Changer d'utilisateur ramène au portail
+  await page.getByTitle("Changer d'utilisateur").click();
+  await page.waitForURL(/\/kds\/login/);
+});
+
+/** Portails salle et caisse : passage de l'un à l'autre, l'appareil revient sur le dernier portail utilisé. */
+test("portails : salle, caisse et cuisine sur un terminal", async ({ page }) => {
+  await page.goto("/login");
+  await page.getByPlaceholder("vous@restaurant.pf").fill("manager@manaresto.pf");
+  await page.getByLabel("Mot de passe").fill("demo1234");
+  await page.getByRole("button", { name: "Se connecter" }).click();
+  await page.waitForURL(/\/(pos|admin)/);
+
+  // Menu de l'administration : un bouton par portail, qui ouvre l'écran de l'équipe
+  await page.goto("/admin");
+  const portals = page.getByRole("navigation", { name: "Portails" }).first();
+  await portals.getByRole("link", { name: "Cuisine" }).click();
+  await page.waitForURL(/\/kds$/);
+
+  expect((await page.request.post("/api/auth/terminal/register", { data: { name: "Tablette salle", kind: "POS" } })).ok()).toBe(true);
+  await page.request.post("/api/auth/logout");
+
+  await page.goto("/salle");
+  await expect(page.getByTestId("portal-salle")).toBeVisible();
+  await page.getByRole("navigation", { name: "Choisir le portail" }).getByRole("link", { name: "Caisse" }).click();
+  await expect(page.getByTestId("portal-caisse")).toBeVisible();
+  await page.getByRole("navigation", { name: "Choisir le portail" }).getByRole("link", { name: "Salle" }).click();
+  await expect(page.getByTestId("portal-salle")).toBeVisible();
+
+  // Le serveur se connecte en salle : plan de salle ; après « Changer d'utilisateur », retour au portail Salle
+  for (const d of "1001") await page.getByTestId("portal-salle").getByRole("button", { name: d, exact: true }).click();
+  await page.getByRole("button", { name: "Prendre le service" }).click();
+  await page.waitForURL(/\/pos$/);
+  await page.request.post("/api/auth/logout");
+  await page.goto("/pos/login");
+  await page.waitForURL(/\/salle/);
+  await expect(page.getByTestId("portal-salle")).toBeVisible();
+});

@@ -9,7 +9,7 @@ export default async function Home() {
   const ctx = await getAuthContext();
   if (!ctx) {
     const terminal = await getTerminalFromCookie();
-    redirect(terminal ? "/pos/login" : "/login");
+    redirect(!terminal ? "/login" : terminal.kind === "KDS" ? "/kds/login" : "/pos/login");
   }
   if (ctx.establishment && !ctx.establishment.onboardingDone && ctx.user.isOwner) redirect("/onboarding");
   if (ctx.roleKey === "kitchen") redirect("/kds");
