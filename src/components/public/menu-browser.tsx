@@ -1,6 +1,7 @@
 "use client";
-/* eslint-disable @next/next/no-img-element -- photos du catalogue (URL libre) et QR codes générés : non optimisables par next/image */
+ 
 
+import { Photo } from "@/components/ui/photo";
 import { useMemo, useState } from "react";
 import { Search, Plus, Minus, ShoppingBasket, Trash2 } from "lucide-react";
 import { ProductModal, type ProductChoice } from "@/components/pos/product-modal";
@@ -52,7 +53,7 @@ export function MenuBrowser({ catalog, cart, setCart, t, readOnly = false, big =
       <div className={`grid gap-3 ${big ? "grid-cols-2 md:grid-cols-3 lg:grid-cols-4" : "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4"}`}>
         {catId === "__menus__" && !search ? catalog.menus.map((m) => (
           <button key={m.id} onClick={() => !readOnly && setOpen({ menu: m as unknown as PosMenu })} className={`card touch flex ${tile} flex-col overflow-hidden text-left`}>
-            {m.imageUrl ? <img src={m.imageUrl} alt="" className="h-24 w-full object-cover" /> : <span className="bg-lagoon h-24 w-full" />}
+            <Photo src={m.imageUrl} className="h-24 w-full object-cover" fallback={<span className="bg-lagoon h-24 w-full" />} />
             <span className="flex flex-1 flex-col justify-between p-3"><span className="font-bold leading-tight">{m.name}{m.description ? <span className="block text-xs font-normal text-muted">{m.description}</span> : null}</span><span className="font-extrabold text-brand"><Money amount={m.priceTtc} /></span></span>
           </button>
         )) : products.map((p) => {
@@ -61,7 +62,7 @@ export function MenuBrowser({ catalog, cart, setCart, t, readOnly = false, big =
           return (
             <div key={p.id} className={`card relative flex ${tile} flex-col overflow-hidden`}>
               <button onClick={() => !readOnly && setOpen({ product: p as unknown as PosProduct })} className="touch flex min-h-0 flex-1 flex-col text-left" aria-label={`${p.name} : détail`}>
-                {p.imageUrl ? <img src={p.imageUrl} alt="" loading="lazy" className="h-24 w-full shrink-0 object-cover" /> : <span className="flex h-24 w-full shrink-0 items-center justify-center text-3xl font-extrabold text-white/90" style={{ background: `linear-gradient(140deg, color-mix(in srgb, ${p.color ?? cat?.color ?? "#14aaa3"} 85%, white), ${p.color ?? cat?.color ?? "#14aaa3"})` }}>{p.name.slice(0, 1)}</span>}
+                <Photo src={p.imageUrl} className="h-24 w-full shrink-0 object-cover" fallback={<span className="flex h-24 w-full shrink-0 items-center justify-center text-3xl font-extrabold text-white/90" style={{ background: `linear-gradient(140deg, color-mix(in srgb, ${p.color ?? cat?.color ?? "#14aaa3"} 85%, white), ${p.color ?? cat?.color ?? "#14aaa3"})` }}>{p.name.slice(0, 1)}</span>} />
                 <span className="flex min-h-0 flex-1 flex-col justify-between gap-1 p-3 pr-12"><span className="line-clamp-2 text-sm font-bold leading-tight">{p.name}{p.description ? <span className="line-clamp-1 text-xs font-normal text-muted">{p.description}</span> : null}</span><span className="flex items-center gap-1.5 text-sm font-extrabold"><Money amount={p.priceTtc} />{p.variants.length ? <span className="text-[10px] font-bold uppercase text-muted">{t("from")}</span> : null}{p.modifierGroups.length ? <span className="rounded-md surface-2 px-1.5 py-0.5 text-[10px] font-bold uppercase text-muted">{t("options")}</span> : null}</span></span>
               </button>
               {!readOnly ? <button onClick={() => { const needs = p.variants.length > 0 || p.modifierGroups.some((g) => g.minSelect > 0 && !g.modifiers.some((m) => m.isDefault)); if (needs) return setOpen({ product: p as unknown as PosProduct }); add({ productId: p.id, quantity: 1, modifiers: p.modifierGroups.flatMap((g) => g.modifiers.filter((m) => m.isDefault).slice(0, g.maxSelect ?? undefined).map((m) => ({ modifierId: m.id }))) }); }} className="touch absolute bottom-2 right-2 flex h-10 w-10 items-center justify-center rounded-full bg-brand text-white shadow-glow active:scale-90" aria-label={`${t("add")} ${p.name}`}>{n > 0 ? <span className="text-sm font-extrabold">{n}</span> : <Plus className="h-5 w-5" />}</button> : null}

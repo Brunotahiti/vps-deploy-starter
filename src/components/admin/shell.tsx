@@ -1,5 +1,6 @@
 "use client";
 
+import { VersionBadge } from "@/components/version-badge";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
@@ -78,7 +79,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
 
   const Sidebar = (
     <aside className="flex h-full w-[268px] flex-col border-r border-line surface">
-      <div className="flex h-16 items-center justify-between px-5"><Logo size={34} /><button className="touch rounded-lg p-2 lg:hidden" aria-label="Fermer le menu" onClick={() => setOpen(false)}><X className="h-5 w-5" /></button></div>
+      <div className="flex h-16 items-center justify-between px-5"><span className="flex items-center gap-2"><Logo size={34} /><VersionBadge /></span><button className="touch rounded-lg p-2 lg:hidden" aria-label="Fermer le menu" onClick={() => setOpen(false)}><X className="h-5 w-5" /></button></div>
       {me?.establishments && me.establishments.length > 1 ? (
         <select value={me.establishment?.id ?? ""} onChange={(e) => switchEst(e.target.value)} className="mx-3 mb-2 h-10 rounded-lg border border-line surface-2 px-2 text-sm font-semibold">
           {me.establishments.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
@@ -122,7 +123,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
       {open ? <div className="fixed inset-0 z-40 flex lg:hidden"><div className="absolute inset-0 bg-black/50" onClick={() => setOpen(false)} /><div className="relative z-10" style={{ paddingTop: "env(safe-area-inset-top)" }}>{Sidebar}</div></div> : null}
       <div className="flex min-w-0 flex-1 flex-col">
         <SupportBar />
-        <header className="glass flex h-14 shrink-0 items-center gap-3 border-b px-4 lg:hidden"><button className="touch flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand text-white shadow-glow active:scale-95" aria-label="Ouvrir le menu" onClick={() => setOpen(true)}><Menu className="h-5 w-5" /></button><Logo size={28} /></header>
+        <header className="glass flex h-14 shrink-0 items-center gap-3 border-b px-4 lg:hidden"><button className="touch flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand text-white shadow-glow active:scale-95" aria-label="Ouvrir le menu" onClick={() => setOpen(true)}><Menu className="h-5 w-5" /></button><Logo size={28} /><VersionBadge /></header>
         <main className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden p-4 lg:p-8"><InstallBanner className="mb-3 lg:hidden" /><SubscriptionBanner />{children}</main>
         {/* Téléphone / tablette : les portails Salle, Caisse et Cuisine, toujours à portée de pouce */}
         <PortalButtons variant="dock" className="lg:hidden" />

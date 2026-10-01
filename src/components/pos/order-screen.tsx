@@ -1,5 +1,6 @@
 "use client";
 
+import { Photo } from "@/components/ui/photo";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -251,8 +252,8 @@ export function OrderScreen({ orderId: orderIdProp }: { orderId: string }) {
           {categoryId === FORMULES && !search
             ? catalog.data.menus.map((m) => (
                 <button key={m.id} disabled={closed} onClick={() => setMenuOpen(m)} className="touch card relative flex h-[190px] flex-col overflow-hidden text-left transition hover:-translate-y-0.5 hover:shadow-lift active:scale-[0.98] disabled:opacity-50">
-                  {/* eslint-disable-next-line @next/next/no-img-element -- image du catalogue (URL libre) */}
-                  {m.imageUrl ? <img src={m.imageUrl} alt="" loading="lazy" className="h-[118px] w-full shrink-0 object-cover" /> : <span className="flex h-[118px] w-full shrink-0 items-end bg-lagoon p-2.5"><span className="rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">Formule</span></span>}
+                  { }
+                  <Photo src={m.imageUrl} className="h-[118px] w-full shrink-0 object-cover" fallback={<span className="flex h-[118px] w-full shrink-0 items-end bg-lagoon p-2.5"><span className="rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">Formule</span></span>} />
                   <span className="flex min-h-0 flex-1 flex-col justify-between p-2.5">
                     <span className="line-clamp-2 text-[13px] font-bold leading-tight">{m.name}</span>
                     <span className="text-sm font-extrabold text-brand"><Money amount={m.priceTtc} /></span>
@@ -266,10 +267,9 @@ export function OrderScreen({ orderId: orderIdProp }: { orderId: string }) {
                 return (
                   <div key={p.id} className={`card relative flex h-[190px] flex-col overflow-hidden transition hover:-translate-y-0.5 hover:shadow-lift ${closed ? "opacity-50" : ""} ${off ? "opacity-60 grayscale" : ""}`}>
                     <button disabled={closed} onClick={() => onProduct(p)} className="touch flex min-h-0 flex-1 flex-col text-left active:scale-[0.99]" aria-label={`${p.name} : détail`}>
-                      {/* eslint-disable-next-line @next/next/no-img-element -- images du catalogue (URL libre), non optimisables */}
-                      {p.imageUrl ? <img src={p.imageUrl} alt="" loading="lazy" className="h-[118px] w-full shrink-0 object-cover" /> : (
+                      <Photo src={p.imageUrl} className="h-[118px] w-full shrink-0 object-cover" fallback={
                         <span className="flex h-[118px] w-full shrink-0 items-center justify-center text-4xl font-extrabold text-white/90" style={{ background: `linear-gradient(140deg, color-mix(in srgb, ${tint} 85%, white), ${tint} 60%, color-mix(in srgb, ${tint} 75%, black))` }}>{p.name.slice(0, 1).toUpperCase()}</span>
-                      )}
+                      } />
                       <span className="flex min-h-0 flex-1 flex-col justify-between gap-0.5 px-2.5 py-2 pr-11">
                         <span className="line-clamp-2 text-[13px] font-bold leading-tight">{p.name}</span>
                         <span className="flex items-center gap-1.5 text-sm font-extrabold text-brand"><Money amount={p.priceTtc} />{p.variants.length ? <span className="text-[10px] font-bold uppercase tracking-wide text-muted">dès</span> : null}{p.modifierGroups.length ? <span className="rounded-md surface-2 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-muted">options</span> : null}</span>

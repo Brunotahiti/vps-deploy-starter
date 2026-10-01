@@ -7,9 +7,12 @@ import { ApiClientError } from "@/lib/api-client";
 import { useToast } from "@/components/ui/toast";
 import { Input } from "@/components/ui/field";
 
-const MAX_SIDE = 1000; // réduction côté navigateur : rapide à envoyer, net sur tablette
+const MAX_SIDE = 800; // réduction côté navigateur : légère à charger, nette sur tablette et dans la fiche du plat
 
-/** Réduit une image (photo de téléphone) en JPEG ≤ 1000 px avant envoi. */
+/**
+ * Réduit une image (photo de téléphone, plusieurs Mo) avant envoi : 800 px au plus, en WebP (≈ 40 à 80 Ko),
+ * ou en JPEG si le navigateur ne sait pas produire du WebP (anciens Safari).
+ */
 async function shrink(file: File): Promise<{ blob: Blob; width: number; height: number }> {
   const url = URL.createObjectURL(file);
   try {
@@ -18,7 +21,9 @@ async function shrink(file: File): Promise<{ blob: Blob; width: number; height: 
     const w = Math.round(img.naturalWidth * k), h = Math.round(img.naturalHeight * k);
     const c = document.createElement("canvas"); c.width = w; c.height = h;
     c.getContext("2d")!.drawImage(img, 0, 0, w, h);
-    const blob = await new Promise<Blob | null>((res) => c.toBlob(res, "image/jpeg", 0.85));
+    const encode = (type: string, quality: number) => new Promise<Blob | null>((res) => c.toBlob(res, type, quality));
+    let blob = await encode("image/webp", 0.8);
+    if (!blob || blob.type !== "image/webp") blob = await encode("image/jpeg", 0.8);
     if (!blob) throw new Error("Impossible de traiter cette image");
     return { blob, width: w, height: h };
   } finally { URL.revokeObjectURL(url); }
@@ -27,7 +32,7 @@ async function shrink(file: File): Promise<{ blob: Blob; width: number; height: 
 /** Réduit puis envoie une photo ; retourne l'URL à enregistrer sur le produit. */
 export async function uploadPhoto(file: File): Promise<string> {
   const { blob, width, height } = await shrink(file);
-  const fd = new FormData(); fd.append("file", blob, "photo.jpg"); fd.append("width", String(width)); fd.append("height", String(height));
+  const fd = new FormData(); fd.append("file", blob, blob.type === "image/webp" ? "photo.webp" : "photo.jpg"); fd.append("width", String(width)); fd.append("height", String(height));
   const r = await fetch("/api/uploads", { method: "POST", body: fd });
   const json = await r.json().catch(() => ({}));
   if (!r.ok) throw new ApiClientError(r.status, json?.error?.code ?? "UPLOAD", json?.error?.message ?? "Envoi impossible");

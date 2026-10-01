@@ -121,3 +121,25 @@ test("le back-office affiche le tableau de bord et le catalogue", async ({ page 
   await page.goto("/admin/floor");
   await expect(page.getByText("T01")).toBeVisible();
 });
+
+/** Grand écran : le logo ouvre le menu de la caisse ; une photo qui ne charge pas laisse place à un visuel de secours. */
+test("caisse : le logo ouvre le menu, pas d'image cassée", async ({ page }) => {
+  await login(page, "manager@manaresto.pf");
+  await page.goto("/pos");
+  await page.getByRole("button", { name: "Menu ManaResto" }).click();
+  const drawer = page.getByRole("dialog", { name: "Menu" });
+  await expect(drawer).toBeVisible();
+  await expect(drawer.getByRole("link", { name: /Réservations/ })).toBeVisible();
+  await drawer.getByRole("button", { name: "Fermer le menu" }).click();
+  await expect(page.getByRole("dialog", { name: "Menu" })).toHaveCount(0);
+
+  // Commande au comptoir : la grille des produits ne montre aucune image cassée
+  await page.getByRole("button", { name: "Comptoir", exact: true }).click();
+  await page.waitForURL(/\/pos\/order\//);
+  await expect(page.getByRole("button", { name: /: détail$/ }).first()).toBeVisible();
+  await page.waitForTimeout(2000); // laisser les photos échouer ou se charger
+  const broken = await page.evaluate(() => Array.from(document.images).filter((i) => i.complete && i.naturalWidth === 0).length);
+  expect(broken).toBe(0);
+  const orderId = page.url().split("/pos/order/")[1];
+  await page.request.post(`/api/orders/${orderId}/cancel`, { data: { reason: "test" } });
+});
