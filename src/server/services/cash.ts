@@ -20,11 +20,30 @@ export async function openSession(actor: Actor, input: { openingFloat: number; n
     if (await tx.cashSession.findFirst({ where: { establishmentId: actor.establishmentId, status: "OPEN", terminalId: actor.terminalId ?? null } })) throw new ApiError(409, "ALREADY_OPEN", "Une session de caisse est déjà ouverte sur ce terminal");
     const s = await tx.cashSession.create({ data: { establishmentId: actor.establishmentId, terminalId: actor.terminalId ?? null, openedById: actor.userId, openingFloat: input.openingFloat, notes: input.notes ?? null } });
     await tx.cashMovement.create({ data: { cashSessionId: s.id, userId: actor.userId, kind: "OPENING", amount: input.openingFloat, reason: "Fond de caisse" } });
+    await attachOfflineCashPayments(tx, actor, s.id);
     await audit({ ...actor, action: "cash.open", entityType: "cash_session", entityId: s.id, newValue: { openingFloat: input.openingFloat } }, tx);
     return s;
   });
   publish("cash.updated", actor.establishmentId, { cashSessionId: session.id });
   return getSessionReport(actor.establishmentId, session.id);
+}
+
+type Tx = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
+
+/**
+ * Espèces encaissées hors ligne alors qu'aucune session n'était ouverte (ou clôturée pendant la coupure) :
+ * elles rejoignent la session qui s'ouvre, avec leur mouvement de vente, pour que le comptage reste juste.
+ */
+export async function attachOfflineCashPayments(tx: Tx, actor: Actor, sessionId: string) {
+  const orphans = await tx.payment.findMany({
+    where: { establishmentId: actor.establishmentId, method: "CASH", cashSessionId: null, createdAt: { gte: new Date(Date.now() - 7 * 86_400_000) } },
+    include: { order: { select: { number: true } } },
+  });
+  for (const p of orphans) {
+    await tx.payment.update({ where: { id: p.id }, data: { cashSessionId: sessionId } });
+    await tx.cashMovement.create({ data: { cashSessionId: sessionId, userId: p.receivedById ?? actor.userId, paymentId: p.id, orderId: p.orderId, kind: "SALE", amount: p.amount + p.tipAmount, reason: `Vente hors ligne ${p.order.number}` } });
+  }
+  return orphans.length;
 }
 
 export async function addMovement(actor: Actor, sessionId: string, input: { kind: Extract<CashMovementKind, "PAY_IN" | "PAY_OUT" | "DEPOSIT" | "CORRECTION">; amount: number; reason: string }) {

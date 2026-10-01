@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChefHat, Flame, Printer, Volume2, VolumeX, Maximize2, Minimize2, Moon, Sun, LogOut, LayoutGrid, Check, RotateCcw, Wifi, WifiOff, History } from "lucide-react";
 import { api, ApiClientError } from "@/lib/api-client";
+import { warmOfflinePages } from "@/lib/offline/snapshot";
 import { useSession } from "@/hooks/use-session";
 import { useRealtime } from "@/hooks/use-realtime";
 import { useTheme } from "@/hooks/use-theme";
@@ -43,6 +44,7 @@ export function KdsScreen() {
   const { toast } = useToast();
   const { me, can, isLoading } = useSession();
   const { toggle } = useTheme();
+  useEffect(() => { if (me?.user) warmOfflinePages(); }, [me?.user]); // écrans enregistrés pour les coupures
   const [stationId, setStationId] = useState<string>(() => { try { return localStorage.getItem("mr-kds-station") || ALL; } catch { return ALL; } });
   const [view, setView] = useState<View>("active");
   const [sound, setSound] = useState<boolean>(() => { try { return localStorage.getItem("mr-kds-sound") !== "off"; } catch { return true; } });

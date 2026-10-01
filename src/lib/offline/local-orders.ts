@@ -4,7 +4,7 @@
  * jusqu'à ce que la file d'attente (outbox) l'ait rejouée sur le serveur.
  */
 import { cacheGet, cacheSet, withDb } from "./db";
-import type { Order } from "@/components/pos/types";
+import type { FloorStatus, FloorTable, Order } from "@/components/pos/types";
 
 const KEY = (id: string) => `order:${id}`;
 const INDEX = "offline-orders";
@@ -32,6 +32,43 @@ export async function listOfflineCreatedOrders(): Promise<LocalOrderMeta[]> {
 export async function markOfflineOrderClosed(id: string) {
   const list = (await cacheGet<LocalOrderMeta[]>(INDEX))?.data ?? [];
   await cacheSet(INDEX, list.filter((o) => o.id !== id));
+}
+
+/**
+ * Plan de salle pendant une coupure : tables encaissées ou libérées sur cet appareil, pas encore transmises.
+ * Appliqué par-dessus le plan (copie locale OU réponse du serveur tant que la file n'est pas vidée).
+ */
+export type FloorOverrides = { closedOrders: string[]; freedTables: string[] };
+const OVERRIDES = "offline-floor";
+
+export async function getFloorOverrides(): Promise<FloorOverrides> {
+  return (await cacheGet<FloorOverrides>(OVERRIDES))?.data ?? { closedOrders: [], freedTables: [] };
+}
+
+export async function addFloorOverride(kind: keyof FloorOverrides, id: string) {
+  const cur = await getFloorOverrides();
+  if (!cur[kind].includes(id)) await cacheSet(OVERRIDES, { ...cur, [kind]: [...cur[kind], id].slice(-200) });
+}
+
+/** File vidée : le serveur connaît tout, le plan redevient le sien. */
+export async function clearFloorOverrides() {
+  await cacheSet(OVERRIDES, { closedOrders: [], freedTables: [] });
+}
+
+export function applyFloorOverrides(floor: FloorStatus, ov: FloorOverrides, markToClean: boolean): FloorStatus {
+  if (ov.closedOrders.length === 0 && ov.freedTables.length === 0) return floor;
+  const free = (t: FloorTable, status: FloorTable["status"]): FloorTable => ({ ...t, status, order: null, serverInitials: null, serverColor: null, service: null });
+  return {
+    ...floor,
+    rooms: floor.rooms.map((r) => ({
+      ...r,
+      tables: r.tables.map((t) => {
+        if (t.order && ov.closedOrders.includes(t.order.id)) return free(t, markToClean && !ov.freedTables.includes(t.id) ? "TO_CLEAN" : "FREE");
+        if (!t.order && t.status === "TO_CLEAN" && ov.freedTables.includes(t.id)) return free(t, "FREE");
+        return t;
+      }),
+    })),
+  };
 }
 
 /** Appelé après une synchronisation réussie : le serveur redevient la source de vérité. */

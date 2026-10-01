@@ -23,7 +23,7 @@ import { CustomerDialog } from "./customer-dialog";
 import { ServicePanel } from "./service-panel";
 import { useFloor } from "./floor";
 import { useOffline } from "@/lib/offline/provider";
-import { getLocalOrder, markOfflineOrderClosed, saveLocalOrder } from "@/lib/offline/local-orders";
+import { addFloorOverride, getLocalOrder, markOfflineOrderClosed, saveLocalOrder } from "@/lib/offline/local-orders";
 import { mergedOrderId } from "@/lib/offline/outbox";
 import { computeOrderTotals } from "@/lib/order-calc";
 import { ORDER_TYPE_LABEL, type Order, type OrderItem, type PosMenu, type PosProduct } from "./types";
@@ -144,8 +144,10 @@ export function OrderScreen({ orderId: orderIdProp }: { orderId: string }) {
       .then((ok) => { if (ok) toast(online ? "Envoyé en cuisine" : "Envoi enregistré, transmis en cuisine à la reconnexion", online ? "success" : "info"); })
       .finally(() => setSending(false));
   };
-  const setCourseStatus = (cid: string, status: "PENDING" | "HOLD" | "FIRE" | "SERVED") => run(() => api.post<Order>(`/api/orders/${orderId}/courses/${cid}`, { status }));
-  const requestBill = () => run(() => api.post<Order>(`/api/orders/${orderId}/bill`)).then((ok) => { if (ok) toast("Addition demandée", "success"); });
+  const setCourseStatus = (cid: string, status: "PENDING" | "HOLD" | "FIRE" | "SERVED") =>
+    run(() => api.post<Order>(`/api/orders/${orderId}/courses/${cid}`, { status }, { queueIfOffline: true }), (o) => ({ ...o, courses: o.courses.map((c) => (c.id === cid ? { ...c, status } : c)) }));
+  const requestBill = () => run(() => api.post<Order>(`/api/orders/${orderId}/bill`, undefined, { queueIfOffline: true }), (o) => ({ ...o, status: "BILL_REQUESTED" }))
+    .then((ok) => { if (ok && online) toast("Addition demandée", "success"); });
   /** Après un encaissement réussi (saisi en caisse ou débité par le TPE). */
   const afterPayment = (paid: Order) => {
     setOrder(paid);
@@ -166,7 +168,11 @@ export function OrderScreen({ orderId: orderIdProp }: { orderId: string }) {
       const paid = cur.paidTotal + body.reduce((a, p) => a + p.amount, 0);
       const next: Order = { ...cur, paidTotal: paid, tipTotal: cur.tipTotal, payments: [...cur.payments, ...body.map((p) => ({ id: p.id, establishmentId: cur.establishmentId, orderId, cashSessionId: null, receivedById: null, method: p.method as Order["payments"][number]["method"], status: "COMPLETED" as const, amount: p.amount, tipAmount: 0, tendered: p.tendered ?? null, changeGiven: p.tendered ? Math.max(0, p.tendered - p.amount - (0)) : 0, refundedAmount: 0, reference: p.reference ?? null, splitLabel: p.splitLabel ?? null, providerRef: null, createdAt: new Date(), refunds: [] }))], ...(paid >= cur.total ? { status: "PAID" as const, closedAt: new Date() } : {}) };
       setOrder(next);
-      if (next.status === "PAID") { setPayOpen(false); markOfflineOrderClosed(orderId).catch(() => {}); qc.invalidateQueries({ queryKey: ["offline-orders"] }); setReceipt({ afterPayment: true }); }
+      if (next.status === "PAID") {
+        setPayOpen(false); markOfflineOrderClosed(orderId).catch(() => {}); qc.invalidateQueries({ queryKey: ["offline-orders"] }); setReceipt({ afterPayment: true });
+        // Plan de salle hors ligne : la table se libère tout de suite (comme le fera le serveur à la synchronisation)
+        addFloorOverride("closedOrders", orderId).then(() => qc.invalidateQueries({ queryKey: ["floor"] })).catch(() => {});
+      }
     });
   };
 
@@ -425,7 +431,7 @@ export function OrderScreen({ orderId: orderIdProp }: { orderId: string }) {
       <DiscountDialog open={dialog === "discount"} order={o} onClose={() => setDialog(null)} onApply={(body) => withPin(setPin, "pos.discount", (managerPin) => api.post<Order>(`/api/orders/${orderId}/discount`, { ...body, managerPin }).then(setOrder)).then(() => setDialog(null)).catch(onError)} />
       <CancelDialog open={dialog === "cancel"} onClose={() => setDialog(null)} onConfirm={(reason) => withPin(setPin, "pos.cancel_order", (managerPin) => api.post<Order>(`/api/orders/${orderId}/cancel`, { reason, managerPin }).then(setOrder)).then(() => { setDialog(null); toast("Commande annulée"); router.push("/pos"); }).catch(onError)} />
       <TransferDialog open={dialog === "transfer"} currentTableId={o.tableId} onClose={() => setDialog(null)} onPick={(tableId) => run(() => api.post<Order>(`/api/orders/${orderId}/transfer`, { tableId })).then((ok) => { if (ok) { setDialog(null); toast("Table transférée", "success"); } })} />
-      {dialog === "covers" ? <CoversDialog key={`${o.covers}-${o.customerName ?? ""}`} open order={o} onClose={() => setDialog(null)} onSave={(body) => run(() => api.patch<Order>(`/api/orders/${orderId}`, body)).then(() => setDialog(null))} /> : null}
+      {dialog === "covers" ? <CoversDialog key={`${o.covers}-${o.customerName ?? ""}`} open order={o} onClose={() => setDialog(null)} onSave={(body) => run(() => api.patch<Order>(`/api/orders/${orderId}`, body, { queueIfOffline: true }), (o) => ({ ...o, ...body })).then(() => setDialog(null))} /> : null}
       {currentCourse?.status === "HOLD" ? <div className="pointer-events-none fixed bottom-24 right-4 rounded-lg bg-orange-500 px-3 py-1 text-xs font-bold text-white">Service « {currentCourse.name} » en attente</div> : null}
     </div>
   );

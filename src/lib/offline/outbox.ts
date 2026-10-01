@@ -83,7 +83,7 @@ class Outbox {
         try {
           const res = await fetch(e.url, {
             method: e.method, credentials: "same-origin",
-            headers: { "Content-Type": "application/json", Accept: "application/json", "Idempotency-Key": e.idempotencyKey },
+            headers: { "Content-Type": "application/json", Accept: "application/json", "Idempotency-Key": e.idempotencyKey, "X-Offline-Replay": "1" },
             body: e.body === undefined ? undefined : JSON.stringify(e.body),
           });
           if (res.ok) {
