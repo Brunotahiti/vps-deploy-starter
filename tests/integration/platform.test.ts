@@ -163,9 +163,12 @@ describe("E-mail de bienvenue", () => {
   it("propose d'essayer la démo préremplie (lien qui ouvre directement le compte d'exemple)", async () => {
     const { welcomeMail } = await import("@/server/services/platform-emails");
     const m = welcomeMail({ id: "o", name: "Chez Teva", trialEndsAt: null }, { id: "u", email: "teva@resto.pf", firstName: "Teva" });
-    expect(m.html).toContain("Essayer la démo");
+    expect(m.html).toContain("Essayer la démo gratuitement");
     expect(m.html).toMatch(/\/login\?demo=1/);
-    expect(m.text).toMatch(/Essayer la démo : https?:\/\/\S+\/login\?demo=1/);
+    expect(m.text).toMatch(/Essayer la démo gratuitement : https?:\/\/\S+\/login\?demo=1/);
+    // Exemple de page publique d'un restaurant
+    expect(m.html).toContain("Voir un exemple de page restaurant");
+    expect(m.text).toMatch(/Voir un exemple de page restaurant : https?:\/\/\S+\/site\/demo-mana-beach\/le-mana-beach/);
     expect(m.html).toContain("Ouvrir ManaResto");
   });
 });

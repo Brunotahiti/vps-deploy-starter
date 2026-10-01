@@ -3,7 +3,7 @@ import { ApiError } from "@/server/errors";
 import { isEmailConfigured, platformMail, sendMail, signupAlertMail, type OutgoingMail } from "@/server/email/mailer";
 import { OFFER } from "@/lib/plan";
 import { formatDate } from "@/lib/dates";
-import { DEMO_ORG_SLUG, parseAdminEmails, type PlatformEmailKind } from "@/lib/platform";
+import { DEMO_EST_SLUG, DEMO_ORG_SLUG, parseAdminEmails, type PlatformEmailKind } from "@/lib/platform";
 
 /*
  * E-mails de la plateforme vers les restaurateurs : bienvenue à l'inscription, rappel avant la fin de l'essai,
@@ -40,11 +40,14 @@ export function welcomeMail(org: Org, owner: Owner): OutgoingMail {
     paragraphs: [
       `Votre compte ManaResto pour « ${org.name} » est prêt. Vous profitez de ${OFFER.trialDays} jours d'essai gratuit, sans carte bancaire.`,
       "Pour bien démarrer : ajoutez vos plats et leurs photos, dessinez votre plan de salle, puis ouvrez la caisse sur votre tablette, votre téléphone ou votre ordinateur. L'assistant de démarrage vous guide pas à pas.",
-      "Envie de voir d'abord ManaResto en plein service ? Essayez la démo : un restaurant fictif, Le Mana Beach, avec sa carte en photos, ses tables occupées, ses tickets en cuisine, ses réservations et deux mois de chiffres. Vous pouvez tout essayer, rien n'est réel.",
+      "Envie de voir d'abord ManaResto en plein service ? Essayez gratuitement la démo : un restaurant fictif, Le Mana Beach, avec sa carte en photos, ses tables occupées, ses tickets en cuisine, ses réservations et deux mois de chiffres. Vous pouvez tout essayer, rien n'est réel. Découvrez aussi sa page publique : c'est le site que ManaResto crée pour votre restaurant, avec votre carte, vos horaires, la réservation et la commande en ligne.",
       "Une question ? Répondez simplement à cet e-mail : nous vous aidons à tout mettre en place.",
     ],
     cta: { label: "Ouvrir ManaResto", url: `${appUrl()}/admin` },
-    secondary: { label: "Essayer la démo", url: `${appUrl()}/login?demo=1`, note: "La démo s'ouvre dans le compte d'exemple : reconnectez-vous ensuite à votre compte." },
+    secondary: [
+      { label: "Essayer la démo gratuitement", url: `${appUrl()}/login?demo=1`, note: "La démo s'ouvre dans le compte d'exemple : reconnectez-vous ensuite à votre compte." },
+      { label: "Voir un exemple de page restaurant", url: `${appUrl()}/site/${DEMO_ORG_SLUG}/${DEMO_EST_SLUG}` },
+    ],
   });
 }
 
