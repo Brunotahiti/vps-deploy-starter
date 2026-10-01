@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useState, useSyncExternalStore } 
 import { useQueryClient } from "@tanstack/react-query";
 import { outbox } from "./outbox";
 import { clearFloorOverrides, clearOfflineCreatedOrders } from "./local-orders";
+import { loadActivePass } from "./passes";
 import { useToast } from "@/components/ui/toast";
 
 type OfflineState = { online: boolean; pending: number; syncing: boolean; lastError: string | null; flush: () => Promise<void> };
@@ -22,6 +23,7 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState({ pending: 0, syncing: false, lastError: null as string | null });
 
   useEffect(() => {
+    loadActivePass().catch(() => {}); // employé connecté hors ligne : ses opérations portent son laissez-passer
     const after = async (r: { sent: number; failed: number; authRequired?: boolean }) => {
       if (r.authRequired) toast("Session expirée : reconnectez-vous pour transmettre les opérations en attente (elles sont conservées)", "error");
       if (r.sent > 0 || r.failed > 0) {

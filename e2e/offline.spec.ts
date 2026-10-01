@@ -1,4 +1,27 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
+
+/** Lit une entrée de la base locale de l'application (IndexedDB « manaresto », magasin « cache »). */
+const idbHas = (key: string) => new Promise<boolean>((resolve) => {
+  const req = indexedDB.open("manaresto");
+  req.onerror = () => resolve(false);
+  req.onsuccess = () => {
+    try {
+      const get = req.result.transaction("cache").objectStore("cache").get(key);
+      get.onsuccess = () => resolve(!!get.result);
+      get.onerror = () => resolve(false);
+    } catch { resolve(false); }
+  };
+});
+
+/** La tablette est prête pour une coupure : écrans enregistrés (le dernier est l'écran de commande) et catalogue gardé. */
+async function offlineReady(page: Page) {
+  await page.waitForFunction(() => navigator.serviceWorker?.controller !== null, null, { timeout: 15000 });
+  await expect.poll(() => page.evaluate(async () => {
+    for (const name of await caches.keys()) if (await (await caches.open(name)).match("/pos/order/__shell__")) return true;
+    return false;
+  }), { timeout: 30000 }).toBe(true);
+  await expect.poll(() => page.evaluate(idbHas, "pos-catalog"), { timeout: 20000 }).toBe(true);
+}
 
 /**
  * Mode hors ligne (PWA) : la caisse continue de fonctionner sans réseau et se
@@ -13,8 +36,8 @@ test("hors ligne : ouvrir une table, commander, envoyer, puis synchroniser", asy
   await page.waitForURL(/\/(pos|admin)/);
   await page.goto("/pos");
   await expect(page.locator("header [data-testid=network-status][data-online=true]")).toBeVisible();
-  // Laisser le service worker s'installer et le catalogue se mettre en cache
-  await page.waitForFunction(() => navigator.serviceWorker?.controller !== null, null, { timeout: 15000 }).catch(() => {});
+  // Laisser le service worker enregistrer les écrans et le catalogue se mettre en cache
+  await offlineReady(page);
   const freeBefore = page.locator("button[title='Libre']:visible").first();
   const tableName = (await freeBefore.getByTestId("table-name").textContent())?.trim();
 
@@ -75,7 +98,7 @@ test("hors ligne : table ouverte en même temps sur un autre appareil, articles 
   await page.waitForURL(/\/(pos|admin)/);
   await page.goto("/pos");
   await expect(page.locator("header [data-testid=network-status][data-online=true]")).toBeVisible();
-  await page.waitForFunction(() => navigator.serviceWorker?.controller !== null, null, { timeout: 15000 }).catch(() => {});
+  await offlineReady(page);
   const free = page.locator("button[title='Libre']:visible").first();
   const tableName = (await free.getByTestId("table-name").textContent())?.trim();
   const floor = (await (await page.request.get("/api/floor")).json()).data as { rooms: { tables: { id: string; name: string }[] }[] };
@@ -109,19 +132,6 @@ test("hors ligne : table ouverte en même temps sur un autre appareil, articles 
   expect((await page.request.get(`/api/orders/${localId}`)).status()).toBe(404);
 
   await page.request.post(`/api/orders/${other.id}/cancel`, { data: { reason: "test hors ligne" } });
-});
-
-/** Lit une entrée de la base locale de l'application (IndexedDB « manaresto », magasin « cache »). */
-const idbHas = (key: string) => new Promise<boolean>((resolve) => {
-  const req = indexedDB.open("manaresto");
-  req.onerror = () => resolve(false);
-  req.onsuccess = () => {
-    try {
-      const get = req.result.transaction("cache").objectStore("cache").get(key);
-      get.onsuccess = () => resolve(!!get.result);
-      get.onerror = () => resolve(false);
-    } catch { resolve(false); }
-  };
 });
 
 /**
@@ -175,8 +185,90 @@ test("hors ligne : démarrage à froid, encaissement espèces d'une table ouvert
   // ---- Retour du réseau : le paiement est transmis
   await context.setOffline(false);
   await tab.evaluate(() => window.dispatchEvent(new Event("online")));
-  await expect(tab.getByText(/Synchronisation : 1 opération transmise/)).toBeVisible({ timeout: 15000 });
-  const paid = (await (await tab.request.get(`/api/orders/${order.id}`)).json()).data as { status: string; payments: { method: string }[] };
-  expect(paid.status).toBe("PAID");
+  const fetchOrder = async () => (await (await tab.request.get(`/api/orders/${order.id}`)).json()).data as { status: string; payments: { method: string }[] };
+  await expect.poll(async () => (await fetchOrder()).status, { timeout: 30000 }).toBe("PAID");
+  const paid = await fetchOrder();
   expect(paid.payments.map((p) => p.method)).toEqual(["CASH"]);
+});
+
+/**
+ * Coupure d'internet sur une tablette enregistrée : changement d'utilisateur, connexion par PIN sans réseau,
+ * remise autorisée par le PIN du manager vérifié sur la tablette ; au retour du réseau, tout est transmis
+ * au nom de qui l'a fait (serveuse) et de qui l'a autorisé (manager).
+ */
+test("hors ligne : connexion par PIN et remise autorisée par le PIN du manager", async ({ page, context }) => {
+  await page.goto("/login");
+  await page.getByPlaceholder("vous@restaurant.pf").fill("manager@manaresto.pf");
+  await page.getByLabel("Mot de passe").fill("demo1234");
+  await page.getByRole("button", { name: "Se connecter" }).click();
+  await page.waitForURL(/\/(pos|admin)/);
+  expect((await page.request.post("/api/auth/terminal/register", { data: { name: "Tablette coupure", kind: "POS" } })).ok()).toBe(true);
+  // Une table avec deux Coca, ouverte en ligne
+  const floor = (await (await page.request.get("/api/floor")).json()).data as { rooms: { tables: { id: string; name: string; status: string }[] }[] };
+  const table = floor.rooms.flatMap((r) => r.tables).find((t) => t.status === "FREE")!;
+  const catalog = (await (await page.request.get("/api/pos/catalog")).json()).data as { products: { id: string; name: string }[] };
+  const coca = catalog.products.find((p) => p.name === "Coca-Cola 33 cl")!;
+  const order = (await (await page.request.post("/api/orders", { data: { type: "DINE_IN", tableId: table.id, covers: 2 } })).json()).data as { id: string };
+  await page.request.post(`/api/orders/${order.id}/items`, { data: { productId: coca.id, quantity: 2 } });
+
+  // Moana prend son service en ligne : la tablette garde les écrans, la commande et les laissez-passer
+  await page.request.post("/api/auth/logout");
+  await page.goto("/salle");
+  await page.waitForFunction(() => navigator.serviceWorker?.controller !== null, null, { timeout: 15000 });
+  for (const d of "1001") await page.getByTestId("portal-salle").getByRole("button", { name: d, exact: true }).click();
+  await page.getByRole("button", { name: "Prendre le service" }).click();
+  await page.waitForURL(/\/pos$/);
+  await expect.poll(() => page.evaluate(idbHas, "offline-passes"), { timeout: 20000 }).toBe(true);
+  await expect.poll(() => page.evaluate(idbHas, `order:${order.id}`), { timeout: 20000 }).toBe(true);
+  await offlineReady(page);
+
+  // ---- Coupure : Moana passe la main, Vaiana entre avec son PIN sans réseau
+  // (setOffline ne coupe pas le service worker : toutes les requêtes sont aussi refusées)
+  await context.route("**/*", (r) => r.abort("internetdisconnected"));
+  await context.setOffline(true);
+  await page.evaluate(() => window.dispatchEvent(new Event("offline")));
+  await page.getByTitle("Changer d'utilisateur").first().click();
+  await page.waitForURL(/\/(salle|pos\/login)/);
+  const portal = page.locator("[data-testid^=portal-]");
+  for (const d of "1002") await portal.getByRole("button", { name: d, exact: true }).click();
+  await portal.getByRole("button", { name: /Prendre le service|Ouvrir la caisse|Entrer/ }).click();
+  await page.waitForURL(/\/pos$/, { timeout: 20000 });
+  await expect(page.getByRole("button", { name: "V", exact: true })).toBeVisible(); // Vaiana, connectée sans réseau
+
+  // Remise de 10 % : Vaiana n'en a pas le droit, Hinatea (manager) saisit son PIN, vérifié sur la tablette
+  await page.goto(`/pos/order/${order.id}`);
+  await expect(page.getByTestId("ticket").getByText("Coca-Cola 33 cl")).toBeVisible();
+  await page.getByRole("button", { name: "Remise" }).click();
+  await page.getByRole("button", { name: "10 %" }).click();
+  await page.getByPlaceholder("Motif (obligatoire)").fill("Fidélité");
+  await page.getByRole("button", { name: "Appliquer" }).click();
+  const pinDialog = page.getByRole("dialog", { name: "Autorisation manager" });
+  // PIN inconnu : refusé sur la tablette, la fenêtre reste ouverte
+  for (const d of "9876") await pinDialog.getByRole("button", { name: d, exact: true }).click();
+  await pinDialog.getByRole("button", { name: "Autoriser" }).click();
+  await expect(pinDialog.getByText(/PIN manager incorrect/)).toBeVisible({ timeout: 15000 });
+  // Le PIN du manager ouvre son laissez-passer
+  for (const d of "2000") await pinDialog.getByRole("button", { name: d, exact: true }).click();
+  await pinDialog.getByRole("button", { name: "Autoriser" }).click();
+  await expect(pinDialog).toBeHidden({ timeout: 15000 });
+  await expect(page.getByTestId("ticket").getByText(/Remise/).first()).toBeVisible();
+
+  // ---- Retour du réseau : session de Vaiana, opérations transmises à leur nom
+  await context.unrouteAll();
+  await context.setOffline(false);
+  await page.evaluate(() => window.dispatchEvent(new Event("online")));
+  // Pendant la reconnexion (fin de la session de Moana, ouverture de celle de Vaiana), une lecture peut être refusée
+  const fetchOrder = async () => (await (await page.request.get(`/api/orders/${order.id}`)).json()).data as { discountTotal: number; subtotal: number; discountReason: string } | undefined;
+  let synced: Awaited<ReturnType<typeof fetchOrder>>;
+  await expect.poll(async () => { const o = await fetchOrder(); if (o) synced = o; return o?.discountTotal ?? 0; }, { timeout: 30000 }).toBeGreaterThan(0);
+  synced = synced!;
+  expect(synced.discountTotal).toBe(Math.round(synced.subtotal / 10));
+  expect(synced.discountReason).toBe("Fidélité");
+
+  await page.request.post("/api/auth/login", { data: { email: "manager@manaresto.pf", password: "demo1234" } });
+  const audit = (await (await page.request.get("/api/audit?action=order.discount&take=5")).json()).data as { items: { entityId: string; user: { firstName: string } | null; authorizedById: string | null }[] };
+  const entry = audit.items.find((a) => a.entityId === order.id)!;
+  expect(entry.user?.firstName).toBe("Vaiana");
+  expect(entry.authorizedById).not.toBeNull();
+  await page.request.post(`/api/orders/${order.id}/cancel`, { data: { reason: "test hors ligne" } });
 });

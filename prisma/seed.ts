@@ -3,6 +3,7 @@ import { PrismaClient } from "../src/generated/prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { hashPassword } from "../src/server/auth/password";
 import { ensureSystemRoles } from "../src/server/services/roles";
+import { resetOfflineKeys } from "../src/server/services/offline-pass";
 import { createEstablishmentDefaults } from "../src/server/services/establishments";
 import { addDays, localDay } from "../src/lib/dates";
 import { refreshDemo } from "./demo-activity";
@@ -11,7 +12,7 @@ const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: proc
 
 const TZ = "Pacific/Tahiti";
 /** À incrémenter quand le contenu de base de la démo change : elle est alors recréée au déploiement suivant. */
-const DEMO_VERSION = 5;
+const DEMO_VERSION = 6;
 // Illustrations locales des produits (public/demo/*.svg), remplaçables par de vraies photos depuis le back-office
 import demoImages from "./demo-images.json" with { type: "json" };
 import demoPhotos from "./demo-photos.json" with { type: "json" };
@@ -117,6 +118,7 @@ async function main() {
   const mkUser = async (email: string, first: string, last: string, roleKey: string | null, pin: string, color: string, isOwner = false) => {
     const u = await prisma.user.create({ data: { organizationId: org.id, email, passwordHash: pw, pinHash: await hashPassword(pin), firstName: first, lastName: last, color, isOwner, displayName: first } });
     if (roleKey) await prisma.userEstablishment.create({ data: { userId: u.id, establishmentId: est.id, roleId: roles[roleKey] } });
+    await resetOfflineKeys(u.id, pin); // connexion par PIN possible sans internet dès le premier jour
     return u;
   };
   const owner = await mkUser("demo@manaresto.pf", "Teiva", "Manutahi", null, "1234", "#0EA5A4", true);

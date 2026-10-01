@@ -7,7 +7,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { LayoutGrid, ListOrdered, Wallet, Settings, Moon, Sun, LogOut, Wifi, WifiOff, RefreshCw, ChefHat, Download, Menu, X, ChevronRight, Clock, CalendarDays } from "lucide-react";
-import { useSession } from "@/hooks/use-session";
+import { markLogoutPending, useSession } from "@/hooks/use-session";
 import { useRealtime } from "@/hooks/use-realtime";
 import { SupportBar } from "@/components/support-bar";
 import { confirmLogoutWithPending, purgeLocalData } from "@/lib/offline/purge";
@@ -59,11 +59,12 @@ export function PosShell({ children }: { children: React.ReactNode }) {
   if (me?.user && !can("pos.use")) return <div className="flex h-dvh items-center justify-center p-6 text-center text-sm text-muted">Ce compte n&apos;a pas accès à la caisse. Redirection…</div>;
 
   const logout = async () => {
-    if (!(await confirmLogoutWithPending())) return;
-    await api.post("/api/auth/logout").catch(() => {}); // hors ligne : on nettoie quand même l'appareil
-    await purgeLocalData();
+    // Terminal du restaurant : les opérations en attente sont signées au nom de qui les a saisies, rien ne bloque le changement
+    if (!me?.terminal && !(await confirmLogoutWithPending())) return;
+    await api.post("/api/auth/logout").catch(() => markLogoutPending()); // hors ligne : on nettoie l'appareil, le serveur suivra
+    await purgeLocalData({ keepWorkingCopy: !!me?.terminal });
     qc.clear();
-    router.replace(me?.terminal ? "/pos/login" : "/login");
+    window.location.replace(me?.terminal ? "/pos/login" : "/login"); // rechargement complet : état propre, même sans réseau
   };
 
   const nav = [

@@ -1,6 +1,10 @@
 import { openDB, type DBSchema, type IDBPDatabase } from "idb";
 
-export type OutboxEntry = { id: string; method: string; url: string; body?: unknown; idempotencyKey: string; createdAt: number; attempts: number; lastError?: string };
+export type OutboxEntry = {
+  id: string; method: string; url: string; body?: unknown; idempotencyKey: string; createdAt: number; attempts: number; lastError?: string;
+  /** Laissez-passer de qui a saisi l'opération (et du manager qui l'a autorisée), rejoués avec elle */
+  headers?: Record<string, string>;
+};
 
 interface ManaDB extends DBSchema {
   cache: { key: string; value: { key: string; data: unknown; savedAt: number } };

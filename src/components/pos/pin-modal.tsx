@@ -4,6 +4,8 @@ import { useState } from "react";
 import { Modal } from "@/components/ui/modal";
 import { NumPad } from "@/components/ui/numpad";
 import { ApiClientError } from "@/lib/api-client";
+import { localCan, withOfflineAuth } from "@/lib/offline/auth-state";
+import { unlockWithPin } from "@/lib/offline/passes";
 import { PERMISSIONS, type PermissionKey } from "@/lib/permissions";
 
 export type PinRequest = { permission: PermissionKey; run: (managerPin: string) => Promise<unknown>; cancel?: () => void } | null;
@@ -38,9 +40,30 @@ export function PinModal({ request, onClose }: { request: PinRequest; onClose: (
   );
 }
 
-/** Exécute une opération ; si le serveur exige un PIN manager, délègue à la modale. */
+const isQueued = (e: unknown) => e instanceof ApiClientError && e.code === "QUEUED";
+
+/**
+ * Exécute une opération ; si le serveur exige un PIN manager, délègue à la modale.
+ * Sans internet : l'opération est mise en file si l'employé en a le droit, sinon un manager saisit son PIN,
+ * vérifié sur la tablette (laissez-passer), et l'opération part en file avec son autorisation.
+ * L'appelant reçoit alors l'erreur QUEUED et applique la modification localement.
+ */
 export function withPin(setRequest: (r: PinRequest) => void, permission: PermissionKey, run: (managerPin?: string) => Promise<unknown>) {
   return run().catch((e) => {
+    if (e instanceof ApiClientError && e.isNetwork) {
+      if (localCan(permission)) return withOfflineAuth({ forceQueue: true }, () => run());
+      return new Promise((resolve, reject) => setRequest({
+        permission,
+        run: async (pin) => {
+          const pass = await unlockWithPin(pin).catch((err: Error) => { throw new ApiClientError(429, "LOCKED", err.message); });
+          if (!pass) throw new ApiClientError(401, "INVALID_PIN", "PIN manager incorrect (hors ligne)");
+          if (!(pass.permissions.includes("*") || pass.permissions.includes(permission))) throw new ApiClientError(403, "PIN_NOT_AUTHORIZED", "Ce PIN n'a pas l'autorisation requise");
+          // En file avec l'autorisation du manager : la fenêtre se ferme, l'appelant applique la modification localement
+          await withOfflineAuth({ forceQueue: true, managerPass: pass.token }, () => run()).then(resolve, (err) => { if (isQueued(err)) reject(err); else throw err; });
+        },
+        cancel: () => reject(new ApiClientError(0, "PIN_CANCELLED", "Opération annulée")),
+      }));
+    }
     if (e instanceof ApiClientError && e.isPinRequired) {
       // Mauvais PIN : l'erreur s'affiche dans la fenêtre et on peut réessayer (la promesse reste en attente) ;
       // bon PIN : l'opération aboutit ; fenêtre fermée : l'opération est annulée (les boutons se débloquent).

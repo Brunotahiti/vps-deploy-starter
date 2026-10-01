@@ -80,6 +80,8 @@ model Establishment {
   organization       Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   memberships        UserEstablishment[]
   terminals          Terminal[]
+  offlinePinKeys     OfflinePinKey[]
+  offlinePasses      OfflinePass[]
   rooms              Room[]
   tables             Table[]
   categories         Category[]
@@ -142,6 +144,8 @@ model User {
   organization       Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   memberships        UserEstablishment[]
   sessions           Session[]
+  offlinePinKeys     OfflinePinKey[]
+  offlinePasses      OfflinePass[]
   employee           Employee?
   ordersServed       Order[]             @relation("OrderServer")
   payments           Payment[]           @relation("PaymentReceivedBy")
@@ -229,6 +233,41 @@ model Session {
   @@map("sessions")
 }
 
+/// Connexion sans internet : clé dérivée du PIN (PBKDF2), calculée quand le serveur voit le PIN en clair
+/// (connexion par PIN, autorisation manager, PIN défini). Elle chiffre les laissez-passer hors ligne.
+model OfflinePinKey {
+  userId          String   @map("user_id") @db.Uuid
+  establishmentId String   @map("establishment_id") @db.Uuid
+  key             Bytes
+  updatedAt       DateTime @default(now()) @updatedAt @map("updated_at")
+
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  establishment Establishment @relation(fields: [establishmentId], references: [id], onDelete: Cascade)
+
+  @@id([userId, establishmentId])
+  @@map("offline_pin_keys")
+}
+
+/// Laissez-passer hors ligne d'un employé sur un terminal : remis chiffré par la clé de son PIN,
+/// il authentifie ses opérations rejouées au retour du réseau (en-tête X-Offline-Pass).
+model OfflinePass {
+  id              String    @id @default(uuid()) @db.Uuid
+  userId          String    @map("user_id") @db.Uuid
+  establishmentId String    @map("establishment_id") @db.Uuid
+  terminalId      String    @map("terminal_id") @db.Uuid
+  tokenHash       String    @unique @map("token_hash")
+  expiresAt       DateTime  @map("expires_at")
+  revokedAt       DateTime? @map("revoked_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  establishment Establishment @relation(fields: [establishmentId], references: [id], onDelete: Cascade)
+  terminal      Terminal      @relation(fields: [terminalId], references: [id], onDelete: Cascade)
+
+  @@index([userId, terminalId])
+  @@map("offline_passes")
+}
+
 enum TerminalKind {
   POS
   KDS
@@ -251,6 +290,7 @@ model Terminal {
   cashSessions  CashSession[]
   auditLogs     AuditLog[]
   printers      Printer[]
+  offlinePasses OfflinePass[]
 
   @@index([establishmentId])
   @@map("terminals")

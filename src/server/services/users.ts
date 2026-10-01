@@ -1,3 +1,4 @@
+import { resetOfflineKeys, revokeOfflinePasses } from "./offline-pass";
 import { prisma } from "@/server/db";
 import { assertPinAvailable, pinEstablishmentsOfUser } from "./pin-unique";
 import { ApiError } from "@/server/errors";
@@ -37,6 +38,7 @@ export async function createUser(organizationId: string, actorId: string, input:
       memberships: { create: input.memberships },
     },
   });
+  if (input.pin) await resetOfflineKeys(user.id, input.pin);
   await audit({ organizationId, userId: actorId, action: "user.create", entityType: "user", entityId: user.id, newValue: { email, memberships: input.memberships } });
   return user;
 }
@@ -68,6 +70,14 @@ export async function updateUser(organizationId: string, actorId: string, userId
       },
     });
   });
+  // Connexion hors ligne : nouveau PIN → nouvelles clés ; compte désactivé ou retiré d'un établissement → laissez-passer révoqués
+  if (input.pin) await resetOfflineKeys(userId, input.pin);
+  if (input.isActive === false) await revokeOfflinePasses(userId);
+  else if (input.memberships && !before.isOwner) {
+    const kept = new Set(input.memberships.map((m) => m.establishmentId));
+    const removed = before.memberships.map((m) => m.establishmentId).filter((id) => !kept.has(id));
+    if (removed.length) await revokeOfflinePasses(userId, removed);
+  }
   await audit({
     organizationId, userId: actorId, action: "user.update", entityType: "user", entityId: userId,
     oldValue: { firstName: before.firstName, lastName: before.lastName, isActive: before.isActive, memberships: before.memberships.map((m) => ({ establishmentId: m.establishmentId, roleId: m.roleId })) },

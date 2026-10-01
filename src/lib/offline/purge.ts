@@ -2,14 +2,22 @@
 
 import { getDb } from "./db";
 import { outbox } from "./outbox";
+import { setActivePass } from "./passes";
 
 /**
- * Déconnexion / changement d'utilisateur : plus aucune donnée du compte précédent sur l'appareil
- * (profil et réponses gardés par le service worker, copies IndexedDB du catalogue, de la salle et des commandes).
- * Les opérations hors ligne non transmises sont conservées : elles appartiennent au restaurant, pas à la session.
+ * Déconnexion / changement d'utilisateur : plus rien du compte précédent sur l'appareil (profil gardé par le
+ * service worker, laissez-passer de l'employé ; sur un appareil personnel, copies du catalogue, de la salle et des
+ * commandes). Sur un terminal du restaurant (`keepWorkingCopy`), la copie de travail reste : elle appartient au
+ * restaurant, et l'employé suivant doit pouvoir travailler même sans internet.
+ * Les opérations hors ligne non transmises sont toujours conservées.
  */
-export async function purgeLocalData() {
+export async function purgeLocalData(opts: { keepWorkingCopy?: boolean } = {}) {
   try { navigator.serviceWorker?.controller?.postMessage("PURGE_API"); } catch { /* sans service worker */ }
+  await setActivePass(null).catch(() => {});
+  if (opts.keepWorkingCopy) {
+    try { const db = await getDb(); await db?.delete("cache", "me"); } catch { /* IndexedDB indisponible */ }
+    return;
+  }
   try { const db = await getDb(); await db?.clear("cache"); } catch { /* IndexedDB indisponible */ }
 }
 

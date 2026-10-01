@@ -1,3 +1,4 @@
+import { rememberOfflineKey, resetOfflineKeys } from "./offline-pass";
 import { prisma } from "@/server/db";
 import { ApiError } from "@/server/errors";
 import { hashPassword, hashPin, randomToken, sha256, verifyPassword, verifyPin } from "@/server/auth/password";
@@ -58,6 +59,7 @@ export async function loginWithPin(establishmentId: string, pin: string, termina
   if (matches.length > 1) { await release(); throw new ApiError(409, "PIN_SHARED", "Ce PIN est utilisé par plusieurs personnes : demandez à un manager de le changer"); }
   const matched = matches[0];
   await release();
+  await rememberOfflineKey(matched.id, establishmentId, pin).catch(() => {}); // connexion par PIN possible hors ligne
   const meta = await requestMeta();
   const { token } = await createSession({ userId: matched.id, establishmentId, terminalId, ...meta });
   await setSessionCookie(token);
@@ -86,6 +88,7 @@ export async function authorizeWithManagerPin(establishmentId: string, pin: stri
     const perms = u.isOwner ? ["*"] : (u.memberships[0]?.role.permissions.map((p) => p.permissionKey) ?? []);
     if (hasPermission(perms, permission)) {
       await release();
+      await rememberOfflineKey(u.id, establishmentId, pin).catch(() => {}); // autorisation manager possible hors ligne
       return u;
     }
     await release(); // PIN correct, simplement sans la permission : ce n'est pas une tentative de devinette
@@ -150,4 +153,5 @@ export async function setUserPin(userId: string, pin: string) {
   if (!/^\d{4,6}$/.test(pin)) throw new ApiError(400, "INVALID_PIN", "Le PIN doit contenir 4 à 6 chiffres");
   await assertPinAvailable(pin, { establishmentIds: await pinEstablishmentsOfUser(userId), userId, guardKey: userId });
   await prisma.user.update({ where: { id: userId }, data: { pinHash: await hashPin(pin) } });
+  await resetOfflineKeys(userId, pin);
 }
