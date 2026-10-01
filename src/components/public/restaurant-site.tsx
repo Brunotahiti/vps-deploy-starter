@@ -1,4 +1,5 @@
 /* eslint-disable @next/next/no-img-element -- photos et logo fournis par le restaurant (URL libre) : non optimisables par next/image */
+import { Photo } from "@/components/ui/photo";
 import { Phone, MapPin, Clock, CalendarDays, ShoppingBag, ExternalLink, Mail } from "lucide-react";
 import { Logo } from "@/components/brand";
 import { formatMoney } from "@/lib/money";
@@ -107,7 +108,7 @@ export function RestaurantSite({ data, lang, base }: { data: SiteData; lang: Sit
                       <ul className="grid gap-2 sm:grid-cols-2">
                         {g.products.map((p) => (
                           <li key={p.id} className="card flex gap-3 p-3">
-                            {p.imageUrl ? <img src={p.imageUrl} alt="" loading="lazy" className="h-16 w-16 shrink-0 rounded-xl object-cover" /> : null}
+                            <Photo src={p.imageUrl} className="h-16 w-16 shrink-0 rounded-xl object-cover" fallback={null} />
                             <div className="min-w-0 flex-1">
                               <div className="flex items-start justify-between gap-3"><p className="font-bold">{p.name}</p>{s.showPrices ? <p className="shrink-0 font-extrabold tabular-nums">{p.variants.length ? `${t.from} ${price(Math.min(p.priceTtc, ...p.variants.map((v) => v.priceTtc)))}` : price(p.priceTtc)}</p> : null}</div>
                               {p.description ? <p className="mt-0.5 text-sm text-muted">{p.description}</p> : null}
