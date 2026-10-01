@@ -75,6 +75,10 @@ describe("parcours complet : table → articles → cuisine → addition → pai
     const floor = await getFloorStatus(T.est.id);
     const t1 = floor.rooms[0].tables.find((t) => t.id === T.t1.id)!;
     expect(t1.status).toBe("SENT");
+    // Où en est le repas : apéritifs en cuisine, la suite pas encore envoyée
+    expect(t1.order!.meal.current).toEqual({ name: apero.name, state: "COOKING" });
+    expect(t1.order!.meal.steps[0]).toEqual({ name: apero.name, state: "COOKING" });
+    expect(t1.order!.meal.steps.slice(1).every((st) => st.state === "PENDING")).toBe(true);
     await expect(sendCourse(T.actor, o.id, { courseId: apero.id })).rejects.toMatchObject({ code: "NOTHING_TO_SEND" });
   });
 
