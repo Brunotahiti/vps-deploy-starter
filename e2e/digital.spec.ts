@@ -70,9 +70,10 @@ test("site du restaurant : page publique, menu, boutons, langue, réglages", asy
   await expect(page.getByTestId("site-order")).toHaveAttribute("href", /\/commander\/demo-mana-beach\/le-mana-beach$/);
   await expect(page.getByTestId("site-reserve")).toHaveAttribute("href", /\/reserver\/demo-mana-beach\/le-mana-beach$/);
   await expect(page.getByTestId("site-menu").getByText("Poisson cru au lait de coco").first()).toBeVisible();
+  await expect(page.getByTestId("site-status")).toContainText(/Ouvert|Fermé/);
   await page.goto("/site/demo-mana-beach/le-mana-beach?lang=en");
   await expect(page.getByTestId("site-reserve")).toHaveText(/Book a table/);
-  await expect(page.getByText(/Open today|Closed today/)).toBeVisible();
+  await expect(page.getByTestId("site-status")).toContainText(/Open|Closed/);
 
   await page.goto("/login");
   await page.getByPlaceholder("vous@restaurant.pf").fill("manager@manaresto.pf");
@@ -88,4 +89,12 @@ test("site du restaurant : page publique, menu, boutons, langue, réglages", asy
   await page.request.patch("/api/digital/settings", { data: { site: { tagline: "Cuisine du lagon, les pieds dans le sable" } } });
   const off = await page.request.get("/api/public/site/demo-mana-beach/inexistant");
   expect(off.status()).toBe(404);
+});
+
+/** Lien « Essayer la démo » de l'e-mail de bienvenue : ouvre directement le restaurant d'exemple. */
+test("lien de démo : /login?demo=1 connecte au compte d'exemple", async ({ page }) => {
+  await page.goto("/login?demo=1");
+  await page.waitForURL(/\/(pos|admin)/, { timeout: 20000 });
+  const me = await (await page.request.get("/api/auth/me")).json();
+  expect(me.data.user.email).toBe("demo@manaresto.pf");
 });

@@ -158,3 +158,14 @@ describe("Console plateforme", () => {
     expect(ov.kpis.restaurants).toBe(5); // démo exclue
   });
 });
+
+describe("E-mail de bienvenue", () => {
+  it("propose d'essayer la démo préremplie (lien qui ouvre directement le compte d'exemple)", async () => {
+    const { welcomeMail } = await import("@/server/services/platform-emails");
+    const m = welcomeMail({ id: "o", name: "Chez Teva", trialEndsAt: null }, { id: "u", email: "teva@resto.pf", firstName: "Teva" });
+    expect(m.html).toContain("Essayer la démo");
+    expect(m.html).toMatch(/\/login\?demo=1/);
+    expect(m.text).toMatch(/Essayer la démo : https?:\/\/\S+\/login\?demo=1/);
+    expect(m.html).toContain("Ouvrir ManaResto");
+  });
+});

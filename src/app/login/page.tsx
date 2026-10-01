@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { safeNext } from "@/lib/safe-next";
@@ -41,6 +41,13 @@ function LoginForm() {
   };
   const submit = (e: React.FormEvent) => { e.preventDefault(); void login({ email, password }, "form"); };
   const demo = () => { setEmail(DEMO.email); setPassword(DEMO.password); void login(DEMO, "demo"); };
+  // Lien « Essayer la démo » (e-mail de bienvenue, site vitrine) : /login?demo=1 ouvre directement le compte d'exemple
+  const autoDemo = useRef(false);
+  useEffect(() => {
+    if (params.get("demo") !== "1" || autoDemo.current) return;
+    autoDemo.current = true;
+    demo();
+  }); // une seule fois, à l'arrivée sur la page
 
   if (welcome) return <WelcomeSplash name={welcome.name} onDone={() => router.replace(welcome.next)} />;
   const field = "flex h-14 items-center gap-3 rounded-2xl border border-line surface px-4 transition focus-within:border-lagon-500 focus-within:ring-4 focus-within:ring-lagon-500/15";

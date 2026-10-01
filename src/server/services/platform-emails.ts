@@ -40,9 +40,11 @@ export function welcomeMail(org: Org, owner: Owner): OutgoingMail {
     paragraphs: [
       `Votre compte ManaResto pour « ${org.name} » est prêt. Vous profitez de ${OFFER.trialDays} jours d'essai gratuit, sans carte bancaire.`,
       "Pour bien démarrer : ajoutez vos plats et leurs photos, dessinez votre plan de salle, puis ouvrez la caisse sur votre tablette, votre téléphone ou votre ordinateur. L'assistant de démarrage vous guide pas à pas.",
+      "Envie de voir d'abord ManaResto en plein service ? Essayez la démo : un restaurant fictif, Le Mana Beach, avec sa carte en photos, ses tables occupées, ses tickets en cuisine, ses réservations et deux mois de chiffres. Vous pouvez tout essayer, rien n'est réel.",
       "Une question ? Répondez simplement à cet e-mail : nous vous aidons à tout mettre en place.",
     ],
     cta: { label: "Ouvrir ManaResto", url: `${appUrl()}/admin` },
+    secondary: { label: "Essayer la démo", url: `${appUrl()}/login?demo=1`, note: "La démo s'ouvre dans le compte d'exemple : reconnectez-vous ensuite à votre compte." },
   });
 }
 

@@ -173,3 +173,13 @@ h1, h2, h3 { letter-spacing: -0.02em; word-spacing: 0.02em; }
 @keyframes shake { 0%, 100% { transform: none; } 20% { transform: translateX(-10px); } 40% { transform: translateX(9px); } 60% { transform: translateX(-6px); } 80% { transform: translateX(4px); } }
 .shake { animation: shake .42s cubic-bezier(.36,.07,.19,.97); }
 @media (prefers-reduced-motion: reduce) { .shake { animation: none; } }
+
+/* Site public du restaurant : lent zoom de la photo de couverture, apparition du titre, flèche « découvrir » */
+@keyframes site-kenburns { from { transform: scale(1.08); } to { transform: scale(1); } }
+.site-kenburns { animation: site-kenburns 14s ease-out both; transform-origin: 60% 40%; }
+@keyframes site-rise { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
+.site-rise { animation: site-rise .9s cubic-bezier(.2,.7,.2,1) .1s both; }
+@keyframes site-bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(4px); } }
+.site-bounce { animation: site-bounce 1.8s ease-in-out infinite; }
+html:has(.site) { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { .site-kenburns, .site-rise, .site-bounce { animation: none; } }
