@@ -139,7 +139,7 @@ export function PosShell({ children }: { children: React.ReactNode }) {
                 <span className={`flex h-9 w-9 items-center justify-center rounded-xl ${isActive(n.href) ? "bg-white/15" : "surface"}`}><n.icon className="h-5 w-5" /></span>{n.label}<ChevronRight className="ml-auto h-4 w-4 opacity-60" />
               </Link>
             ))}
-            <div className="mt-4"><PortalButtons onNavigate={() => setMenu(false)} /></div>
+            {/* Les portails Salle / Caisse / Cuisine restent dans la barre du bas : pas de doublon ici */}
             <div className="mt-4 rounded-2xl border border-line p-3 text-sm">
               <div className="flex items-center justify-between"><span className="font-semibold">Caisse</span><span className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${cash.data ? "bg-lagon-500/15 text-lagon-700 dark:text-lagon-300" : "bg-orange-500/15 text-orange-600"}`}>{cash.data ? <>ouverte · <Money amount={cash.data.summary.cashExpected} /></> : "fermée"}</span></div>
               <div className="mt-2 flex items-center justify-between"><span className="font-semibold">Réseau</span><span className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${!online ? "bg-red-500/15 text-red-600" : "bg-green-500/10 text-green-600"}`}>{online ? (connected ? "en ligne · temps réel" : "en ligne") : "hors ligne"}{pending > 0 ? ` · ${pending} à synchroniser` : ""}</span></div>
