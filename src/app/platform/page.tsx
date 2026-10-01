@@ -45,6 +45,7 @@ export default function PlatformPage() {
   const [search, setSearch] = useState("");
   const [showDemo, setShowDemo] = useState(false);
   const [detailId, setDetailId] = useState<string | null>(null);
+  const [kpi, setKpi] = useState<KpiKey | null>(null);
   const [mail, setMail] = useState<{ row: PlatformRow; subject: string; message: string } | null>(null);
   const [block, setBlock] = useState<{ row: PlatformRow; reason: string } | null>(null);
   const [plan, setPlan] = useState<{ row: PlatformRow; plan: "TRIAL" | "ACTIVE" | "SUSPENDED"; trialEndsAt: string; periodEndsAt: string } | null>(null);
@@ -118,7 +119,7 @@ export default function PlatformPage() {
               <h1 className="mt-1 text-3xl font-extrabold tracking-tight sm:text-4xl">Vos restaurants ManaResto</h1>
               <p className="mt-1 text-sm text-white/85">Inscriptions, essais, abonnements et qui utilise vraiment l&apos;application.</p>
             </div>
-            {data ? <div className="rounded-2xl bg-white/12 px-4 py-2 text-right ring-1 ring-white/20 backdrop-blur"><p className="text-[11px] font-bold uppercase tracking-wider text-white/75">Revenu mensuel</p><p className="text-2xl font-extrabold tabular-nums">{F(data.kpis.mrr)}</p><p className="text-[11px] text-white/80">{data.kpis.active} abonné{data.kpis.active > 1 ? "s" : ""} · {F(data.kpis.arr)} / an</p></div> : null}
+            {data ? <button type="button" onClick={() => setKpi("active")} aria-label="Revenu mensuel : voir les abonnés" className="rounded-2xl bg-white/12 px-4 py-2 text-right ring-1 ring-white/20 backdrop-blur transition hover:bg-white/20"><p className="text-[11px] font-bold uppercase tracking-wider text-white/75">Revenu mensuel</p><p className="text-2xl font-extrabold tabular-nums">{F(data.kpis.mrr)}</p><p className="text-[11px] text-white/80">{data.kpis.active} abonné{data.kpis.active > 1 ? "s" : ""} · {F(data.kpis.arr)} / an · détail ›</p></button> : null}
           </div>
         </div>
       </header>
@@ -133,14 +134,14 @@ export default function PlatformPage() {
 
             {/* Indicateurs */}
             <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
-              <Stat label="Restaurants inscrits" value={data.kpis.restaurants} icon={<Building2 className="h-4 w-4" />} hint={`+${data.kpis.signups7} cette semaine`} />
-              <Stat label="Inscriptions 30 j" value={data.kpis.signups30} icon={<UserPlus className="h-4 w-4" />} accent="#7c3aed" hint={`30 j précédents : ${data.kpis.signupsPrev30}`} />
-              <Stat label="Essais en cours" value={data.kpis.trials} icon={<Hourglass className="h-4 w-4" />} accent="#2563eb" hint={data.kpis.trialsEndingSoon ? `${data.kpis.trialsEndingSoon} finissent sous 3 j` : "aucun ne finit sous 3 j"} />
-              <Stat label="Essais expirés" value={data.kpis.expired} icon={<CalendarClock className="h-4 w-4" />} accent="#f97c3c" hint={data.kpis.expired ? "à relancer" : "rien à relancer"} />
-              <Stat label="Abonnés actifs" value={data.kpis.active} icon={<Wallet className="h-4 w-4" />} accent="#16a34a" hint={data.kpis.conversion === null ? "—" : `conversion ${data.kpis.conversion.toLocaleString("fr-FR")} %`} />
-              <Stat label="Actifs sur 7 jours" value={data.kpis.active7} icon={<Activity className="h-4 w-4" />} accent="#0ea5a4" hint={`${formatMinutes(data.kpis.minutes7)} d'utilisation`} />
-              <Stat label="Suspendus · bloqués" value={`${data.kpis.suspended} · ${data.kpis.blocked}`} icon={<Ban className="h-4 w-4" />} accent="#dc2626" hint="comptes sans accès payant" />
-              <Stat label="Demandes de démo" value={data.kpis.demoNew} icon={<Sparkles className="h-4 w-4" />} accent="#db2777" hint={`nouvelles · ${data.kpis.demoTotal} au total`} />
+              <Stat label="Restaurants inscrits" value={data.kpis.restaurants} icon={<Building2 className="h-4 w-4" />} hint={`+${data.kpis.signups7} cette semaine`} onClick={() => setKpi("restaurants")} />
+              <Stat label="Inscriptions 30 j" value={data.kpis.signups30} icon={<UserPlus className="h-4 w-4" />} accent="#7c3aed" hint={`30 j précédents : ${data.kpis.signupsPrev30}`} onClick={() => setKpi("signups")} />
+              <Stat label="Essais en cours" value={data.kpis.trials} icon={<Hourglass className="h-4 w-4" />} accent="#2563eb" hint={data.kpis.trialsEndingSoon ? `${data.kpis.trialsEndingSoon} finissent sous 3 j` : "aucun ne finit sous 3 j"} onClick={() => setKpi("trials")} />
+              <Stat label="Essais expirés" value={data.kpis.expired} icon={<CalendarClock className="h-4 w-4" />} accent="#f97c3c" hint={data.kpis.expired ? "à relancer" : "rien à relancer"} onClick={() => setKpi("expired")} />
+              <Stat label="Abonnés actifs" value={data.kpis.active} icon={<Wallet className="h-4 w-4" />} accent="#16a34a" hint={data.kpis.conversion === null ? "—" : `conversion ${data.kpis.conversion.toLocaleString("fr-FR")} %`} onClick={() => setKpi("active")} />
+              <Stat label="Actifs sur 7 jours" value={data.kpis.active7} icon={<Activity className="h-4 w-4" />} accent="#0ea5a4" hint={`${formatMinutes(data.kpis.minutes7)} d'utilisation`} onClick={() => setKpi("active7")} />
+              <Stat label="Suspendus · bloqués" value={`${data.kpis.suspended} · ${data.kpis.blocked}`} icon={<Ban className="h-4 w-4" />} accent="#dc2626" hint="comptes sans accès payant" onClick={() => setKpi("closed")} />
+              <Stat label="Demandes de démo" value={data.kpis.demoNew} icon={<Sparkles className="h-4 w-4" />} accent="#db2777" hint={`nouvelles · ${data.kpis.demoTotal} au total`} onClick={() => setKpi("demo")} />
             </section>
 
             {/* Graphiques */}
@@ -183,7 +184,7 @@ export default function PlatformPage() {
               <div className="card p-4 lg:col-span-2">
                 <h2 className="mb-3 flex items-center gap-2 text-sm font-extrabold"><LogIn className="h-4 w-4 text-lagon-600" />Dernières connexions</h2>
                 {data.recentLogins.length === 0 ? <p className="py-6 text-center text-sm text-muted">Aucune connexion pour l&apos;instant.</p> : (
-                  <ul className="divide-y divide-[var(--line)]">
+                  <ul className="divide-y divide-[var(--border)]">
                     {data.recentLogins.map((u) => (
                       <li key={u.id} className="flex items-center gap-3 py-2">
                         <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-lagon-500/15 text-xs font-bold text-lagon-700">{u.name.slice(0, 1).toUpperCase()}</span>
@@ -195,32 +196,18 @@ export default function PlatformPage() {
                 )}
               </div>
               {/* Demandes de démo */}
-              <div className="card p-4 lg:col-span-3">
+              <div id="demandes" className="card p-4 lg:col-span-3">
                 <h2 className="mb-3 flex items-center gap-2 text-sm font-extrabold"><Sparkles className="h-4 w-4 text-pink-600" />Demandes de démonstration <span className="text-xs font-semibold text-muted">(site vitrine)</span></h2>
                 <p className="-mt-2 mb-3 text-xs text-muted">{data.email.configured ? <>Alertes envoyées à <b className="text-[var(--text)]">{data.email.recipients}</b>{data.email.from ? <> · expéditeur {data.email.from}</> : null}</> : "Envoi d'e-mails non configuré : aucune alerte ne part."}</p>
-                {data.demoRequests.length === 0 ? <p className="py-6 text-center text-sm text-muted">Aucune demande pour l&apos;instant.</p> : (
-                  <div className="max-h-[420px] overflow-auto">
-                    <table className="w-full min-w-[620px] text-sm">
-                      <thead className="sticky top-0 surface"><tr className="border-b border-line text-left text-[11px] uppercase tracking-wider text-muted"><th className="py-2 pr-3">Établissement</th><th className="py-2 pr-3">Contact</th><th className="py-2 pr-3">Reçue</th><th className="py-2">Suivi</th></tr></thead>
-                      <tbody>
-                        {data.demoRequests.map((d) => (
-                          <tr key={d.id} className="border-b border-line align-top last:border-0">
-                            <td className="py-2 pr-3"><span className="font-semibold">{d.restaurantName}</span><span className="block text-xs text-muted">{d.kind.toLowerCase()} · {d.commune}</span>{d.message ? <span className="mt-1 block max-w-xs text-xs italic text-muted">« {d.message} »</span> : null}</td>
-                            <td className="py-2 pr-3"><span className="font-semibold">{d.contactName}</span><a href={`tel:${d.phone.replace(/[^+\d]/g, "")}`} className="block text-xs text-lagon-700 underline">{d.phone}</a><a href={`mailto:${d.email}`} className="block text-xs text-lagon-700 underline">{d.email}</a></td>
-                            <td className="py-2 pr-3 text-xs text-muted" title={formatDateTime(d.createdAt, TZ)}>{relativeDays(d.createdAt)}<span className={`mt-1 block font-semibold ${d.emailSent ? "text-green-600" : "text-orange-600"}`}>{d.emailSent ? "alerte envoyée" : "alerte non envoyée"}</span></td>
-                            <td className="py-2"><Select value={d.status} onChange={(e) => act(() => api.patch(`/api/platform/demo-requests/${d.id}`, { status: e.target.value }), { invalidate: [["platform"]] })} className="h-9 w-32 text-xs" aria-label={`Suivi de ${d.restaurantName}`}>{Object.entries(DEMO_STATUS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</Select></td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
+                <DemoTable requests={data.demoRequests} onStatus={(id, status) => act(() => api.patch(`/api/platform/demo-requests/${id}`, { status }), { invalidate: [["platform"]] })} />
               </div>
             </section>
             <p className="pb-4 text-center text-xs text-muted">Temps d&apos;utilisation : minutes pendant lesquelles l&apos;application est ouverte et visible (hors prises en main du support). Le compte de démonstration est exclu des indicateurs.</p>
           </>
         ) : null}
       </main>
+
+      {data ? <KpiDetail kind={kpi} data={data} onClose={() => setKpi(null)} onOpen={(id) => { setKpi(null); setDetailId(id); }} onMail={(r, t) => { setKpi(null); setMail({ row: r, subject: t?.subject ?? "", message: t?.message ?? "" }); }} onDemoStatus={(id, status) => act(() => api.patch(`/api/platform/demo-requests/${id}`, { status }), { invalidate: [["platform"]] })} /> : null}
 
       <OrgDetail id={detailId} onClose={() => setDetailId(null)} row={data?.rows.find((r) => r.id === detailId) ?? null} mine={detailId === me.organizationId} {...actions} />
 
@@ -358,7 +345,7 @@ function OrgDetail({ id, row, mine, onClose, ...a }: RowActions & { id: string |
           <div className="grid gap-4 lg:grid-cols-2">
             <div>
               <h3 className="mb-2 text-sm font-extrabold">Équipe et connexions</h3>
-              <ul className="divide-y divide-[var(--line)] rounded-xl border border-line">
+              <ul className="divide-y divide-[var(--border)] rounded-xl border border-line">
                 {d.users.map((u) => (
                   <li key={u.id} className="flex items-center gap-3 px-3 py-2 text-sm">
                     <span className="min-w-0 flex-1"><span className="block truncate font-semibold">{u.name}{u.isOwner ? <Badge color="teal">propriétaire</Badge> : null}{u.invitePending ? <Badge color="orange">invité</Badge> : null}{!u.isActive ? <Badge color="gray">désactivé</Badge> : null}</span><span className="block truncate text-xs text-muted">{u.email}</span></span>
@@ -368,19 +355,19 @@ function OrgDetail({ id, row, mine, onClose, ...a }: RowActions & { id: string |
               </ul>
               <h3 className="mb-2 mt-4 text-sm font-extrabold">Appareils connectés</h3>
               {d.sessions.length === 0 ? <p className="text-xs text-muted">Aucune session ouverte.</p> : (
-                <ul className="divide-y divide-[var(--line)] rounded-xl border border-line">
+                <ul className="divide-y divide-[var(--border)] rounded-xl border border-line">
                   {d.sessions.map((s) => <li key={s.id} className="flex items-center justify-between gap-3 px-3 py-2 text-xs"><span><b>{s.user}</b> · {s.device}{s.support ? <Badge color="purple">support</Badge> : null}</span><span className="shrink-0 text-muted" title={formatDateTime(s.lastSeenAt, TZ)}>actif {relativeDays(s.lastSeenAt)}</span></li>)}
                 </ul>
               )}
             </div>
             <div>
               <h3 className="mb-2 text-sm font-extrabold">Établissements</h3>
-              <ul className="mb-4 divide-y divide-[var(--line)] rounded-xl border border-line">
+              <ul className="mb-4 divide-y divide-[var(--border)] rounded-xl border border-line">
                 {d.establishments.map((e) => <li key={e.id} className="flex items-center justify-between gap-3 px-3 py-2 text-sm"><span><b>{e.name}</b><span className="block text-xs text-muted">{[e.city, e.island].filter(Boolean).join(", ") || "Adresse non renseignée"}{e.phone ? ` · ${e.phone}` : ""}{!e.onboardingDone ? " · démarrage en cours" : ""}</span></span><a href={e.publicPath} target="_blank" rel="noreferrer" className="inline-flex shrink-0 items-center gap-1 text-xs font-semibold text-lagon-700 underline"><Globe className="h-3.5 w-3.5" />Site</a></li>)}
               </ul>
               <h3 className="mb-2 text-sm font-extrabold">E-mails envoyés</h3>
               {d.emails.length === 0 ? <p className="text-xs text-muted">Aucun e-mail envoyé à ce restaurant.</p> : (
-                <ul className="divide-y divide-[var(--line)] rounded-xl border border-line">
+                <ul className="divide-y divide-[var(--border)] rounded-xl border border-line">
                   {d.emails.map((m) => <li key={m.id} className="px-3 py-2 text-xs"><span className="flex items-center justify-between gap-2"><b>{EMAIL_KIND_LABEL[m.kind] ?? m.kind}</b><span className="text-muted" title={formatDateTime(m.createdAt, TZ)}>{relativeDays(m.createdAt)}</span></span><span className="block truncate text-muted">{m.subject} → {m.to}</span>{m.status === "FAILED" ? <span className="block text-red-600">Échec : {m.error}</span> : null}</li>)}
                 </ul>
               )}
@@ -449,6 +436,126 @@ function AdminLogin({ current }: { current: string | null }) {
         </form>
         <p className="mt-4 text-center text-sm text-white/85"><a href="https://www.manaresto.com" className="underline">Retour au site</a>{current ? <> · <Link href="/admin" className="underline">Mon restaurant</Link></> : null}</p>
       </div>
+    </div>
+  );
+}
+
+type KpiKey = "restaurants" | "signups" | "trials" | "expired" | "active" | "active7" | "closed" | "demo";
+type Template = (typeof TEMPLATES)[number];
+const DAY_MS = 86_400_000;
+const ts = (iso: string | null | undefined) => (iso ? new Date(iso).getTime() : 0);
+
+/**
+ * Détail d'un indicateur : les restaurants exactement comptés dans la vignette (compte démo exclu, comme les indicateurs),
+ * avec l'information utile pour agir. Toucher une ligne ouvre la fiche du restaurant.
+ */
+function KpiDetail({ kind, data, onClose, onOpen, onMail, onDemoStatus }: { kind: KpiKey | null; data: Overview; onClose: () => void; onOpen: (id: string) => void; onMail: (r: PlatformRow, t?: Template) => void; onDemoStatus: (id: string, status: string) => void }) {
+  const now = ts(data.generatedAt);
+  const real = data.rows.filter((r) => !r.isDemo);
+  const k = data.kpis;
+  const help = TEMPLATES[0], end = TEMPLATES[1];
+  const activity = (r: PlatformRow) => <span className="block text-xs text-muted">{r.minutes30 ? `${formatMinutes(r.minutes30)} d'utilisation sur 30 j` : "pas encore utilisé"} · {r.lastSeenAt ? `vu ${relativeDays(r.lastSeenAt)}` : "jamais connecté"}</span>;
+  const status = (r: PlatformRow) => <Badge color={STATUS_COLOR[r.status]}>{STATUS_LABEL[r.status]}</Badge>;
+
+  const views: Record<Exclude<KpiKey, "demo">, { title: string; intro: string; rows: PlatformRow[]; metric: (r: PlatformRow) => React.ReactNode; mail?: (r: PlatformRow) => Template; footer?: string; empty: string }> = {
+    restaurants: {
+      title: "Restaurants inscrits", intro: `${k.restaurants} restaurant${k.restaurants > 1 ? "s" : ""} inscrit${k.restaurants > 1 ? "s" : ""}, dont ${k.signups7} cette semaine. Du plus récent au plus ancien.`,
+      rows: [...real].sort((a, b) => ts(b.createdAt) - ts(a.createdAt)),
+      metric: (r) => <>{status(r)}<span className="block text-xs text-muted">inscrit {relativeDays(r.createdAt)}</span></>, empty: "Aucun restaurant inscrit.",
+    },
+    signups: {
+      title: "Inscriptions des 30 derniers jours", intro: `${k.signups30} inscription${k.signups30 > 1 ? "s" : ""} sur 30 jours (dont ${k.signups7} ces 7 derniers jours), contre ${k.signupsPrev30} les 30 jours précédents.`,
+      rows: real.filter((r) => ts(r.createdAt) >= now - 30 * DAY_MS).sort((a, b) => ts(b.createdAt) - ts(a.createdAt)),
+      metric: (r) => <><span className="block text-xs font-semibold">{formatDate(r.createdAt, TZ)} · {relativeDays(r.createdAt)}</span>{activity(r)}</>,
+      mail: (r) => (r.minutes30 ? end : help), empty: "Aucune inscription sur les 30 derniers jours.",
+    },
+    trials: {
+      title: "Essais en cours", intro: k.trialsEndingSoon ? `${k.trialsEndingSoon} essai${k.trialsEndingSoon > 1 ? "s finissent" : " finit"} dans moins de 3 jours : c'est le moment de les accompagner.` : "Classés par date de fin d'essai, la plus proche en premier.",
+      rows: real.filter((r) => r.status === "TRIAL").sort((a, b) => ts(a.trialEndsAt) - ts(b.trialEndsAt)),
+      metric: (r) => <><span className={`block text-xs font-semibold ${r.endingSoon ? "text-orange-600" : ""}`}>fin {r.trialEndsAt ? `${formatDate(r.trialEndsAt, TZ)} · ${relativeDays(r.trialEndsAt)}` : "—"}</span>{activity(r)}</>,
+      mail: (r) => (r.endingSoon ? end : help), empty: "Aucun essai en cours.",
+    },
+    expired: {
+      title: "Essais expirés", intro: "Restaurants dont l'essai gratuit est terminé sans abonnement : à relancer.",
+      rows: real.filter((r) => r.status === "EXPIRED").sort((a, b) => ts(b.trialEndsAt) - ts(a.trialEndsAt)),
+      metric: (r) => <><span className="block text-xs font-semibold text-orange-600">essai terminé {r.trialEndsAt ? relativeDays(r.trialEndsAt) : ""}</span>{activity(r)}</>,
+      mail: () => end, empty: "Aucun essai expiré : rien à relancer.",
+    },
+    active: {
+      title: "Abonnés actifs", intro: `${k.active} abonné${k.active > 1 ? "s" : ""} à 12 000 F par mois${k.conversion !== null ? ` · conversion ${k.conversion.toLocaleString("fr-FR")} % des inscrits` : ""}.`,
+      rows: real.filter((r) => r.status === "ACTIVE").sort((a, b) => ts(a.periodEndsAt) - ts(b.periodEndsAt)),
+      metric: (r) => <><span className="block text-xs font-semibold">12 000 F / mois{r.planStartedAt ? ` · depuis le ${formatDate(r.planStartedAt, TZ)}` : ""}</span><span className="block text-xs text-muted">engagement jusqu&apos;au {r.periodEndsAt ? formatDate(r.periodEndsAt, TZ) : "—"}</span></>,
+      footer: `Revenu mensuel : ${F(k.mrr)} · ${F(k.arr)} par an`, empty: "Aucun abonné pour l'instant.",
+    },
+    active7: {
+      title: "Restaurants actifs sur 7 jours", intro: `${k.active7} restaurant${k.active7 > 1 ? "s ont" : " a"} utilisé l'application ces 7 derniers jours, pour ${formatMinutes(k.minutes7)} au total. Du plus au moins utilisé.`,
+      rows: real.filter((r) => r.minutes7 > 0).sort((a, b) => b.minutes7 - a.minutes7),
+      metric: (r) => <><span className="block text-xs font-semibold">{formatMinutes(r.minutes7)} sur 7 j · {r.activeDays30} jour{r.activeDays30 > 1 ? "s" : ""} actif{r.activeDays30 > 1 ? "s" : ""} sur 30</span><span className="block text-xs text-muted">{r.orders30} commande{r.orders30 > 1 ? "s" : ""} sur 30 j · vu {r.lastSeenAt ? relativeDays(r.lastSeenAt) : "—"}</span></>,
+      empty: "Aucun restaurant n'a utilisé l'application ces 7 derniers jours.",
+    },
+    closed: {
+      title: "Comptes suspendus ou bloqués", intro: "Suspendu : abonnement arrêté. Bloqué : plus aucune connexion possible pour l'équipe (les données sont conservées).",
+      rows: real.filter((r) => r.status === "SUSPENDED" || r.status === "BLOCKED").sort((a, b) => a.status.localeCompare(b.status)),
+      metric: (r) => <>{status(r)}{r.blockedReason ? <span className="block text-xs text-muted">motif : {r.blockedReason}</span> : null}</>, empty: "Aucun compte suspendu ni bloqué.",
+    },
+  };
+
+  if (kind === "demo") {
+    return (
+      <Modal open onClose={onClose} title="Demandes de démonstration" size="lg">
+        <p className="mb-3 text-sm text-muted">{k.demoNew} nouvelle{k.demoNew > 1 ? "s" : ""} sur {k.demoTotal} demande{k.demoTotal > 1 ? "s" : ""} reçue{k.demoTotal > 1 ? "s" : ""} depuis le site vitrine. Changez le suivi une fois le contact pris.</p>
+        <DemoTable requests={data.demoRequests} onStatus={onDemoStatus} />
+      </Modal>
+    );
+  }
+  const v = kind ? views[kind] : null;
+  return (
+    <Modal open={!!v} onClose={onClose} title={v?.title} size="lg">
+      {v ? (
+        <div data-testid="kpi-detail">
+          <p className="mb-3 text-sm text-muted">{v.intro}</p>
+          {v.rows.length === 0 ? <p className="rounded-xl surface-2 py-8 text-center text-sm text-muted">{v.empty}</p> : (
+            <ul className="divide-y divide-[var(--border)] rounded-xl border border-line">
+              {v.rows.map((r) => (
+                <li key={r.id} className="flex items-center gap-3 px-3 py-2.5">
+                  <button type="button" onClick={() => onOpen(r.id)} className="flex min-w-0 flex-1 flex-col gap-1 text-left sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-bold">{r.name}{r.establishment?.city ? <span className="font-normal text-muted"> · {r.establishment.city}</span> : null}</span>
+                      <span className="block truncate text-xs text-muted">{r.owner ? `${r.owner.firstName} ${r.owner.lastName} · ${r.owner.email}` : "—"}</span>
+                    </span>
+                    <span className="shrink-0 sm:text-right">{v.metric(r)}</span>
+                  </button>
+                  {v.mail && r.owner ? <button type="button" onClick={() => onMail(r, v.mail!(r))} className="touch inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg surface-2 px-2.5 text-xs font-bold" title={`Écrire (modèle « ${v.mail(r).label} »)`}><Mail className="h-3.5 w-3.5" /><span className="hidden sm:inline">Relancer</span></button> : null}
+                </li>
+              ))}
+            </ul>
+          )}
+          {v.footer ? <p className="mt-3 text-right text-sm font-bold">{v.footer}</p> : null}
+          <p className="mt-3 text-xs text-muted">Touchez un restaurant pour ouvrir sa fiche (équipe, connexions, e-mails, actions). Le compte de démonstration n&apos;est pas compté.</p>
+        </div>
+      ) : null}
+    </Modal>
+  );
+}
+
+/** Demandes reçues depuis le formulaire du site vitrine, avec leur suivi. */
+function DemoTable({ requests, onStatus }: { requests: Overview["demoRequests"]; onStatus: (id: string, status: string) => void }) {
+  if (requests.length === 0) return <p className="py-6 text-center text-sm text-muted">Aucune demande pour l&apos;instant.</p>;
+  return (
+    <div className="max-h-[420px] overflow-auto">
+      <table className="w-full min-w-[620px] text-sm">
+        <thead className="sticky top-0 surface"><tr className="border-b border-line text-left text-[11px] uppercase tracking-wider text-muted"><th className="py-2 pr-3">Établissement</th><th className="py-2 pr-3">Contact</th><th className="py-2 pr-3">Reçue</th><th className="py-2">Suivi</th></tr></thead>
+        <tbody>
+          {requests.map((d) => (
+            <tr key={d.id} className="border-b border-line align-top last:border-0">
+              <td className="py-2 pr-3"><span className="font-semibold">{d.restaurantName}</span><span className="block text-xs text-muted">{d.kind.toLowerCase()} · {d.commune}</span>{d.message ? <span className="mt-1 block max-w-xs text-xs italic text-muted">« {d.message} »</span> : null}</td>
+              <td className="py-2 pr-3"><span className="font-semibold">{d.contactName}</span><a href={`tel:${d.phone.replace(/[^+\d]/g, "")}`} className="block text-xs text-lagon-700 underline">{d.phone}</a><a href={`mailto:${d.email}`} className="block text-xs text-lagon-700 underline">{d.email}</a></td>
+              <td className="py-2 pr-3 text-xs text-muted" title={formatDateTime(d.createdAt, TZ)}>{relativeDays(d.createdAt)}<span className={`mt-1 block font-semibold ${d.emailSent ? "text-green-600" : "text-orange-600"}`}>{d.emailSent ? "alerte envoyée" : "alerte non envoyée"}</span></td>
+              <td className="py-2"><Select value={d.status} onChange={(e) => onStatus(d.id, e.target.value)} className="h-9 w-32 text-xs" aria-label={`Suivi de ${d.restaurantName}`}>{Object.entries(DEMO_STATUS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</Select></td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
