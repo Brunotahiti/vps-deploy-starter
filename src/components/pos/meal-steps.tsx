@@ -30,7 +30,7 @@ export function MealSteps({ meal, compact = false, className = "" }: { meal: Mea
   return (
     <span className={`flex items-center gap-1.5 ${className}`} title={title} data-testid="meal-steps">
       <span className="flex items-center gap-0.5">{meal.steps.map((s, i) => <StepDot key={i} name={s.name} state={s.state} size="md" />)}</span>
-      <span className="truncate text-[11px] font-bold" style={meal.current ? { color: courseColor(meal.current.name) } : undefined}>{meal.current ? `${courseLabel(meal.current.name)} · ${COURSE_STATE_LABEL[meal.current.state]}` : "rien d'envoyé"}</span>
+      <span className="truncate text-[11px] font-bold" style={meal.current ? { color: courseColor(meal.current.name) } : undefined}>{meal.current ? `${courseLabel(meal.current.name)} · ${COURSE_STATE_LABEL[meal.current.state]}` : "à envoyer"}</span>
     </span>
   );
 }
