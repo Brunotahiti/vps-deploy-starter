@@ -9,6 +9,8 @@ import { Spinner, Card } from "@/components/ui/misc";
 import { PageHeader, useAction, useList } from "@/components/admin/common";
 import type { DigitalSettings, SiteSettings } from "@/server/services/public";
 import type { LoyaltySettings } from "@/server/services/customers";
+import { ExternalLink, Copy } from "lucide-react";
+import { useToast } from "@/components/ui/toast";
 
 type S = DigitalSettings & { loyalty: LoyaltySettings; site: SiteSettings; urls: { shop: string; reserve: string; kiosk: string; site: string } };
 type QrRow = { id: string; name: string; url: string; qrToken: string; room: { name: string } };
@@ -29,7 +31,6 @@ function DigitalForm({ initial }: { initial: S }) {
   const qr = useList<QrRow[]>(["tables", "qr"], "/api/tables/qr");
   const regenerate = (t: QrRow) => confirm(`Créer un nouveau QR code pour la table ${t.name} ? L'ancien cessera aussitôt de fonctionner : il faudra imprimer le nouveau.`) && act(() => api.post(`/api/tables/${t.id}/qr`), { success: `Nouveau QR code pour la table ${t.name} : pensez à l'imprimer`, invalidate: [["tables", "qr"]] });
   const save = () => act(() => api.patch("/api/digital/settings", { qrMode: s.qrMode, online: { ...s.online, deliveryZones: zones.split(",").map((z) => z.trim()).filter(Boolean) }, kiosk: s.kiosk, loyalty: s.loyalty, site: { ...s.site, photos: photos.split(/\n+/).map((u) => u.trim()).filter(Boolean) } }), { success: "Réglages enregistrés", invalidate: [["digital"]] });
-  const copy = (v: string) => navigator.clipboard?.writeText(v);
   return (
     <div>
       <PageHeader title="Digital" subtitle="Site du restaurant, QR codes à table, commande en ligne, borne et fidélité" action={<Button onClick={save}>Enregistrer</Button>} />
@@ -47,7 +48,7 @@ function DigitalForm({ initial }: { initial: S }) {
             <Field label="Logo (URL)"><Input value={s.site.logoUrl} onChange={(e) => site({ logoUrl: e.target.value })} placeholder="https://…/logo.png" inputMode="url" /></Field>
             <Field label="Photos (une URL par ligne, 12 max)"><Textarea rows={3} value={photos} onChange={(e) => setPhotos(e.target.value)} placeholder={"https://…/salle.jpg\nhttps://…/plat.jpg"} /></Field>
             <div className="grid gap-3 sm:grid-cols-2"><Field label="Page Facebook"><Input value={s.site.facebook} onChange={(e) => site({ facebook: e.target.value })} placeholder="https://facebook.com/…" inputMode="url" /></Field><Field label="Instagram"><Input value={s.site.instagram} onChange={(e) => site({ instagram: e.target.value })} placeholder="https://instagram.com/…" inputMode="url" /></Field></div>
-            <div className="rounded-xl surface-2 p-3 text-xs"><p className="font-bold">Adresse du site</p><p className="flex items-center gap-2"><code className="min-w-0 flex-1 truncate">{s.urls.site}</code><button onClick={() => copy(s.urls.site)} className="font-semibold text-lagon-600">Copier</button></p><p className="mt-1 text-muted">Le nom, l&apos;adresse, le téléphone et les horaires viennent de Paramètres → Établissement. Les boutons Commander et Réserver apparaissent selon les réglages ci-dessous.</p></div>
+            <div className="rounded-xl surface-2 p-3 text-xs"><p className="font-bold">Adresse du site</p><LinkRow url={s.urls.site} /><p className="mt-1 text-muted">Le nom, l&apos;adresse, le téléphone et les horaires viennent de Paramètres → Établissement. Les boutons Commander et Réserver apparaissent selon les réglages ci-dessous.</p></div>
           </div>
         </div>
       </Card>
@@ -70,7 +71,7 @@ function DigitalForm({ initial }: { initial: S }) {
             </div>
             <Field label="Zones de livraison (communes, séparées par des virgules ; vide = partout)"><Input value={zones} onChange={(e) => setZones(e.target.value)} placeholder="Punaauia, Paea, Faa'a" /></Field>
             <Field label="Message affiché aux clients"><Textarea value={s.online.message} onChange={(e) => setS({ ...s, online: { ...s.online, message: e.target.value } })} placeholder="Commandes en ligne de 11 h à 13 h 30 et de 18 h à 21 h." /></Field>
-            <div className="rounded-xl surface-2 p-3 text-xs"><p className="font-bold">Adresse de la boutique</p><p className="flex items-center gap-2"><code className="min-w-0 flex-1 truncate">{s.urls.shop}</code><button onClick={() => copy(s.urls.shop)} className="font-semibold text-lagon-600">Copier</button></p><p className="mt-1 font-bold">Réservation en ligne</p><p className="flex items-center gap-2"><code className="min-w-0 flex-1 truncate">{s.urls.reserve}</code><button onClick={() => copy(s.urls.reserve)} className="font-semibold text-lagon-600">Copier</button></p></div>
+            <div className="rounded-xl surface-2 p-3 text-xs"><p className="font-bold">Adresse de la boutique</p><LinkRow url={s.urls.shop} /><p className="mt-1 font-bold">Réservation en ligne</p><LinkRow url={s.urls.reserve} /></div>
           </div>
         </Card>
         <Card title="Borne de commande">
@@ -99,5 +100,18 @@ function DigitalForm({ initial }: { initial: S }) {
         <Button variant="secondary" className="mt-3 no-print" onClick={() => window.print()}>Imprimer les QR codes</Button>
       </Card>
     </div>
+  );
+}
+
+/** Adresse publique : un clic l'ouvre dans un nouvel onglet ; boutons « Ouvrir » et « Copier ». */
+function LinkRow({ url }: { url: string }) {
+  const { toast } = useToast();
+  const copy = () => navigator.clipboard?.writeText(url).then(() => toast("Adresse copiée", "success"), () => toast("Copie impossible : sélectionnez l'adresse", "error"));
+  return (
+    <p className="mt-0.5 flex items-center gap-2">
+      <a href={url} target="_blank" rel="noopener" className="min-w-0 flex-1 truncate font-mono text-[var(--text)] underline-offset-2 hover:text-lagon-600 hover:underline" title="Ouvrir dans un nouvel onglet">{url}</a>
+      <a href={url} target="_blank" rel="noopener" className="touch inline-flex shrink-0 items-center gap-1 rounded-lg bg-lagon-500/12 px-2.5 py-1.5 font-semibold text-lagon-700 transition hover:bg-lagon-500/20 dark:text-lagon-300"><ExternalLink className="h-3.5 w-3.5" />Ouvrir</a>
+      <button type="button" onClick={copy} className="touch inline-flex shrink-0 items-center gap-1 rounded-lg px-2.5 py-1.5 font-semibold text-lagon-600 transition hover:bg-lagon-500/10"><Copy className="h-3.5 w-3.5" />Copier</button>
+    </p>
   );
 }

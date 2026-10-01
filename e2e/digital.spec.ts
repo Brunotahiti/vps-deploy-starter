@@ -81,6 +81,9 @@ test("site du restaurant : page publique, menu, boutons, langue, réglages", asy
   await page.getByRole("button", { name: "Se connecter" }).click();
   await page.waitForURL(/\/(pos|admin)/);
   await page.goto("/admin/digital");
+  // Adresses publiques : cliquables, et bouton « Ouvrir » dans un nouvel onglet
+  await expect(page.getByRole("link", { name: "Ouvrir" }).first()).toHaveAttribute("href", /\/site\/demo-mana-beach\/le-mana-beach$/);
+  await expect(page.getByRole("link", { name: /\/reserver\/demo-mana-beach\/le-mana-beach$/ })).toHaveAttribute("target", "_blank");
   await page.getByLabel("Accroche (une phrase)").fill("Nouvelle accroche e2e");
   await page.getByRole("button", { name: "Enregistrer" }).click();
   await expect(page.getByText("Réglages enregistrés")).toBeVisible();
