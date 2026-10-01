@@ -5,6 +5,7 @@ export type PlatformEmailKind = "WELCOME" | "TRIAL_REMINDER" | "TRIAL_EXPIRED" |
 
 /** Entreprise de démonstration créée par le jeu de données : exclue des statistiques et des relances. */
 export const DEMO_ORG_SLUG = "demo-mana-beach";
+export const DEMO_EST_SLUG = "le-mana-beach";
 
 export const STATUS_LABEL: Record<AccountStatus, string> = {
   TRIAL: "Essai",

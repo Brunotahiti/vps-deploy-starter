@@ -99,7 +99,7 @@ ${input.message ? `<p style="margin:16px 0 0;font-size:14px;line-height:1.5;whit
  * E-mail de la plateforme ManaResto vers un restaurateur (bienvenue, fin d'essai, message du support).
  * Paragraphes en texte brut (échappés), bouton d'action facultatif, réponse vers l'adresse de contact.
  */
-export function platformMail(input: { to: string; subject: string; kicker: string; title: string; paragraphs: string[]; cta?: { label: string; url: string }; secondary?: { label: string; url: string; note?: string }; replyTo: string; footer: string }): OutgoingMail {
+export function platformMail(input: { to: string; subject: string; kicker: string; title: string; paragraphs: string[]; cta?: { label: string; url: string }; secondary?: { label: string; url: string; note?: string }[]; replyTo: string; footer: string }): OutgoingMail {
   const paras = input.paragraphs.map((p) => `<p style="margin:0 0 14px;font-size:15px;line-height:1.55">${esc(p).replace(/\n/g, "<br>")}</p>`).join("");
   const html = `<!doctype html><html lang="fr"><body style="margin:0;background:#f3f5f8;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#0f172a">
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td align="center" style="padding:24px 12px">
@@ -109,11 +109,11 @@ export function platformMail(input: { to: string; subject: string; kicker: strin
 <div style="font-size:24px;font-weight:800;margin-top:6px;line-height:1.25">${esc(input.title)}</div></td></tr>
 <tr><td style="padding:24px 28px 10px">${paras}
 ${input.cta ? `<p style="margin:6px 0 20px;text-align:center"><a href="${esc(input.cta.url)}" style="display:inline-block;background:#f97c3c;color:#fff;text-decoration:none;font-weight:800;font-size:16px;padding:14px 26px;border-radius:14px">${esc(input.cta.label)}</a></p>` : ""}
-${input.secondary ? `<p style="margin:0 0 ${input.secondary.note ? "6" : "20"}px;text-align:center"><a href="${esc(input.secondary.url)}" style="display:inline-block;background:#e6f7f6;color:#0f6e6c;text-decoration:none;font-weight:800;font-size:15px;padding:12px 22px;border-radius:14px">${esc(input.secondary.label)}</a></p>${input.secondary.note ? `<p style="margin:0 0 20px;text-align:center;font-size:12px;color:#64748b">${esc(input.secondary.note)}</p>` : ""}` : ""}
+${(input.secondary ?? []).map((b) => `<p style="margin:0 0 ${b.note ? "6" : "14"}px;text-align:center"><a href="${esc(b.url)}" style="display:inline-block;background:#e6f7f6;color:#0f6e6c;text-decoration:none;font-weight:800;font-size:15px;padding:12px 22px;border-radius:14px">${esc(b.label)}</a></p>${b.note ? `<p style="margin:0 0 16px;text-align:center;font-size:12px;color:#64748b">${esc(b.note)}</p>` : ""}`).join("")}
 <p style="margin:0 0 18px;font-size:14px">Māuruuru,<br><strong>L'équipe ManaResto</strong><br><a href="mailto:${esc(input.replyTo)}" style="color:#0f6e6c">${esc(input.replyTo)}</a></p></td></tr>
 <tr><td style="padding:14px 28px;background:#f8fafc;font-size:11px;color:#94a3b8;text-align:center">${esc(input.footer)}</td></tr>
 </table></td></tr></table></body></html>`;
-  const text = `${input.title}\n\n${input.paragraphs.join("\n\n")}${input.cta ? `\n\n${input.cta.label} : ${input.cta.url}` : ""}${input.secondary ? `\n\n${input.secondary.label} : ${input.secondary.url}${input.secondary.note ? `\n(${input.secondary.note})` : ""}` : ""}\n\nMāuruuru,\nL'équipe ManaResto — ${input.replyTo}`;
+  const text = `${input.title}\n\n${input.paragraphs.join("\n\n")}${input.cta ? `\n\n${input.cta.label} : ${input.cta.url}` : ""}${(input.secondary ?? []).map((b) => `\n\n${b.label} : ${b.url}${b.note ? `\n(${b.note})` : ""}`).join("")}\n\nMāuruuru,\nL'équipe ManaResto — ${input.replyTo}`;
   return { to: input.to, subject: input.subject, text, html, replyTo: input.replyTo };
 }
 
