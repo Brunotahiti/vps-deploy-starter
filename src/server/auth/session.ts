@@ -98,10 +98,10 @@ export async function getTerminalFromCookie() {
   const store = await cookies();
   const key = store.get(TERMINAL_COOKIE)?.value;
   if (!key) return null;
-  const found = await prisma.terminal.findUnique({ where: { deviceKeyHash: sha256(key) }, include: { establishment: { select: { isActive: true, organization: { select: { blockedAt: true } } } } } });
+  const found = await prisma.terminal.findUnique({ where: { deviceKeyHash: sha256(key) }, include: { establishment: { select: { isActive: true, name: true, organization: { select: { blockedAt: true } } } } } });
   if (!found || !found.isActive || !found.establishment.isActive || found.establishment.organization.blockedAt) return null;
-  const { establishment: _e, ...terminal } = found;
-  return terminal;
+  const { establishment, ...terminal } = found;
+  return { ...terminal, establishmentName: establishment.name };
 }
 
 export async function setTerminalCookie(deviceKey: string) {

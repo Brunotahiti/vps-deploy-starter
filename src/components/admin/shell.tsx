@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { LayoutDashboard, UtensilsCrossed, Map, Receipt, Wallet, Users, Settings, ScrollText, Building2, Moon, Sun, LogOut, Menu, X, MonitorSmartphone, ChefHat, Boxes, CalendarDays, Heart, QrCode, BarChart3, Clock, Plug, Network, TrendingUp, ShieldCheck, Printer } from "lucide-react";
+import { LayoutDashboard, UtensilsCrossed, Map, Receipt, Wallet, Users, Settings, ScrollText, Building2, Moon, Sun, LogOut, Menu, X, Boxes, CalendarDays, Heart, QrCode, BarChart3, Clock, Plug, Network, TrendingUp, ShieldCheck, Printer } from "lucide-react";
 import { useSession } from "@/hooks/use-session";
 import { useRealtime } from "@/hooks/use-realtime";
 import { useTheme } from "@/hooks/use-theme";
@@ -15,6 +15,7 @@ import { api } from "@/lib/api-client";
 import { Logo } from "@/components/brand";
 import { Spinner } from "@/components/ui/misc";
 import { SupportBar } from "@/components/support-bar";
+import { PortalButtons } from "@/components/portal/portal-buttons";
 import { confirmLogoutWithPending, purgeLocalData } from "@/lib/offline/purge";
 
 export function AdminShell({ children }: { children: React.ReactNode }) {
@@ -39,7 +40,6 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
     { href: "/admin/users", label: "Utilisateurs", icon: Users, show: can("users.manage") },
     { href: "/admin/settings", label: "Paramètres", icon: Settings, show: can("settings.manage") },
     { href: "/admin/audit", label: "Journal d'audit", icon: ScrollText, show: can("audit.view") },
-    { href: "/kds", label: "Écran cuisine", icon: ChefHat, show: can("kds.use") },
     { href: "/admin/stock", label: "Stocks & achats", icon: Boxes, show: can("stock.view"), match: "/admin/stock" },
     { href: "/admin/staff", label: "Personnel", icon: Clock, show: can("staff.manage"), match: "/admin/staff" },
     { href: "/admin/customers", label: "Clients & fidélité", icon: Heart, show: can("customers.manage") },
@@ -70,8 +70,8 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
         })}
       </nav>
       <div className="border-t border-line p-2">
-        <InstallAppButton variant="secondary" className="mb-1 h-10 w-full justify-start" label="Installer l'application" compact />
-        <Link href="/pos" className="bg-accent flex h-11 items-center gap-3 rounded-xl px-3 text-sm font-bold text-white shadow-[0_8px_24px_-8px_rgb(249_124_60/0.5)]"><MonitorSmartphone className="h-4 w-4" />Ouvrir la caisse</Link>
+        <InstallAppButton variant="secondary" className="mb-2 h-10 w-full justify-start" label="Installer l'application" compact />
+        <PortalButtons onNavigate={() => setOpen(false)} />
         <div className="mt-2 flex items-center gap-2 px-1">
           <span className="flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold text-white" style={{ background: me?.user?.color ?? "#0ea5a4" }}>{(me?.user?.firstName ?? "?").slice(0, 1)}</span>
           <span className="min-w-0 flex-1 truncate text-sm font-semibold">{me?.user?.firstName} {me?.user?.lastName}<span className="block text-xs font-normal text-muted">{me?.roleKey}</span></span>
@@ -91,9 +91,9 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
         <SupportBar />
         <header className="glass flex h-14 shrink-0 items-center gap-3 border-b px-4 lg:hidden"><button className="touch rounded-lg p-2" aria-label="Ouvrir le menu" onClick={() => setOpen(true)}><Menu className="h-5 w-5" /></button><Logo size={28} /></header>
         <main className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden p-4 pb-28 lg:p-8"><SubscriptionBanner />{children}</main>
-        {/* Téléphone / tablette : gros bouton d'accès à la caisse, toujours visible */}
+        {/* Téléphone / tablette : les portails Salle, Caisse et Cuisine, toujours à portée de pouce */}
         <div className="pointer-events-none fixed inset-x-0 bottom-0 z-30 flex justify-center p-3 lg:hidden" style={{ paddingBottom: "max(12px, env(safe-area-inset-bottom))" }}>
-          <Link href="/pos" className="bg-accent pointer-events-auto flex h-14 w-full max-w-md items-center justify-center gap-3 rounded-2xl text-base font-extrabold text-white shadow-[0_12px_32px_-8px_rgb(249_124_60/0.6)] ring-1 ring-white/20 transition active:scale-[0.98]"><MonitorSmartphone className="h-5 w-5" />Ouvrir la caisse</Link>
+          <PortalButtons variant="dock" />
         </div>
       </div>
     </div>
