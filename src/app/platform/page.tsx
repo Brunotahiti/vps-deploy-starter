@@ -94,6 +94,16 @@ export default function PlatformPage() {
       alert(`Échec de l'envoi :\n\n${e instanceof ApiClientError ? e.message : "erreur inconnue"}`);
     }
   };
+  const previewWelcome = async () => {
+    const to = window.prompt("Envoyer un aperçu du mail de bienvenue à :", me?.user?.email ?? "")?.trim();
+    if (!to) return;
+    try {
+      const r = await api.post<{ to: string }>("/api/platform/preview-email", { to });
+      alert(`Aperçu du mail de bienvenue envoyé à ${r.to}.\n\nS'il n'arrive pas d'ici quelques minutes, regardez dans les indésirables et dans Brevo → Statistiques → E-mails transactionnels.`);
+    } catch (e) {
+      alert(`Échec de l'envoi :\n\n${e instanceof ApiClientError ? e.message : "erreur inconnue"}`);
+    }
+  };
   const actions = { impersonate, quickPlan, toggleBlock, email: (r: PlatformRow) => setMail({ row: r, subject: "", message: "" }) };
 
   return (
@@ -109,6 +119,7 @@ export default function PlatformPage() {
               <button onClick={refresh} className="touch inline-flex h-10 items-center gap-2 rounded-xl bg-white/15 px-3 text-sm font-semibold hover:bg-white/25" aria-label="Actualiser"><RefreshCw className={`h-4 w-4 ${q.isFetching ? "animate-spin" : ""}`} /><span className="hidden sm:inline">Actualiser</span></button>
               <button onClick={runLifecycle} className="touch inline-flex h-10 items-center gap-2 rounded-xl bg-white/15 px-3 text-sm font-semibold hover:bg-white/25" title="Envoie tout de suite les rappels de fin d'essai et les e-mails « essai expiré » en attente"><MailCheck className="h-4 w-4" /><span className="hidden sm:inline">Lancer les relances</span></button>
               <button onClick={testEmail} className="touch inline-flex h-10 items-center gap-2 rounded-xl bg-white/15 px-3 text-sm font-semibold hover:bg-white/25" title="Envoie un e-mail de test aux destinataires des alertes"><Mail className="h-4 w-4" /><span className="hidden sm:inline">Tester l&apos;e-mail</span></button>
+              <button onClick={previewWelcome} className="touch inline-flex h-10 items-center gap-2 rounded-xl bg-white/15 px-3 text-sm font-semibold hover:bg-white/25" title="Envoie le vrai e-mail de bienvenue à l'adresse de votre choix, pour le relire"><MailCheck className="h-4 w-4" /><span className="hidden sm:inline">Aperçu du mail de bienvenue</span></button>
               <Link href="/admin" className="touch inline-flex h-10 items-center gap-2 rounded-xl bg-white px-3 text-sm font-bold text-[#0f6e6c]"><Building2 className="h-4 w-4" />Mon restaurant</Link>
               <button onClick={toggle} className="touch rounded-xl bg-white/15 p-2.5 hover:bg-white/25" aria-label="Changer de thème"><Sun className="h-4 w-4 dark:hidden" /><Moon className="hidden h-4 w-4 dark:block" /></button>
             </div>

@@ -197,6 +197,21 @@ export function emailSettings() {
 }
 
 /** E-mail de test vers les destinataires des alertes : confirme que Brevo accepte l'envoi, ou explique pourquoi pas. */
+/**
+ * Aperçu : envoie le vrai e-mail de bienvenue à une adresse choisie (console), pour le relire ou tester sa délivrabilité
+ * (ex. mail-tester.com). Objet préfixé « [Aperçu] » ; non journalisé comme un envoi à un restaurant.
+ */
+export async function sendWelcomePreview(to: string, firstName: string) {
+  if (!isEmailConfigured()) throw new ApiError(400, "EMAIL_NOT_CONFIGURED", explainSmtpError("EMAIL_NOT_CONFIGURED"));
+  const mail = welcomeMail({ id: "apercu", name: "Votre restaurant", trialEndsAt: null }, { id: "apercu", email: to, firstName: firstName || "à vous" });
+  try {
+    await sendMail({ ...mail, to, subject: `[Aperçu] ${mail.subject}` });
+  } catch (e) {
+    throw new ApiError(502, "EMAIL_FAILED", explainSmtpError(e instanceof Error ? e.message : String(e)));
+  }
+  return { to };
+}
+
 export async function sendTestEmail() {
   if (!isEmailConfigured()) throw new ApiError(400, "EMAIL_NOT_CONFIGURED", explainSmtpError("EMAIL_NOT_CONFIGURED"));
   const to = teamRecipients();

@@ -176,3 +176,17 @@ describe("E-mail de bienvenue", () => {
     expect(m.html.length).toBeLessThan(20_000);
   });
 });
+
+describe("Aperçu du mail de bienvenue (console)", () => {
+  it("envoie le vrai mail de bienvenue à l'adresse choisie, objet préfixé « [Aperçu] »", async () => {
+    const { sendWelcomePreview } = await import("@/server/services/platform-emails");
+    const n = sentMails.length;
+    await expect(sendWelcomePreview("direction@exemple.pf", "Bruno")).resolves.toEqual({ to: "direction@exemple.pf" });
+    expect(sentMails.length).toBe(n + 1);
+    const m = sentMails.at(-1)!;
+    expect(m.to).toBe("direction@exemple.pf");
+    expect(m.subject).toBe("[Aperçu] Bienvenue sur ManaResto, Bruno !");
+    expect(m.html).toContain("Essayer la démo gratuitement");
+    expect(m.html).toContain("Voir un exemple de page restaurant");
+  });
+});
