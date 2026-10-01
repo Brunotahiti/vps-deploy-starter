@@ -1,4 +1,4 @@
-import { cacheGet, cacheSet, getDb, type OutboxEntry } from "./db";
+import { cacheGet, cacheSet, withDb, type OutboxEntry } from "./db";
 import { aliasesForCreatedOrder, rewriteEntry, type Aliases } from "./merge";
 
 const ALIASES = "order-aliases";
@@ -23,7 +23,7 @@ class Outbox {
   }
 
   private async notify() {
-    const pending = await this.count();
+    const pending = await this.count().catch(() => 0); // base locale momentanément indisponible : l'affichage ne doit pas planter
     for (const fn of this.listeners) fn({ pending, syncing: this.syncing, lastError: this.lastError });
   }
 
@@ -39,14 +39,12 @@ class Outbox {
   }
 
   async count() {
-    const db = await getDb();
-    return db ? db.count("outbox") : 0;
+    return withDb((db) => db.count("outbox"), 0);
   }
 
   async enqueue(entry: Omit<OutboxEntry, "id" | "createdAt" | "attempts">) {
-    const db = await getDb();
-    if (!db) throw new Error("IndexedDB indisponible");
-    await db.put("outbox", { ...entry, id: crypto.randomUUID(), createdAt: Date.now(), attempts: 0 });
+    const saved = await withDb(async (db) => { await db.put("outbox", { ...entry, id: crypto.randomUUID(), createdAt: Date.now(), attempts: 0 }); return true; }, false);
+    if (!saved) throw new Error("IndexedDB indisponible");
     await this.notify();
   }
 
@@ -68,14 +66,16 @@ class Outbox {
   }
 
   private async flushNow(): Promise<{ sent: number; failed: number; authRequired?: boolean }> {
-    const db = await getDb();
-    if (!db || this.syncing) return { sent: 0, failed: 0 };
+    if (typeof indexedDB === "undefined" || this.syncing) return { sent: 0, failed: 0 };
+    // Chaque accès rouvre la connexion si le navigateur l'a fermée entre deux envois (iPhone en arrière-plan)
+    const put = (e: OutboxEntry) => withDb((db) => db.put("outbox", e), undefined);
+    const del = (id: string) => withDb((db) => db.delete("outbox", id), undefined);
     this.syncing = true;
     this.lastError = null;
     await this.notify();
     let sent = 0, failed = 0, authRequired = false;
     try {
-      const entries = await db.getAllFromIndex("outbox", "byCreated");
+      const entries = await withDb((db) => db.getAllFromIndex("outbox", "byCreated"), [] as OutboxEntry[]);
       // Redirections conservées entre deux synchronisations (la file peut s'interrompre au milieu)
       const aliases: Aliases = (await cacheGet<Aliases>(ALIASES))?.data ?? {};
       for (const queued of entries) {
@@ -97,29 +97,29 @@ class Outbox {
                 this.merges.push({ number: created.number, tableName: created.table?.name ?? null });
               }
             }
-            await db.delete("outbox", e.id);
+            await del(e.id);
             continue;
           }
           if (res.status === 401 || res.status === 403) {
             authRequired = true;
             this.lastError = "Session expirée : reconnectez-vous pour transmettre les opérations en attente";
-            await db.put("outbox", { ...e, attempts: e.attempts + 1, lastError: `HTTP ${res.status}` });
+            await put({ ...e, attempts: e.attempts + 1, lastError: `HTTP ${res.status}` });
             break;
           }
-          if (res.status === 409 && res.headers.get("Idempotency-In-Progress")) { await db.put("outbox", { ...e, attempts: e.attempts + 1 }); break; } // même opération encore en cours : on réessaiera
+          if (res.status === 409 && res.headers.get("Idempotency-In-Progress")) { await put({ ...e, attempts: e.attempts + 1 }); break; } // même opération encore en cours : on réessaiera
           if (res.status >= 400 && res.status < 500 && res.status !== 408 && res.status !== 429) {
             failed++;
             const j = await res.json().catch(() => null);
             this.lastError = j?.error?.message ?? `HTTP ${res.status}`;
             const log = (await cacheGet<FailedEntry[]>("outbox-failed"))?.data ?? [];
             await cacheSet("outbox-failed", [...log, { ...e, lastError: this.lastError ?? undefined, failedAt: Date.now() }].slice(-200));
-            await db.delete("outbox", e.id);
+            await del(e.id);
             continue;
           }
-          await db.put("outbox", { ...e, attempts: e.attempts + 1, lastError: `HTTP ${res.status}` });
+          await put({ ...e, attempts: e.attempts + 1, lastError: `HTTP ${res.status}` });
           break; // serveur momentanément indisponible : on réessaiera
         } catch (err) {
-          await db.put("outbox", { ...e, attempts: e.attempts + 1, lastError: String(err) });
+          await put({ ...e, attempts: e.attempts + 1, lastError: String(err) });
           break; // toujours hors ligne
         }
       }

@@ -3,7 +3,7 @@
  * Une commande créée ou modifiée sans réseau est conservée dans IndexedDB
  * jusqu'à ce que la file d'attente (outbox) l'ait rejouée sur le serveur.
  */
-import { cacheGet, cacheSet, getDb } from "./db";
+import { cacheGet, cacheSet, withDb } from "./db";
 import type { Order } from "@/components/pos/types";
 
 const KEY = (id: string) => `order:${id}`;
@@ -37,10 +37,10 @@ export async function markOfflineOrderClosed(id: string) {
 /** Appelé après une synchronisation réussie : le serveur redevient la source de vérité. */
 export async function clearOfflineCreatedOrders() {
   await cacheSet(INDEX, []);
-  const db = await getDb();
-  if (!db) return;
-  const keys = await db.getAllKeys("cache");
-  for (const k of keys) if (String(k).startsWith("order:")) await db.delete("cache", k);
+  await withDb(async (db) => {
+    const keys = await db.getAllKeys("cache");
+    for (const k of keys) if (String(k).startsWith("order:")) await db.delete("cache", k);
+  }, undefined);
 }
 
 /** Squelette de commande construit localement, identique à la réponse serveur attendue. */

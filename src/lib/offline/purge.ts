@@ -1,6 +1,6 @@
 "use client";
 
-import { getDb } from "./db";
+import { withDb } from "./db";
 import { outbox } from "./outbox";
 
 /**
@@ -10,7 +10,7 @@ import { outbox } from "./outbox";
  */
 export async function purgeLocalData() {
   try { navigator.serviceWorker?.controller?.postMessage("PURGE_API"); } catch { /* sans service worker */ }
-  try { const db = await getDb(); await db?.clear("cache"); } catch { /* IndexedDB indisponible */ }
+  try { await withDb((db) => db.clear("cache"), undefined); } catch { /* IndexedDB indisponible */ }
 }
 
 /** Confirmation avant déconnexion s'il reste des opérations hors ligne non transmises. */

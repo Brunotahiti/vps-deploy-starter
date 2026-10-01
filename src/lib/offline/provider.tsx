@@ -33,14 +33,16 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
         if (r.failed > 0) toast(`${r.failed} opération${r.failed > 1 ? "s" : ""} refusée${r.failed > 1 ? "s" : ""} par le serveur : ${outbox.lastErrorMessage() ?? "vérifiez la commande concernée"}`, "error");
       }
     };
-    const on = async () => after(await outbox.flush());
+    // Synchronisation en arrière-plan : une erreur (base locale fermée par le navigateur…) attend le prochain essai
+    const sync = () => outbox.flush().then(after).catch(() => {});
+    const on = () => { sync(); };
     window.addEventListener("online", on);
     const unsub = outbox.subscribe(setState);
     // Tentative de synchro au chargement, au retour au premier plan, puis toutes les 20 s tant que la file n'est pas vide
     // (box sans internet : le Wi-Fi reste « en ligne » et l'événement online n'arrive jamais)
-    if (navigator.onLine) outbox.flush().then(after);
-    const tick = window.setInterval(async () => { if (navigator.onLine && (await outbox.count()) > 0) after(await outbox.flush()); }, 20_000);
-    const onVisible = () => { if (document.visibilityState === "visible" && navigator.onLine) outbox.flush().then(after); };
+    if (navigator.onLine) sync();
+    const tick = window.setInterval(() => { if (navigator.onLine) outbox.count().then((n) => { if (n > 0) sync(); }).catch(() => {}); }, 20_000);
+    const onVisible = () => { if (document.visibilityState === "visible" && navigator.onLine) sync(); };
     document.addEventListener("visibilitychange", onVisible);
     return () => { window.removeEventListener("online", on); document.removeEventListener("visibilitychange", onVisible); window.clearInterval(tick); unsub(); };
   }, [qc, toast]);
