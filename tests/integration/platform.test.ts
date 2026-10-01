@@ -101,6 +101,12 @@ describe("Console plateforme", () => {
     expect(sentMails.at(-1)!.html).toContain("Nous pouvons vous aider.");
     const detail = await platformOrgDetail(A.org.id);
     expect(detail.emails.map((e) => e.kind)).toEqual(["MANUAL", "WELCOME"]);
+    // Trace du mail de bienvenue : date et heure d'envoi, destinataire, référence de l'envoi chez le prestataire
+    const w = detail.emails.find((e) => e.kind === "WELCOME")!;
+    expect(w).toMatchObject({ status: "SENT", to: A.owner.email, messageId: expect.stringMatching(/^memory-\d+$/) });
+    const row = (await platformOverview()).rows.find((r) => r.id === A.org.id)!;
+    expect(row.welcome).toEqual({ status: "SENT", at: w.createdAt, to: A.owner.email });
+    expect((await platformOverview()).rows.find((r) => r.id === B.org.id)!.welcome).toBeNull(); // jamais envoyé
     const ov = await platformOverview();
     expect(ov.rows.find((r) => r.id === A.org.id)).toMatchObject({ emailsTotal: 2, lastEmail: { kind: "MANUAL", status: "SENT" } });
   });
@@ -163,12 +169,15 @@ describe("E-mail de bienvenue", () => {
   it("propose d'essayer la démo préremplie (lien qui ouvre directement le compte d'exemple)", async () => {
     const { welcomeMail } = await import("@/server/services/platform-emails");
     const m = welcomeMail({ id: "o", name: "Chez Teva", trialEndsAt: null }, { id: "u", email: "teva@resto.pf", firstName: "Teva" });
-    expect(m.html).toContain("Essayer la démo gratuitement");
-    expect(m.html).toMatch(/\/login\?demo=1/);
-    expect(m.text).toMatch(/Essayer la démo gratuitement : https?:\/\/\S+\/login\?demo=1/);
+    // Encadré mis en évidence (bleu nuit, bouton turquoise distinct du bouton orange) : compte exemple déjà rempli
+    expect(m.html).toContain("Voyez concrètement comment fonctionne ManaResto");
+    expect(m.html).toMatch(/background:#0b2a3c/);
+    expect(m.html).toMatch(/<a href="https?:\/\/\S+\/login\?demo=1" style="[^"]*background:#2dd4bf[^"]*">Tester avec le compte exemple →<\/a>/);
+    expect(m.text).toMatch(/Tester avec le compte exemple → : https?:\/\/\S+\/login\?demo=1/);
+    expect(m.html.indexOf("Ouvrir ManaResto")).toBeLessThan(m.html.indexOf("Tester avec le compte exemple"));
     // Exemple de page publique d'un restaurant
-    expect(m.html).toContain("Voir un exemple de page restaurant");
-    expect(m.text).toMatch(/Voir un exemple de page restaurant : https?:\/\/\S+\/site\/demo-mana-beach\/le-mana-beach/);
+    expect(m.html).toContain("Voir la page publique du restaurant exemple");
+    expect(m.text).toMatch(/Voir la page publique du restaurant exemple : https?:\/\/\S+\/site\/demo-mana-beach\/le-mana-beach/);
     expect(m.html).toContain("Ouvrir ManaResto");
     // Photo d'accueil en haut : liée par son adresse (jamais jointe), avec un texte de remplacement
     expect(m.html).toMatch(/<img src="https?:\/\/\S+\/email\/bienvenue\.jpg" alt="Ia ora na, bienvenue sur ManaResto !"/);
@@ -186,7 +195,7 @@ describe("Aperçu du mail de bienvenue (console)", () => {
     const m = sentMails.at(-1)!;
     expect(m.to).toBe("direction@exemple.pf");
     expect(m.subject).toBe("[Aperçu] Bienvenue sur ManaResto, Bruno !");
-    expect(m.html).toContain("Essayer la démo gratuitement");
-    expect(m.html).toContain("Voir un exemple de page restaurant");
+    expect(m.html).toContain("Tester avec le compte exemple");
+    expect(m.html).toContain("Voir la page publique du restaurant exemple");
   });
 });

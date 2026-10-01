@@ -40,6 +40,8 @@ export type PlatformRow = {
   blockedAt: string | null; blockedReason: string | null; createdAt: string;
   minutes7: number; minutes30: number; activeDays30: number; lastSeenAt: string | null; lastLoginAt: string | null; orders30: number;
   lastEmail: { kind: PlatformEmailKind; status: string; at: string } | null; emailsTotal: number;
+  /** Mail de bienvenue : dernier envoi (date et heure exactes), sinon null */
+  welcome: { status: string; at: string; to: string } | null;
   publicPath: string | null;
 };
 
@@ -49,7 +51,7 @@ export async function platformOverview(now = new Date()) {
   const d30 = addDays(today, -29);
   const since30 = new Date(now.getTime() - 30 * DAY);
 
-  const [orgs, activity, lastSeen, lastLogin, orders, emailCounts, lastEmails, recentLogins, demoRequests] = await Promise.all([
+  const [orgs, activity, lastSeen, lastLogin, orders, emailCounts, lastEmails, recentLogins, demoRequests, welcomes] = await Promise.all([
     prisma.organization.findMany({
       orderBy: { createdAt: "desc" },
       select: {
@@ -67,6 +69,7 @@ export async function platformOverview(now = new Date()) {
     prisma.platformEmail.findMany({ distinct: ["organizationId"], orderBy: [{ organizationId: "asc" }, { createdAt: "desc" }], select: { organizationId: true, kind: true, status: true, createdAt: true } }),
     prisma.user.findMany({ where: { lastLoginAt: { not: null } }, orderBy: { lastLoginAt: "desc" }, take: 15, select: { id: true, firstName: true, lastName: true, email: true, isOwner: true, lastLoginAt: true, organization: { select: { id: true, name: true } } } }),
     prisma.demoRequest.findMany({ orderBy: { createdAt: "desc" }, take: 50 }),
+    prisma.platformEmail.findMany({ where: { kind: "WELCOME" }, distinct: ["organizationId"], orderBy: [{ organizationId: "asc" }, { createdAt: "desc" }], select: { organizationId: true, status: true, createdAt: true, to: true } }),
   ]);
 
   const estToOrg = new Map<string, string>();
@@ -94,6 +97,7 @@ export async function platformOverview(now = new Date()) {
   const logins = new Map(lastLogin.map((r) => [r.organizationId, r._max.lastLoginAt]));
   const emailsTotal = new Map(emailCounts.map((r) => [r.organizationId, r._count._all]));
   const lastEmail = new Map(lastEmails.map((r) => [r.organizationId, r]));
+  const welcome = new Map(welcomes.map((r) => [r.organizationId, r]));
 
   const rows: PlatformRow[] = orgs.map((o) => {
     const act = perOrg.get(o.id);
@@ -115,6 +119,7 @@ export async function platformOverview(now = new Date()) {
       lastSeenAt: last?.toISOString() ?? null, lastLoginAt: login?.toISOString() ?? null, orders30: orders30.get(o.id) ?? 0,
       lastEmail: le ? { kind: le.kind as PlatformEmailKind, status: le.status, at: le.createdAt.toISOString() } : null,
       emailsTotal: emailsTotal.get(o.id) ?? 0,
+      welcome: ((w) => (w ? { status: w.status, at: w.createdAt.toISOString(), to: w.to } : null))(welcome.get(o.id)),
       publicPath: est ? `/site/${o.slug}/${est.slug}` : null,
     };
   });
@@ -199,7 +204,7 @@ export async function platformOrgDetail(organizationId: string, now = new Date()
     sessions: sessions.map((s) => ({ id: s.id, user: names.get(s.userId) ?? "—", device: describeDevice(s.userAgent), createdAt: s.createdAt.toISOString(), lastSeenAt: s.lastSeenAt.toISOString(), support: !!s.impersonatorId })),
     activity: Array.from({ length: 30 }, (_, i) => { const day = addDays(d30, i); return { day, minutes: byDay.get(day) ?? 0 }; }),
     counts: { products, tables, ordersTotal, orders30, lastOrderAt: lastOrder?.createdAt.toISOString() ?? null },
-    emails: org.platformEmails.map((e) => ({ id: e.id, kind: e.kind as PlatformEmailKind, to: e.to, subject: e.subject, status: e.status, error: e.error, createdAt: e.createdAt.toISOString() })),
+    emails: org.platformEmails.map((e) => ({ id: e.id, kind: e.kind as PlatformEmailKind, to: e.to, subject: e.subject, status: e.status, error: e.error, messageId: e.messageId, createdAt: e.createdAt.toISOString() })),
   };
 }
 

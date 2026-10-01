@@ -35,6 +35,19 @@ const TEMPLATES = [
   { label: "Fin d'essai", subject: "Votre essai ManaResto touche à sa fin", message: "Ia ora na,\n\nVotre période d'essai gratuit arrive à son terme. Pour continuer à utiliser ManaResto : 12 000 F CFP par mois, engagement 12 mois, 0 % de commission.\n\nRépondez à cet e-mail et nous activons votre abonnement.\n\nMāuruuru," },
 ];
 
+/** Mail de bienvenue d'un compte : envoyé (date et heure exactes, heure de Tahiti), en échec, ou jamais envoyé. */
+function WelcomeStatus({ r }: { r: PlatformRow }) {
+  if (r.isDemo) return null;
+  const w = r.welcome;
+  if (!w) return <span className="mb-1 block text-xs font-semibold text-amber-600">Bienvenue : non envoyé</span>;
+  return (
+    <span className={`mb-1 block text-xs font-semibold ${w.status === "FAILED" ? "text-red-600" : "text-green-700 dark:text-green-400"}`} title={`${w.to} · heure de Tahiti`}>
+      {w.status === "FAILED" ? "Bienvenue : échec" : "Bienvenue envoyé ✓"}
+      <span className="block font-normal text-muted">{formatDateTime(w.at, TZ)}</span>
+    </span>
+  );
+}
+
 export default function PlatformPage() {
   const { me, isLoading: meLoading } = useSession();
   const { toggle } = useTheme();
@@ -298,7 +311,7 @@ function OrgRow({ r, mine, onOpen, ...a }: RowActions & { r: PlatformRow; mine: 
         <span className="block whitespace-nowrap text-xs text-muted" title={r.lastSeenAt ? formatDateTime(r.lastSeenAt, TZ) : undefined}>{r.lastSeenAt ? `vu ${relativeDays(r.lastSeenAt)}` : "jamais connecté"}</span>
         <span className="block whitespace-nowrap text-xs text-muted">{r.orders30} commande{r.orders30 > 1 ? "s" : ""} · 30 j</span>
       </td>
-      <td className="px-3 py-3">{r.lastEmail ? <><span className={`block text-xs font-semibold ${r.lastEmail.status === "FAILED" ? "text-red-600" : ""}`}>{EMAIL_KIND_LABEL[r.lastEmail.kind] ?? r.lastEmail.kind}{r.lastEmail.status === "FAILED" ? " (échec)" : ""}</span><span className="block text-xs text-muted">{relativeDays(r.lastEmail.at)} · {r.emailsTotal} au total</span></> : <span className="text-xs text-muted">aucun</span>}</td>
+      <td className="px-3 py-3"><WelcomeStatus r={r} />{r.lastEmail ? <><span className={`block text-xs font-semibold ${r.lastEmail.status === "FAILED" ? "text-red-600" : ""}`}>{EMAIL_KIND_LABEL[r.lastEmail.kind] ?? r.lastEmail.kind}{r.lastEmail.status === "FAILED" ? " (échec)" : ""}</span><span className="block text-xs text-muted">{relativeDays(r.lastEmail.at)} · {r.emailsTotal} au total</span></> : <span className="text-xs text-muted">aucun</span>}</td>
       <td className="px-3 py-3">{r.publicPath ? <a href={r.publicPath} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="inline-flex items-center gap-1 text-xs font-semibold text-lagon-700 underline"><Globe className="h-3.5 w-3.5" />Voir le site<ExternalLink className="h-3 w-3" /></a> : <span className="text-xs text-muted">—</span>}</td>
       <td className="px-3 py-3"><span className="block text-xs font-semibold">{formatDate(r.createdAt, TZ)}</span><span className="block text-xs text-muted">{relativeDays(r.createdAt)}</span></td>
       <td className="px-3 py-3 text-xs">{r.status === "ACTIVE" ? <><b>12 000 F / mois</b><span className="block text-muted">depuis {r.planStartedAt ? formatDate(r.planStartedAt, TZ) : "—"}</span></> : <span className="text-muted">—</span>}{r.billingEmail ? <span className="block text-muted">{r.billingEmail}</span> : null}</td>
@@ -379,7 +392,15 @@ function OrgDetail({ id, row, mine, onClose, ...a }: RowActions & { id: string |
               <h3 className="mb-2 text-sm font-extrabold">E-mails envoyés</h3>
               {d.emails.length === 0 ? <p className="text-xs text-muted">Aucun e-mail envoyé à ce restaurant.</p> : (
                 <ul className="divide-y divide-[var(--border)] rounded-xl border border-line">
-                  {d.emails.map((m) => <li key={m.id} className="px-3 py-2 text-xs"><span className="flex items-center justify-between gap-2"><b>{EMAIL_KIND_LABEL[m.kind] ?? m.kind}</b><span className="text-muted" title={formatDateTime(m.createdAt, TZ)}>{relativeDays(m.createdAt)}</span></span><span className="block truncate text-muted">{m.subject} → {m.to}</span>{m.status === "FAILED" ? <span className="block text-red-600">Échec : {m.error}</span> : null}</li>)}
+                  {d.emails.map((m) => (
+                    <li key={m.id} className="px-3 py-2 text-xs">
+                      <span className="flex items-center justify-between gap-2"><b>{EMAIL_KIND_LABEL[m.kind] ?? m.kind}</b>{m.status === "FAILED" ? <Badge color="red">Échec</Badge> : <Badge color="green">Envoyé ✓</Badge>}</span>
+                      <span className="block font-semibold">{formatDateTime(m.createdAt, TZ)} <span className="font-normal text-muted">(heure de Tahiti · {relativeDays(m.createdAt)})</span></span>
+                      <span className="block truncate text-muted">{m.subject} → {m.to}</span>
+                      {m.messageId ? <span className="block truncate text-[11px] text-muted" title="Référence de l'envoi chez Brevo : à rechercher dans Brevo → Transactionnel → Journaux">Réf. Brevo : {m.messageId}</span> : null}
+                      {m.status === "FAILED" ? <span className="block text-red-600">Échec : {m.error}</span> : null}
+                    </li>
+                  ))}
                 </ul>
               )}
             </div>

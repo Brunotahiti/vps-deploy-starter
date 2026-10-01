@@ -99,7 +99,23 @@ ${input.message ? `<p style="margin:16px 0 0;font-size:14px;line-height:1.5;whit
  * E-mail de la plateforme ManaResto vers un restaurateur (bienvenue, fin d'essai, message du support).
  * Paragraphes en texte brut (échappés), bouton d'action facultatif, réponse vers l'adresse de contact.
  */
-export function platformMail(input: { to: string; subject: string; kicker: string; title: string; paragraphs: string[]; cta?: { label: string; url: string }; secondary?: { label: string; url: string; note?: string }[]; hero?: { src: string; alt: string; width: number; height: number; href?: string }; replyTo: string; footer: string }): OutgoingMail {
+/**
+ * Encadré mis en évidence (bleu nuit, bouton turquoise, distinct du bouton orange principal) : la démonstration
+ * avec un compte exemple. Tableaux et styles en ligne pour les messageries (Gmail, Outlook, Mail).
+ */
+function showcaseHtml(b: { kicker: string; title: string; text: string; points: string[]; label: string; url: string; note?: string }) {
+  const points = b.points.map((pt) => `<tr><td valign="top" style="padding:0 8px 6px 0;color:#2dd4bf;font-size:15px;line-height:1.45">✓</td><td style="padding:0 0 6px;color:#e2e8f0;font-size:14px;line-height:1.45">${esc(pt)}</td></tr>`).join("");
+  return `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:4px 0 22px;border-collapse:separate"><tr><td style="background:#0b2a3c;border-radius:18px;padding:22px 22px 20px;color:#fff">
+<div style="font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#2dd4bf">${esc(b.kicker)}</div>
+<div style="font-size:20px;font-weight:800;line-height:1.3;margin:6px 0 10px;color:#fff">${esc(b.title)}</div>
+<p style="margin:0 0 12px;font-size:14px;line-height:1.55;color:#cbd5e1">${esc(b.text)}</p>
+<table role="presentation" cellspacing="0" cellpadding="0" style="margin:0 0 16px">${points}</table>
+<p style="margin:0;text-align:center"><a href="${esc(b.url)}" style="display:inline-block;background:#2dd4bf;color:#042f2e;text-decoration:none;font-weight:800;font-size:16px;padding:14px 24px;border-radius:14px">${esc(b.label)}</a></p>
+${b.note ? `<p style="margin:10px 0 0;text-align:center;font-size:12px;line-height:1.45;color:#94a3b8">${esc(b.note)}</p>` : ""}
+</td></tr></table>`;
+}
+
+export function platformMail(input: { to: string; subject: string; kicker: string; title: string; paragraphs: string[]; cta?: { label: string; url: string }; showcase?: { kicker: string; title: string; text: string; points: string[]; label: string; url: string; note?: string }; secondary?: { label: string; url: string; note?: string }[]; hero?: { src: string; alt: string; width: number; height: number; href?: string }; replyTo: string; footer: string }): OutgoingMail {
   const paras = input.paragraphs.map((p) => `<p style="margin:0 0 14px;font-size:15px;line-height:1.55">${esc(p).replace(/\n/g, "<br>")}</p>`).join("");
   const html = `<!doctype html><html lang="fr"><body style="margin:0;background:#f3f5f8;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#0f172a">
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td align="center" style="padding:24px 12px">
@@ -110,11 +126,12 @@ ${input.hero ? `<tr><td style="padding:0;line-height:0;font-size:0">${input.hero
 <div style="font-size:24px;font-weight:800;margin-top:6px;line-height:1.25">${esc(input.title)}</div></td></tr>
 <tr><td style="padding:24px 28px 10px">${paras}
 ${input.cta ? `<p style="margin:6px 0 20px;text-align:center"><a href="${esc(input.cta.url)}" style="display:inline-block;background:#f97c3c;color:#fff;text-decoration:none;font-weight:800;font-size:16px;padding:14px 26px;border-radius:14px">${esc(input.cta.label)}</a></p>` : ""}
+${input.showcase ? showcaseHtml(input.showcase) : ""}
 ${(input.secondary ?? []).map((b) => `<p style="margin:0 0 ${b.note ? "6" : "14"}px;text-align:center"><a href="${esc(b.url)}" style="display:inline-block;background:#e6f7f6;color:#0f6e6c;text-decoration:none;font-weight:800;font-size:15px;padding:12px 22px;border-radius:14px">${esc(b.label)}</a></p>${b.note ? `<p style="margin:0 0 16px;text-align:center;font-size:12px;color:#64748b">${esc(b.note)}</p>` : ""}`).join("")}
 <p style="margin:0 0 18px;font-size:14px">Māuruuru,<br><strong>L'équipe ManaResto</strong><br><a href="mailto:${esc(input.replyTo)}" style="color:#0f6e6c">${esc(input.replyTo)}</a></p></td></tr>
 <tr><td style="padding:14px 28px;background:#f8fafc;font-size:11px;color:#94a3b8;text-align:center">${esc(input.footer)}</td></tr>
 </table></td></tr></table></body></html>`;
-  const text = `${input.title}\n\n${input.paragraphs.join("\n\n")}${input.cta ? `\n\n${input.cta.label} : ${input.cta.url}` : ""}${(input.secondary ?? []).map((b) => `\n\n${b.label} : ${b.url}${b.note ? `\n(${b.note})` : ""}`).join("")}\n\nMāuruuru,\nL'équipe ManaResto — ${input.replyTo}`;
+  const text = `${input.title}\n\n${input.paragraphs.join("\n\n")}${input.cta ? `\n\n${input.cta.label} : ${input.cta.url}` : ""}${input.showcase ? `\n\n— ${input.showcase.title} —\n${input.showcase.text}\n${input.showcase.points.map((pt) => `• ${pt}`).join("\n")}\n${input.showcase.label} : ${input.showcase.url}${input.showcase.note ? `\n(${input.showcase.note})` : ""}` : ""}${(input.secondary ?? []).map((b) => `\n\n${b.label} : ${b.url}${b.note ? `\n(${b.note})` : ""}`).join("")}\n\nMāuruuru,\nL'équipe ManaResto — ${input.replyTo}`;
   return { to: input.to, subject: input.subject, text, html, replyTo: input.replyTo };
 }
 
