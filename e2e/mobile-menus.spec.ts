@@ -52,3 +52,21 @@ test("barre des portails toujours visible ; bandeau plein écran masquable", asy
   await expect(page.getByTestId("portal-dock").locator("visible=true")).toHaveCount(1);
   await expect(page.getByTestId("install-banner")).toHaveCount(0);
 });
+
+/** Menu de l'administration : tableau de bord + rubriques repliables ; la rubrique de la page ouverte est dépliée. */
+test("menu simplifié : rubriques repliables", async ({ page }) => {
+  await page.request.post("/api/auth/login", { data: { email: "demo@manaresto.pf", password: "demo1234" } });
+  await page.goto("/admin/users");
+  await page.getByRole("button", { name: "Ouvrir le menu" }).click();
+  const menu = page.getByRole("navigation", { name: "Menu" }).last();
+  for (const g of ["Ventes", "Carte & stocks", "Salle & clients", "Équipe", "Réglages"]) await expect(menu.getByRole("button", { name: g })).toBeVisible();
+  // Page ouverte : sa rubrique est dépliée, les autres repliées
+  await expect(menu.getByRole("button", { name: "Équipe" })).toHaveAttribute("aria-expanded", "true");
+  await expect(menu.getByRole("link", { name: "Accès & PIN" })).toHaveAttribute("aria-current", "page");
+  await expect(menu.getByRole("link", { name: "Commandes" })).toHaveCount(0);
+  // Une seule rubrique ouverte à la fois
+  await menu.getByRole("button", { name: "Ventes" }).tap();
+  await expect(menu.getByRole("button", { name: "Équipe" })).toHaveAttribute("aria-expanded", "false");
+  await menu.getByRole("link", { name: "Statistiques" }).tap();
+  await page.waitForURL(/\/admin\/stats$/);
+});

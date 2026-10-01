@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { LayoutDashboard, UtensilsCrossed, Map, Receipt, Wallet, Users, Settings, ScrollText, Building2, Moon, Sun, LogOut, Menu, X, Boxes, CalendarDays, Heart, QrCode, BarChart3, Clock, Plug, Network, TrendingUp, ShieldCheck, Printer } from "lucide-react";
+import { LayoutDashboard, UtensilsCrossed, Map, Receipt, Wallet, Users, Settings, ScrollText, Building2, Moon, Sun, LogOut, Menu, X, Boxes, CalendarDays, Heart, QrCode, BarChart3, Clock, Plug, Network, TrendingUp, ShieldCheck, Printer, ChevronDown, Store, BookOpen, UsersRound, SlidersHorizontal, type LucideIcon } from "lucide-react";
 import { useSession } from "@/hooks/use-session";
 import { useRealtime } from "@/hooks/use-realtime";
 import { useTheme } from "@/hooks/use-theme";
@@ -18,6 +18,9 @@ import { SupportBar } from "@/components/support-bar";
 import { PortalButtons } from "@/components/portal/portal-buttons";
 import { confirmLogoutWithPending, purgeLocalData } from "@/lib/offline/purge";
 
+type NavItem = { href: string; label: string; icon: LucideIcon; show?: boolean; match?: string };
+type NavGroup = { key: string; label: string; icon: LucideIcon; items: NavItem[] };
+
 export function AdminShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -25,32 +28,50 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   const { me, can, isLoading } = useSession();
   const { toggle } = useTheme();
   const [open, setOpen] = useState(false);
+  // undefined : la rubrique de la page ouverte est dépliée ; sinon la rubrique choisie (null : toutes repliées)
+  const [openGroup, setOpenGroup] = useState<string | null | undefined>(undefined);
   useRealtime(!!me?.user);
 
   if (isLoading) return <div className="flex h-screen items-center justify-center"><Spinner /></div>;
 
-  const nav = [
-    { href: "/admin", label: "Tableau de bord", icon: LayoutDashboard, show: can("reports.view") },
-    { href: "/admin/catalog/products", label: "Catalogue", icon: UtensilsCrossed, show: can("catalog.view"), match: "/admin/catalog" },
-    { href: "/admin/floor", label: "Plan de salle", icon: Map, show: can("floor.manage") },
-    { href: "/admin/orders", label: "Commandes", icon: Receipt, show: can("orders.view_history") },
-    { href: "/admin/cash", label: "Caisse", icon: Wallet, show: can("reports.view") },
-    { href: "/admin/stats", label: "Statistiques", icon: TrendingUp, show: can("reports.view") },
-    { href: "/admin/reports", label: "Rapports & exports", icon: BarChart3, show: can("reports.view") },
-    { href: "/admin/users", label: "Utilisateurs", icon: Users, show: can("users.manage") },
-    { href: "/admin/settings", label: "Paramètres", icon: Settings, show: can("settings.manage") },
-    { href: "/admin/audit", label: "Journal d'audit", icon: ScrollText, show: can("audit.view") },
-    { href: "/admin/stock", label: "Stocks & achats", icon: Boxes, show: can("stock.view"), match: "/admin/stock" },
-    { href: "/admin/staff", label: "Personnel", icon: Clock, show: can("staff.manage"), match: "/admin/staff" },
-    { href: "/admin/customers", label: "Clients & fidélité", icon: Heart, show: can("customers.manage") },
-    { href: "/pos/reservations", label: "Réservations", icon: CalendarDays, show: can("pos.use") },
-    { href: "/admin/digital", label: "Digital : QR, en ligne, borne", icon: QrCode, show: can("settings.manage") },
-    { href: "/admin/establishments", label: "Établissements", icon: Building2, show: can("establishments.manage") || (me?.establishments?.length ?? 0) > 1 },
-    { href: "/admin/organization", label: "Multi-sites", icon: Network, show: can("reports.view_global") },
-    { href: "/admin/hardware", label: "Imprimantes & tiroir", icon: Printer, show: can("settings.manage") },
-    { href: "/admin/integrations", label: "Intégrations : API, webhooks, TPE", icon: Plug, show: can("settings.manage") },
-    { href: "/platform", label: "Console ManaResto", icon: ShieldCheck, show: !!me?.platformAdmin },
-  ].filter((n) => n.show);
+  // Menu court : le tableau de bord, puis cinq rubriques repliables (celle de la page ouverte est dépliée)
+  const groups: NavGroup[] = [
+    { key: "ventes", label: "Ventes", icon: Store, items: [
+      { href: "/admin/orders", label: "Commandes", icon: Receipt, show: can("orders.view_history") },
+      { href: "/admin/cash", label: "Caisse", icon: Wallet, show: can("reports.view") },
+      { href: "/admin/stats", label: "Statistiques", icon: TrendingUp, show: can("reports.view") },
+      { href: "/admin/reports", label: "Rapports & exports", icon: BarChart3, show: can("reports.view") },
+    ] },
+    { key: "carte", label: "Carte & stocks", icon: BookOpen, items: [
+      { href: "/admin/catalog/products", label: "Catalogue", icon: UtensilsCrossed, show: can("catalog.view"), match: "/admin/catalog" },
+      { href: "/admin/stock", label: "Stocks & achats", icon: Boxes, show: can("stock.view"), match: "/admin/stock" },
+    ] },
+    { key: "clients", label: "Salle & clients", icon: Heart, items: [
+      { href: "/admin/floor", label: "Plan de salle", icon: Map, show: can("floor.manage") },
+      { href: "/pos/reservations", label: "Réservations", icon: CalendarDays, show: can("pos.use") },
+      { href: "/admin/customers", label: "Clients & fidélité", icon: Heart, show: can("customers.manage") },
+      { href: "/admin/digital", label: "QR & commande en ligne", icon: QrCode, show: can("settings.manage") },
+    ] },
+    { key: "equipe", label: "Équipe", icon: UsersRound, items: [
+      { href: "/admin/staff", label: "Personnel & planning", icon: Clock, show: can("staff.manage"), match: "/admin/staff" },
+      { href: "/admin/users", label: "Accès & PIN", icon: Users, show: can("users.manage") },
+    ] },
+    { key: "reglages", label: "Réglages", icon: SlidersHorizontal, items: [
+      { href: "/admin/settings", label: "Paramètres", icon: Settings, show: can("settings.manage") },
+      { href: "/admin/hardware", label: "Imprimantes & tiroir", icon: Printer, show: can("settings.manage") },
+      { href: "/admin/integrations", label: "Intégrations", icon: Plug, show: can("settings.manage") },
+      { href: "/admin/establishments", label: "Établissements", icon: Building2, show: can("establishments.manage") || (me?.establishments?.length ?? 0) > 1 },
+      { href: "/admin/organization", label: "Multi-sites", icon: Network, show: can("reports.view_global") },
+      { href: "/admin/audit", label: "Journal d'audit", icon: ScrollText, show: can("audit.view") },
+    ] },
+  ].map((g) => ({ ...g, items: g.items.filter((n) => n.show) })).filter((g) => g.items.length > 0);
+  const isActive = (n: NavItem) => (n.match ? pathname.startsWith(n.match) : pathname === n.href);
+  const activeGroup = groups.find((g) => g.items.some(isActive))?.key ?? null;
+  const isOpen = (key: string) => (openGroup === undefined ? activeGroup === key : openGroup === key);
+  const link = (n: NavItem, nested = false) => {
+    const active = isActive(n);
+    return <Link key={n.href} href={n.href} onClick={() => setOpen(false)} aria-current={active ? "page" : undefined} className={`mb-0.5 flex items-center gap-3 rounded-xl px-3 text-sm font-semibold transition ${nested ? "h-10 pl-5" : "h-11"} ${active ? "bg-brand text-white shadow-glow" : "text-muted hover:surface-2 hover:text-[var(--text)]"}`}><span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${active ? "bg-white/15" : nested ? "" : "surface-2"}`}><n.icon className="h-4 w-4" /></span>{n.label}</Link>;
+  };
 
   const switchEst = async (id: string) => { try { await api.post("/api/auth/switch-establishment", { establishmentId: id }); } catch { return; } await purgeLocalData(); qc.clear(); router.refresh(); qc.invalidateQueries(); };
   const logout = async () => { if (!(await confirmLogoutWithPending())) return; await api.post("/api/auth/logout").catch(() => {}); await purgeLocalData(); qc.clear(); router.replace("/login"); };
@@ -63,15 +84,27 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
           {me.establishments.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
         </select>
       ) : <p className="mx-4 mb-2 truncate text-sm font-semibold text-muted">{me?.establishment?.name}</p>}
-      <nav className="flex-1 overflow-y-auto px-2">
-        {nav.map((n) => {
-          const active = n.match ? pathname.startsWith(n.match) : pathname === n.href;
-          return <Link key={n.href} href={n.href} onClick={() => setOpen(false)} className={`mb-1 flex h-11 items-center gap-3 rounded-xl px-3 text-sm font-semibold transition ${active ? "bg-brand text-white shadow-glow" : "text-muted hover:surface-2 hover:text-[var(--text)]"}`}><span className={`flex h-7 w-7 items-center justify-center rounded-lg ${active ? "bg-white/15" : "surface-2"}`}><n.icon className="h-4 w-4" /></span>{n.label}</Link>;
+      <nav className="flex-1 overflow-y-auto px-2" aria-label="Menu">
+        {can("reports.view") ? link({ href: "/admin", label: "Tableau de bord", icon: LayoutDashboard }) : null}
+        {groups.map((g) => {
+          const expanded = isOpen(g.key);
+          const holdsActive = activeGroup === g.key;
+          return (
+            <div key={g.key} className="mb-0.5">
+              <button type="button" onClick={() => setOpenGroup(expanded ? null : g.key)} aria-expanded={expanded} className={`flex h-11 w-full items-center gap-3 rounded-xl px-3 text-sm font-bold transition hover:surface-2 ${holdsActive && !expanded ? "text-lagon-600 dark:text-lagon-300" : "text-[var(--text)]"}`}>
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg surface-2"><g.icon className="h-4 w-4" /></span>{g.label}
+                <ChevronDown className={`ml-auto h-4 w-4 text-muted transition-transform ${expanded ? "rotate-180" : ""}`} />
+              </button>
+              {expanded ? <div className="mb-1 ml-3 border-l border-line pl-1">{g.items.map((n) => link(n, true))}</div> : null}
+            </div>
+          );
         })}
+        {me?.platformAdmin ? <div className="mt-2 border-t border-line pt-2">{link({ href: "/platform", label: "Console ManaResto", icon: ShieldCheck })}</div> : null}
       </nav>
       <div className="border-t border-line p-2">
         <InstallAppButton variant="secondary" className="mb-2 h-10 w-full justify-start" label="Installer l'application" compact />
-        <PortalButtons onNavigate={() => setOpen(false)} />
+        {/* Téléphone et tablette : les portails sont déjà dans la barre du bas */}
+        <div className="hidden lg:block"><PortalButtons onNavigate={() => setOpen(false)} /></div>
         <div className="mt-2 flex items-center gap-2 px-1">
           <span className="flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold text-white" style={{ background: me?.user?.color ?? "#0ea5a4" }}>{(me?.user?.firstName ?? "?").slice(0, 1)}</span>
           <span className="min-w-0 flex-1 truncate text-sm font-semibold">{me?.user?.firstName} {me?.user?.lastName}<span className="block text-xs font-normal text-muted">{me?.roleKey}</span></span>
