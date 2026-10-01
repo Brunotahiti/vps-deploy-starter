@@ -435,7 +435,13 @@ async function refreshToday(prisma: PrismaClient, ctx: DemoCtx, today: string) {
   const now = Date.now();
   // Plan du jour encaissé jusqu'à maintenant ; si la journée commence à peine, quelques ventes du matin pour ne pas afficher 0
   let done = plan.filter((o) => o.closeAt.getTime() <= now);
-  if (done.length < 6) done = plan.slice(0, 6).map((o, i) => { const closeAt = new Date(now - (20 + i * 9) * 60000); return { ...o, openAt: new Date(closeAt.getTime() - 50 * 60000), closeAt }; });
+  // Tôt le matin (avant l'ouverture), on avance 6 vraies ventes du planning : jamais une commande annulée, qui ne compte pas en CA
+  if (done.filter((o) => !o.cancelReason).length < 6) done = plan.filter((o) => !o.cancelReason).slice(0, 6).map((o, i) => {
+    // Encaissées dans l'heure écoulée, mais toujours aujourd'hui (juste après minuit : réparties depuis minuit)
+    const ideal = now - (20 + i * 9) * 60000;
+    const closeAt = new Date(ideal >= dayStart.getTime() ? ideal : dayStart.getTime() + Math.floor(((now - dayStart.getTime()) * (6 - i)) / 7));
+    return { ...o, openAt: new Date(closeAt.getTime() - 50 * 60000), closeAt };
+  });
   for (const o of done) await writeClosedOrder(prisma, ctx, today, o, session.id, { audit: false, ticket: true, usedNumbers: used });
 
   // Tables en cours (sauf celles qu'un visiteur occupe déjà)
