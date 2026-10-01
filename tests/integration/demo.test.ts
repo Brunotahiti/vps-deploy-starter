@@ -84,4 +84,17 @@ describe("Démo vivante", () => {
     expect(await prisma.cashSession.count({ where: { establishmentId: T.est.id, status: "CLOSED" } })).toBe(4);
     vi.useRealTimers();
   });
+
+  it("juste après minuit (heure du restaurant), le CA du jour n'est jamais vide : 6 vraies ventes datées d'aujourd'hui", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    // Après-demain à 0 h 10 heure de Tahiti (UTC-10) ; puis à 3 h 30, heure à laquelle un test avait échoué en CI
+    for (const hhmm of ["10:10", "13:30"]) {
+      const day = localDay(new Date(Date.now() + 2 * 86400000), TZ);
+      vi.setSystemTime(new Date(`${day}T${hhmm}:00Z`));
+      await refreshDemo(db, { historyDays: 3 });
+      const todayStart = startOfLocalDay(localDay(new Date(), TZ), TZ);
+      expect(await prisma.order.count({ where: { establishmentId: T.est.id, status: "PAID", closedAt: { gte: todayStart } } })).toBeGreaterThanOrEqual(6);
+    }
+    vi.useRealTimers();
+  });
 });
