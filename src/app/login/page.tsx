@@ -12,7 +12,6 @@ import { useQueryClient } from "@tanstack/react-query";
 import { WelcomeSplash } from "@/components/welcome-splash";
 import { InstallAppButton } from "@/components/install-app";
 
-const DEMO = { email: "demo@manaresto.pf", password: "demo1234" };
 
 function LoginForm() {
   const router = useRouter();
@@ -40,13 +39,25 @@ function LoginForm() {
     }
   };
   const submit = (e: React.FormEvent) => { e.preventDefault(); void login({ email, password }, "form"); };
-  const demo = () => { setEmail(DEMO.email); setPassword(DEMO.password); void login(DEMO, "demo"); };
+  // Restaurant exemple : déjà connecté (lien de l'e-mail de bienvenue), sa session est gardée pour y revenir
+  const demo = async () => {
+    setLoading("demo");
+    setError(null);
+    try {
+      await api.post("/api/auth/demo-session");
+      await qc.invalidateQueries();
+      setWelcome({ name: "", next: "/admin" });
+    } catch (err) {
+      setError(err instanceof ApiClientError ? err.message : "Ouverture du restaurant exemple impossible");
+      setLoading(null);
+    }
+  };
   // Lien « Essayer la démo » (e-mail de bienvenue, site vitrine) : /login?demo=1 ouvre directement le compte d'exemple
   const autoDemo = useRef(false);
   useEffect(() => {
     if (params.get("demo") !== "1" || autoDemo.current) return;
     autoDemo.current = true;
-    demo();
+    void demo();
   }); // une seule fois, à l'arrivée sur la page
 
   if (welcome) return <WelcomeSplash name={welcome.name} onDone={() => router.replace(welcome.next)} />;

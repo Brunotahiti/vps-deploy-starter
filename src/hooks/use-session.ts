@@ -19,6 +19,12 @@ export type Me = {
   subscription?: import("@/lib/plan").SubscriptionInfo;
   platformAdmin?: boolean;
   impersonation?: { by: string } | null;
+  /** Page publique (site) de l'établissement en cours */
+  publicSitePath?: string | null;
+  /** Compte du restaurant exemple */
+  isDemo?: boolean;
+  /** Visite du restaurant exemple depuis son propre compte (« Revenir à mon restaurant ») */
+  demoVisit?: { returnTo: { firstName: string; establishmentName: string | null } } | null;
 };
 
 /** Copie locale du profil (IndexedDB), effacée à la déconnexion (purgeLocalData). */
