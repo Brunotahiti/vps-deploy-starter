@@ -46,6 +46,8 @@ Le script enregistre la clé SSH et les secrets GitHub (`VPS_SSH_KEY`, `VPS_HOST
 | Restaurer une sauvegarde | `… 'bash /opt/manaresto/scripts/db-restore.sh /var/backups/manaresto/<fichier>.sql.gz'` |
 | Sauvegardes chiffrées | ajouter `BACKUP_PASSPHRASE=…` dans `/opt/manaresto/.env` (AES-256, déchiffrement automatique à la restauration) |
 | Certificat HTTPS absent (Cloudflare répond 526) | Traefik ne demande le certificat qu'à la mise en place du routeur ; si le DNS n'existait pas encore à ce moment, la demande a échoué et n'est pas réessayée. Mettre le DNS en place **avant** le premier déploiement. Sinon, Traefik refait toutes les demandes manquantes à son redémarrage : `docker restart traefik` (coupure d'environ une seconde pour tous les sites, configuration et certificats existants intacts), puis vérifier `docker exec traefik grep -c manaresto.manaprocess.cloud /letsencrypt/acme.json` (≥ 1). |
+| Serveur lent : diagnostic (lecture seule) | `ssh -i ~/.ssh/manaresto_vps root@187.127.105.242 'bash -s' < scripts/vps-diagnose.sh` : charge, mémoire et swap, disque, journaux Docker, conteneurs qui redémarrent, processus tués faute de mémoire |
+| Serveur lent : libérer le disque | `… 'bash /opt/manaresto/scripts/vps-cleanup.sh'` : images orphelines, cache de construction de plus de 7 jours, journaux Docker de plus de 50 Mo, journal système limité à 200 Mo. Ne supprime aucun conteneur ni volume (autres sites, bases, certificats Traefik). Le cache de construction est déjà purgé à chaque déploiement. |
 | Désactiver la démo | mettre `SEED_DEMO=false` dans `/opt/manaresto/.env` (la démo déjà chargée reste en base ; supprimer l'entreprise « demo-mana-beach » si besoin) |
 
 ## E-mails (Brevo, adresse contact@manaresto.com)

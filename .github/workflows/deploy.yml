@@ -97,6 +97,8 @@ jobs:
             docker compose up -d
             (docker compose exec -T site nginx -s reload >/dev/null 2>&1 || true)
             docker image prune -f
+            # Cache de construction : l'application est construite sur le serveur, il grossit à chaque déploiement
+            docker builder prune -f --filter until=168h >/dev/null
             docker compose ps
           EOF
 
