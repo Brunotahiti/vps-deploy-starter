@@ -2,12 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChefHat, Flame, Printer, Volume2, VolumeX, Maximize2, Minimize2, Moon, Sun, LogOut, LayoutGrid, Check, RotateCcw, Wifi, WifiOff, History } from "lucide-react";
 import { api, ApiClientError } from "@/lib/api-client";
 import { warmOfflinePages } from "@/lib/offline/snapshot";
-import { useSession } from "@/hooks/use-session";
+import { purgeLocalData } from "@/lib/offline/purge";
+import { markLogoutPending, useSession } from "@/hooks/use-session";
 import { useRealtime } from "@/hooks/use-realtime";
 import { useTheme } from "@/hooks/use-theme";
 import { useToast } from "@/components/ui/toast";
@@ -39,12 +39,11 @@ function beep() {
 }
 
 export function KdsScreen() {
-  const router = useRouter();
   const qc = useQueryClient();
   const { toast } = useToast();
   const { me, can, isLoading } = useSession();
   const { toggle } = useTheme();
-  useEffect(() => { if (me?.user) warmOfflinePages(); }, [me?.user]); // écrans enregistrés pour les coupures
+  useEffect(() => (me?.user ? warmOfflinePages() : undefined), [me?.user]); // écrans enregistrés pour les coupures
   const [stationId, setStationId] = useState<string>(() => { try { return localStorage.getItem("mr-kds-station") || ALL; } catch { return ALL; } });
   const [view, setView] = useState<View>("active");
   const [sound, setSound] = useState<boolean>(() => { try { return localStorage.getItem("mr-kds-sound") !== "off"; } catch { return true; } });
@@ -100,7 +99,7 @@ export function KdsScreen() {
     if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
     else document.documentElement.requestFullscreen?.().catch(() => toast("Plein écran non disponible sur cet appareil : utilisez « Ajouter à l'écran d'accueil »", "info"));
   }, [toast]);
-  const logout = async () => { await api.post("/api/auth/logout"); qc.clear(); router.replace(me?.terminal ? "/kds/login" : "/login"); };
+  const logout = async () => { await api.post("/api/auth/logout").catch(() => markLogoutPending()); await purgeLocalData({ keepWorkingCopy: !!me?.terminal }); qc.clear(); window.location.replace(me?.terminal ? "/kds/login" : "/login"); }; // rechargement complet : état propre, même sans réseau
 
   const list = useMemo(() => {
     const all = tickets.data ?? [];

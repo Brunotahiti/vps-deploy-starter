@@ -2,7 +2,9 @@ import { cache } from "react";
 import { prisma } from "@/server/db";
 import { ApiError } from "@/server/errors";
 import { hasPermission, type PermissionKey } from "@/lib/permissions";
+import { headers } from "next/headers";
 import { findSessionByToken, getSessionToken, getTerminalFromCookie } from "./session";
+import { findOfflinePass } from "@/server/services/offline-pass";
 import type { Establishment, Terminal, User } from "@/generated/prisma/client";
 
 export type AuthContext = {
@@ -17,12 +19,30 @@ export type AuthContext = {
   impersonatorId: string | null;
 };
 
+/** En-tête des opérations faites hors ligne : laissez-passer de l'employé qui les a saisies (voir offline-pass.ts). */
+export const OFFLINE_PASS_HEADER = "x-offline-pass";
+
 async function loadContext(): Promise<AuthContext | null> {
+  // Opération saisie hors ligne puis rejouée : attribuée à l'employé qui l'a faite, même si la session de la tablette
+  // a expiré ou appartient à un autre. Laissez-passer invalide (révoqué, expiré) : la session de la tablette prend le relais.
+  const passToken = (await headers()).get(OFFLINE_PASS_HEADER);
+  if (passToken) {
+    const terminal = await getTerminalFromCookie();
+    const pass = terminal ? await findOfflinePass(passToken, terminal.id) : null;
+    if (pass) {
+      const { organization: _org, ...user } = pass.user;
+      void _org;
+      return buildContext({ id: pass.id, userId: pass.userId, establishmentId: pass.establishmentId, impersonatorId: null, user });
+    }
+  }
   const token = await getSessionToken();
   if (!token) return null;
   const session = await findSessionByToken(token);
   if (!session) return null;
+  return buildContext(session);
+}
 
+async function buildContext(session: { id: string; userId: string; establishmentId: string | null; impersonatorId: string | null; user: User }): Promise<AuthContext> {
   const memberships = await prisma.userEstablishment.findMany({
     where: { userId: session.userId, establishment: { isActive: true } },
     include: { establishment: true, role: { include: { permissions: true } } },

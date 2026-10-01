@@ -1,5 +1,8 @@
 import { defineConfig } from "@playwright/test";
 
+// Les requêtes du service worker passent par context.route : une coupure simulée les coupe aussi (tests hors ligne)
+process.env.PW_EXPERIMENTAL_SERVICE_WORKER_NETWORK_EVENTS ??= "1";
+
 /**
  * Tests E2E ManaResto. Cible un serveur déjà démarré (E2E_BASE_URL, défaut http://localhost:3100)
  * avec la base de démonstration (pnpm db:seed).

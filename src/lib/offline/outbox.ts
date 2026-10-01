@@ -51,7 +51,8 @@ class Outbox {
   /**
    * Rejoue les opérations dans l'ordre. Règles :
    * - succès → retirée de la file ;
-   * - 401/403 (session expirée, droits) → GARDÉE, synchronisation suspendue jusqu'à la reconnexion ;
+   * - 401 (session expirée) → GARDÉE, synchronisation suspendue jusqu'à la reconnexion ;
+   * - 403 (droits insuffisants) → refus définitif, comme ci-dessous : il ne doit pas bloquer le reste de la file ;
    * - autre refus définitif (4xx) → retirée mais conservée dans le journal « outbox-failed » (jamais perdue en silence) ;
    * - erreur réseau / 5xx → gardée, nouvel essai plus tard ;
    * - table ouverte entre-temps sur un autre appareil → la suite de la file vise la commande existante (voir merge.ts).
@@ -83,7 +84,7 @@ class Outbox {
         try {
           const res = await fetch(e.url, {
             method: e.method, credentials: "same-origin",
-            headers: { "Content-Type": "application/json", Accept: "application/json", "Idempotency-Key": e.idempotencyKey, "X-Offline-Replay": "1" },
+            headers: { ...e.headers, "Content-Type": "application/json", Accept: "application/json", "Idempotency-Key": e.idempotencyKey, "X-Offline-Replay": "1" },
             body: e.body === undefined ? undefined : JSON.stringify(e.body),
           });
           if (res.ok) {
@@ -100,7 +101,7 @@ class Outbox {
             await del(e.id);
             continue;
           }
-          if (res.status === 401 || res.status === 403) {
+          if (res.status === 401) {
             authRequired = true;
             this.lastError = "Session expirée : reconnectez-vous pour transmettre les opérations en attente";
             await put({ ...e, attempts: e.attempts + 1, lastError: `HTTP ${res.status}` });

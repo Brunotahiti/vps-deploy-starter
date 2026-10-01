@@ -12,6 +12,7 @@ import { Logo } from "@/components/brand";
 import { WelcomeSplash } from "@/components/welcome-splash";
 import { InstallAppButton } from "@/components/install-app";
 import { PORTALS, rememberPortal, type PortalMode } from "./portals";
+import { setActivePass, syncOfflinePasses, unlockWithPin } from "@/lib/offline/passes";
 
 const KEYS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "C", "0", "⌫"] as const;
 
@@ -45,6 +46,9 @@ export function StaffPortal({ mode }: { mode: PortalMode }) {
   const [welcome, setWelcome] = useState<string | null>(null);
   const next = safeNext(params.get("next"), cfg.next);
 
+  // Laissez-passer à jour pour une prochaine coupure
+  useEffect(() => { syncOfflinePasses().catch(() => {}); }, []);
+
   // Déjà connecté avec l'accès de ce portail : directement à l'écran de l'équipe
   useEffect(() => {
     if (!welcome && me?.user && can(cfg.permission)) router.replace(next);
@@ -55,13 +59,25 @@ export function StaffPortal({ mode }: { mode: PortalMode }) {
     setLoading(true);
     setError(null);
     try {
-      const u = await api.post<{ firstName: string; displayName?: string | null }>("/api/auth/pin", { pin });
+      let u: { firstName: string; displayName?: string | null };
+      try {
+        u = await api.post<{ firstName: string; displayName?: string | null }>("/api/auth/pin", { pin });
+        // Laissez-passer de l'employé (opérations hors ligne signées à son nom), sans retarder l'entrée
+        syncOfflinePasses(true).then(() => unlockWithPin(pin)).then((p) => setActivePass(p ? { ...p, mode: "online" } : null)).catch(() => {});
+      } catch (err) {
+        if (!(err instanceof ApiClientError && err.isNetwork)) throw err;
+        // Pas d'internet : le PIN ouvre le laissez-passer gardé sur la tablette
+        const p = await unlockWithPin(pin);
+        if (!p) throw new ApiClientError(401, "INVALID_PIN", "PIN incorrect (hors ligne : seuls les employés déjà connectés une fois sur cette tablette peuvent entrer)");
+        await setActivePass({ ...p, mode: "offline" });
+        u = p;
+      }
       rememberPortal(mode);
       router.prefetch(next);
       setWelcome(u.displayName || u.firstName);
       await qc.invalidateQueries();
     } catch (err) {
-      setError(err instanceof ApiClientError ? err.message : "Connexion impossible, réessayez");
+      setError(err instanceof ApiClientError ? err.message : err instanceof Error ? err.message : "Connexion impossible, réessayez");
       setShake((n) => n + 1);
       setPin("");
       setLoading(false);

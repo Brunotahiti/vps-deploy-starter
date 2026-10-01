@@ -26,6 +26,7 @@ import { useOffline } from "@/lib/offline/provider";
 import { addFloorOverride, getLocalOrder, markOfflineOrderClosed, saveLocalOrder } from "@/lib/offline/local-orders";
 import { mergedOrderId } from "@/lib/offline/outbox";
 import { computeOrderTotals } from "@/lib/order-calc";
+import { applyBps } from "@/lib/money";
 import { ORDER_TYPE_LABEL, type Order, type OrderItem, type PosMenu, type PosProduct } from "./types";
 import { NumPad } from "@/components/ui/numpad";
 
@@ -425,13 +426,29 @@ export function OrderScreen({ orderId: orderIdProp }: { orderId: string }) {
       {menuOpen ? <ProductModal menu={menuOpen} products={catalog.data.products} onClose={() => setMenuOpen(null)} onAdd={async (c) => { addItem.mutate({ ...c, id: crypto.randomUUID() }); }} /> : null}
       {itemOpen ? <ItemModal order={o} item={o.items.find((i) => i.id === itemOpen.id) ?? itemOpen} onClose={() => setItemOpen(null)} onUpdate={updateItem} onRemove={removeItem} /> : null}
       {payOpen ? <PaymentModal key={o.paidTotal} order={o} methods={catalog.data.paymentMethods} open onClose={() => setPayOpen(false)} onPay={pay} onPaid={afterPayment} /> : null}
-      <PinModal request={pin} onClose={() => setPin(null)} />
       <CustomerDialog open={customerOpen} orderId={orderId} customerId={o.customerId} closed={closed} onClose={() => setCustomerOpen(false)} onChanged={() => { qc.invalidateQueries({ queryKey: ["order", orderId] }); qc.invalidateQueries({ queryKey: ["customer"] }); }} />
       {receipt ? <ReceiptDialog orderId={orderId} orderNumber={o.number} open afterPayment={receipt.afterPayment} onClose={() => { const after = receipt.afterPayment; setReceipt(null); if (after) router.push(o.tableId ? "/pos" : "/pos/orders"); }} /> : null}
-      <DiscountDialog open={dialog === "discount"} order={o} onClose={() => setDialog(null)} onApply={(body) => withPin(setPin, "pos.discount", (managerPin) => api.post<Order>(`/api/orders/${orderId}/discount`, { ...body, managerPin }).then(setOrder)).then(() => setDialog(null)).catch(onError)} />
-      <CancelDialog open={dialog === "cancel"} onClose={() => setDialog(null)} onConfirm={(reason) => withPin(setPin, "pos.cancel_order", (managerPin) => api.post<Order>(`/api/orders/${orderId}/cancel`, { reason, managerPin }).then(setOrder)).then(() => { setDialog(null); toast("Commande annulée"); router.push("/pos"); }).catch(onError)} />
+      <DiscountDialog open={dialog === "discount"} order={o} onClose={() => setDialog(null)} onApply={(body) => withPin(setPin, "pos.discount", (managerPin) => api.post<Order>(`/api/orders/${orderId}/discount`, { ...body, managerPin }).then(setOrder)).then(() => setDialog(null)).catch((e) => {
+        onError(e);
+        if (!isQueued(e)) return;
+        // Hors ligne : remise appliquée sur la tablette (même calcul que le serveur)
+        patchLocal((x) => { const amount = body.percentBps !== undefined ? applyBps(x.subtotal, body.percentBps) : (body.amount ?? 0); return { ...x, discountTotal: amount, discountReason: amount > 0 ? body.reason : null }; });
+        setDialog(null);
+      })} />
+      <CancelDialog open={dialog === "cancel"} onClose={() => setDialog(null)} onConfirm={(reason) => withPin(setPin, "pos.cancel_order", (managerPin) => api.post<Order>(`/api/orders/${orderId}/cancel`, { reason, managerPin }).then(setOrder)).then(() => { setDialog(null); toast("Commande annulée"); router.push("/pos"); }).catch((e) => {
+        onError(e);
+        if (!isQueued(e)) return;
+        // Hors ligne : commande annulée sur la tablette, table libérée sur le plan
+        patchLocal((x) => ({ ...x, status: "CANCELLED", cancelReason: reason, closedAt: new Date() }));
+        markOfflineOrderClosed(orderId).catch(() => {});
+        addFloorOverride("closedOrders", orderId).then(() => qc.invalidateQueries({ queryKey: ["floor"] })).catch(() => {});
+        setDialog(null);
+        router.push("/pos");
+      })} />
       <TransferDialog open={dialog === "transfer"} currentTableId={o.tableId} onClose={() => setDialog(null)} onPick={(tableId) => run(() => api.post<Order>(`/api/orders/${orderId}/transfer`, { tableId })).then((ok) => { if (ok) { setDialog(null); toast("Table transférée", "success"); } })} />
       {dialog === "covers" ? <CoversDialog key={`${o.covers}-${o.customerName ?? ""}`} open order={o} onClose={() => setDialog(null)} onSave={(body) => run(() => api.patch<Order>(`/api/orders/${orderId}`, body, { queueIfOffline: true }), (o) => ({ ...o, ...body })).then(() => setDialog(null))} /> : null}
+      {/* En dernier : la demande de PIN manager s'affiche au-dessus de la fenêtre qui l'a déclenchée (remise, annulation…) */}
+      <PinModal request={pin} onClose={() => setPin(null)} />
       {currentCourse?.status === "HOLD" ? <div className="pointer-events-none fixed bottom-24 right-4 rounded-lg bg-orange-500 px-3 py-1 text-xs font-bold text-white">Service « {currentCourse.name} » en attente</div> : null}
     </div>
   );

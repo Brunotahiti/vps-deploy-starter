@@ -6,7 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { LayoutDashboard, UtensilsCrossed, Map, Receipt, Wallet, Users, Settings, ScrollText, Building2, Moon, Sun, LogOut, Menu, X, Boxes, CalendarDays, Heart, QrCode, BarChart3, Clock, Plug, Network, TrendingUp, ShieldCheck, Printer, ChevronDown, Store, BookOpen, UsersRound, SlidersHorizontal, type LucideIcon } from "lucide-react";
-import { useSession } from "@/hooks/use-session";
+import { markLogoutPending, useSession } from "@/hooks/use-session";
 import { useRealtime } from "@/hooks/use-realtime";
 import { useTheme } from "@/hooks/use-theme";
 import { InstallAppButton, InstallBanner } from "@/components/install-app";
@@ -75,7 +75,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   };
 
   const switchEst = async (id: string) => { try { await api.post("/api/auth/switch-establishment", { establishmentId: id }); } catch { return; } await purgeLocalData(); qc.clear(); router.refresh(); qc.invalidateQueries(); };
-  const logout = async () => { if (!(await confirmLogoutWithPending())) return; await api.post("/api/auth/logout").catch(() => {}); await purgeLocalData(); qc.clear(); router.replace("/login"); };
+  const logout = async () => { if (!(await confirmLogoutWithPending())) return; await api.post("/api/auth/logout").catch(() => markLogoutPending()); await purgeLocalData(); qc.clear(); window.location.replace("/login"); }; // rechargement complet : état propre, même sans réseau
 
   const Sidebar = (
     <aside className="flex h-full w-[268px] flex-col border-r border-line surface">

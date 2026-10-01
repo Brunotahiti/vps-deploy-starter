@@ -1,5 +1,6 @@
 /** Client HTTP côté navigateur : enveloppe { data } / { error }, erreurs typées, support hors ligne. */
 import { outbox } from "./offline/outbox";
+import { forceQueue, liveHeaders, queuedHeaders } from "./offline/auth-state";
 
 export class ApiClientError extends Error {
   constructor(public status: number, public code: string, message: string, public details?: unknown) {
@@ -13,10 +14,13 @@ export class ApiClientError extends Error {
 type Options = { idempotencyKey?: string; queueIfOffline?: boolean; signal?: AbortSignal };
 
 async function request<T>(method: string, url: string, body?: unknown, opts: Options = {}): Promise<T> {
-  const headers: Record<string, string> = { Accept: "application/json" };
+  // Lu tout de suite (avant tout await) : une autorisation hors ligne vaut pour les requêtes lancées dans withOfflineAuth
+  const headers: Record<string, string> = { Accept: "application/json", ...liveHeaders() };
+  const queueHeaders = queuedHeaders();
+  const queueIfOffline = opts.queueIfOffline || forceQueue();
   if (body !== undefined) headers["Content-Type"] = "application/json";
   // Clé d'idempotence dès le PREMIER envoi : si la réponse se perd, le rejeu ne s'applique pas deux fois
-  const idempotencyKey = opts.idempotencyKey ?? (opts.queueIfOffline && method !== "GET" ? crypto.randomUUID() : undefined);
+  const idempotencyKey = opts.idempotencyKey ?? (queueIfOffline && method !== "GET" ? crypto.randomUUID() : undefined);
   if (idempotencyKey) headers["Idempotency-Key"] = idempotencyKey;
   // Délai maximal (Wi-Fi saturé) : au-delà, l'opération part en file d'attente au lieu de tourner indéfiniment
   const timeout = typeof AbortSignal !== "undefined" && "timeout" in AbortSignal ? AbortSignal.timeout(method === "GET" ? 15_000 : 12_000) : undefined;
@@ -26,8 +30,8 @@ async function request<T>(method: string, url: string, body?: unknown, opts: Opt
     res = await fetch(url, { method, headers, body: body === undefined ? undefined : JSON.stringify(body), credentials: "same-origin", signal });
   } catch (e) {
     if (opts.signal?.aborted) throw e; // annulation voulue par l'appelant : ni file d'attente ni erreur réseau
-    if (opts.queueIfOffline && method !== "GET") {
-      await outbox.enqueue({ method, url, body, idempotencyKey: idempotencyKey ?? crypto.randomUUID() });
+    if (queueIfOffline && method !== "GET") {
+      await outbox.enqueue({ method, url, body, idempotencyKey: idempotencyKey ?? crypto.randomUUID(), ...(Object.keys(queueHeaders).length ? { headers: queueHeaders } : {}) });
       throw new ApiClientError(0, "QUEUED", "Hors ligne : opération mise en file d'attente");
     }
     throw new ApiClientError(0, "NETWORK", "Connexion indisponible", e);
