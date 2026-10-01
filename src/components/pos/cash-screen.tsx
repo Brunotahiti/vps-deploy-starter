@@ -12,17 +12,23 @@ import { Money } from "@/components/money";
 import { formatDateTime } from "@/lib/dates";
 import { useSession } from "@/hooks/use-session";
 import { PinModal, withPin, type PinRequest } from "./pin-modal";
-import { PAYMENT_LABEL, type SessionReport } from "./types";
+import { PAYMENT_LABEL } from "./types";
 import { Archive } from "lucide-react";
 import { reportPrint, type PrintResult } from "@/lib/print-client";
+import { useOffline } from "@/lib/offline/provider";
+import { addCashMovementLocal, closeCashLocal, openCashLocal, useCashCurrent } from "@/lib/offline/cash-local";
+import { openDrawerLocal, type LocalPrinter } from "@/lib/offline/print-local";
+import { usePosCatalog } from "./use-catalog";
 
 const KIND_LABEL: Record<string, string> = { OPENING: "Ouverture", SALE: "Vente", REFUND: "Remboursement", PAY_IN: "Entrée", PAY_OUT: "Sortie", DEPOSIT: "Dépôt", CORRECTION: "Correction", CLOSING: "Clôture" };
 
 export function CashScreen() {
   const qc = useQueryClient();
   const { toast } = useToast();
-  const { can, timezone } = useSession();
-  const current = useQuery({ queryKey: ["cash", "current"], queryFn: () => api.get<SessionReport | null>("/api/cash/current") });
+  const { can, timezone, me } = useSession();
+  const { online } = useOffline();
+  const current = useCashCurrent();
+  const userName = me?.user?.displayName || me?.user?.firstName || "";
   const [dialog, setDialog] = useState<"open" | "movement" | "close" | null>(null);
   const [amount, setAmount] = useState("");
   const [reason, setReason] = useState("");
@@ -32,7 +38,20 @@ export function CashScreen() {
 
   const refresh = () => { qc.invalidateQueries({ queryKey: ["cash"] }); };
   const err = (e: unknown) => { if (!(e instanceof ApiClientError && e.isPinRequired)) toast(e instanceof ApiClientError ? e.message : "Erreur", "error"); };
-  const wrap = (fn: () => Promise<unknown>) => async () => { setLoading(true); try { await fn(); setDialog(null); setAmount(""); setReason(""); refresh(); } catch (e) { err(e); } finally { setLoading(false); } };
+  const isQueued = (e: unknown) => e instanceof ApiClientError && e.code === "QUEUED";
+  /**
+   * Exécute une opération de caisse ; sans internet, elle part en file d'attente et `local` l'applique
+   * à la copie de la caisse tenue sur la tablette (espèces théoriques à jour pendant la coupure).
+   */
+  const wrap = (fn: () => Promise<unknown>, local?: () => Promise<unknown>) => async () => {
+    setLoading(true);
+    const done = () => { setDialog(null); setAmount(""); setReason(""); refresh(); };
+    try { await fn(); done(); }
+    catch (e) {
+      if (isQueued(e) && local) { await local(); done(); }
+      else err(e);
+    } finally { setLoading(false); }
+  };
 
   if (current.isLoading) return <div className="flex h-full items-center justify-center"><Spinner /></div>;
   const s = current.data;
@@ -60,7 +79,7 @@ export function CashScreen() {
             {can("cash.movement") || can("cash.correct") ? <Button size="lg" variant="secondary" onClick={() => setDialog("movement")}>Entrée / sortie d&apos;espèces</Button> : null}
             {can("cash.close") ? <Button size="lg" variant="accent" onClick={() => setDialog("close")}>Clôturer la caisse</Button> : null}
             <DrawerButton />
-            <a className="touch inline-flex h-14 items-center rounded-xl border border-line px-6 text-base font-semibold" href={`/api/cash/${s.session.id}/report`} target="_blank" rel="noreferrer">Rapport X (impression)</a>
+            {online ? <a className="touch inline-flex h-14 items-center rounded-xl border border-line px-6 text-base font-semibold" href={`/api/cash/${s.session.id}/report`} target="_blank" rel="noreferrer">Rapport X (impression)</a> : <span className="inline-flex h-14 items-center rounded-xl bg-amber-500/10 px-4 text-sm font-semibold text-amber-700 dark:text-amber-300">Hors ligne : chiffres tenus sur cette tablette, rapport à la reconnexion</span>}
           </div>
           <div className="grid gap-4 md:grid-cols-2">
             <Card title="Ventes par moyen de paiement">
@@ -81,7 +100,7 @@ export function CashScreen() {
         <p className="mb-2 text-center text-xs uppercase text-muted">Fond de caisse</p>
         <p className="mb-3 text-center text-3xl font-bold"><Money amount={Number(amount || 0)} /></p>
         <div className="mb-2 grid grid-cols-3 gap-2">{[10000, 20000, 30000].map((v) => <button key={v} onClick={() => setAmount(String(v))} className="touch h-10 rounded-lg surface-2 text-sm font-bold"><Money amount={v} /></button>)}</div>
-        <NumPad value={amount} onChange={setAmount} onSubmit={wrap(() => api.post("/api/cash/open", { openingFloat: Number(amount || 0) }))} submitLabel="Ouvrir" disabled={loading} />
+        <NumPad value={amount} onChange={setAmount} onSubmit={(() => { const id = crypto.randomUUID(); const openingFloat = Number(amount || 0); return wrap(() => api.post("/api/cash/open", { id, openingFloat }, { idempotencyKey: id, queueIfOffline: true }), async () => { await openCashLocal(id, openingFloat, userName); toast("Hors ligne : caisse ouverte sur cette tablette, transmise à la reconnexion", "info"); }); })()} submitLabel="Ouvrir" disabled={loading} />
       </Modal>
 
       <Modal open={dialog === "movement"} onClose={() => setDialog(null)} title="Mouvement d'espèces" size="sm">
@@ -91,14 +110,17 @@ export function CashScreen() {
         <p className="mb-2 text-center text-3xl font-bold">{kind === "CORRECTION" && amount.startsWith("-") ? "−" : ""}<Money amount={Math.abs(Number(amount || 0))} /></p>
         <NumPad value={amount.replace("-", "")} onChange={(v) => setAmount((amount.startsWith("-") ? "-" : "") + v)} extraKeys={kind === "CORRECTION" ? [{ label: "±", onPress: () => setAmount(amount.startsWith("-") ? amount.slice(1) : "-" + amount) }] : undefined} />
         <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Motif (obligatoire)" className="mt-3 h-11 w-full rounded-xl border border-line surface px-3 text-sm" />
-        <Button className="mt-3 w-full" size="lg" loading={loading} disabled={!reason || Number(amount) === 0} onClick={wrap(() => withPin(setPin, kind === "CORRECTION" ? "cash.correct" : "cash.movement", (managerPin) => api.post(`/api/cash/${s?.session.id}/movements`, { kind, amount: Number(amount), reason, managerPin })))}>Enregistrer</Button>
+        <Button className="mt-3 w-full" size="lg" loading={loading} disabled={!reason || Number(amount) === 0} onClick={wrap(() => withPin(setPin, kind === "CORRECTION" ? "cash.correct" : "cash.movement", (managerPin) => api.post(`/api/cash/${s?.session.id}/movements`, { kind, amount: Number(amount), reason, managerPin })), async () => { await addCashMovementLocal(kind, Number(amount), reason, userName); toast("Hors ligne : mouvement enregistré, transmis à la reconnexion", "info"); })}>Enregistrer</Button>
       </Modal>
 
       <Modal open={dialog === "close"} onClose={() => setDialog(null)} title="Clôturer la caisse" size="sm">
         <div className="mb-3 rounded-xl surface-2 p-3 text-sm"><div className="flex justify-between"><span>Espèces théoriques</span><strong><Money amount={s?.summary.cashExpected ?? 0} /></strong></div><div className="flex justify-between"><span>Espèces comptées</span><strong><Money amount={Number(amount || 0)} /></strong></div><div className={`flex justify-between font-bold ${Number(amount || 0) - (s?.summary.cashExpected ?? 0) === 0 ? "text-green-600" : "text-red-600"}`}><span>Écart</span><Money amount={Number(amount || 0) - (s?.summary.cashExpected ?? 0)} /></div></div>
         <NumPad value={amount} onChange={setAmount} />
         <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Commentaire (facultatif)" className="mt-3 h-11 w-full rounded-xl border border-line surface px-3 text-sm" />
-        <Button variant="accent" className="mt-3 w-full" size="lg" loading={loading} disabled={amount === ""} onClick={wrap(async () => { await api.post(`/api/cash/${s?.session.id}/close`, { countedCash: Number(amount), notes: reason || null }); toast("Caisse clôturée", "success"); })}>Confirmer la clôture</Button>
+        <Button variant="accent" className="mt-3 w-full" size="lg" loading={loading} disabled={amount === ""} onClick={wrap(async () => { await api.post(`/api/cash/${s?.session.id}/close`, { countedCash: Number(amount), notes: reason || null }, { queueIfOffline: true }); toast("Caisse clôturée", "success"); }, async () => {
+          const r = await closeCashLocal(Number(amount));
+          toast(`Hors ligne : caisse clôturée sur cette tablette (écart ${r.difference > 0 ? "+" : ""}${r.difference} F). Le rapport définitif est calculé à la reconnexion.`, "info");
+        })}>Confirmer la clôture</Button>
       </Modal>
       <PinModal request={pin} onClose={() => setPin(null)} />
     </div>
@@ -112,15 +134,25 @@ function DrawerButton() {
   const { toast } = useToast();
   const { can } = useSession();
   const allowed = can("pos.open_drawer");
+  const { me } = useSession();
   const drawer = useQuery({ queryKey: ["drawer"], queryFn: () => api.get<{ available: boolean }>("/api/hardware/drawer"), enabled: allowed, staleTime: 60_000 });
+  const printers = (usePosCatalog(allowed).data?.printers ?? []) as LocalPrinter[];
+  // Sans internet : tiroir branché sur une imprimante de l'agent local
+  const localDrawer = printers.some((p) => p.hasDrawer && p.driver === "agent" && p.agentUrl);
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
-  if (!allowed || !drawer.data?.available) return null;
+  if (!allowed || !(drawer.data?.available || localDrawer)) return null;
   const go = async () => {
     setBusy(true);
     try { await reportPrint(await api.post<PrintResult>("/api/hardware/drawer", { reason: reason.trim() || null }), toast, "Tiroir-caisse"); setOpen(false); setReason(""); }
-    catch (e) { toast(e instanceof ApiClientError ? e.message : "Ouverture impossible", "error"); }
+    catch (e) {
+      const offline = e instanceof ApiClientError && e.isNetwork;
+      if (offline && localDrawer) {
+        try { await openDrawerLocal(printers, me?.terminal?.id); toast("Tiroir ouvert (hors ligne, par l'agent d'impression)", "success"); setOpen(false); setReason(""); }
+        catch { toast("Agent d'impression injoignable depuis cet appareil", "error"); }
+      } else toast(e instanceof ApiClientError ? e.message : "Ouverture impossible", "error");
+    }
     finally { setBusy(false); }
   };
   return (

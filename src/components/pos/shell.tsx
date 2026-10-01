@@ -1,11 +1,12 @@
 "use client";
 
 import { useOfflineSnapshot } from "@/lib/offline/snapshot";
+import { useCashCurrent } from "@/lib/offline/cash-local";
 import { VersionBadge } from "@/components/version-badge";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { LayoutGrid, ListOrdered, Wallet, Settings, Moon, Sun, LogOut, Wifi, WifiOff, RefreshCw, ChefHat, Download, Menu, X, ChevronRight, Clock, CalendarDays } from "lucide-react";
 import { markLogoutPending, useSession } from "@/hooks/use-session";
 import { useRealtime } from "@/hooks/use-realtime";
@@ -20,7 +21,6 @@ import { PortalButtons } from "@/components/portal/portal-buttons";
 import { Logo } from "@/components/brand";
 import { api } from "@/lib/api-client";
 import { Money } from "@/components/money";
-import type { SessionReport } from "@/components/pos/types";
 import { TodoButton, TodoPanel, useServiceReminders } from "./service-todo";
 
 export function PosShell({ children }: { children: React.ReactNode }) {
@@ -40,7 +40,7 @@ export function PosShell({ children }: { children: React.ReactNode }) {
   const setTodo = (open: boolean) => { setTodoState(open); if (open) qc.invalidateQueries({ queryKey: ["service"] }); };
   const dueCount = reminders.data?.due.length ?? 0;
   const lateAny = reminders.data?.due.some((r) => r.late) ?? false;
-  const cash = useQuery({ queryKey: ["cash", "current"], queryFn: () => api.get<SessionReport | null>("/api/cash/current"), enabled: posAllowed });
+  const cash = useCashCurrent(posAllowed);
   // Un compte sans accès caisse (ex. rôle Cuisine) est envoyé vers son écran, sans charger la salle
   useEffect(() => {
     if (me?.user && !can("pos.use")) router.replace(can("kds.use") ? "/kds" : "/admin");

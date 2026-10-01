@@ -27,6 +27,8 @@ import { addFloorOverride, getLocalOrder, markOfflineOrderClosed, saveLocalOrder
 import { mergedOrderId } from "@/lib/offline/outbox";
 import { computeOrderTotals } from "@/lib/order-calc";
 import { applyBps } from "@/lib/money";
+import { addSaleLocal } from "@/lib/offline/cash-local";
+import { colsFor, kitchenTickets, openDrawerLocal, printLocal, type LocalOrder, type LocalPrinter } from "@/lib/offline/print-local";
 import { ORDER_TYPE_LABEL, type Order, type OrderItem, type PosMenu, type PosProduct } from "./types";
 import { NumPad } from "@/components/ui/numpad";
 
@@ -44,7 +46,7 @@ export function OrderScreen({ orderId: orderIdProp }: { orderId: string }) {
   const router = useRouter();
   const qc = useQueryClient();
   const { toast } = useToast();
-  const { can } = useSession();
+  const { can, me } = useSession();
   const catalog = usePosCatalog();
   const { online, pending } = useOffline();
   // Table ouverte hors ligne alors qu'un autre appareil l'avait déjà ouverte : on rejoint la commande existante
@@ -140,10 +142,37 @@ export function OrderScreen({ orderId: orderIdProp }: { orderId: string }) {
     setSending(true);
     const now = new Date();
     const key = crypto.randomUUID(); // une clé par intention d'envoi (rejeu hors ligne sans doublon)
+    let queuedSent: { order: Order; ids: string[] } | null = null;
     return run(() => api.post<Order>(`/api/orders/${orderId}/send`, opts, { idempotencyKey: key, queueIfOffline: true }),
-      (o) => ({ ...o, status: o.status === "OPEN" ? "SENT" : o.status, items: o.items.map((i) => (i.status === "PENDING" && (opts.all || i.courseId === opts.courseId) ? { ...i, status: "SENT", sentAt: now } : i)), courses: o.courses.map((c) => (opts.all || c.id === opts.courseId ? { ...c, status: "SENT", sentAt: now } : c)) }))
-      .then((ok) => { if (ok) toast(online ? "Envoyé en cuisine" : "Envoi enregistré, transmis en cuisine à la reconnexion", online ? "success" : "info"); })
+      (o) => {
+        const ids = o.items.filter((i) => i.status === "PENDING" && (opts.all || i.courseId === opts.courseId)).map((i) => i.id);
+        const next: Order = { ...o, status: o.status === "OPEN" ? "SENT" : o.status, items: o.items.map((i) => (ids.includes(i.id) ? { ...i, status: "SENT", sentAt: now } : i)), courses: o.courses.map((c) => (opts.all || c.id === opts.courseId ? { ...c, status: "SENT", sentAt: now } : c)) };
+        queuedSent = { order: next, ids };
+        return next;
+      })
+      .then(async (ok) => {
+        if (!ok) return;
+        if (!queuedSent) return toast("Envoyé en cuisine", "success");
+        // Sans internet : bons cuisine imprimés tout de suite sur l'imprimante du poste (agent d'impression du réseau local)
+        const printed = await printKitchenLocal(queuedSent.order, queuedSent.ids);
+        toast(printed ? "Hors ligne : bon cuisine imprimé, envoi transmis à l'écran cuisine à la reconnexion" : "Envoi enregistré, transmis en cuisine à la reconnexion", "info");
+      })
       .finally(() => setSending(false));
+  };
+  const localPrinters = (catalog.data?.printers ?? []) as LocalPrinter[];
+  /** Bons cuisine imprimés sans internet ; retourne le nombre de bons imprimés. */
+  const printKitchenLocal = async (ord: Order, ids: string[]) => {
+    const kitchen = localPrinters.filter((p) => p.kind === "KITCHEN" && p.driver === "agent" && p.agentUrl);
+    if (!kitchen.length) return 0;
+    let n = 0;
+    for (const t of kitchenTickets(ord as unknown as LocalOrder, ids, catalog.data?.stations ?? [], me?.establishment?.timezone, colsFor(kitchen[0].paperWidthMm))) {
+      // Imprimante du poste, sinon l'imprimante cuisine commune (même choix que le serveur)
+      const target = kitchen.find((p) => p.stationId === t.stationId) ?? kitchen.find((p) => !p.stationId);
+      if (!target) continue;
+      try { await printLocal(target, t.ops, "Bon cuisine"); n++; }
+      catch { toast(`Imprimante « ${target.name} » injoignable`, "error"); }
+    }
+    return n;
   };
   const setCourseStatus = (cid: string, status: "PENDING" | "HOLD" | "FIRE" | "SERVED") =>
     run(() => api.post<Order>(`/api/orders/${orderId}/courses/${cid}`, { status }, { queueIfOffline: true }), (o) => ({ ...o, courses: o.courses.map((c) => (c.id === cid ? { ...c, status } : c)) }));
@@ -169,6 +198,9 @@ export function OrderScreen({ orderId: orderIdProp }: { orderId: string }) {
       const paid = cur.paidTotal + body.reduce((a, p) => a + p.amount, 0);
       const next: Order = { ...cur, paidTotal: paid, tipTotal: cur.tipTotal, payments: [...cur.payments, ...body.map((p) => ({ id: p.id, establishmentId: cur.establishmentId, orderId, cashSessionId: null, receivedById: null, method: p.method as Order["payments"][number]["method"], status: "COMPLETED" as const, amount: p.amount, tipAmount: 0, tendered: p.tendered ?? null, changeGiven: p.tendered ? Math.max(0, p.tendered - p.amount - (0)) : 0, refundedAmount: 0, reference: p.reference ?? null, splitLabel: p.splitLabel ?? null, providerRef: null, createdAt: new Date(), refunds: [] }))], ...(paid >= cur.total ? { status: "PAID" as const, closedAt: new Date() } : {}) };
       setOrder(next);
+      // Caisse tenue sur la tablette (espèces théoriques) et tiroir ouvert par l'agent local pour les espèces
+      addSaleLocal(body.map((p) => ({ method: p.method, amount: p.amount })), cur.number, me?.user?.displayName || me?.user?.firstName || "").then(() => qc.invalidateQueries({ queryKey: ["cash"] })).catch(() => {});
+      if (body.some((p) => p.method === "CASH")) openDrawerLocal(localPrinters, me?.terminal?.id).catch(() => toast("Tiroir-caisse : agent d'impression injoignable", "error"));
       if (next.status === "PAID") {
         setPayOpen(false); markOfflineOrderClosed(orderId).catch(() => {}); qc.invalidateQueries({ queryKey: ["offline-orders"] }); setReceipt({ afterPayment: true });
         // Plan de salle hors ligne : la table se libère tout de suite (comme le fera le serveur à la synchronisation)
@@ -427,7 +459,7 @@ export function OrderScreen({ orderId: orderIdProp }: { orderId: string }) {
       {itemOpen ? <ItemModal order={o} item={o.items.find((i) => i.id === itemOpen.id) ?? itemOpen} onClose={() => setItemOpen(null)} onUpdate={updateItem} onRemove={removeItem} /> : null}
       {payOpen ? <PaymentModal key={o.paidTotal} order={o} methods={catalog.data.paymentMethods} open onClose={() => setPayOpen(false)} onPay={pay} onPaid={afterPayment} /> : null}
       <CustomerDialog open={customerOpen} orderId={orderId} customerId={o.customerId} closed={closed} onClose={() => setCustomerOpen(false)} onChanged={() => { qc.invalidateQueries({ queryKey: ["order", orderId] }); qc.invalidateQueries({ queryKey: ["customer"] }); }} />
-      {receipt ? <ReceiptDialog orderId={orderId} orderNumber={o.number} open afterPayment={receipt.afterPayment} onClose={() => { const after = receipt.afterPayment; setReceipt(null); if (after) router.push(o.tableId ? "/pos" : "/pos/orders"); }} /> : null}
+      {receipt ? <ReceiptDialog order={o} printers={localPrinters} orderId={orderId} orderNumber={o.number} open afterPayment={receipt.afterPayment} onClose={() => { const after = receipt.afterPayment; setReceipt(null); if (after) router.push(o.tableId ? "/pos" : "/pos/orders"); }} /> : null}
       <DiscountDialog open={dialog === "discount"} order={o} onClose={() => setDialog(null)} onApply={(body) => withPin(setPin, "pos.discount", (managerPin) => api.post<Order>(`/api/orders/${orderId}/discount`, { ...body, managerPin }).then(setOrder)).then(() => setDialog(null)).catch((e) => {
         onError(e);
         if (!isQueued(e)) return;

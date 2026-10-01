@@ -317,7 +317,7 @@ export async function upsertKitchenStation(actor: Actor, input: { id?: string; n
 // ---------------------------------------------------------------- Snapshot POS (cache hors ligne)
 /** Catalogue complet pour la caisse, en une requête, mis en cache côté client (IndexedDB). */
 export async function getPosCatalog(establishmentId: string) {
-  const [categories, products, menus, taxRates, stations, paymentMethods] = await Promise.all([
+  const [categories, products, menus, taxRates, stations, paymentMethods, printerRows] = await Promise.all([
     prisma.category.findMany({ where: { establishmentId, isActive: true }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }], select: { id: true, name: true, color: true, parentId: true, sortOrder: true, imageUrl: true } }),
     prisma.product.findMany({
       where: { establishmentId, isActive: true },
@@ -333,6 +333,7 @@ export async function getPosCatalog(establishmentId: string) {
     listTaxRates(establishmentId),
     listKitchenStations(establishmentId),
     prisma.paymentMethodConfig.findMany({ where: { establishmentId, isEnabled: true }, orderBy: { sortOrder: "asc" } }),
+    prisma.printer.findMany({ where: { establishmentId, isActive: true }, orderBy: { name: "asc" }, select: { id: true, name: true, kind: true, driver: true, connection: true, paperWidthMm: true, stationId: true, terminalId: true, hasDrawer: true, drawerPin: true } }),
   ]);
   return {
     generatedAt: new Date().toISOString(),
@@ -342,6 +343,8 @@ export async function getPosCatalog(establishmentId: string) {
     taxRates,
     stations,
     paymentMethods,
+    // Imprimantes, pour imprimer sans internet depuis la tablette (agent local) : aucune donnée secrète
+    printers: printerRows.map(({ connection, ...p }) => ({ ...p, agentUrl: p.driver === "agent" ? ((connection as { agentUrl?: string } | null)?.agentUrl ?? null) : null })),
   };
 }
 

@@ -57,3 +57,30 @@ describe("coupure d'internet : les espèces encaissées hors ligne ne sont jamai
     expect((await getSessionReport(T.est.id, next.session.id)).summary.cashExpected).toBe(o.total);
   });
 });
+
+describe("caisse ouverte sans internet : rejeu sans doublon", () => {
+  beforeAll(async () => {
+    for (const s of await prisma.cashSession.findMany({ where: { establishmentId: T.est.id, status: "OPEN" } })) await closeSession(T.managerActor, s.id, { countedCash: 0 });
+  });
+
+  it("l'ouverture rejouée avec le même identifiant renvoie la même session", async () => {
+    const id = crypto.randomUUID();
+    const a = await openSession(T.managerActor, { id, openingFloat: 15000 }, { offlineReplay: true });
+    expect(a.session.id).toBe(id);
+    const b = await openSession(T.managerActor, { id, openingFloat: 15000 }, { offlineReplay: true });
+    expect(b.session.id).toBe(id);
+    expect(await prisma.cashSession.count({ where: { establishmentId: T.est.id, status: "OPEN" } })).toBe(1);
+    await closeSession(T.managerActor, id, { countedCash: 15000 });
+  });
+
+  it("caisse déjà ouverte sur ce terminal : la tablette la rejoint, le fond saisi hors ligne est tracé", async () => {
+    const open = await openSession(T.managerActor, { openingFloat: 20000 });
+    const offlineId = crypto.randomUUID();
+    const r = await openSession(T.managerActor, { id: offlineId, openingFloat: 12000 }, { offlineReplay: true });
+    expect(r.session.id).toBe(open.session.id);
+    expect(await prisma.auditLog.count({ where: { action: "cash.open_offline_merged", entityId: open.session.id } })).toBe(1);
+    // Saisie normale : toujours refusée
+    await expect(openSession(T.managerActor, { openingFloat: 1 })).rejects.toMatchObject({ code: "ALREADY_OPEN" });
+    await closeSession(T.managerActor, open.session.id, { countedCash: 20000 });
+  });
+});

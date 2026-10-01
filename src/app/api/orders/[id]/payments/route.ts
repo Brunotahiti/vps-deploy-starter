@@ -12,9 +12,11 @@ export const POST = route<{ id: string }>(async (req, { params }) => {
   // "Offert" est une remise à 100 % : nécessite la permission remise ou un PIN manager
   const actor = body.payments.some((p) => p.method === "COMPLIMENTARY") ? await authorizeSensitive(ctx, "pos.discount", body.managerPin) : actorFrom(ctx);
   return withIdempotency(req, ctx.establishment.id, async () => {
-    const result = await addPayments(actor, params.id, body.payments, { offlineReplay: req.headers.get("x-offline-replay") === "1" });
-    // Tiroir-caisse : ouvert pour les moyens qui le demandent (espèces par défaut), seulement pour les paiements réellement créés
-    if (result.payments.length) await openDrawerAfterPayment(actor, [...new Set(result.payments.map((p) => p.method))]);
+    const offlineReplay = req.headers.get("x-offline-replay") === "1";
+    const result = await addPayments(actor, params.id, body.payments, { offlineReplay });
+    // Tiroir-caisse : ouvert pour les moyens qui le demandent (espèces par défaut), seulement pour les paiements réellement créés.
+    // Jamais au rejeu d'un encaissement fait hors ligne : le tiroir s'est ouvert à ce moment-là (agent local), pas au retour du réseau.
+    if (result.payments.length && !offlineReplay) await openDrawerAfterPayment(actor, [...new Set(result.payments.map((p) => p.method))]);
     return ok(result);
   });
 });

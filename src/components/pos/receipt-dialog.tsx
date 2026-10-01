@@ -9,14 +9,17 @@ import { api, ApiClientError } from "@/lib/api-client";
 import { reportPrint, type PrintResult } from "@/lib/print-client";
 import { useToast } from "@/components/ui/toast";
 import { useSession } from "@/hooks/use-session";
+import { colsFor, pickReceiptPrinter, printLocal, receiptOps, type LocalOrder, type LocalPrinter } from "@/lib/offline/print-local";
+import { useOffline } from "@/lib/offline/provider";
 
 /**
  * Choix du reçu après paiement (ou depuis le bouton Ticket) :
  * imprimer, télécharger le PDF, ou l'envoyer par e-mail au client.
  */
-export function ReceiptDialog({ orderId, orderNumber, open, onClose, title = "Reçu", afterPayment = false }: { orderId: string; orderNumber?: string; open: boolean; onClose: () => void; title?: string; afterPayment?: boolean }) {
+export function ReceiptDialog({ orderId, orderNumber, open, onClose, title = "Reçu", afterPayment = false, order, printers: localPrinters = [] }: { orderId: string; orderNumber?: string; open: boolean; onClose: () => void; title?: string; afterPayment?: boolean; order?: unknown; printers?: LocalPrinter[] }) {
   const { toast } = useToast();
   const { me } = useSession();
+  const { online } = useOffline();
   const emailEnabled = me?.features?.email ?? false;
   const [email, setEmail] = useState("");
   const [sending, setSending] = useState(false);
@@ -24,13 +27,28 @@ export function ReceiptDialog({ orderId, orderNumber, open, onClose, title = "Re
   const printers = useQuery({ queryKey: ["printers"], queryFn: () => api.get<{ id: string; name: string; kind: string; driver: string; isActive: boolean; terminalId: string | null }[]>("/api/printers"), enabled: open, staleTime: 300_000 });
   // Imprimante de cette caisse en priorité, sinon une imprimante commune à toutes les caisses
   const receiptPrinters = (printers.data ?? []).filter((p) => p.kind === "RECEIPT" && p.isActive && p.driver !== "browser" && (!p.terminalId || p.terminalId === me?.terminal?.id)).sort((a, b) => Number(b.terminalId === me?.terminal?.id) - Number(a.terminalId === me?.terminal?.id));
+  // Imprimante de ticket : liste du serveur, ou celle gardée dans le catalogue de la tablette (sans internet, la liste du serveur manque)
+  const thermal: { id: string; name: string } | null = receiptPrinters[0] ?? (order ? pickReceiptPrinter(localPrinters.filter((p) => p.driver !== "browser"), me?.terminal?.id) : null);
   const [printing, setPrinting] = useState(false);
   /** Impression thermique : imprimante connectée (file d'attente), réseau (serveur) ou agent local (relais du navigateur). */
   const printThermal = async (printerId: string) => {
     setPrinting(true);
     try { await reportPrint(await api.post<PrintResult>("/api/print", { printerId, kind: "receipt", orderId }), toast); }
-    catch (e) { toast(e instanceof ApiClientError ? e.message : "Impression impossible", "error"); }
+    catch (e) { if (e instanceof ApiClientError && (e.isNetwork || e.code === "OFFLINE") && order) await printOffline(); else toast(e instanceof ApiClientError ? e.message : "Impression impossible", "error"); }
     finally { setPrinting(false); }
+  };
+  /**
+   * Sans internet : ticket construit sur la tablette, envoyé à l'imprimante du réseau local (agent d'impression)
+   * ou imprimé par le navigateur. Une imprimante pilotée par le serveur n'est pas joignable pendant la coupure.
+   */
+  const printOffline = async () => {
+    if (!order) return;
+    const printer = pickReceiptPrinter(localPrinters, me?.terminal?.id);
+    try {
+      const est = me?.establishment ?? { name: "" };
+      const how = await printLocal(printer?.driver === "agent" || printer?.driver === "browser" ? printer : null, receiptOps(order as LocalOrder, est, colsFor(printer?.paperWidthMm ?? 80)), `Ticket ${orderNumber ?? ""}`);
+      if (how === "agent") toast("Ticket imprimé (hors ligne)", "success");
+    } catch { toast(`Imprimante « ${printer?.name ?? "ticket"} » injoignable depuis cet appareil`, "error"); }
   };
 
   const send = async () => {
@@ -52,7 +70,7 @@ export function ReceiptDialog({ orderId, orderNumber, open, onClose, title = "Re
     <Modal open={open} onClose={onClose} title={afterPayment ? "Commande soldée" : title} size="sm">
       {afterPayment ? <div className="mb-4 flex items-center gap-3 rounded-2xl bg-lagon-500/10 p-3 text-sm"><span className="flex h-9 w-9 items-center justify-center rounded-full bg-brand text-white"><Check className="h-5 w-5" /></span><span><strong>Paiement enregistré.</strong> Que faire du reçu{orderNumber ? ` n° ${orderNumber.split("-")[1]}` : ""} ?</span></div> : null}
       <div className="grid grid-cols-2 gap-2">
-        {receiptPrinters.length ? <button disabled={printing} onClick={() => printThermal(receiptPrinters[0].id)} className="touch card flex h-20 flex-col items-center justify-center gap-1 text-sm font-bold shadow-none hover:surface-2 disabled:opacity-60"><Printer className="h-5 w-5 text-brand" />{receiptPrinters[0].name}</button> : <a href={`/api/orders/${orderId}/receipt?print=1`} target="_blank" rel="noreferrer" className="touch card flex h-20 flex-col items-center justify-center gap-1 text-sm font-bold shadow-none hover:surface-2"><Printer className="h-5 w-5 text-muted" />Imprimer</a>}
+        {thermal ? <button disabled={printing} onClick={() => printThermal(thermal.id)} data-testid="print-receipt" className="touch card flex h-20 flex-col items-center justify-center gap-1 text-sm font-bold shadow-none hover:surface-2 disabled:opacity-60"><Printer className="h-5 w-5 text-brand" />{thermal.name}</button> : !online && order ? <button disabled={printing} onClick={() => { setPrinting(true); printOffline().finally(() => setPrinting(false)); }} className="touch card flex h-20 flex-col items-center justify-center gap-1 text-sm font-bold shadow-none hover:surface-2 disabled:opacity-60"><Printer className="h-5 w-5 text-brand" />Imprimer</button> : <a href={`/api/orders/${orderId}/receipt?print=1`} target="_blank" rel="noreferrer" className="touch card flex h-20 flex-col items-center justify-center gap-1 text-sm font-bold shadow-none hover:surface-2"><Printer className="h-5 w-5 text-muted" />Imprimer</a>}
         <a href={`/api/orders/${orderId}/receipt?format=pdf`} target="_blank" rel="noreferrer" className="touch card flex h-20 flex-col items-center justify-center gap-1 text-sm font-bold shadow-none hover:surface-2"><FileDown className="h-5 w-5 text-muted" />PDF</a>
       </div>
       <div className="mt-3 rounded-2xl surface-2 p-3">
