@@ -38,6 +38,8 @@ describe("Phase 7 — API publique et webhooks", () => {
     await expect(requireApiKey(req("/api/v1/products", k.key), "catalog:read")).rejects.toMatchObject({ code: "FORBIDDEN" });
     await expect(requireApiKey(req("/api/v1/orders", "mr_live_faux"), "orders:read")).rejects.toMatchObject({ code: "UNAUTHORIZED" });
     await expect(requireApiKey(req("/api/v1/orders"), "orders:read")).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+    // Clé dans l'adresse : refusée, même valide (elle finirait dans les journaux)
+    await expect(requireApiKey(req(`/api/v1/orders?api_key=${k.key}`), "orders:read")).rejects.toMatchObject({ code: "API_KEY_IN_URL" });
     await revokeApiKey(T.managerActor, k.id);
     await expect(requireApiKey(req("/api/v1/orders", k.key), "orders:read")).rejects.toMatchObject({ code: "UNAUTHORIZED" });
   });
@@ -127,9 +129,13 @@ describe("Phase 7 — imprimantes, TPE, multi-sites, comptabilité", () => {
     await prisma.establishment.update({ where: { id: T.est.id }, data: { settings: { payments: { terminal: { adapter: "bridge", url: "http://bridge.local", terminalId: "TPE1" } } } } });
     const r = await chargeOnTerminal(T.actor, o.id, 900);
     expect(r.providerRef).toBe("TX-900");
-    await expect(chargeOnTerminal(T.actor, o.id, 999)).rejects.toMatchObject({ code: "BAD_AMOUNT" });
+    // Le paiement est enregistré dans la même requête que le débit
+    expect(r.order.status).toBe("PAID");
+    expect(r.payments[0]).toMatchObject({ method: "CARD", amount: 900, reference: "TX-900" });
+    await expect(chargeOnTerminal(T.actor, o.id, 900)).rejects.toMatchObject({ code: "ORDER_CLOSED" });
     const o2 = await createOrder(T.actor, { type: "COUNTER" });
     await addItem(T.actor, o2.id, { productId: T.eau.id, quantity: 4 });
+    await expect(chargeOnTerminal(T.actor, o2.id, 5000)).rejects.toMatchObject({ code: "BAD_AMOUNT" });
     await expect(chargeOnTerminal(T.actor, o2.id, 999)).rejects.toMatchObject({ code: "TERMINAL_DECLINED" });
     const adapter = bridgeAdapter({ adapter: "bridge", url: "http://bridge.local" });
     expect((await adapter.refund("TX-900", 900)).ok).toBe(true);

@@ -46,7 +46,7 @@ export default function ReportsPage() {
           </div>
           <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
             <Stat label="Remises" value={<Money amount={d.discounts} />} />
-            <Stat label="Remboursements" value={<Money amount={d.refunds} />} />
+            <Stat label="Remboursements" value={<Money amount={d.refunds} />} hint={d.refunds ? `CA net : ${formatMoney(d.netRevenue)}` : undefined} />
             <Stat label="Annulations" value={d.cancellations} />
             <Stat label="Coût matière" value={<Money amount={d.foodCost} />} />
             <Stat label="Ratio coût matière" value={d.foodCostPct !== null ? `${d.foodCostPct} %` : "—"} hint={d.previous?.foodCostPct !== null && d.previous?.foodCostPct !== undefined ? `période précédente ${d.previous.foodCostPct} %` : undefined} accent={d.foodCostPct !== null && d.foodCostPct > 35 ? "#ef4444" : "#22c55e"} />

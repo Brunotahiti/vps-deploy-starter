@@ -4,6 +4,7 @@ import { hashPassword, hashPin, randomToken, sha256, verifyPassword, verifyPin }
 import { createSession, requestMeta, setSessionCookie, setTerminalCookie } from "@/server/auth/session";
 import { hasPermission, type PermissionKey } from "@/lib/permissions";
 import { reserveAttempt } from "@/server/auth/attempts";
+import { assertPinAvailable, pinEstablishmentsOfUser } from "./pin-unique";
 import { assertEmailAllowed } from "@/server/auth/guards";
 import { audit } from "@/server/audit";
 import { slugify } from "@/lib/slug";
@@ -17,12 +18,12 @@ const PIN_LIMIT = 12;             // échecs par établissement / 15 min (tous t
 const WINDOW = 15 * 60_000;
 
 export async function loginWithPassword(email: string, password: string, establishmentId?: string) {
-  const release = reserveAttempt(`pw:${email.toLowerCase()}`, PASSWORD_LIMIT, WINDOW);
+  const release = await reserveAttempt(`pw:${email.toLowerCase()}`, PASSWORD_LIMIT, WINDOW);
   const user = await prisma.user.findUnique({ where: { email: email.toLowerCase() }, include: { organization: { select: { blockedAt: true } } } });
   if (!user || !user.isActive || !(await verifyPassword(password, user.passwordHash))) {
     throw new ApiError(401, "INVALID_CREDENTIALS", "Email ou mot de passe incorrect");
   }
-  release();
+  await release();
   assertNotBlocked(user.organization.blockedAt);
   const meta = await requestMeta();
   const { token } = await createSession({ userId: user.id, establishmentId: establishmentId ?? null, ...meta });
@@ -37,7 +38,7 @@ export function assertNotBlocked(blockedAt: Date | null) {
 
 /** Connexion rapide par PIN sur un terminal enregistré (établissement lié au terminal). */
 export async function loginWithPin(establishmentId: string, pin: string, terminalId: string | null) {
-  const release = reserveAttempt(`pin:${establishmentId}`, PIN_LIMIT, WINDOW, "Trop de PIN erronés sur cet établissement, réessayez dans quelques minutes");
+  const release = await reserveAttempt(`pin:${establishmentId}`, PIN_LIMIT, WINDOW, "Trop de PIN erronés sur cet établissement, réessayez dans quelques minutes");
   const candidates = await prisma.user.findMany({
     where: {
       isActive: true,
@@ -50,15 +51,13 @@ export async function loginWithPin(establishmentId: string, pin: string, termina
   });
   const est = await prisma.establishment.findUnique({ where: { id: establishmentId }, select: { organization: { select: { blockedAt: true } } } });
   assertNotBlocked(est?.organization.blockedAt ?? null);
-  let matched = null;
-  for (const u of candidates) {
-    if (await verifyPin(pin, u.pinHash)) {
-      matched = u;
-      break;
-    }
-  }
-  if (!matched) throw new ApiError(401, "INVALID_PIN", "PIN incorrect");
-  release();
+  // Tous les candidats sont vérifiés : un PIN partagé par deux personnes (créé avant l'unicité) ne doit pas ouvrir la mauvaise session
+  const matches = [];
+  for (const u of candidates) if (await verifyPin(pin, u.pinHash)) matches.push(u);
+  if (!matches.length) throw new ApiError(401, "INVALID_PIN", "PIN incorrect");
+  if (matches.length > 1) { await release(); throw new ApiError(409, "PIN_SHARED", "Ce PIN est utilisé par plusieurs personnes : demandez à un manager de le changer"); }
+  const matched = matches[0];
+  await release();
   const meta = await requestMeta();
   const { token } = await createSession({ userId: matched.id, establishmentId, terminalId, ...meta });
   await setSessionCookie(token);
@@ -70,7 +69,7 @@ export async function loginWithPin(establishmentId: string, pin: string, termina
  * Retourne l'utilisateur ayant autorisé (pour le journal d'audit).
  */
 export async function authorizeWithManagerPin(establishmentId: string, pin: string, permission: PermissionKey) {
-  const release = reserveAttempt(`pin:${establishmentId}`, PIN_LIMIT, WINDOW, "Trop de PIN erronés sur cet établissement, réessayez dans quelques minutes");
+  const release = await reserveAttempt(`pin:${establishmentId}`, PIN_LIMIT, WINDOW, "Trop de PIN erronés sur cet établissement, réessayez dans quelques minutes");
   const candidates = await prisma.user.findMany({
     where: {
       isActive: true,
@@ -86,10 +85,10 @@ export async function authorizeWithManagerPin(establishmentId: string, pin: stri
     if (!(await verifyPin(pin, u.pinHash))) continue;
     const perms = u.isOwner ? ["*"] : (u.memberships[0]?.role.permissions.map((p) => p.permissionKey) ?? []);
     if (hasPermission(perms, permission)) {
-      release();
+      await release();
       return u;
     }
-    release(); // PIN correct, simplement sans la permission : ce n'est pas une tentative de devinette
+    await release(); // PIN correct, simplement sans la permission : ce n'est pas une tentative de devinette
     throw new ApiError(403, "PIN_NOT_AUTHORIZED", "Ce PIN n'a pas l'autorisation requise");
   }
   throw new ApiError(401, "INVALID_PIN", "PIN manager incorrect");
@@ -149,5 +148,6 @@ export async function registerTerminal(establishmentId: string, name: string, ki
 
 export async function setUserPin(userId: string, pin: string) {
   if (!/^\d{4,6}$/.test(pin)) throw new ApiError(400, "INVALID_PIN", "Le PIN doit contenir 4 à 6 chiffres");
+  await assertPinAvailable(pin, { establishmentIds: await pinEstablishmentsOfUser(userId), userId, guardKey: userId });
   await prisma.user.update({ where: { id: userId }, data: { pinHash: await hashPin(pin) } });
 }

@@ -18,7 +18,7 @@ const ICONS: Record<string, React.ComponentType<{ className?: string }>> = { CAS
 
 export type PaymentPayload = { method: string; amount: number; tendered?: number; reference?: string | null; splitLabel?: string | null };
 
-export function PaymentModal({ order, methods, open, onClose, onPay }: { order: Order; methods: PosCatalog["paymentMethods"]; open: boolean; onClose: () => void; onPay: (payments: PaymentPayload[]) => Promise<void> }) {
+export function PaymentModal({ order, methods, open, onClose, onPay, onPaid }: { order: Order; methods: PosCatalog["paymentMethods"]; open: boolean; onClose: () => void; onPay: (payments: PaymentPayload[]) => Promise<void>; onPaid: (order: Order) => void }) {
   const { currency } = useSession();
   const remaining = order.total - order.paidTotal;
   const [method, setMethod] = useState(methods[0]?.method ?? "CASH");
@@ -34,13 +34,14 @@ export function PaymentModal({ order, methods, open, onClose, onPay }: { order: 
   const { toast } = useToast();
   const terminal = useQuery({ queryKey: ["terminal-settings"], queryFn: () => api.get<{ connected: boolean }>("/api/payments/terminal/settings"), staleTime: 300_000 });
   const [tpeBusy, setTpeBusy] = useState(false);
-  /** Phase 7 : envoie le montant au TPE connecté, puis enregistre le paiement carte avec la référence renvoyée. */
+  /** TPE connecté : le serveur débite la carte ET enregistre le paiement en une seule requête (jamais mise en file hors ligne). */
   const payWithTerminal = async () => {
+    if (tpeBusy) return;
     setTpeBusy(true);
     try {
-      const r = await api.post<{ providerRef: string | null; amount: number }>("/api/payments/terminal/charge", { orderId: order.id, amount: amount });
-      await onPay([{ method: "CARD", amount, reference: r.providerRef ?? "TPE", splitLabel: label }]);
+      const r = await api.post<{ providerRef: string | null; amount: number; order: Order }>("/api/payments/terminal/charge", { orderId: order.id, amount, paymentId: crypto.randomUUID(), splitLabel: label }, { idempotencyKey: crypto.randomUUID() });
       setReference("");
+      onPaid(r.order);
     } catch (e) { toast(e instanceof ApiClientError ? e.message : "Transaction TPE impossible", "error"); }
     finally { setTpeBusy(false); }
   };

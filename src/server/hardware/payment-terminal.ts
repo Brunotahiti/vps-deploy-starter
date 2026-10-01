@@ -46,7 +46,12 @@ export function bridgeAdapter(s: TerminalSettings): PaymentTerminalAdapter {
 }
 
 /** Lance une transaction TPE pour une commande ; renvoie la référence à enregistrer avec le paiement. */
-export async function chargeOnTerminal(actor: Actor, orderId: string, amount: number) {
+/**
+ * Débit sur le TPE puis enregistrement du paiement dans la même requête : la caisse n'a plus à faire un second appel
+ * (qui pouvait se perdre entre le débit de la carte et l'enregistrement). Si l'enregistrement échoue malgré tout,
+ * la référence du TPE est tracée et renvoyée pour une saisie manuelle.
+ */
+export async function chargeOnTerminal(actor: Actor, orderId: string, amount: number, opts: { paymentId?: string; splitLabel?: string | null } = {}) {
   const s = await terminalSettings(actor.establishmentId);
   if (s.adapter !== "bridge" || !s.url) throw new ApiError(400, "NO_TERMINAL", "Aucun TPE connecté : saisissez le montant sur le terminal et notez la référence");
   const order = await prisma.order.findFirst({ where: { id: orderId, establishmentId: actor.establishmentId }, select: { number: true, total: true, paidTotal: true, status: true } });
@@ -57,5 +62,14 @@ export async function chargeOnTerminal(actor: Actor, orderId: string, amount: nu
   const r = await bridgeAdapter(s).charge(amount, est.currency, order.number);
   await audit({ ...actor, action: "terminal.charge", entityType: "order", entityId: orderId, newValue: { amount, ok: r.ok, providerRef: r.providerRef ?? null, message: r.message ?? null } });
   if (!r.ok) throw new ApiError(402, "TERMINAL_DECLINED", r.message ?? "Paiement refusé par le TPE");
-  return { providerRef: r.providerRef ?? null, amount };
+  const reference = r.providerRef ?? "TPE";
+  try {
+    const { addPayments } = await import("@/server/services/payments");
+    const res = await addPayments(actor, orderId, [{ id: opts.paymentId ?? crypto.randomUUID(), method: "CARD", amount, reference, splitLabel: opts.splitLabel ?? null }]);
+    return { providerRef: r.providerRef ?? null, amount, order: res.order, payments: res.payments };
+  } catch (e) {
+    const why = e instanceof ApiError ? e.message : "erreur inattendue";
+    await audit({ ...actor, action: "terminal.charge_unrecorded", entityType: "order", entityId: orderId, newValue: { amount, providerRef: r.providerRef ?? null }, reason: why });
+    throw new ApiError(409, "TERMINAL_PAID_NOT_RECORDED", `Carte débitée de ${amount} (réf. ${reference}) mais paiement non enregistré : ${why}. Enregistrez-le en « Carte » avec cette référence.`, { providerRef: r.providerRef ?? null, amount });
+  }
 }

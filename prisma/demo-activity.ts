@@ -129,7 +129,7 @@ export function dayPlan(ctx: DemoCtx, day: string): PlanOrder[] {
     plans.push({
       type: "DINE_IN", tableIdx: r.between(0, ctx.tables.length - 1), serverIdx: r.between(0, ctx.servers.length - 1), covers, openAt, closeAt: new Date(openAt.getTime() + r.between(45, 110) * 60000),
       items, discount, discountReason: discount ? r.pick(DISCOUNT_REASONS) : undefined, cancelReason: r.chance(0.015) ? r.pick(CANCEL_REASONS) : undefined, customerIdx: customer(0.3),
-      method: m, tipRate: m === "CARD" && r.chance(0.35) ? r.pick([5, 8, 10]) : 0, split: m === "CARD" && covers >= 2 && r.chance(0.2), refund: r.chance(0.012) ? { part: r.pick([0.3, 0.5, 1]), reason: r.pick(REFUND_REASONS) } : undefined,
+      method: m, tipRate: 0 /* pas de pourboires en Polynésie : la caisse ne les enregistre pas */, split: m === "CARD" && covers >= 2 && r.chance(0.2), refund: r.chance(0.012) ? { part: r.pick([0.3, 0.5, 1]), reason: r.pick(REFUND_REASONS) } : undefined,
     });
   };
   const counter = (type: OrderType, h0: number, h1: number, meta: () => Record<string, unknown>) => {

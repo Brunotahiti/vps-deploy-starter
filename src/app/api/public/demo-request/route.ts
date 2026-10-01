@@ -7,7 +7,7 @@ import { consoleUrl, explainSmtpError, teamRecipients } from "@/server/services/
 
 /** Demande de démonstration depuis le site vitrine : enregistrée en base, e-mail à l'équipe ManaResto (PLATFORM_NOTIFY_EMAILS, sinon contact@manaresto.com) si le SMTP est configuré. */
 export const POST = route(async (req) => {
-  rateLimitIp(req, "demo-request", 5, 10 * 60_000);
+  await rateLimitIp(req, "demo-request", 5, 10 * 60_000);
   const body = await parseBody(req, demoRequestSchema);
   // Anti-spam : pot de miel rempli ou formulaire envoyé en moins de 3 secondes → on répond « ok » sans rien enregistrer
   if (body.website || (body.startedAt && Date.now() - body.startedAt < 3000)) return ok({ received: true });

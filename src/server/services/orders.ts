@@ -492,6 +492,13 @@ export async function closeOrderIfPaid(tx: Tx, establishmentId: string, orderId:
   const est = await tx.establishment.findUniqueOrThrow({ where: { id: establishmentId } });
   const settings = (est.settings ?? {}) as { markTablesToClean?: boolean };
   const closed = await tx.order.update({ where: { id: orderId }, data: { status: "PAID", closedAt: new Date(), version: { increment: 1 } } });
+  // Articles encaissés sans être passés par la cuisine (vente au comptoir, boissons servies directement) :
+  // le stock n'a pas encore été décrémenté, il l'est ici, une seule fois
+  const neverSent = await tx.orderItem.findMany({ where: { orderId, status: "PENDING" }, select: { id: true, productId: true, quantity: true } });
+  if (neverSent.length) {
+    await consumeForItems(tx, establishmentId, neverSent, -1, orderId, null);
+    await tx.orderItem.updateMany({ where: { id: { in: neverSent.map((i) => i.id) } }, data: { status: "SERVED", servedAt: new Date() } });
+  }
   await tx.orderItem.updateMany({ where: { orderId, status: { in: ["SENT", "PREPARING", "READY"] } }, data: { status: "SERVED", servedAt: new Date() } });
   await tx.kitchenTicket.updateMany({ where: { orderId, status: { in: ["NEW", "ACCEPTED", "IN_PROGRESS", "READY"] } }, data: { status: "DONE", completedAt: new Date() } });
   if (order.tableId) await tx.table.update({ where: { id: order.tableId }, data: { state: settings.markTablesToClean ? "TO_CLEAN" : "FREE" } });

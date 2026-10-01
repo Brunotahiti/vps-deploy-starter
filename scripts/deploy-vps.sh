@@ -114,7 +114,7 @@ fi
 echo "→ Construction des images et démarrage (2 à 5 minutes la première fois)…"
 BUILD_ID=$(git rev-parse --short=12 HEAD 2>/dev/null || date +%Y%m%d%H%M)
 # Sauvegarde de la base juste avant les migrations (si elle existe déjà) ; échec de la sauvegarde = déploiement interrompu
-$SSH "cd $VPS_PATH && if docker ps --format '{{.Names}}' | grep -qx \"\${APP_NAME:-manaresto}-db\"; then bash scripts/db-backup.sh; fi"
+$SSH "cd $VPS_PATH && if docker ps --format '{{.Names}}' | grep -qx \"\${APP_NAME:-manaresto}-db\"; then SKIP_REMOTE=1 bash scripts/db-backup.sh; fi"
 $SSH "cd $VPS_PATH && set -a && . ./.env && set +a && export BUILD_ID=$BUILD_ID && docker compose build migrate app && docker compose up -d --remove-orphans && (docker compose exec -T site nginx -s reload >/dev/null 2>&1 || true) && docker image prune -f >/dev/null && docker builder prune -f --filter until=168h >/dev/null && docker compose ps"
 
 # 5. Sauvegarde quotidienne à 3 h, heure de Tahiti (13 h UTC : le serveur est en UTC) — uniquement la ligne ManaResto de la crontab

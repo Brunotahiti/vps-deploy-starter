@@ -50,17 +50,22 @@ describe("Revue : comptes et droits", () => {
     expect(() => assertEmailAllowed("quelqu.un@test.pf")).not.toThrow();
   });
 
-  it("tentatives de PIN : réservées avant vérification, un succès ne libère que sa propre tentative", () => {
-    resetAttempts();
-    for (let i = 0; i < 3; i++) reserveAttempt("pin:x", 3, 60_000);
-    expect(() => reserveAttempt("pin:x", 3, 60_000)).toThrow(/Trop de tentatives/);
-    resetAttempts();
-    const r1 = reserveAttempt("pin:y", 2, 60_000);
-    reserveAttempt("pin:y", 2, 60_000); // échec d'un autre
-    r1(); // succès : libère seulement sa tentative
-    reserveAttempt("pin:y", 2, 60_000);
-    expect(() => reserveAttempt("pin:y", 2, 60_000)).toThrow();
-    resetAttempts();
+  it("tentatives de PIN : réservées avant vérification, un succès ne libère que sa propre tentative", async () => {
+    await resetAttempts();
+    for (let i = 0; i < 3; i++) await reserveAttempt("pin:x", 3, 60_000);
+    await expect(reserveAttempt("pin:x", 3, 60_000)).rejects.toThrow(/Trop de tentatives/);
+    await resetAttempts();
+    const r1 = await reserveAttempt("pin:y", 2, 60_000);
+    await reserveAttempt("pin:y", 2, 60_000); // échec d'un autre
+    await r1(); // succès : libère seulement sa tentative
+    await reserveAttempt("pin:y", 2, 60_000);
+    await expect(reserveAttempt("pin:y", 2, 60_000)).rejects.toThrow();
+    // Les tentatives sont en base : elles survivent à un redémarrage du serveur
+    expect(await prisma.rateHit.count({ where: { key: "pin:y" } })).toBe(2);
+    // Requêtes simultanées : jamais plus que la limite
+    const results = await Promise.allSettled(Array.from({ length: 6 }, () => reserveAttempt("pin:z", 3, 60_000)));
+    expect(results.filter((r) => r.status === "fulfilled").length).toBe(3);
+    await resetAttempts();
   });
 });
 

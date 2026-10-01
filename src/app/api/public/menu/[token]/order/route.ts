@@ -4,6 +4,6 @@ import { tableOrderSchema } from "@/server/schemas";
 import { orderFromTable } from "@/server/services/public";
 
 export const POST = route<{ token: string }>(async (req, { params }) => {
-  rateLimitIp(req, "public-order", 20);
+  await rateLimitIp(req, "public-order", 20);
   return ok(await orderFromTable(params.token, await parseBody(req, tableOrderSchema)));
 });

@@ -6,7 +6,7 @@ import { createSession, requestMeta, setSessionCookie } from "@/server/auth/sess
 
 /** Accepte l'invitation (mot de passe + PIN) et ouvre directement la session. */
 export const POST = route<{ token: string }>(async (req, { params }) => {
-  rateLimitIp(req, "invitation-accept", 10);
+  await rateLimitIp(req, "invitation-accept", 10);
   const body = await parseBody(req, acceptInviteSchema);
   const { user, establishmentId } = await acceptInvitation(params.token, body);
   const meta = await requestMeta();

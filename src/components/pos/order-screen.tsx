@@ -138,13 +138,17 @@ export function OrderScreen({ orderId: orderIdProp }: { orderId: string }) {
   };
   const setCourseStatus = (cid: string, status: "PENDING" | "HOLD" | "FIRE" | "SERVED") => run(() => api.post<Order>(`/api/orders/${orderId}/courses/${cid}`, { status }));
   const requestBill = () => run(() => api.post<Order>(`/api/orders/${orderId}/bill`)).then((ok) => { if (ok) toast("Addition demandée", "success"); });
+  /** Après un encaissement réussi (saisi en caisse ou débité par le TPE). */
+  const afterPayment = (paid: Order) => {
+    setOrder(paid);
+    if (paid.status === "PAID") { setPayOpen(false); toast("Commande soldée ✓", "success"); qc.invalidateQueries({ queryKey: ["floor"] }); qc.invalidateQueries({ queryKey: ["cash"] }); markOfflineOrderClosed(orderId).catch(() => {}); setReceipt({ afterPayment: true }); }
+    else toast("Paiement enregistré", "success");
+  };
   const pay = async (payments: PaymentPayload[]) => {
     const body = payments.map((p) => ({ ...p, id: crypto.randomUUID() }));
     await withPin(setPin, "pos.discount", async (managerPin) => {
       const res = await api.post<{ order: Order }>(`/api/orders/${orderId}/payments`, { payments: body, managerPin }, { idempotencyKey: crypto.randomUUID(), queueIfOffline: !body.some((p) => p.method === "COMPLIMENTARY") });
-      setOrder(res.order);
-      if (res.order.status === "PAID") { setPayOpen(false); toast("Commande soldée ✓", "success"); qc.invalidateQueries({ queryKey: ["floor"] }); qc.invalidateQueries({ queryKey: ["cash"] }); markOfflineOrderClosed(orderId).catch(() => {}); setReceipt({ afterPayment: true }); }
-      else toast("Paiement enregistré", "success");
+      afterPayment(res.order);
     }).catch((e) => {
       onError(e);
       if (!isQueued(e)) return;
@@ -406,7 +410,7 @@ export function OrderScreen({ orderId: orderIdProp }: { orderId: string }) {
       {productOpen ? <ProductModal product={productOpen} onClose={() => setProductOpen(null)} onAdd={async (c) => { addItem.mutate({ ...c, id: crypto.randomUUID() }); }} /> : null}
       {menuOpen ? <ProductModal menu={menuOpen} products={catalog.data.products} onClose={() => setMenuOpen(null)} onAdd={async (c) => { addItem.mutate({ ...c, id: crypto.randomUUID() }); }} /> : null}
       {itemOpen ? <ItemModal order={o} item={o.items.find((i) => i.id === itemOpen.id) ?? itemOpen} onClose={() => setItemOpen(null)} onUpdate={updateItem} onRemove={removeItem} /> : null}
-      {payOpen ? <PaymentModal key={o.paidTotal} order={o} methods={catalog.data.paymentMethods} open onClose={() => setPayOpen(false)} onPay={pay} /> : null}
+      {payOpen ? <PaymentModal key={o.paidTotal} order={o} methods={catalog.data.paymentMethods} open onClose={() => setPayOpen(false)} onPay={pay} onPaid={afterPayment} /> : null}
       <PinModal request={pin} onClose={() => setPin(null)} />
       <CustomerDialog open={customerOpen} orderId={orderId} customerId={o.customerId} closed={closed} onClose={() => setCustomerOpen(false)} onChanged={() => { qc.invalidateQueries({ queryKey: ["order", orderId] }); qc.invalidateQueries({ queryKey: ["customer"] }); }} />
       {receipt ? <ReceiptDialog orderId={orderId} orderNumber={o.number} open afterPayment={receipt.afterPayment} onClose={() => { const after = receipt.afterPayment; setReceipt(null); if (after) router.push(o.tableId ? "/pos" : "/pos/orders"); }} /> : null}

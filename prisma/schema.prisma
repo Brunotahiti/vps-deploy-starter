@@ -1542,3 +1542,15 @@ model PlatformEmail {
   @@index([organizationId, createdAt])
   @@map("platform_emails")
 }
+
+/**
+ * Tentatives et appels limités (connexion, PIN, formulaires publics, API) : conservés aux redémarrages.
+ */
+model RateHit {
+  id  BigInt   @id @default(autoincrement())
+  key String
+  at  DateTime @default(now())
+
+  @@index([key, at])
+  @@map("rate_hits")
+}
