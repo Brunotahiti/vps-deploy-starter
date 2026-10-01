@@ -96,6 +96,11 @@ jobs:
             docker compose build migrate app
             docker compose up -d
             (docker compose exec -T site nginx -s reload >/dev/null 2>&1 || true)
+            # Tâches planifiées de ManaResto (seules ses lignes de la crontab sont réécrites) :
+            # sauvegarde quotidienne à 3 h heure de Tahiti, et démo vivante rafraîchie chaque heure si SEED_DEMO=true
+            CRON_BACKUP="0 13 * * * $VPS_PATH/scripts/db-backup.sh >> /var/log/manaresto-backup.log 2>&1"
+            CRON_DEMO="17 * * * * cd $VPS_PATH && docker compose run --rm --no-deps -T migrate pnpm tsx prisma/seed.ts >> /var/log/manaresto-demo.log 2>&1"
+            (crontab -l 2>/dev/null | grep -v "$VPS_PATH/scripts/db-backup.sh" | grep -v "manaresto-demo.log"; echo "$CRON_BACKUP"; if [ "${SEED_DEMO:-}" = "true" ]; then echo "$CRON_DEMO"; fi) | crontab -
             docker image prune -f
             # Cache de construction : l'application est construite sur le serveur, il grossit à chaque déploiement
             docker builder prune -f --filter until=168h >/dev/null
