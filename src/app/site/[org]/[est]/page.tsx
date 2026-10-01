@@ -31,5 +31,33 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
 export default async function RestaurantSitePage({ params, searchParams }: { params: Params; searchParams: Search }) {
   const [data, sp] = await Promise.all([load(params), searchParams]);
   if (!data) notFound();
-  return <RestaurantSite data={data} lang={pickLang(sp.lang)} base={base()} />;
+  return (
+    <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd(data).replace(/</g, "\\u003c") }} />
+      <RestaurantSite data={data} lang={pickLang(sp.lang)} base={base()} />
+    </>
+  );
+}
+
+const DAY_SCHEMA = { mon: "Monday", tue: "Tuesday", wed: "Wednesday", thu: "Thursday", fri: "Friday", sat: "Saturday", sun: "Sunday" } as const;
+
+/** Données structurées « Restaurant » (schema.org) : adresse, téléphone, horaires, carte, réservation — pour Google. */
+function jsonLd(data: NonNullable<Awaited<ReturnType<typeof load>>>) {
+  const e = data.establishment;
+  const url = `${base()}/site/${e.organization.slug}/${e.slug}`;
+  const abs = (u: string) => (u.startsWith("/") ? `${base()}${u}` : u);
+  const hours = (e.openingHours ?? {}) as Partial<Record<keyof typeof DAY_SCHEMA, string[]>>;
+  return JSON.stringify({
+    "@context": "https://schema.org",
+    "@type": "Restaurant",
+    name: e.name,
+    url,
+    ...(data.site.description ? { description: data.site.description } : {}),
+    ...(data.site.coverUrl ? { image: [abs(data.site.coverUrl), ...data.site.photos.slice(0, 3).map(abs)] } : {}),
+    ...(e.phone ? { telephone: e.phone } : {}),
+    address: { "@type": "PostalAddress", streetAddress: [e.addressLine1, e.addressLine2].filter(Boolean).join(", ") || undefined, postalCode: e.postalCode || undefined, addressLocality: e.city || undefined, addressRegion: e.island || undefined, addressCountry: "PF" },
+    openingHoursSpecification: Object.entries(hours).flatMap(([d, slots]) => (slots ?? []).map((sl) => { const [opens, closes] = sl.split("-"); return { "@type": "OpeningHoursSpecification", dayOfWeek: DAY_SCHEMA[d as keyof typeof DAY_SCHEMA], opens, closes }; })),
+    ...(data.menu ? { hasMenu: `${url}#carte` } : {}),
+    acceptsReservations: true,
+  });
 }
