@@ -19,23 +19,27 @@ import { Money } from "@/components/money";
 import { formatElapsed } from "@/lib/dates";
 import { useSession } from "@/hooks/use-session";
 import { TABLE_STATUS_COLOR, TABLE_STATUS_LABEL, type FloorStatus, type FloorTable, type Order } from "./types";
-import { buildLocalOrder, DEFAULT_COURSE_NAMES, listOfflineCreatedOrders, saveLocalOrder } from "@/lib/offline/local-orders";
+import { addFloorOverride, applyFloorOverrides, buildLocalOrder, DEFAULT_COURSE_NAMES, getFloorOverrides, listOfflineCreatedOrders, saveLocalOrder } from "@/lib/offline/local-orders";
 import { useOffline } from "@/lib/offline/provider";
 
 export function useFloor() {
+  const { me } = useSession();
+  const markToClean = !!(me?.establishment?.settings as { markTablesToClean?: boolean } | null)?.markTablesToClean;
   return useQuery({
     queryKey: ["floor"],
     refetchInterval: 30_000,
     queryFn: async () => {
+      let d: FloorStatus;
       try {
-        const d = await api.get<FloorStatus>("/api/floor");
+        d = await api.get<FloorStatus>("/api/floor");
         cacheSet("floor", d).catch(() => {});
-        return d;
       } catch (e) {
         const c = await cacheGet<FloorStatus>("floor");
-        if (c) return c.data;
-        throw e;
+        if (!c) throw e;
+        d = c.data;
       }
+      // Tables encaissées ou libérées sur cet appareil pendant une coupure : libres tout de suite
+      return applyFloorOverrides(d, await getFloorOverrides(), markToClean);
     },
   });
 }
@@ -92,11 +96,14 @@ export function FloorPlan() {
     }
   };
 
+  const markTableFree = (tableId: string) => addFloorOverride("freedTables", tableId);
+
   const onTable = async (t: FloorTable) => {
-    if (t.callRequestedAt) { api.delete(`/api/tables/${t.id}/call`).then(() => qc.invalidateQueries({ queryKey: ["floor"] })).catch(() => {}); toast(`Appel de la table ${t.name} pris en charge`, "success"); }
+    if (t.callRequestedAt) { api.delete(`/api/tables/${t.id}/call`, undefined, { queueIfOffline: true }).then(() => qc.invalidateQueries({ queryKey: ["floor"] })).catch(() => {}); toast(`Appel de la table ${t.name} pris en charge`, "success"); }
     if (t.order) return router.push(`/pos/order/${t.order.id}`);
     if (t.status === "TO_CLEAN") {
-      await api.post(`/api/tables/${t.id}/state`, { state: "FREE" });
+      // Hors ligne : la table est libérée tout de suite sur cet appareil, le serveur suivra à la reconnexion
+      await api.post(`/api/tables/${t.id}/state`, { state: "FREE" }, { queueIfOffline: true }).catch((e) => { if (!(e instanceof ApiClientError && e.code === "QUEUED")) throw e; return markTableFree(t.id); });
       qc.invalidateQueries({ queryKey: ["floor"] });
       return;
     }

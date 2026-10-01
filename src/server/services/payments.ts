@@ -17,7 +17,7 @@ export type PaymentInput = {
 };
 
 /** Enregistre un ou plusieurs paiements (multi-moyens) et clôture la commande si soldée. */
-export async function addPayments(actor: Actor, orderId: string, inputs: PaymentInput[]) {
+export async function addPayments(actor: Actor, orderId: string, inputs: PaymentInput[], opts: { offlineReplay?: boolean } = {}) {
   const order = await getOrder(actor.establishmentId, orderId);
   if (order.items.filter((i) => i.status !== "VOIDED").length === 0) throw new ApiError(400, "EMPTY_ORDER", "Commande vide");
   if (inputs.some((p) => p.amount <= 0 || !Number.isInteger(p.amount))) throw new ApiError(400, "BAD_AMOUNT", "Montant invalide");
@@ -27,8 +27,10 @@ export async function addPayments(actor: Actor, orderId: string, inputs: Payment
     const cfg = methods.find((m) => m.method === p.method);
     if (cfg && !cfg.isEnabled) throw new ApiError(400, "METHOD_DISABLED", `Moyen de paiement désactivé : ${cfg.label}`);
   }
-  const cashSession = await findOpenSession(actor.establishmentId, actor.terminalId ?? null);
-  if (inputs.some((p) => p.method === "CASH") && !cashSession) throw new ApiError(409, "NO_CASH_SESSION", "Ouvrez une session de caisse avant d'encaisser des espèces");
+  let cashSession: Awaited<ReturnType<typeof findOpenSession>> | null = await findOpenSession(actor.establishmentId, actor.terminalId ?? null);
+  // Espèces encaissées hors ligne : l'argent est déjà dans le tiroir, le paiement ne doit jamais être refusé au retour du réseau.
+  // Sans session ouverte, il reste « à rattacher » et rejoint la prochaine session ouverte (voir attachOfflineCashPayments).
+  if (inputs.some((p) => p.method === "CASH") && !cashSession && !opts.offlineReplay) throw new ApiError(409, "NO_CASH_SESSION", "Ouvrez une session de caisse avant d'encaisser des espèces");
 
   const created = await prisma.$transaction(async (tx) => {
     // Contrôles SOUS VERROU : deux encaissements simultanés (deux tablettes, double appui) ne peuvent pas dépasser le reste dû
@@ -48,7 +50,10 @@ export async function addPayments(actor: Actor, orderId: string, inputs: Payment
     if (cashSession && toCreate.some((p) => p.method === "CASH")) {
       await tx.$queryRaw`SELECT id FROM cash_sessions WHERE id = ${cashSession.id}::uuid FOR UPDATE`;
       const s = await tx.cashSession.findUnique({ where: { id: cashSession.id }, select: { status: true } });
-      if (s?.status !== "OPEN") throw new ApiError(409, "NO_CASH_SESSION", "La session de caisse vient d'être clôturée : ouvrez-en une nouvelle");
+      if (s?.status !== "OPEN") {
+        if (!opts.offlineReplay) throw new ApiError(409, "NO_CASH_SESSION", "La session de caisse vient d'être clôturée : ouvrez-en une nouvelle");
+        cashSession = null; // clôturée pendant la coupure : rattachée à la prochaine session
+      }
     }
     const out = [];
     for (const p of toCreate) {
@@ -67,6 +72,9 @@ export async function addPayments(actor: Actor, orderId: string, inputs: Payment
       });
       if (p.method === "CASH" && cashSession) {
         await tx.cashMovement.create({ data: { cashSessionId: cashSession.id, userId: actor.userId, paymentId: payment.id, orderId, kind: "SALE", amount: p.amount + tip, reason: `Vente ${order.number}` } });
+      }
+      if (p.method === "CASH" && !cashSession) {
+        await audit({ ...actor, action: "payment.offline_unassigned", entityType: "payment", entityId: payment.id, newValue: { amount: p.amount, orderNumber: order.number } }, tx);
       }
       if (p.method === "COMPLIMENTARY") {
         await audit({ ...actor, action: "payment.complimentary", entityType: "payment", entityId: payment.id, newValue: { amount: p.amount, orderNumber: order.number } }, tx);

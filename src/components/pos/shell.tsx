@@ -1,5 +1,6 @@
 "use client";
 
+import { useOfflineSnapshot } from "@/lib/offline/snapshot";
 import { VersionBadge } from "@/components/version-badge";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -33,6 +34,7 @@ export function PosShell({ children }: { children: React.ReactNode }) {
   const posAllowed = !!me?.user && can("pos.use");
   // Phase 9 : rappels de service (« À faire maintenant »)
   const reminders = useServiceReminders(posAllowed);
+  useOfflineSnapshot(posAllowed); // copie de travail pour les coupures d'internet
   const [todo, setTodoState] = useState(false);
   const setTodo = (open: boolean) => { setTodoState(open); if (open) qc.invalidateQueries({ queryKey: ["service"] }); };
   const dueCount = reminders.data?.due.length ?? 0;
