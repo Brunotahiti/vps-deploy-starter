@@ -10,6 +10,7 @@ import { addDays, localDay } from "@/lib/dates";
 import { Spinner } from "@/components/ui/misc";
 import { Money } from "@/components/money";
 import { PageHeader } from "./common";
+import { LiveDemoCard } from "@/components/demo-visit";
 import { ChartCard, ColumnChart, LineChart, HBars, StackedBar, Ranking, Stat, Delta, Meter, Sparkline, compact } from "./charts";
 import type { DailySummary } from "@/components/pos/types";
 import { PAYMENT_LABEL } from "@/components/pos/types";
@@ -56,6 +57,7 @@ export function Dashboard() {
   return (
     <div>
       <PageHeader title="Tableau de bord" subtitle={me?.establishment?.name} action={dateNav} />
+      <LiveDemoCard />
       {daily.isLoading || !d ? <div className="flex justify-center py-20"><Spinner /></div> : (
         <div className={`space-y-4 transition-opacity duration-300 ${stale ? "opacity-60" : ""}`}>
           {/* ---- Chiffre phare + en direct */}

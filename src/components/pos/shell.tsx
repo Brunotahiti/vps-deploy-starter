@@ -10,6 +10,7 @@ import { LayoutGrid, ListOrdered, Wallet, Settings, Moon, Sun, LogOut, Wifi, Wif
 import { markLogoutPending, useSession } from "@/hooks/use-session";
 import { useRealtime } from "@/hooks/use-realtime";
 import { SupportBar } from "@/components/support-bar";
+import { DemoVisitBar } from "@/components/demo-visit";
 import { confirmLogoutWithPending, purgeLocalData } from "@/lib/offline/purge";
 import { useTheme } from "@/hooks/use-theme";
 import { useOffline } from "@/lib/offline/provider";
@@ -79,6 +80,7 @@ export function PosShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex h-dvh flex-col">
       <SupportBar />
+      <DemoVisitBar />
       <TodoPanel open={todo} onClose={() => setTodo(false)} data={reminders.data} />
       <header className="no-print glass flex h-14 shrink-0 items-center gap-1.5 border-b px-2 sm:h-16 sm:gap-2 sm:px-4">
         {/* Téléphone : le menu s'ouvre à gauche, comme dans l'administration */}

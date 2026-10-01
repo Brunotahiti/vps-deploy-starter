@@ -7,6 +7,7 @@ import { ChefHat, Flame, Printer, Volume2, VolumeX, Maximize2, Minimize2, Moon, 
 import { api, ApiClientError } from "@/lib/api-client";
 import { warmOfflinePages } from "@/lib/offline/snapshot";
 import { purgeLocalData } from "@/lib/offline/purge";
+import { DemoVisitBar } from "@/components/demo-visit";
 import { markLogoutPending, useSession } from "@/hooks/use-session";
 import { useRealtime } from "@/hooks/use-realtime";
 import { useTheme } from "@/hooks/use-theme";
@@ -129,6 +130,7 @@ export function KdsScreen() {
 
   return (
     <div className="flex h-dvh flex-col">
+      <DemoVisitBar />
       <header className="no-print glass flex h-14 shrink-0 items-center gap-2 border-b px-2 sm:px-3">
         <Link href={can("pos.use") ? "/pos" : "/kds"} className="flex items-center gap-2 pr-1" title="Retour à la caisse"><Logo size={30} withText={false} /><span className="hidden items-center gap-1 text-sm font-extrabold md:flex"><ChefHat className="h-4 w-4 text-corail-500" />Cuisine</span></Link>
         <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto no-scrollbar">

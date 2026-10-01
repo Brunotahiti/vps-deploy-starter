@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { LayoutDashboard, UtensilsCrossed, Map, Receipt, Wallet, Users, Settings, ScrollText, Building2, Moon, Sun, LogOut, Menu, X, Boxes, CalendarDays, Heart, QrCode, BarChart3, Clock, Plug, Network, TrendingUp, ShieldCheck, Printer, ChevronDown, Store, BookOpen, UsersRound, SlidersHorizontal, type LucideIcon } from "lucide-react";
+import { LayoutDashboard, UtensilsCrossed, Map, Receipt, Wallet, Users, Settings, ScrollText, Building2, Moon, Sun, LogOut, Menu, X, Boxes, CalendarDays, Heart, QrCode, BarChart3, Clock, Plug, Network, TrendingUp, ShieldCheck, Printer, ChevronDown, Store, BookOpen, UsersRound, SlidersHorizontal, Globe, ExternalLink, type LucideIcon } from "lucide-react";
 import { markLogoutPending, useSession } from "@/hooks/use-session";
 import { useRealtime } from "@/hooks/use-realtime";
 import { useTheme } from "@/hooks/use-theme";
@@ -16,10 +16,11 @@ import { api } from "@/lib/api-client";
 import { Logo } from "@/components/brand";
 import { Spinner } from "@/components/ui/misc";
 import { SupportBar } from "@/components/support-bar";
+import { DemoVisitBar } from "@/components/demo-visit";
 import { PortalButtons } from "@/components/portal/portal-buttons";
 import { confirmLogoutWithPending, purgeLocalData } from "@/lib/offline/purge";
 
-type NavItem = { href: string; label: string; icon: LucideIcon; show?: boolean; match?: string };
+type NavItem = { href: string; label: string; icon: LucideIcon; show?: boolean; match?: string; external?: boolean };
 type NavGroup = { key: string; label: string; icon: LucideIcon; items: NavItem[] };
 
 export function AdminShell({ children }: { children: React.ReactNode }) {
@@ -52,6 +53,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
       { href: "/pos/reservations", label: "Réservations", icon: CalendarDays, show: can("pos.use") },
       { href: "/admin/customers", label: "Clients & fidélité", icon: Heart, show: can("customers.manage") },
       { href: "/admin/digital", label: "QR & commande en ligne", icon: QrCode, show: can("settings.manage") },
+      { href: me?.publicSitePath ?? "", label: "Voir mon site en ligne", icon: Globe, show: !!me?.publicSitePath, external: true },
     ] },
     { key: "equipe", label: "Équipe", icon: UsersRound, items: [
       { href: "/admin/staff", label: "Personnel & planning", icon: Clock, show: can("staff.manage"), match: "/admin/staff" },
@@ -70,6 +72,8 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   const activeGroup = groups.find((g) => g.items.some(isActive))?.key ?? null;
   const isOpen = (key: string) => (openGroup === undefined ? activeGroup === key : openGroup === key);
   const link = (n: NavItem, nested = false) => {
+    // Site public : nouvel onglet, l'administration reste ouverte
+    if (n.external) return <a key={n.href} href={n.href} target="_blank" rel="noreferrer" onClick={() => setOpen(false)} className={`mb-0.5 flex items-center gap-3 rounded-xl px-3 text-sm font-semibold text-lagon-700 transition hover:surface-2 dark:text-lagon-300 ${nested ? "h-10 pl-5" : "h-11"}`}><span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${nested ? "" : "surface-2"}`}><n.icon className="h-4 w-4" /></span>{n.label}<ExternalLink className="ml-auto h-3.5 w-3.5 opacity-70" /></a>;
     const active = isActive(n);
     return <Link key={n.href} href={n.href} onClick={() => setOpen(false)} aria-current={active ? "page" : undefined} className={`mb-0.5 flex items-center gap-3 rounded-xl px-3 text-sm font-semibold transition ${nested ? "h-10 pl-5" : "h-11"} ${active ? "bg-brand text-white shadow-glow" : "text-muted hover:surface-2 hover:text-[var(--text)]"}`}><span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${active ? "bg-white/15" : nested ? "" : "surface-2"}`}><n.icon className="h-4 w-4" /></span>{n.label}</Link>;
   };
@@ -123,6 +127,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
       {open ? <div className="fixed inset-0 z-40 flex lg:hidden"><div className="absolute inset-0 bg-black/50" onClick={() => setOpen(false)} /><div className="relative z-10" style={{ paddingTop: "env(safe-area-inset-top)" }}>{Sidebar}</div></div> : null}
       <div className="flex min-w-0 flex-1 flex-col">
         <SupportBar />
+        <DemoVisitBar />
         <header className="glass flex h-14 shrink-0 items-center gap-3 border-b px-4 lg:hidden"><button className="touch flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand text-white shadow-glow active:scale-95" aria-label="Ouvrir le menu" onClick={() => setOpen(true)}><Menu className="h-5 w-5" /></button><Logo size={28} /><VersionBadge /></header>
         <main className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden p-4 lg:p-8"><InstallBanner className="mb-3 lg:hidden" /><SubscriptionBanner />{children}</main>
         {/* Téléphone / tablette : les portails Salle, Caisse et Cuisine, toujours à portée de pouce */}
