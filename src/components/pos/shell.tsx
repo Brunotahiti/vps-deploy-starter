@@ -77,6 +77,8 @@ export function PosShell({ children }: { children: React.ReactNode }) {
       <SupportBar />
       <TodoPanel open={todo} onClose={() => setTodo(false)} data={reminders.data} />
       <header className="no-print glass flex h-14 shrink-0 items-center gap-1.5 border-b px-2 sm:h-16 sm:gap-2 sm:px-4">
+        {/* Téléphone : le menu s'ouvre à gauche, comme dans l'administration */}
+        <button onClick={() => setMenu(true)} className="touch flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand text-white shadow-glow active:scale-95 sm:hidden" aria-label="Ouvrir le menu"><Menu className="h-5 w-5" /></button>
         <Link href="/pos" className="mr-1 flex items-center gap-2"><Logo size={32} withText={false} /><span className="hidden flex-col leading-tight md:flex"><span className="text-base font-extrabold tracking-tight">Mana<span className="text-brand">Resto</span></span><span className="truncate text-[11px] font-medium text-muted">{me?.establishment?.name}</span></span></Link>
         <nav className="ml-auto hidden items-center gap-1 sm:flex">
           {nav.map((n) => (
@@ -95,7 +97,6 @@ export function PosShell({ children }: { children: React.ReactNode }) {
           <button onClick={() => (pending > 0 ? flush() : undefined)} className={`touch flex h-9 w-9 items-center justify-center rounded-full ${!online ? "bg-red-500/15 text-red-600" : pending > 0 ? "bg-orange-500/15 text-orange-600" : connected ? "bg-green-500/10 text-green-600" : "surface-2 text-muted"}`} aria-label={online ? "En ligne" : "Hors ligne"}>
             {online ? <Wifi className="h-4 w-4" /> : <WifiOff className="h-4 w-4" />}{pending > 0 ? <span className="absolute -mt-6 ml-6 flex h-4 min-w-4 items-center justify-center rounded-full bg-orange-500 px-1 text-[10px] font-extrabold text-white">{pending}</span> : null}
           </button>
-          <button onClick={() => setMenu(true)} className="touch flex h-10 w-10 items-center justify-center rounded-xl bg-brand text-white shadow-glow active:scale-95" aria-label="Ouvrir le menu"><Menu className="h-5 w-5" /></button>
         </div>
         <div className="ml-1 hidden items-center gap-1 border-l border-line pl-1.5 sm:ml-2 sm:flex sm:gap-2 sm:pl-2">
           <button data-testid="network-status" data-online={online ? "true" : "false"} aria-label={`${!online ? "Hors ligne" : "En ligne"}${pending > 0 ? ` · ${pending} à synchroniser` : ""}`} onClick={() => (pending > 0 ? flush() : undefined)} className={`touch flex h-9 items-center gap-1.5 rounded-full px-3 text-[11px] font-bold tracking-wide ${!online ? "bg-red-500/15 text-red-600 dark:text-red-400" : pending > 0 ? "bg-orange-500/15 text-orange-600" : connected ? "bg-green-500/10 text-green-600 dark:text-green-400" : "surface-2 text-muted"}`} title={online ? (connected ? "En ligne, temps réel actif" : "En ligne") : "Hors ligne : les opérations sont mises en file d'attente"}>
@@ -117,12 +118,12 @@ export function PosShell({ children }: { children: React.ReactNode }) {
       </header>
       <main className="min-h-0 flex-1">{children}</main>
 
-      {/* Tiroir de navigation (téléphone) : glisse depuis la droite */}
+      {/* Tiroir de navigation (téléphone) : glisse depuis la gauche, comme le menu de l'administration */}
       <div className={`fixed inset-0 z-[60] sm:hidden ${menu ? "" : "pointer-events-none"}`} aria-hidden={!menu}>
         <div onClick={() => setMenu(false)} className={`absolute inset-0 bg-nuit-950/55 backdrop-blur-[2px] transition-opacity duration-300 ${menu ? "opacity-100" : "opacity-0"}`} />
-        <aside className={`absolute inset-y-0 right-0 flex w-[82vw] max-w-sm flex-col surface shadow-2xl transition-transform duration-300 ease-out ${menu ? "translate-x-0" : "translate-x-full"}`} style={{ paddingTop: "env(safe-area-inset-top)", paddingBottom: "env(safe-area-inset-bottom)" }} role="dialog" aria-label="Menu">
+        <aside className={`absolute inset-y-0 left-0 flex w-[82vw] max-w-sm flex-col surface shadow-2xl transition-transform duration-300 ease-out ${menu ? "translate-x-0" : "-translate-x-full"}`} style={{ paddingTop: "env(safe-area-inset-top)", paddingBottom: "env(safe-area-inset-bottom)" }} role="dialog" aria-label="Menu">
           <div className="bg-lagoon relative overflow-hidden px-5 pb-5 pt-4 text-white">
-            <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-white/10 blur-2xl" />
+            <div aria-hidden className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-white/10 blur-2xl" />
             <div className="flex items-center justify-between"><Logo size={32} light /><button onClick={() => setMenu(false)} className="touch flex h-10 w-10 items-center justify-center rounded-xl bg-white/15" aria-label="Fermer le menu"><X className="h-5 w-5" /></button></div>
             <div className="mt-5 flex items-center gap-3">
               <span className="flex h-12 w-12 items-center justify-center rounded-full text-base font-extrabold text-white ring-2 ring-white/40" style={{ background: me?.user?.color ?? "#0ea5a4" }}>{(me?.user?.displayName || me?.user?.firstName || "?").slice(0, 1)}</span>
@@ -131,7 +132,7 @@ export function PosShell({ children }: { children: React.ReactNode }) {
           </div>
           <nav className="flex-1 overflow-y-auto p-3">
             {[...nav, ...(can("reports.view") || can("catalog.manage") ? [{ href: "/admin", label: "Administration", icon: Settings }] : [])].map((n, i) => (
-              <Link key={n.href} href={n.href} style={{ transitionDelay: menu ? `${60 + i * 40}ms` : "0ms" }} className={`mb-1.5 flex h-14 items-center gap-3 rounded-2xl px-4 text-[15px] font-bold transition-all duration-300 ${menu ? "translate-x-0 opacity-100" : "translate-x-6 opacity-0"} ${isActive(n.href) ? "bg-brand text-white shadow-glow" : "surface-2 text-[var(--text)]"}`}>
+              <Link key={n.href} href={n.href} style={{ transitionDelay: menu ? `${60 + i * 40}ms` : "0ms" }} className={`mb-1.5 flex h-14 items-center gap-3 rounded-2xl px-4 text-[15px] font-bold transition-all duration-300 ${menu ? "translate-x-0 opacity-100" : "-translate-x-6 opacity-0"} ${isActive(n.href) ? "bg-brand text-white shadow-glow" : "surface-2 text-[var(--text)]"}`}>
                 <span className={`flex h-9 w-9 items-center justify-center rounded-xl ${isActive(n.href) ? "bg-white/15" : "surface"}`}><n.icon className="h-5 w-5" /></span>{n.label}<ChevronRight className="ml-auto h-4 w-4 opacity-60" />
               </Link>
             ))}
