@@ -114,8 +114,9 @@ export function OrderScreen({ orderId: orderIdProp }: { orderId: string }) {
     onSettled: () => qc.invalidateQueries({ queryKey: ["floor"] }),
   });
 
-  const run = async (fn: () => Promise<Order>, local?: (o: Order) => Order) => { try { setOrder(await fn()); } catch (e) { onError(e); if (isQueued(e) && local) patchLocal(local); else if (!isQueued(e)) invalidate(); } };
-  const updateItem = (itemId: string, patch: { quantity?: number; seatNumber?: number | null; notes?: string | null; courseId?: string | null; isUrgent?: boolean }) =>
+  // Renvoie true si l'opération a abouti (ou est mise en file hors ligne), false si elle a été refusée
+  const run = async (fn: () => Promise<Order>, local?: (o: Order) => Order): Promise<boolean> => { try { setOrder(await fn()); return true; } catch (e) { onError(e); if (isQueued(e) && local) patchLocal(local); else if (!isQueued(e)) invalidate(); return isQueued(e); } };
+  const updateItem = async (itemId: string, patch: { quantity?: number; seatNumber?: number | null; notes?: string | null; courseId?: string | null; isUrgent?: boolean }): Promise<void> => void await
     run(() => api.patch<Order>(`/api/orders/${orderId}/items/${itemId}`, patch, { queueIfOffline: true }), (o) => ({ ...o, items: o.items.map((i) => (i.id === itemId || i.parentItemId === itemId ? { ...i, ...(patch.quantity !== undefined ? { quantity: patch.quantity } : {}), ...(patch.seatNumber !== undefined ? { seatNumber: patch.seatNumber } : {}), ...(patch.courseId !== undefined ? { courseId: patch.courseId } : {}), ...(patch.isUrgent !== undefined ? { isUrgent: patch.isUrgent } : {}), ...(i.id === itemId && patch.notes !== undefined ? { notes: patch.notes } : {}) } : i)) }));
   const removeItem = async (item: OrderItem, reason: string | null) => {
     const sent = item.status !== "PENDING";
@@ -123,15 +124,20 @@ export function OrderScreen({ orderId: orderIdProp }: { orderId: string }) {
       .catch((e) => { onError(e); if (isQueued(e)) patchLocal((o) => ({ ...o, items: o.items.filter((i) => i.id !== item.id && i.parentItemId !== item.id) })); });
     setItemOpen(null);
   };
-  const send = (opts: { courseId?: string | null; all?: boolean }) => {
+  const [sending, setSending] = useState(false);
+  const send = async (opts: { courseId?: string | null; all?: boolean }) => {
     setSendMenu(false);
+    if (sending) return; // double appui : un seul envoi
+    setSending(true);
     const now = new Date();
-    return run(() => api.post<Order>(`/api/orders/${orderId}/send`, opts, { idempotencyKey: crypto.randomUUID(), queueIfOffline: true }),
+    const key = crypto.randomUUID(); // une clé par intention d'envoi (rejeu hors ligne sans doublon)
+    return run(() => api.post<Order>(`/api/orders/${orderId}/send`, opts, { idempotencyKey: key, queueIfOffline: true }),
       (o) => ({ ...o, status: o.status === "OPEN" ? "SENT" : o.status, items: o.items.map((i) => (i.status === "PENDING" && (opts.all || i.courseId === opts.courseId) ? { ...i, status: "SENT", sentAt: now } : i)), courses: o.courses.map((c) => (opts.all || c.id === opts.courseId ? { ...c, status: "SENT", sentAt: now } : c)) }))
-      .then(() => toast(online ? "Envoyé en cuisine" : "Envoi enregistré, transmis en cuisine à la reconnexion", online ? "success" : "info"));
+      .then((ok) => { if (ok) toast(online ? "Envoyé en cuisine" : "Envoi enregistré, transmis en cuisine à la reconnexion", online ? "success" : "info"); })
+      .finally(() => setSending(false));
   };
   const setCourseStatus = (cid: string, status: "PENDING" | "HOLD" | "FIRE" | "SERVED") => run(() => api.post<Order>(`/api/orders/${orderId}/courses/${cid}`, { status }));
-  const requestBill = () => run(() => api.post<Order>(`/api/orders/${orderId}/bill`)).then(() => toast("Addition demandée", "success"));
+  const requestBill = () => run(() => api.post<Order>(`/api/orders/${orderId}/bill`)).then((ok) => { if (ok) toast("Addition demandée", "success"); });
   const pay = async (payments: PaymentPayload[]) => {
     const body = payments.map((p) => ({ ...p, id: crypto.randomUUID() }));
     await withPin(setPin, "pos.discount", async (managerPin) => {
@@ -274,7 +280,7 @@ export function OrderScreen({ orderId: orderIdProp }: { orderId: string }) {
           <span className="min-w-0 flex-1 text-left"><span className="block truncate text-sm font-extrabold">Commande{pendingCount > 0 ? ` · ${pendingCount} à envoyer` : ""}</span><span className="block text-[11px] text-muted">{itemCount} article{itemCount > 1 ? "s" : ""}</span></span>
           <Money amount={o.total} className="text-lg font-extrabold" />
         </button>
-        {!closed && pendingCount > 0 ? <Button size="lg" variant="accent" className="h-14 shrink-0 px-4" onClick={() => send({ all: true })}><Send className="h-5 w-5" /></Button> : null}
+        {!closed && pendingCount > 0 ? <Button size="lg" variant="accent" className="h-14 shrink-0 px-4" disabled={sending} aria-label="Envoyer en cuisine" onClick={() => send({ all: true })}><Send className="h-5 w-5" /></Button> : null}
       </div>
 
       {/* Ticket : colonne fixe (tablette / ordinateur) ou panneau plein écran (téléphone) */}
@@ -369,7 +375,7 @@ export function OrderScreen({ orderId: orderIdProp }: { orderId: string }) {
         {!closed ? (
           <div className="no-print space-y-2 p-3 pt-0">
             <div className="relative flex gap-2">
-              <Button size="lg" variant={pendingCount > 0 ? "accent" : "secondary"} className="min-w-0 flex-1 px-2!" disabled={pendingCount === 0} onClick={() => (o.courses.length > 1 ? setSendMenu((s) => !s) : send({ all: true }))}>
+              <Button size="lg" variant={pendingCount > 0 ? "accent" : "secondary"} className="min-w-0 flex-1 px-2!" disabled={pendingCount === 0 || sending} onClick={() => (o.courses.length > 1 ? setSendMenu((s) => !s) : send({ all: true }))}>
                 <Send className="h-5 w-5 shrink-0" /><span className="truncate">Envoyer{pendingCount > 0 ? ` (${pendingCount})` : ""}</span>{o.courses.length > 1 ? <ChevronDown className="h-4 w-4 shrink-0" /> : null}
               </Button>
               {sendMenu ? (
@@ -406,7 +412,7 @@ export function OrderScreen({ orderId: orderIdProp }: { orderId: string }) {
       {receipt ? <ReceiptDialog orderId={orderId} orderNumber={o.number} open afterPayment={receipt.afterPayment} onClose={() => { const after = receipt.afterPayment; setReceipt(null); if (after) router.push(o.tableId ? "/pos" : "/pos/orders"); }} /> : null}
       <DiscountDialog open={dialog === "discount"} order={o} onClose={() => setDialog(null)} onApply={(body) => withPin(setPin, "pos.discount", (managerPin) => api.post<Order>(`/api/orders/${orderId}/discount`, { ...body, managerPin }).then(setOrder)).then(() => setDialog(null)).catch(onError)} />
       <CancelDialog open={dialog === "cancel"} onClose={() => setDialog(null)} onConfirm={(reason) => withPin(setPin, "pos.cancel_order", (managerPin) => api.post<Order>(`/api/orders/${orderId}/cancel`, { reason, managerPin }).then(setOrder)).then(() => { setDialog(null); toast("Commande annulée"); router.push("/pos"); }).catch(onError)} />
-      <TransferDialog open={dialog === "transfer"} currentTableId={o.tableId} onClose={() => setDialog(null)} onPick={(tableId) => run(() => api.post<Order>(`/api/orders/${orderId}/transfer`, { tableId })).then(() => { setDialog(null); toast("Table transférée", "success"); })} />
+      <TransferDialog open={dialog === "transfer"} currentTableId={o.tableId} onClose={() => setDialog(null)} onPick={(tableId) => run(() => api.post<Order>(`/api/orders/${orderId}/transfer`, { tableId })).then((ok) => { if (ok) { setDialog(null); toast("Table transférée", "success"); } })} />
       {dialog === "covers" ? <CoversDialog key={`${o.covers}-${o.customerName ?? ""}`} open order={o} onClose={() => setDialog(null)} onSave={(body) => run(() => api.patch<Order>(`/api/orders/${orderId}`, body)).then(() => setDialog(null))} /> : null}
       {currentCourse?.status === "HOLD" ? <div className="pointer-events-none fixed bottom-24 right-4 rounded-lg bg-orange-500 px-3 py-1 text-xs font-bold text-white">Service « {currentCourse.name} » en attente</div> : null}
     </div>

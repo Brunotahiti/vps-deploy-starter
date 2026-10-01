@@ -28,7 +28,7 @@ export const userCreateSchema = z.object({
   email: z.string().email(), password: z.string().min(8).max(128), firstName: z.string().min(1).max(60), lastName: z.string().min(1).max(60),
   displayName: z.string().max(40).nullable().optional(), color: z.string().max(20).nullable().optional(), pin: pin.nullable().optional(), memberships: z.array(membershipSchema).min(1),
 });
-export const userUpdateSchema = userCreateSchema.partial().extend({ isActive: z.boolean().optional() });
+export const userUpdateSchema = userCreateSchema.partial().extend({ isActive: z.boolean().optional(), currentPassword: z.string().max(200).optional() });
 export const inviteSchema = z.object({ email: z.string().email(), firstName: z.string().min(1).max(60), lastName: z.string().min(1).max(60), color: z.string().max(20).nullable().optional(), memberships: z.array(membershipSchema).min(1) });
 export const acceptInviteSchema = z.object({ password: z.string().min(8).max(128), pin: pin.nullable().optional() });
 export const roleSchema = z.object({ name: z.string().min(1).max(60), permissions: z.array(z.string()) });
@@ -122,8 +122,9 @@ export const shiftSchema = z.object({ employeeId: uuid, startsAt: z.string().dat
 export const clockSchema = z.object({ pin: z.string().regex(/^\d{4,6}$/), kind: z.enum(["CLOCK_IN", "BREAK_START", "BREAK_END", "CLOCK_OUT"]) });
 export const clockIdentifySchema = z.object({ pin: z.string().regex(/^\d{4,6}$/) });
 export const timeEntrySchema = z.object({ employeeId: uuid.optional(), kind: z.enum(["CLOCK_IN", "BREAK_START", "BREAK_END", "CLOCK_OUT"]).optional(), at: z.string().datetime({ offset: true }), reason: z.string().min(1).max(200) });
-export const periodQuery = z.object({ from: daySchema, to: daySchema });
-export const exportQuery = z.object({ type: z.enum(["period", "products", "orders", "staff", "accounting"]), format: z.enum(["csv", "xlsx", "pdf"]), from: daySchema, to: daySchema });
+// Période de rapport : début ≤ fin et au plus 13 mois (évite de charger tout l'historique d'un coup)
+export const periodQuery = z.object({ from: daySchema, to: daySchema }).refine((q) => q.from <= q.to, { message: "La date de début doit précéder la date de fin", path: ["from"] }).refine((q) => (Date.parse(q.to) - Date.parse(q.from)) / 86_400_000 <= 400, { message: "Période trop longue (13 mois au plus)", path: ["to"] });
+export const exportQuery = z.object({ type: z.enum(["period", "products", "orders", "staff", "accounting"]), format: z.enum(["csv", "xlsx", "pdf"]), from: daySchema, to: daySchema }).refine((q) => q.from <= q.to, { message: "La date de début doit précéder la date de fin", path: ["from"] }).refine((q) => (Date.parse(q.to) - Date.parse(q.from)) / 86_400_000 <= 400, { message: "Période trop longue (13 mois au plus)", path: ["to"] });
 
 // Digital (Phase 6)
 const modSel = z.array(z.object({ modifierId: uuid, quantity: z.number().int().min(1).max(20).optional() })).optional();

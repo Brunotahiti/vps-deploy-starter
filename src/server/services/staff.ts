@@ -1,4 +1,5 @@
 import { prisma } from "@/server/db";
+import { reserveAttempt } from "@/server/auth/attempts";
 import { ApiError } from "@/server/errors";
 import { audit } from "@/server/audit";
 import { publish } from "@/server/realtime/bus";
@@ -33,11 +34,13 @@ export async function upsertEmployee(actor: Actor, input: { id?: string; userId?
     if (!existing) throw new ApiError(404, "NOT_FOUND", "Employé introuvable");
     const row = await prisma.employee.update({ where: { id: input.id }, data: { userId: input.userId, firstName: input.firstName, lastName: input.lastName, jobTitle: input.jobTitle, hourlyCost: input.hourlyCost, isActive: input.isActive, ...(pinHash ? { pinHash } : {}) } });
     await audit({ ...actor, action: "employee.update", entityType: "employee", entityId: row.id, oldValue: { hourlyCost: existing.hourlyCost, jobTitle: existing.jobTitle }, newValue: { hourlyCost: row.hourlyCost, jobTitle: row.jobTitle, pinChanged: !!pinHash } });
-    return row;
+    const { pinHash: _h, ...safe } = row;
+    return { ...safe, hasPin: !!_h };
   }
   const row = await prisma.employee.create({ data: { establishmentId: actor.establishmentId, userId: input.userId ?? null, firstName: input.firstName, lastName: input.lastName, jobTitle: input.jobTitle ?? null, hourlyCost: input.hourlyCost ?? null, pinHash: pinHash ?? null } });
   await audit({ ...actor, action: "employee.create", entityType: "employee", entityId: row.id, newValue: { name: `${row.firstName} ${row.lastName}`, jobTitle: row.jobTitle } });
-  return row;
+  const { pinHash: _h, ...safe } = row;
+  return { ...safe, hasPin: !!_h };
 }
 
 /** Crée une fiche employé pour chaque utilisateur de l'établissement qui n'en a pas encore. */
@@ -85,28 +88,17 @@ export async function deleteShift(actor: Actor, id: string) {
 }
 
 // ------------------------------------------------------------------ Pointage
-const attempts = new Map<string, { count: number; until: number }>();
-function limitPin(key: string) {
-  const a = attempts.get(key);
-  if (a && a.count >= 10 && Date.now() < a.until) throw new ApiError(429, "TOO_MANY_ATTEMPTS", "Trop de tentatives, réessayez dans une minute");
-}
-function notePinFailure(key: string) {
-  const a = attempts.get(key) ?? { count: 0, until: 0 };
-  attempts.set(key, { count: a.count + 1, until: Date.now() + 60_000 });
-}
-
 /** Retrouve l'employé par son PIN (PIN employé, sinon PIN de l'utilisateur lié). */
 export async function identifyEmployee(establishmentId: string, pin: string) {
-  const key = `clock:${establishmentId}`;
-  limitPin(key);
+  // Même compteur que la connexion par PIN : le pointage ne doit pas servir à deviner un PIN
+  const release = reserveAttempt(`pin:${establishmentId}`, 12, 15 * 60_000, "Trop de PIN erronés sur cet établissement, réessayez dans quelques minutes");
   const employees = await prisma.employee.findMany({ where: { establishmentId, isActive: true }, include: { user: { select: { pinHash: true, isActive: true } } } });
   for (const e of employees) {
-    if (e.pinHash && (await verifyPin(pin, e.pinHash))) { attempts.delete(key); return e; }
+    if (e.pinHash && (await verifyPin(pin, e.pinHash))) { release(); return e; }
   }
   for (const e of employees) {
-    if (!e.pinHash && e.user?.isActive && e.user.pinHash && (await verifyPin(pin, e.user.pinHash))) { attempts.delete(key); return e; }
+    if (!e.pinHash && e.user?.isActive && e.user.pinHash && (await verifyPin(pin, e.user.pinHash))) { release(); return e; }
   }
-  notePinFailure(key);
   throw new ApiError(401, "BAD_PIN", "PIN inconnu");
 }
 
@@ -186,37 +178,53 @@ export async function deleteEntry(actor: Actor, id: string, reason: string) {
 }
 
 // ------------------------------------------------------------------ Heures et coût
-/** Calcule les heures travaillées / de pause à partir d'une séquence de pointages (bornée à la période). */
-export function computeHours(entries: { kind: TimeEntryKind; at: Date }[], periodEnd: Date) {
-  let state: ClockState = "OUT", inAt: Date | null = null, breakAt: Date | null = null, workedMs = 0, breakMs = 0, sessions = 0;
-  for (const e of entries) {
-    if (e.kind === "CLOCK_IN") { if (state === "IN" && inAt) workedMs += e.at.getTime() - inAt.getTime(); state = "IN"; inAt = e.at; breakAt = null; sessions++; }
-    else if (e.kind === "BREAK_START" && state === "IN" && inAt) { workedMs += e.at.getTime() - inAt.getTime(); state = "BREAK"; breakAt = e.at; inAt = null; }
-    else if (e.kind === "BREAK_END" && state === "BREAK" && breakAt) { breakMs += e.at.getTime() - breakAt.getTime(); state = "IN"; inAt = e.at; breakAt = null; }
-    else if (e.kind === "CLOCK_OUT" && state !== "OUT") { if (state === "IN" && inAt) workedMs += e.at.getTime() - inAt.getTime(); if (state === "BREAK" && breakAt) breakMs += e.at.getTime() - breakAt.getTime(); state = "OUT"; inAt = null; breakAt = null; }
+/** Au-delà, un segment de travail ou de pause est considéré comme un oubli de pointage (plafonné et signalé). */
+const MAX_SEGMENT_MS = 16 * 3600_000;
+
+/**
+ * Calcule les heures travaillées / de pause à partir d'une séquence de pointages (bornée à la période).
+ * - `initial` : dernier pointage AVANT la période (service commencé la veille : les heures après minuit comptent).
+ * - Arrivée alors que l'employé est déjà « en service » : la sortie a été oubliée ; la session précédente
+ *   n'est pas payée jusqu'à la nouvelle arrivée, elle est signalée comme anomalie.
+ */
+export function computeHours(entries: { kind: TimeEntryKind; at: Date }[], periodEnd: Date, opts: { initial?: { kind: TimeEntryKind } | null; periodStart?: Date } = {}) {
+  let state: ClockState = "OUT", inAt: Date | null = null, breakAt: Date | null = null, workedMs = 0, breakMs = 0, sessions = 0, anomalies = 0;
+  if (opts.initial && opts.periodStart) {
+    if (opts.initial.kind === "CLOCK_IN" || opts.initial.kind === "BREAK_END") { state = "IN"; inAt = opts.periodStart; }
+    else if (opts.initial.kind === "BREAK_START") { state = "BREAK"; breakAt = opts.periodStart; }
   }
-  // Session encore ouverte : comptée jusqu'à la fin de période (ou maintenant)
-  const end = Math.min(periodEnd.getTime(), Date.now());
-  if (state === "IN" && inAt) workedMs += Math.max(0, end - inAt.getTime());
-  if (state === "BREAK" && breakAt) breakMs += Math.max(0, end - breakAt.getTime());
-  return { workedMs, breakMs, sessions, open: state !== "OUT" };
+  const segment = (fromT: Date, toT: Date) => { const d = toT.getTime() - fromT.getTime(); if (d > MAX_SEGMENT_MS) { anomalies++; return MAX_SEGMENT_MS; } return Math.max(0, d); };
+  for (const e of entries) {
+    if (e.kind === "CLOCK_IN") { if (state !== "OUT") anomalies++; state = "IN"; inAt = e.at; breakAt = null; sessions++; }
+    else if (e.kind === "BREAK_START" && state === "IN" && inAt) { workedMs += segment(inAt, e.at); state = "BREAK"; breakAt = e.at; inAt = null; }
+    else if (e.kind === "BREAK_END" && state === "BREAK" && breakAt) { breakMs += segment(breakAt, e.at); state = "IN"; inAt = e.at; breakAt = null; }
+    else if (e.kind === "CLOCK_OUT" && state !== "OUT") { if (state === "IN" && inAt) workedMs += segment(inAt, e.at); if (state === "BREAK" && breakAt) breakMs += segment(breakAt, e.at); state = "OUT"; inAt = null; breakAt = null; }
+  }
+  // Session encore ouverte : comptée jusqu'à la fin de période (ou maintenant), plafonnée
+  const end = new Date(Math.min(periodEnd.getTime(), Date.now()));
+  if (state === "IN" && inAt) workedMs += segment(inAt, end);
+  if (state === "BREAK" && breakAt) breakMs += segment(breakAt, end);
+  return { workedMs, breakMs, sessions, open: state !== "OUT", anomalies };
 }
 
 export async function staffSummary(establishmentId: string, fromDay: string, toDay: string, timezone: string) {
   const from = startOfLocalDay(fromDay, timezone), to = endOfLocalDay(toDay, timezone);
-  const [employees, entries, shifts, revenue] = await Promise.all([
-    prisma.employee.findMany({ where: { establishmentId, isActive: true }, orderBy: [{ lastName: "asc" }, { firstName: "asc" }] }),
+  const [employees, entries, shifts, revenue, before] = await Promise.all([
+    // Employés actifs, et archivés qui ont travaillé sur la période (leur coût reste dans les rapports passés)
+    prisma.employee.findMany({ where: { establishmentId, OR: [{ isActive: true }, { timeEntries: { some: { at: { gte: from, lt: to } } } }] }, orderBy: [{ lastName: "asc" }, { firstName: "asc" }] }),
     prisma.timeEntry.findMany({ where: { establishmentId, at: { gte: from, lt: to } }, orderBy: { at: "asc" } }),
     prisma.shift.findMany({ where: { establishmentId, startsAt: { gte: from, lt: to } } }),
     prisma.order.aggregate({ where: { establishmentId, status: "PAID", closedAt: { gte: from, lt: to } }, _sum: { total: true, taxTotal: true } }),
+    // Dernier pointage de chaque employé dans les 24 h précédant la période (service à cheval sur minuit)
+    prisma.timeEntry.findMany({ where: { establishmentId, at: { gte: new Date(from.getTime() - 24 * 3600_000), lt: from } }, orderBy: { at: "desc" }, distinct: ["employeeId"], select: { employeeId: true, kind: true } }),
   ]);
   const rows = employees.map((e) => {
     const mine = entries.filter((x) => x.employeeId === e.id);
-    const h = computeHours(mine, to);
+    const h = computeHours(mine, to, { initial: before.find((b) => b.employeeId === e.id) ?? null, periodStart: from });
     const hours = Math.round((h.workedMs / 3600_000) * 100) / 100;
     const breakHours = Math.round((h.breakMs / 3600_000) * 100) / 100;
     const planned = Math.round((shifts.filter((s) => s.employeeId === e.id).reduce((a, s) => a + (s.endsAt.getTime() - s.startsAt.getTime()), 0) / 3600_000) * 100) / 100;
-    return { id: e.id, firstName: e.firstName, lastName: e.lastName, jobTitle: e.jobTitle, hourlyCost: e.hourlyCost, hours, breakHours, sessions: h.sessions, open: h.open, plannedHours: planned, variance: Math.round((hours - planned) * 100) / 100, cost: Math.round(hours * (e.hourlyCost ?? 0)) };
+    return { id: e.id, firstName: e.firstName, lastName: e.lastName, jobTitle: e.jobTitle, hourlyCost: e.hourlyCost, hours, breakHours, sessions: h.sessions, open: h.open, anomalies: h.anomalies, plannedHours: planned, variance: Math.round((hours - planned) * 100) / 100, cost: Math.round(hours * (e.hourlyCost ?? 0)) };
   });
   const revenueTtc = revenue._sum.total ?? 0;
   const revenueHt = revenueTtc - (revenue._sum.taxTotal ?? 0);

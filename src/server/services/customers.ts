@@ -68,7 +68,9 @@ export async function attachCustomer(actor: Actor, orderId: string, customerId: 
 }
 
 export async function getCustomerCard(establishmentId: string, customerId: string) {
-  const c = await prisma.customer.findUniqueOrThrow({ where: { id: customerId }, include: { loyaltyAccounts: { where: { establishmentId }, include: { transactions: { orderBy: { createdAt: "desc" }, take: 20 } } } } });
+  // Client de l'entreprise de l'établissement uniquement (pas de lecture d'une fiche d'un autre restaurant)
+  const c = await prisma.customer.findFirst({ where: { id: customerId, organization: { establishments: { some: { id: establishmentId } } } }, include: { loyaltyAccounts: { where: { establishmentId }, include: { transactions: { orderBy: { createdAt: "desc" }, take: 20 } } } } });
+  if (!c) throw new ApiError(404, "NOT_FOUND", "Client introuvable");
   const settings = await loyaltySettings(establishmentId);
   const account = c.loyaltyAccounts[0] ?? null;
   const points = account?.points ?? 0;
@@ -77,13 +79,16 @@ export async function getCustomerCard(establishmentId: string, customerId: strin
 
 /** Points gagnés au paiement complet d'une commande liée à un client ; visites et dépenses cumulées. */
 export async function earnLoyalty(tx: Tx, establishmentId: string, orderId: string) {
-  const order = await tx.order.findUniqueOrThrow({ where: { id: orderId }, select: { customerId: true, total: true, number: true, status: true } });
+  const order = await tx.order.findUniqueOrThrow({ where: { id: orderId }, select: { customerId: true, total: true, number: true, status: true, payments: { select: { method: true, amount: true, refundedAmount: true, status: true } } } });
   if (!order.customerId || order.status !== "PAID") return null;
-  await tx.customer.update({ where: { id: order.customerId }, data: { visitCount: { increment: 1 }, totalSpent: { increment: order.total } } });
+  if (await tx.loyaltyTransaction.findFirst({ where: { orderId, points: { gt: 0 } } })) return null; // déjà crédité pour cette commande
+  // Base : ce que le client a réellement payé (les paiements « Offert » ne rapportent ni points ni dépenses)
+  const spent = order.payments.filter((p) => p.method !== "COMPLIMENTARY" && p.status !== "VOIDED").reduce((a, p) => a + p.amount - p.refundedAmount, 0);
+  await tx.customer.update({ where: { id: order.customerId }, data: { visitCount: { increment: 1 }, totalSpent: { increment: spent } } });
   const est = await tx.establishment.findUniqueOrThrow({ where: { id: establishmentId }, select: { settings: true } });
   const settings = { ...DEFAULT_LOYALTY, ...(((est.settings ?? {}) as { loyalty?: Partial<LoyaltySettings> }).loyalty ?? {}) };
   if (!settings.enabled) return null;
-  const points = Math.floor(order.total / 100) * settings.pointsPer100;
+  const points = Math.floor(spent / 100) * settings.pointsPer100;
   if (points <= 0) return null;
   const account = await tx.loyaltyAccount.upsert({ where: { establishmentId_customerId: { establishmentId, customerId: order.customerId } }, update: { points: { increment: points } }, create: { establishmentId, customerId: order.customerId, points } });
   await tx.loyaltyTransaction.create({ data: { accountId: account.id, orderId, points, reason: `Commande ${order.number}` } });
@@ -101,14 +106,23 @@ export async function redeemReward(actor: Actor, orderId: string, rewards = 1) {
   const account = await prisma.loyaltyAccount.findUnique({ where: { establishmentId_customerId: { establishmentId: actor.establishmentId, customerId: order.customerId } } });
   const needed = settings.rewardPoints * rewards;
   if (!account || account.points < needed) throw new ApiError(400, "NOT_ENOUGH_POINTS", `Points insuffisants (${account?.points ?? 0} / ${needed})`);
-  const amount = Math.min(order.subtotal, settings.rewardValue * rewards);
+  const { lockOrder, recalcOrder, settleAfterChange } = await import("./orders");
+  let amount = 0;
   await prisma.$transaction(async (tx) => {
-    await tx.loyaltyAccount.update({ where: { id: account.id }, data: { points: { decrement: needed } } });
+    await lockOrder(tx, orderId);
+    const fresh = await tx.order.findUniqueOrThrow({ where: { id: orderId }, select: { status: true, subtotal: true, discountTotal: true, discountReason: true } });
+    if (fresh.status === "PAID" || fresh.status === "CANCELLED") throw new ApiError(409, "ORDER_CLOSED", "Commande clôturée");
+    // La récompense s'AJOUTE à la remise existante, dans la limite de ce qui reste à remiser
+    amount = Math.min(fresh.subtotal - fresh.discountTotal, settings.rewardValue * rewards);
+    if (amount <= 0) throw new ApiError(400, "NOTHING_TO_DISCOUNT", "Rien à déduire sur cette commande");
+    // Débit conditionnel : deux utilisations simultanées ne rendent jamais le solde négatif
+    const debit = await tx.loyaltyAccount.updateMany({ where: { id: account.id, points: { gte: needed } }, data: { points: { decrement: needed } } });
+    if (debit.count === 0) throw new ApiError(400, "NOT_ENOUGH_POINTS", "Points insuffisants");
     await tx.loyaltyTransaction.create({ data: { accountId: account.id, orderId, points: -needed, reason: `Récompense sur ${order.number}` } });
-    await tx.order.update({ where: { id: orderId }, data: { discountTotal: amount, discountReason: `Fidélité (${needed} pts)` } });
-    const { recalcOrder } = await import("./orders");
+    await tx.order.update({ where: { id: orderId }, data: { discountTotal: fresh.discountTotal + amount, discountReason: [fresh.discountReason, `Fidélité (${needed} pts)`].filter(Boolean).join(" + ") } });
     await recalcOrder(tx, orderId);
     await audit({ ...actor, action: "loyalty.redeem", entityType: "order", entityId: orderId, newValue: { points: needed, amount, customerId: order.customerId } }, tx);
+    await settleAfterChange(tx, actor, orderId, { closeIfZero: true });
   });
   publish("order.updated", actor.establishmentId, { orderId, tableId: order.tableId });
   return { amount, points: needed };
@@ -117,8 +131,13 @@ export async function redeemReward(actor: Actor, orderId: string, rewards = 1) {
 export async function adjustPoints(actor: Actor, customerId: string, points: number, reason: string) {
   const c = await prisma.customer.findFirst({ where: { id: customerId, organizationId: actor.organizationId } });
   if (!c) throw new ApiError(404, "NOT_FOUND", "Client introuvable");
-  const account = await prisma.loyaltyAccount.upsert({ where: { establishmentId_customerId: { establishmentId: actor.establishmentId, customerId } }, update: { points: { increment: points } }, create: { establishmentId: actor.establishmentId, customerId, points: Math.max(0, points) } });
-  await prisma.loyaltyTransaction.create({ data: { accountId: account.id, points, reason } });
-  await audit({ ...actor, action: "loyalty.adjust", entityType: "customer", entityId: customerId, newValue: { points, balance: account.points }, reason });
+  await prisma.$transaction(async (tx) => {
+    const account = await tx.loyaltyAccount.upsert({ where: { establishmentId_customerId: { establishmentId: actor.establishmentId, customerId } }, update: {}, create: { establishmentId: actor.establishmentId, customerId, points: 0 } });
+    // Jamais de solde négatif : un retrait supérieur au solde est refusé
+    const upd = await tx.loyaltyAccount.updateMany({ where: { id: account.id, ...(points < 0 ? { points: { gte: -points } } : {}) }, data: { points: { increment: points } } });
+    if (upd.count === 0) throw new ApiError(400, "NOT_ENOUGH_POINTS", `Solde insuffisant (${account.points} points)`);
+    await tx.loyaltyTransaction.create({ data: { accountId: account.id, points, reason } });
+    await audit({ ...actor, action: "loyalty.adjust", entityType: "customer", entityId: customerId, newValue: { points, balance: account.points + points }, reason }, tx);
+  });
   return getCustomerCard(actor.establishmentId, customerId);
 }

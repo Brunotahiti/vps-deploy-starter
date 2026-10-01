@@ -46,6 +46,7 @@ if [ -z "${PUBLIC_HOST_ALT:-}" ]; then
   case "$PREV_HOST" in ""|"$PUBLIC_HOST"|manaresto.com|www.manaresto.com) PUBLIC_HOST_ALT="$PREV_ALT" ;; *) PUBLIC_HOST_ALT="$PREV_HOST" ;; esac
   case "$PUBLIC_HOST_ALT" in manaresto.com|www.manaresto.com|"$PUBLIC_HOST") PUBLIC_HOST_ALT="" ;; esac
 fi
+if [ -n "$PUBLIC_HOST_ALT" ] && ! printf '%s' "$PUBLIC_HOST_ALT" | grep -Eq '^[A-Za-z0-9.-]+$'; then echo "✗ Alias de domaine invalide : $PUBLIC_HOST_ALT"; exit 1; fi
 if [ -z "${SEED_DEMO:-}" ]; then
   read -rp "Charger le restaurant de démonstration « Le Mana Beach » ? [Y/n] : " SD
   SEED_DEMO=$([ "${SD:-Y}" = "n" ] || [ "${SD:-Y}" = "N" ] && echo false || echo true)
@@ -92,6 +93,7 @@ else
   sed -i '/^PUBLIC_HOST_ALT=/d' .env
   [ -n '$PUBLIC_HOST_ALT' ] && printf 'PUBLIC_HOST_ALT=%s\n' '$PUBLIC_HOST_ALT' >> .env
   grep -q '^SITE_HOST=' .env || printf '\nSITE_HOST=www.manaresto.com\nSITE_HOST_ALT=manaresto.com\n' >> .env
+  sed -i \"s|^SEED_DEMO=.*|SEED_DEMO=$SEED_DEMO|\" .env
   echo '  ✓ .env existant conservé (mots de passe inchangés)'
 fi"
 
@@ -111,10 +113,12 @@ fi
 # 4. Construction et démarrage (base → migrations/seed → application)
 echo "→ Construction des images et démarrage (2 à 5 minutes la première fois)…"
 BUILD_ID=$(git rev-parse --short=12 HEAD 2>/dev/null || date +%Y%m%d%H%M)
+# Sauvegarde de la base juste avant les migrations (si elle existe déjà) ; échec de la sauvegarde = déploiement interrompu
+$SSH "cd $VPS_PATH && if docker ps --format '{{.Names}}' | grep -qx \"\${APP_NAME:-manaresto}-db\"; then bash scripts/db-backup.sh; fi"
 $SSH "cd $VPS_PATH && set -a && . ./.env && set +a && export BUILD_ID=$BUILD_ID && docker compose build migrate app && docker compose up -d --remove-orphans && (docker compose exec -T site nginx -s reload >/dev/null 2>&1 || true) && docker image prune -f >/dev/null && docker compose ps"
 
-# 5. Sauvegarde quotidienne (3 h du matin) — uniquement la ligne ManaResto de la crontab
-$SSH "chmod +x $VPS_PATH/scripts/db-backup.sh; (crontab -l 2>/dev/null | grep -v '$VPS_PATH/scripts/db-backup.sh'; echo '0 3 * * * $VPS_PATH/scripts/db-backup.sh >> /var/log/manaresto-backup.log 2>&1') | crontab -"
+# 5. Sauvegarde quotidienne à 3 h, heure de Tahiti (13 h UTC : le serveur est en UTC) — uniquement la ligne ManaResto de la crontab
+$SSH "chmod +x $VPS_PATH/scripts/db-backup.sh; (crontab -l 2>/dev/null | grep -v '$VPS_PATH/scripts/db-backup.sh'; echo '0 13 * * * $VPS_PATH/scripts/db-backup.sh >> /var/log/manaresto-backup.log 2>&1') | crontab -"
 
 # 6. Vérification
 echo "→ Vérification…"

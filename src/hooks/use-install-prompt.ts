@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 
 type BeforeInstallPromptEvent = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: "accepted" | "dismissed" }> };
 
@@ -22,6 +22,16 @@ export function useInstallPrompt() {
     if (outcome === "accepted") setEvent(null);
     return outcome === "accepted";
   }, [event]);
-  const standalone = typeof window !== "undefined" && (window.matchMedia("(display-mode: standalone)").matches || (navigator as Navigator & { standalone?: boolean }).standalone === true);
+  // Lu via useSyncExternalStore : « false » au rendu serveur puis valeur réelle, sans erreur d'hydratation dans l'app installée
+  const standalone = useSyncExternalStore(subscribeDisplayMode, isStandalone, () => false);
   return { canInstall: !!event && !installed && !standalone, install, standalone };
+}
+
+function isStandalone() {
+  return window.matchMedia("(display-mode: standalone)").matches || (navigator as Navigator & { standalone?: boolean }).standalone === true;
+}
+function subscribeDisplayMode(cb: () => void) {
+  const mq = window.matchMedia("(display-mode: standalone)");
+  mq.addEventListener("change", cb);
+  return () => mq.removeEventListener("change", cb);
 }

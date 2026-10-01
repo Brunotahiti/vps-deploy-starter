@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ShoppingBag, Store, Users, Sparkles, BellRing, Hand } from "lucide-react";
@@ -50,7 +50,7 @@ export function FloorPlan() {
   const [coversFor, setCoversFor] = useState<FloorTable | null>(null);
   const [busy, setBusy] = useState(false);
   const [, tick] = useState(0);
-  useMemo(() => { const t = setInterval(() => tick((x) => x + 1), 30_000); return () => clearInterval(t); }, []);
+  useEffect(() => { const t = setInterval(() => tick((x) => x + 1), 30_000); return () => clearInterval(t); }, []); // rafraîchit les durées affichées
 
   const rooms = useMemo(() => {
     const base = floor.data?.rooms ?? [];

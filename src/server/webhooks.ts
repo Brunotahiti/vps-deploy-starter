@@ -1,4 +1,5 @@
-import { createHmac, randomBytes } from "node:crypto";
+import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import { assertPublicUrl, assertPublicUrlShape } from "@/server/net/public-url";
 import { prisma } from "@/server/db";
 import { ApiError } from "@/server/errors";
 import { audit } from "@/server/audit";
@@ -15,7 +16,12 @@ const TIMEOUT_MS = 8_000;
 const MAX_FAILURES = 20;
 
 export function sign(secret: string, body: string) { return `sha256=${createHmac("sha256", secret).update(body).digest("hex")}`; }
-export function verifySignature(secret: string, body: string, header: string | null) { return !!header && header === sign(secret, body); }
+export function verifySignature(secret: string, body: string, header: string | null) {
+  if (!header) return false;
+  const expected = Buffer.from(sign(secret, body));
+  const given = Buffer.from(header);
+  return given.length === expected.length && timingSafeEqual(given, expected);
+}
 
 export async function listWebhooks(establishmentId: string) {
   const rows = await prisma.webhook.findMany({ where: { establishmentId }, orderBy: { createdAt: "asc" }, include: { deliveries: { orderBy: { createdAt: "desc" }, take: 5 } } });
@@ -23,7 +29,7 @@ export async function listWebhooks(establishmentId: string) {
 }
 
 export async function createWebhook(actor: Actor, input: { url: string; events: string[]; description?: string | null }) {
-  if (!/^https?:\/\//.test(input.url)) throw new ApiError(400, "BAD_URL", "URL invalide");
+  assertPublicUrlShape(input.url);
   const events = input.events.includes("*") ? ["*"] : input.events.filter((e) => (WEBHOOK_EVENTS as string[]).includes(e));
   if (events.length === 0) throw new ApiError(400, "NO_EVENTS", "Choisissez au moins un événement");
   const secret = `whsec_${randomBytes(24).toString("hex")}`;
@@ -35,6 +41,7 @@ export async function createWebhook(actor: Actor, input: { url: string; events: 
 export async function updateWebhook(actor: Actor, id: string, input: { url?: string; events?: string[]; description?: string | null; isActive?: boolean }) {
   const existing = await prisma.webhook.findFirst({ where: { id, establishmentId: actor.establishmentId } });
   if (!existing) throw new ApiError(404, "NOT_FOUND", "Webhook introuvable");
+  if (input.url !== undefined) assertPublicUrlShape(input.url);
   const events = input.events ? (input.events.includes("*") ? ["*"] : input.events.filter((e) => (WEBHOOK_EVENTS as string[]).includes(e))) : undefined;
   const row = await prisma.webhook.update({ where: { id }, data: { url: input.url, events, description: input.description, isActive: input.isActive, ...(input.isActive ? { failures: 0 } : {}) } });
   const { secret: _s, ...safe } = row;
@@ -52,7 +59,12 @@ type Transport = (url: string, body: string, headers: Record<string, string>) =>
 let transport: Transport = async (url, body, headers) => {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
-  try { const res = await fetch(url, { method: "POST", body, headers, signal: ctrl.signal }); return { status: res.status, text: (await res.text().catch(() => "")).slice(0, 500) }; }
+  try {
+    await assertPublicUrl(url); // résolution DNS au moment de l'appel : aucune adresse interne
+    const res = await fetch(url, { method: "POST", body, headers, signal: ctrl.signal, redirect: "manual" });
+    await res.body?.cancel().catch(() => {}); // le contenu de la réponse n'est ni lu ni renvoyé
+    return { status: res.status, text: "" };
+  }
   finally { clearTimeout(t); }
 };
 /** Pour les tests : remplace l'envoi HTTP. */
@@ -71,7 +83,7 @@ export async function deliver(webhookId: string, event: string, payload: Record<
   for (const delay of [0, 1000, 5000]) {
     if (delay) await sleep(delay);
     attempts++;
-    try { const r = await transport(w.url, body, headers); status = r.status; if (r.status >= 200 && r.status < 300) { error = null; break; } error = `HTTP ${r.status} ${r.text}`.slice(0, 300); }
+    try { const r = await transport(w.url, body, headers); status = r.status; if (r.status >= 200 && r.status < 300) { error = null; break; } error = `HTTP ${r.status}`; }
     catch (e) { error = (e as Error).message.slice(0, 300); status = null; }
   }
   const ok = status !== null && status >= 200 && status < 300;

@@ -14,7 +14,7 @@ import type { listRoles } from "@/server/services/roles";
 type U = Awaited<ReturnType<typeof listUsers>>[number];
 type R = Awaited<ReturnType<typeof listRoles>>[number];
 type Perm = { key: string; group: string; description: string };
-type Form = { id?: string; email: string; password: string; firstName: string; lastName: string; displayName: string; color: string; pin: string; isActive: boolean; memberships: { establishmentId: string; roleId: string }[] };
+type Form = { id?: string; email: string; password: string; currentPassword?: string; firstName: string; lastName: string; displayName: string; color: string; pin: string; isActive: boolean; memberships: { establishmentId: string; roleId: string }[] };
 
 export default function UsersPage() {
   const { me } = useSession();
@@ -33,7 +33,7 @@ export default function UsersPage() {
 
   const save = async () => {
     if (!edit) return;
-    const body = { email: edit.email, firstName: edit.firstName, lastName: edit.lastName, displayName: edit.displayName || null, color: edit.color || null, isActive: edit.isActive, memberships: edit.memberships, ...(edit.password ? { password: edit.password } : {}), ...(edit.pin ? { pin: edit.pin } : {}) };
+    const body = { email: edit.email, firstName: edit.firstName, lastName: edit.lastName, displayName: edit.displayName || null, color: edit.color || null, isActive: edit.isActive, memberships: edit.memberships, ...(edit.password ? { password: edit.password, ...(edit.id === me?.user?.id ? { currentPassword: edit.currentPassword ?? "" } : {}) } : {}), ...(edit.pin ? { pin: edit.pin } : {}) };
     const r = await act(() => (edit.id ? api.patch(`/api/users/${edit.id}`, body) : api.post("/api/users", body)), { success: "Utilisateur enregistré", invalidate: [["users"]] });
     if (r) setEdit(null);
   };
@@ -112,7 +112,7 @@ export default function UsersPage() {
         {edit ? <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Prénom"><Input value={edit.firstName} onChange={(e) => setEdit({ ...edit, firstName: e.target.value })} /></Field><Field label="Nom"><Input value={edit.lastName} onChange={(e) => setEdit({ ...edit, lastName: e.target.value })} /></Field>
           <Field label="Email"><Input type="email" value={edit.email} onChange={(e) => setEdit({ ...edit, email: e.target.value })} /></Field><Field label="Nom affiché en caisse"><Input value={edit.displayName} onChange={(e) => setEdit({ ...edit, displayName: e.target.value })} /></Field>
-          <Field label={edit.id ? "Nouveau mot de passe (laisser vide)" : "Mot de passe (8 car. min.)"}><Input type="password" value={edit.password} onChange={(e) => setEdit({ ...edit, password: e.target.value })} /></Field><Field label={edit.id ? "Nouveau PIN (laisser vide)" : "PIN caisse (4 à 6 chiffres)"}><Input inputMode="numeric" value={edit.pin} onChange={(e) => setEdit({ ...edit, pin: e.target.value.replace(/\D/g, "").slice(0, 6) })} /></Field>
+          <Field label={edit.id ? "Nouveau mot de passe (laisser vide)" : "Mot de passe (8 car. min.)"}><Input type="password" value={edit.password} onChange={(e) => setEdit({ ...edit, password: e.target.value })} /></Field>{edit.id && edit.id === me?.user?.id && edit.password ? <Field label="Mot de passe actuel"><Input type="password" autoComplete="current-password" value={edit.currentPassword ?? ""} onChange={(e) => setEdit({ ...edit, currentPassword: e.target.value })} /></Field> : null}<Field label={edit.id ? "Nouveau PIN (laisser vide)" : "PIN caisse (4 à 6 chiffres)"}><Input inputMode="numeric" value={edit.pin} onChange={(e) => setEdit({ ...edit, pin: e.target.value.replace(/\D/g, "").slice(0, 6) })} /></Field>
           <Field label="Couleur"><Input type="color" value={edit.color || "#0ea5a4"} onChange={(e) => setEdit({ ...edit, color: e.target.value })} className="h-11 p-1" /></Field>
           <div className="flex items-end"><Toggle checked={edit.isActive} onChange={(v) => setEdit({ ...edit, isActive: v })} label="Compte actif" /></div>
           <div className="sm:col-span-2"><p className="mb-1 text-xs font-semibold uppercase text-muted">Accès par établissement</p>

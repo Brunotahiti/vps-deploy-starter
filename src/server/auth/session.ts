@@ -1,6 +1,7 @@
 import { cookies, headers } from "next/headers";
 import { prisma } from "@/server/db";
 import { randomToken, sha256 } from "./password";
+import { resolveClientIp } from "@/server/net/client-ip";
 
 export const SESSION_COOKIE = "mr_session";
 export const TERMINAL_COOKIE = "mr_terminal";
@@ -87,7 +88,7 @@ export async function switchSessionEstablishment(sessionId: string, establishmen
 export async function requestMeta() {
   const h = await headers();
   return {
-    ip: h.get("x-forwarded-for")?.split(",")[0]?.trim() ?? h.get("x-real-ip") ?? null,
+    ip: resolveClientIp((n) => h.get(n)),
     userAgent: h.get("user-agent"),
   };
 }
@@ -97,8 +98,9 @@ export async function getTerminalFromCookie() {
   const store = await cookies();
   const key = store.get(TERMINAL_COOKIE)?.value;
   if (!key) return null;
-  const terminal = await prisma.terminal.findUnique({ where: { deviceKeyHash: sha256(key) } });
-  if (!terminal || !terminal.isActive) return null;
+  const found = await prisma.terminal.findUnique({ where: { deviceKeyHash: sha256(key) }, include: { establishment: { select: { isActive: true, organization: { select: { blockedAt: true } } } } } });
+  if (!found || !found.isActive || !found.establishment.isActive || found.establishment.organization.blockedAt) return null;
+  const { establishment: _e, ...terminal } = found;
   return terminal;
 }
 

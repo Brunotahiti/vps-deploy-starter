@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { ArrowDownRight, ArrowUpRight, Table2, BarChart3 } from "lucide-react";
 import { formatMoney } from "@/lib/money";
 
@@ -37,16 +37,16 @@ function niceTicks(max: number, count = 4) {
 
 /** Largeur d'un conteneur (ResizeObserver) pour dessiner en pixels réels. */
 function useWidth<T extends HTMLElement>() {
-  const ref = useRef<T>(null);
+  // Référence « callback » : l'observation démarre dès que l'élément apparaît (même si les données arrivent après le premier rendu)
+  const [el, setEl] = useState<T | null>(null);
   const [w, setW] = useState(0);
   useEffect(() => {
-    const el = ref.current;
     if (!el) return;
     const ro = new ResizeObserver((entries) => setW(Math.round(entries[0].contentRect.width)));
     ro.observe(el);
     return () => ro.disconnect();
-  }, []);
-  return [ref, w] as const;
+  }, [el]);
+  return [setEl, w] as const;
 }
 
 function Tooltip({ children, className = "" }: { children: ReactNode; className?: string }) {

@@ -10,13 +10,13 @@ import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/brand";
 import { useToast } from "@/components/ui/toast";
 import { usePublicLang, LangSwitch } from "@/lib/i18n/public";
-import { localDay } from "@/lib/dates";
+import { localDay, zonedInputToDate } from "@/lib/dates";
 
 /** Réservation publique : demande à confirmer par le restaurant. */
 export function ReserveScreen({ org, est }: { org: string; est: string }) {
   const { toast } = useToast();
   const { lang, setLang, t } = usePublicLang();
-  const q = useQuery({ queryKey: ["public-shop", org, est], queryFn: () => api.get<{ establishment: { name: string; phone: string | null; addressLine1: string | null; city: string | null } }>(`/api/public/shop/${org}/${est}`) });
+  const q = useQuery({ queryKey: ["public-shop", org, est], queryFn: () => api.get<{ establishment: { name: string; phone: string | null; addressLine1: string | null; city: string | null; timezone?: string } }>(`/api/public/shop/${org}/${est}`) });
   const [f, setF] = useState({ name: "", phone: "", email: "", date: localDay(new Date()), time: "19:30", partySize: "2", notes: "", allergies: "" });
   const [done, setDone] = useState(false);
   const [sending, setSending] = useState(false);
@@ -24,7 +24,7 @@ export function ReserveScreen({ org, est }: { org: string; est: string }) {
   if (!q.data) return <main className="p-8 text-center text-muted">Établissement introuvable.</main>;
   const submit = async () => {
     setSending(true);
-    try { await api.post(`/api/public/shop/${org}/${est}/reserve`, { name: f.name, phone: f.phone, email: f.email || null, startsAt: new Date(`${f.date}T${f.time}:00`).toISOString(), partySize: Number(f.partySize), notes: f.notes || null, allergies: f.allergies || null }); setDone(true); }
+    try { await api.post(`/api/public/shop/${org}/${est}/reserve`, { name: f.name, phone: f.phone, email: f.email || null, startsAt: zonedInputToDate(`${f.date}T${f.time}`, q.data.establishment.timezone ?? "Pacific/Tahiti").toISOString(), partySize: Number(f.partySize), notes: f.notes || null, allergies: f.allergies || null }); setDone(true); }
     catch (e) { toast(e instanceof ApiClientError ? e.message : "Erreur", "error"); }
     finally { setSending(false); }
   };

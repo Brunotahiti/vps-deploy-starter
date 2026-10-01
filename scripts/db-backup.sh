@@ -11,6 +11,8 @@ TIMESTAMP=$(date -u +%Y%m%d-%H%M%S)
 FILE="$BACKUP_DIR/manaresto-$TIMESTAMP.sql.gz"
 
 mkdir -p "$BACKUP_DIR"
+# Un dump interrompu ne doit jamais laisser un fichier tronqué qui ressemble à une sauvegarde valide
+trap 'rm -f "$FILE"' ERR
 
 # Dump via le container (utilisateur/base lus depuis .env si présent)
 if [ -f .env ]; then set -a; . ./.env; set +a; fi
@@ -23,6 +25,9 @@ else
   docker exec "${APP_NAME:-manaresto}-db" pg_dump -U "$PG_USER" "$PG_DB" | gzip > "$FILE"
 fi
 
+# Vérification : archive lisible et non vide
+if [ -z "${BACKUP_PASSPHRASE:-}" ]; then gzip -t "$FILE"; fi
+[ "$(wc -c < "$FILE")" -gt 1000 ] || { echo "✗ Sauvegarde anormalement petite : $FILE"; rm -f "$FILE"; exit 1; }
 echo "✓ Backup → $FILE ($(du -h "$FILE" | cut -f1))"
 
 # Nettoyer les anciens backups

@@ -49,3 +49,13 @@ describe("computeOrderTotals", () => {
     expect(t.total).toBe(4300);
   });
 });
+
+describe("remise globale : reste d'arrondi", () => {
+  it("total = sous-total − remise même si la dernière ligne vaut 0 F", () => {
+    const l = (unitPrice: number) => ({ quantity: 1, unitPrice, modifiersTotal: 0, discountAmount: 0, taxRateBps: 1300 });
+    const t = computeOrderTotals([l(1000), l(1000), l(1000), l(0)], 1000);
+    expect(t.subtotal).toBe(3000);
+    expect(t.discountTotal).toBe(1000);
+    expect(t.total).toBe(2000);
+  });
+});

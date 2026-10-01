@@ -55,6 +55,17 @@ export function computeOrderTotals(
     allocated.push(capped);
     remaining -= capped;
   });
+  // Reste d'arrondi non absorbé (dernière ligne trop petite, ex. composant de formule à 0 F) :
+  // réparti sur les lignes qui ont encore de la marge, de la plus grande à la plus petite
+  if (remaining > 0) {
+    const byRoom = allocated.map((_, i) => i).sort((a, b) => (lineTotals[b] - allocated[b]) - (lineTotals[a] - allocated[a]));
+    for (const i of byRoom) {
+      if (remaining <= 0) break;
+      const take = Math.min(lineTotals[i] - allocated[i], remaining);
+      allocated[i] += take;
+      remaining -= take;
+    }
+  }
 
   const byRate = new Map<number, TaxBreakdownEntry>();
   let taxTotal = 0;

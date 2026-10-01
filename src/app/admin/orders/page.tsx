@@ -25,9 +25,13 @@ export default function OrdersAdmin() {
   const act = useAction();
   const q = useQuery({ queryKey: ["orders", "admin", day, status], queryFn: () => api.get<{ items: Order[]; total: number }>(`/api/orders?day=${day}${status ? `&status=${status}` : ""}&take=200`) });
 
+  const [refunding, setRefunding] = useState(false);
   const doRefund = async () => {
-    if (!refund) return;
-    const r = await act(() => withPin(setPin, "pos.refund", (managerPin) => api.post<Order>(`/api/payments/${refund.paymentId}/refund`, { amount: Number(refund.amount), reason: refund.reason, managerPin })), { success: "Remboursement enregistré", invalidate: [["orders"], ["reports"], ["cash"]] });
+    if (!refund || refunding) return; // double clic : un seul remboursement
+    setRefunding(true);
+    const key = crypto.randomUUID();
+    const r = await act(() => withPin(setPin, "pos.refund", (managerPin) => api.post<Order>(`/api/payments/${refund.paymentId}/refund`, { amount: Number(refund.amount), reason: refund.reason, managerPin }, { idempotencyKey: key })), { success: "Remboursement enregistré", invalidate: [["orders"], ["reports"], ["cash"]] });
+    setRefunding(false);
     if (r) { setSel(r as Order); setRefund(null); }
   };
 
@@ -69,7 +73,7 @@ export default function OrdersAdmin() {
         ) : null}
       </Modal>
       <Modal open={!!refund} onClose={() => setRefund(null)} title="Rembourser" size="sm">
-        {refund ? <div className="space-y-3"><label className="block text-xs font-bold uppercase text-muted">Montant<input type="number" value={refund.amount} onChange={(e) => setRefund({ ...refund, amount: e.target.value })} className="mt-1 h-11 w-full rounded-xl border border-line surface px-3 text-sm" /></label><label className="block text-xs font-bold uppercase text-muted">Motif<input value={refund.reason} onChange={(e) => setRefund({ ...refund, reason: e.target.value })} className="mt-1 h-11 w-full rounded-xl border border-line surface px-3 text-sm" /></label><Button variant="danger" className="w-full" disabled={!refund.reason || Number(refund.amount) <= 0} onClick={doRefund}>Confirmer le remboursement</Button></div> : null}
+        {refund ? <div className="space-y-3"><label className="block text-xs font-bold uppercase text-muted">Montant<input type="number" value={refund.amount} onChange={(e) => setRefund({ ...refund, amount: e.target.value })} className="mt-1 h-11 w-full rounded-xl border border-line surface px-3 text-sm" /></label><label className="block text-xs font-bold uppercase text-muted">Motif<input value={refund.reason} onChange={(e) => setRefund({ ...refund, reason: e.target.value })} className="mt-1 h-11 w-full rounded-xl border border-line surface px-3 text-sm" /></label><Button variant="danger" className="w-full" loading={refunding} disabled={!refund.reason || Number(refund.amount) <= 0 || refunding} onClick={doRefund}>Confirmer le remboursement</Button></div> : null}
       </Modal>
       <PinModal request={pin} onClose={() => setPin(null)} />
       {receiptFor ? <ReceiptDialog orderId={receiptFor.id} orderNumber={receiptFor.number} open onClose={() => setReceiptFor(null)} /> : null}

@@ -3,6 +3,7 @@
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { safeNext } from "@/lib/safe-next";
 import { useQueryClient } from "@tanstack/react-query";
 import { api, ApiClientError } from "@/lib/api-client";
 import { NumPad } from "@/components/ui/numpad";
@@ -28,7 +29,7 @@ function PinLogin() {
     try {
       const u = await api.post<{ firstName: string; displayName?: string | null }>("/api/auth/pin", { pin });
       await qc.invalidateQueries();
-      const next = params.get("next") || "/pos";
+      const next = safeNext(params.get("next"), "/pos");
       router.prefetch(next);
       setWelcome({ name: u.displayName || u.firstName, next });
     } catch (err) {

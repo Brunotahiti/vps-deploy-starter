@@ -3,6 +3,7 @@
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { safeNext } from "@/lib/safe-next";
 import { Mail, Lock, Eye, EyeOff, ArrowRight, KeyRound, Sparkles } from "lucide-react";
 import { api, ApiClientError } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
@@ -30,7 +31,7 @@ function LoginForm() {
     try {
       const u = await api.post<{ firstName: string }>("/api/auth/login", creds);
       await qc.invalidateQueries();
-      const next = params.get("next") || "/";
+      const next = safeNext(params.get("next"), "/");
       router.prefetch(next);
       setWelcome({ name: u.firstName, next });
     } catch (err) {

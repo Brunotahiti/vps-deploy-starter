@@ -47,7 +47,7 @@ export async function buildExport(establishmentId: string, type: ExportType, fro
   }
   if (type === "orders") {
     const orders = await prisma.order.findMany({ where: { establishmentId, status: { in: ["PAID", "CANCELLED"] }, closedAt: { gte: startOfLocalDay(fromDay, timezone), lt: endOfLocalDay(toDay, timezone) } }, orderBy: { closedAt: "asc" }, include: { table: { select: { name: true } }, server: { select: { firstName: true, displayName: true } }, payments: true, _count: { select: { items: true } } } });
-    const rows = orders.map((o) => [o.number, formatDateTime(o.openedAt, timezone), o.closedAt ? formatDateTime(o.closedAt, timezone) : "", TYPE[o.type] ?? o.type, o.table?.name ?? "", o.covers, o.server?.displayName || o.server?.firstName || "", STATUS[o.status] ?? o.status, o.subtotal, o.discountTotal, o.taxTotal, o.total, o.payments.filter((p) => p.status !== "VOIDED").map((p) => `${METHOD[p.method] ?? p.method} ${p.amount}`).join(" + "), o.cancelReason ?? ""]);
+    const rows = orders.map((o) => [o.number, formatDateTime(o.openedAt, timezone), o.closedAt ? formatDateTime(o.closedAt, timezone) : "", TYPE[o.type] ?? o.type, o.table?.name ?? "", o.covers, o.server?.displayName || o.server?.firstName || "", STATUS[o.status] ?? o.status, o.subtotal, o.discountTotal, o.taxTotal, o.total, o.tipTotal, o.payments.filter((p) => p.status !== "VOIDED").map((p) => `${METHOD[p.method] ?? p.method} ${p.amount - p.refundedAmount}${p.refundedAmount ? ` (remb. ${p.refundedAmount})` : ""}`).join(" + "), o.cancelReason ?? ""]);
     return { title: `Commandes ${period}`, sheets: [{ name: "Commandes", head: ["N°", "Ouverte", "Clôturée", "Type", "Table", "Couverts", "Serveur", "Statut", "Sous-total", "Remise", "TVA", "Total TTC", "Pourboire", "Paiements", "Motif annulation"], rows }] };
   }
   if (type === "accounting") return buildAccountingExport(establishmentId, fromDay, toDay, timezone);
@@ -58,7 +58,13 @@ export async function buildExport(establishmentId: string, type: ExportType, fro
 }
 
 export function toCsv(sheets: Sheet[]): string {
-  const esc = (v: string | number | null) => { const s = v === null || v === undefined ? "" : String(v); return /[";\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
+  // Texte commençant par = + - @ (ou tabulation / retour) : préfixé d'une apostrophe pour qu'Excel ne l'exécute pas comme formule
+  const esc = (v: string | number | null) => {
+    if (typeof v === "number") return String(v);
+    let s = v === null || v === undefined ? "" : String(v);
+    if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`;
+    return /[";\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
   return "﻿" + sheets.map((sh) => `# ${sh.name}\n${sh.head.map(esc).join(";")}\n${sh.rows.map((r) => r.map(esc).join(";")).join("\n")}`).join("\n\n");
 }
 

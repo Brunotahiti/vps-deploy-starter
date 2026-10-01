@@ -15,6 +15,9 @@ export async function openSession(actor: Actor, input: { openingFloat: number; n
   if (existing) throw new ApiError(409, "ALREADY_OPEN", "Une session de caisse est déjà ouverte sur ce terminal");
   if (!Number.isInteger(input.openingFloat) || input.openingFloat < 0) throw new ApiError(400, "BAD_AMOUNT", "Fond de caisse invalide");
   const session = await prisma.$transaction(async (tx) => {
+    // Verrou par (établissement, terminal) : un double appui sur « Ouvrir » ne crée pas deux sessions
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`cash:${actor.establishmentId}:${actor.terminalId ?? "none"}`}))`;
+    if (await tx.cashSession.findFirst({ where: { establishmentId: actor.establishmentId, status: "OPEN", terminalId: actor.terminalId ?? null } })) throw new ApiError(409, "ALREADY_OPEN", "Une session de caisse est déjà ouverte sur ce terminal");
     const s = await tx.cashSession.create({ data: { establishmentId: actor.establishmentId, terminalId: actor.terminalId ?? null, openedById: actor.userId, openingFloat: input.openingFloat, notes: input.notes ?? null } });
     await tx.cashMovement.create({ data: { cashSessionId: s.id, userId: actor.userId, kind: "OPENING", amount: input.openingFloat, reason: "Fond de caisse" } });
     await audit({ ...actor, action: "cash.open", entityType: "cash_session", entityId: s.id, newValue: { openingFloat: input.openingFloat } }, tx);
@@ -49,9 +52,15 @@ export async function closeSession(actor: Actor, sessionId: string, input: { cou
   if (!session) throw new ApiError(404, "NOT_FOUND", "Session introuvable");
   if (session.status !== "OPEN") throw new ApiError(409, "SESSION_CLOSED", "Session déjà clôturée");
   if (!Number.isInteger(input.countedCash) || input.countedCash < 0) throw new ApiError(400, "BAD_AMOUNT", "Montant compté invalide");
-  const expected = session.movements.reduce((a, m) => a + m.amount, 0);
-  const difference = input.countedCash - expected;
+  let expected = 0;
+  let difference = 0;
   await prisma.$transaction(async (tx) => {
+    // Verrou de la session : aucun encaissement ne peut s'intercaler entre le calcul et la clôture
+    await tx.$queryRaw`SELECT id FROM cash_sessions WHERE id = ${sessionId}::uuid FOR UPDATE`;
+    const current = await tx.cashSession.findUniqueOrThrow({ where: { id: sessionId }, select: { status: true } });
+    if (current.status !== "OPEN") throw new ApiError(409, "SESSION_CLOSED", "Session déjà clôturée");
+    expected = (await tx.cashMovement.aggregate({ where: { cashSessionId: sessionId }, _sum: { amount: true } }))._sum.amount ?? 0;
+    difference = input.countedCash - expected;
     await tx.cashMovement.create({ data: { cashSessionId: sessionId, userId: actor.userId, kind: "CLOSING", amount: 0, reason: `Clôture — compté ${input.countedCash}` } });
     await tx.cashSession.update({ where: { id: sessionId }, data: { status: "CLOSED", closedAt: new Date(), closedById: actor.userId, expectedCash: expected, countedCash: input.countedCash, difference, notes: input.notes ?? session.notes } });
     await audit({ ...actor, action: "cash.close", entityType: "cash_session", entityId: sessionId, newValue: { expectedCash: expected, countedCash: input.countedCash, difference } }, tx);

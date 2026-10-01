@@ -54,6 +54,8 @@ export async function listMovements(establishmentId: string, opts: { ingredientI
 
 /** Applique un mouvement : crée la ligne, met à jour le stock (et le coût moyen pondéré pour un achat). */
 async function applyMovement(tx: Tx, input: { establishmentId: string; ingredientId: string; userId?: string | null; kind: InventoryMovementKind; quantity: number; unitCost?: number | null; reason?: string | null; referenceId?: string | null }) {
+  // Verrou de l'ingrédient : deux mouvements simultanés (deux envois en cuisine) ne perdent pas de décrémentation
+  await tx.$queryRaw`SELECT id FROM ingredients WHERE id = ${input.ingredientId}::uuid FOR UPDATE`;
   const ing = await tx.ingredient.findFirst({ where: { id: input.ingredientId, establishmentId: input.establishmentId } });
   if (!ing) throw new ApiError(404, "NOT_FOUND", "Ingrédient introuvable");
   const qty = round3(input.quantity);
@@ -231,6 +233,7 @@ export async function upsertSupplierProduct(actor: Actor, input: { id?: string; 
   const supplier = await prisma.supplier.findFirst({ where: { id: input.supplierId, establishmentId: actor.establishmentId } });
   if (!supplier) throw new ApiError(404, "NOT_FOUND", "Fournisseur introuvable");
   if (input.ingredientId && !(await prisma.ingredient.findFirst({ where: { id: input.ingredientId, establishmentId: actor.establishmentId } }))) throw new ApiError(400, "BAD_INGREDIENT", "Ingrédient inconnu");
+  if (input.productId && !(await prisma.product.findFirst({ where: { id: input.productId, establishmentId: actor.establishmentId } }))) throw new ApiError(400, "BAD_PRODUCT", "Produit inconnu");
   const data = { supplierId: input.supplierId, ingredientId: input.ingredientId ?? null, productId: input.productId ?? null, reference: input.reference ?? null, name: input.name, packSize: input.packSize ?? 1, lastPrice: input.lastPrice ?? 0 };
   if (input.id) {
     const existing = await prisma.supplierProduct.findFirst({ where: { id: input.id, supplier: { establishmentId: actor.establishmentId } } });
@@ -318,11 +321,17 @@ export async function sendPurchaseOrder(actor: Actor, id: string) {
 export async function receivePurchaseOrder(actor: Actor, id: string, received: { lineId: string; receivedQty: number }[]) {
   const po = await getPurchaseOrder(actor.establishmentId, id);
   if (po.status === "CANCELLED" || po.status === "RECEIVED") throw new ApiError(409, "PO_CLOSED", "Ce bon est clôturé");
+  if (new Set(received.map((r) => r.lineId)).size !== received.length) throw new ApiError(400, "BAD_LINE", "Ligne en double dans la réception");
   await prisma.$transaction(async (tx) => {
+    // Bon verrouillé et quantités déjà reçues relues dans la transaction : une double validation n'ajoute pas deux fois le stock
+    await tx.$queryRaw`SELECT id FROM purchase_orders WHERE id = ${id}::uuid FOR UPDATE`;
+    const fresh = await tx.purchaseOrder.findUniqueOrThrow({ where: { id }, select: { status: true, lines: { select: { id: true, receivedQty: true } } } });
+    if (fresh.status === "CANCELLED" || fresh.status === "RECEIVED") throw new ApiError(409, "PO_CLOSED", "Ce bon est clôturé");
     for (const r of received) {
       const line = po.lines.find((l) => l.id === r.lineId);
       if (!line) throw new ApiError(400, "BAD_LINE", "Ligne inconnue");
-      const delta = round3(r.receivedQty - line.receivedQty);
+      const already = n(fresh.lines.find((l) => l.id === r.lineId)?.receivedQty ?? line.receivedQty);
+      const delta = round3(r.receivedQty - already);
       if (delta <= 0) continue;
       await tx.purchaseOrderLine.update({ where: { id: line.id }, data: { receivedQty: r.receivedQty } });
       const sp = line.supplierProduct;

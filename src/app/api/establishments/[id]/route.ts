@@ -1,7 +1,7 @@
 import { route, parseBody, ok } from "@/server/http";
 import { requireAuth } from "@/server/auth/context";
 import { establishmentUpdateSchema } from "@/server/schemas";
-import { updateEstablishment } from "@/server/services/establishments";
+import { publicEstablishment, updateEstablishment } from "@/server/services/establishments";
 import { ApiError } from "@/server/errors";
 import { hasPermission } from "@/lib/permissions";
 import { prisma } from "@/server/db";
@@ -10,9 +10,9 @@ import type { Prisma } from "@/generated/prisma/client";
 export const GET = route<{ id: string }>(async (_req, { params }) => {
   const ctx = await requireAuth();
   if (!ctx.establishments.some((e) => e.id === params.id)) throw new ApiError(403, "FORBIDDEN", "Établissement non autorisé");
-  const est = await prisma.establishment.findFirst({ where: { id: params.id, organizationId: ctx.organizationId }, include: { paymentMethods: { orderBy: { sortOrder: "asc" } }, terminals: { where: { isActive: true } } } });
+  const est = await prisma.establishment.findFirst({ where: { id: params.id, organizationId: ctx.organizationId }, include: { paymentMethods: { orderBy: { sortOrder: "asc" } }, terminals: { where: { isActive: true }, select: { id: true, name: true, kind: true, isActive: true, lastSeenAt: true, createdAt: true } } } });
   if (!est) throw new ApiError(404, "NOT_FOUND", "Établissement introuvable");
-  return ok(est);
+  return ok(publicEstablishment(est));
 });
 
 export const PATCH = route<{ id: string }>(async (req, { params }) => {

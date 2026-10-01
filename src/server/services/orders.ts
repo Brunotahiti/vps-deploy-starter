@@ -79,10 +79,36 @@ export async function recalcOrder(tx: Tx, orderId: string) {
   });
 }
 
+/**
+ * Verrou de ligne sur la commande (SELECT … FOR UPDATE) : sérialise les opérations concurrentes
+ * sur une même commande (double appui, deux tablettes) jusqu'à la fin de la transaction.
+ */
+export async function lockOrder(tx: Tx, orderId: string) {
+  await tx.$queryRaw`SELECT id FROM orders WHERE id = ${orderId}::uuid FOR UPDATE`;
+}
+
 function assertOpen(order: { status: string }) {
   if (!OPEN_STATUSES.includes(order.status as (typeof OPEN_STATUSES)[number])) {
     throw new ApiError(409, "ORDER_CLOSED", "Cette commande est clôturée");
   }
+}
+
+/**
+ * Après une modification qui change le total (remise, récompense, retrait d'article) :
+ * - refus si le total passerait sous le déjà encaissé (sinon commande impossible à solder) ;
+ * - clôture si l'addition est désormais exactement réglée (ou entièrement offerte, avec closeIfZero).
+ */
+export async function settleAfterChange(tx: Tx, actor: Actor, orderId: string, opts: { closeIfZero?: boolean } = {}) {
+  const o = await tx.order.findUniqueOrThrow({ where: { id: orderId }, select: { total: true, paidTotal: true, status: true, _count: { select: { items: { where: { status: { not: "VOIDED" } } } } } } });
+  if (o.total < o.paidTotal) throw new ApiError(409, "BELOW_PAID", "Le total deviendrait inférieur au montant déjà encaissé : remboursez d'abord la différence");
+  const settled = o._count.items > 0 && o.total === o.paidTotal && (o.paidTotal > 0 || opts.closeIfZero);
+  if (!settled) return false;
+  const closed = await closeOrderIfPaid(tx, actor.establishmentId, orderId);
+  if (closed.status === "PAID") {
+    const { earnLoyalty } = await import("./customers");
+    await earnLoyalty(tx, actor.establishmentId, orderId);
+  }
+  return closed.status === "PAID";
 }
 
 // ---------------------------------------------------------------- Création
@@ -103,6 +129,12 @@ export async function createOrder(actor: Actor, input: CreateOrderInput) {
   const settings = (est.settings ?? {}) as { courses?: string[] };
   const courseNames = input.type === "DINE_IN" ? (settings.courses?.length ? settings.courses : DEFAULT_COURSES) : ["COMMANDE"];
   const order = await prisma.$transaction(async (tx) => {
+    if (input.tableId) {
+      // Une seule commande ouverte par table, même si deux tablettes ouvrent la table au même instant
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`table:${input.tableId}`}))`;
+      const open = await tx.order.findFirst({ where: { tableId: input.tableId, status: { in: [...OPEN_STATUSES] } }, select: { id: true } });
+      if (open) return getOrder(actor.establishmentId, open.id, tx);
+    }
     const number = await nextOrderNumber(tx, actor.establishmentId, est.timezone);
     const o = await tx.order.create({
       data: {
@@ -196,9 +228,10 @@ export async function addItem(actor: Actor, orderId: string, input: AddItemInput
       });
       let costTotal = 0;
       for (const sel of selections) {
-        const section = menu.sections.find((s) => s.id === sel.sectionId)!;
-        const mi = section.items.find((it) => it.productId === sel.productId)!;
-        if (!mi.product.isAvailable || !mi.product.isActive) throw new ApiError(409, "PRODUCT_UNAVAILABLE", `Indisponible : ${mi.product.name}`);
+        const section = menu.sections.find((s) => s.id === sel.sectionId);
+        const mi = section?.items.find((it) => it.productId === sel.productId);
+        if (!section || !mi) throw new ApiError(400, "BAD_MENU_PRODUCT", "Produit hors formule");
+        if (!mi.product.isAvailable || !mi.product.isActive || mi.product.autoUnavailable) throw new ApiError(409, "PRODUCT_UNAVAILABLE", `Indisponible : ${mi.product.name}`);
         const mods = await resolveModifiers(tx, mi.productId, sel.modifiers ?? []);
         const modifiersTotal = mods.reduce((a, m) => a + m.priceDelta * m.quantity, 0);
         const calc = computeLine({ quantity: qty, unitPrice: mi.supplement, modifiersTotal, discountAmount: 0, taxRateBps: mi.product.taxRate?.rateBps ?? 0 });
@@ -245,6 +278,7 @@ export async function updateItem(actor: Actor, orderId: string, itemId: string, 
   assertOpen(order);
   const item = order.items.find((i) => i.id === itemId);
   if (!item) throw new ApiError(404, "NOT_FOUND", "Article introuvable");
+  if (item.status === "VOIDED") throw new ApiError(409, "ITEM_VOIDED", "Article annulé : modification impossible");
   if (input.quantity !== undefined && item.status !== "PENDING") throw new ApiError(409, "ITEM_SENT", "Article déjà envoyé : utilisez la suppression avec motif");
   if (input.courseId && !order.courses.some((c) => c.id === input.courseId)) throw new ApiError(400, "BAD_COURSE", "Service invalide");
   await prisma.$transaction(async (tx) => {
@@ -272,7 +306,12 @@ export async function removeItem(actor: Actor, orderId: string, itemId: string, 
   const item = order.items.find((i) => i.id === itemId);
   if (!item) throw new ApiError(404, "NOT_FOUND", "Article introuvable");
   const wasSent = item.status !== "PENDING";
+  let closedNow = false;
   await prisma.$transaction(async (tx) => {
+    await lockOrder(tx, orderId);
+    const current = await tx.orderItem.findUnique({ where: { id: itemId }, select: { status: true } });
+    if (!current || current.status === "VOIDED") throw new ApiError(409, "ITEM_GONE", "Article déjà retiré");
+    if ((current.status !== "PENDING") !== wasSent) throw new ApiError(409, "ITEM_CHANGED", "L'article vient d'être envoyé en cuisine : recommencez");
     const targets = [item.id, ...order.items.filter((i) => i.parentItemId === item.id).map((i) => i.id)];
     if (wasSent) {
       await tx.orderItem.updateMany({ where: { id: { in: targets } }, data: { status: "VOIDED", voidedAt: new Date(), voidReason: reason ?? null, lineTotal: 0, taxAmount: 0 } });
@@ -290,7 +329,9 @@ export async function removeItem(actor: Actor, orderId: string, itemId: string, 
       await audit({ ...actor, action: "item.remove", entityType: "order_item", entityId: item.id, oldValue: { name: item.name, quantity: item.quantity, lineTotal: item.lineTotal, orderNumber: order.number }, reason }, tx);
     }
     await recalcOrder(tx, orderId);
+    closedNow = await settleAfterChange(tx, actor, orderId);
   });
+  if (closedNow) { publish("order.closed", actor.establishmentId, { orderId, tableId: order.tableId }); publish("table.updated", actor.establishmentId, { tableId: order.tableId }); }
   publish("order.updated", actor.establishmentId, { orderId, tableId: order.tableId });
   if (wasSent) publish("kitchen.updated", actor.establishmentId, { orderId });
   return getOrder(actor.establishmentId, orderId);
@@ -298,14 +339,19 @@ export async function removeItem(actor: Actor, orderId: string, itemId: string, 
 
 // ---------------------------------------------------------------- Services / envoi cuisine
 /** Envoie en cuisine les articles en attente d'un service (ou de toute la commande). Crée un ticket par poste. */
-export async function sendCourse(actor: Actor, orderId: string, opts: { courseId?: string | null; all?: boolean }) {
+export async function sendCourse(actor: Actor, orderId: string, opts: { courseId?: string | null; all?: boolean; itemIds?: string[] }) {
   const order = await getOrder(actor.establishmentId, orderId);
   assertOpen(order);
-  const pending = order.items.filter((i) => i.status === "PENDING" && (opts.all || i.courseId === opts.courseId));
-  if (pending.length === 0) throw new ApiError(400, "NOTHING_TO_SEND", "Aucun article à envoyer");
   const now = new Date();
   const createdTicketIds: string[] = [];
   await prisma.$transaction(async (tx) => {
+    // Articles relus SOUS VERROU : un second envoi simultané (double appui) ne trouve plus rien à envoyer
+    await lockOrder(tx, orderId);
+    const fresh = await tx.order.findUniqueOrThrow({ where: { id: orderId }, select: { status: true } });
+    assertOpen(fresh);
+    const scope = opts.itemIds ? { OR: [{ id: { in: opts.itemIds } }, { parentItemId: { in: opts.itemIds } }] } : opts.all ? {} : { courseId: opts.courseId ?? null };
+    const pending = await tx.orderItem.findMany({ where: { orderId, status: "PENDING", ...scope } });
+    if (pending.length === 0) throw new ApiError(400, "NOTHING_TO_SEND", "Aucun article à envoyer");
     // Regroupement par (service, poste)
     const groups = new Map<string, typeof pending>();
     for (const item of pending) {
@@ -318,7 +364,7 @@ export async function sendCourse(actor: Actor, orderId: string, opts: { courseId
       const ticket = await tx.kitchenTicket.create({
         data: { orderId, courseId: courseId === "none" ? null : courseId, stationId: stationId === "none" ? null : stationId, isUrgent: items.some((i) => i.isUrgent) },
       });
-      await tx.orderItem.updateMany({ where: { id: { in: items.map((i) => i.id) } }, data: { status: "SENT", sentAt: now, kitchenTicketId: ticket.id } });
+      await tx.orderItem.updateMany({ where: { id: { in: items.map((i) => i.id) }, status: "PENDING" }, data: { status: "SENT", sentAt: now, kitchenTicketId: ticket.id } });
       createdTicketIds.push(ticket.id);
     }
     await tx.orderItem.updateMany({ where: { id: { in: pending.map((i) => i.id) }, status: "PENDING" }, data: { status: "SENT", sentAt: now } });
@@ -326,7 +372,7 @@ export async function sendCourse(actor: Actor, orderId: string, opts: { courseId
     await consumeForItems(tx, actor.establishmentId, pending, -1, orderId, actor.userId);
     const courseIds = [...new Set(pending.map((i) => i.courseId).filter(Boolean))] as string[];
     await tx.course.updateMany({ where: { id: { in: courseIds } }, data: { status: "SENT", sentAt: now } });
-    await tx.order.update({ where: { id: orderId }, data: { status: order.status === "OPEN" ? "SENT" : order.status, version: { increment: 1 } } });
+    await tx.order.update({ where: { id: orderId }, data: { status: fresh.status === "OPEN" ? "SENT" : fresh.status, version: { increment: 1 } } });
     await onCoursesSent(tx, actor, orderId, order.courses.filter((c) => courseIds.includes(c.id)).map((c) => c.name));
   });
   publish("service.updated", actor.establishmentId, { orderId, tableId: order.tableId });
@@ -371,12 +417,17 @@ export async function applyDiscount(actor: Actor, orderId: string, input: { amou
   assertOpen(order);
   const amount = input.percentBps !== undefined ? applyBps(order.subtotal, input.percentBps) : (input.amount ?? 0);
   if (amount < 0 || amount > order.subtotal) throw new ApiError(400, "BAD_DISCOUNT", "Remise invalide");
+  let closedNow = false;
   await prisma.$transaction(async (tx) => {
+    await lockOrder(tx, orderId);
+    assertOpen(await tx.order.findUniqueOrThrow({ where: { id: orderId }, select: { status: true } }));
     await tx.order.update({ where: { id: orderId }, data: { discountTotal: amount, discountReason: amount > 0 ? input.reason : null } });
     await recalcOrder(tx, orderId);
     await audit({ ...actor, action: "order.discount", entityType: "order", entityId: orderId, oldValue: { discountTotal: order.discountTotal }, newValue: { discountTotal: amount, percentBps: input.percentBps ?? null, orderNumber: order.number }, reason: input.reason }, tx);
+    closedNow = await settleAfterChange(tx, actor, orderId, { closeIfZero: amount > 0 }); // 100 % offert : l'addition est close
   });
   publish("order.updated", actor.establishmentId, { orderId, tableId: order.tableId });
+  if (closedNow) { publish("order.closed", actor.establishmentId, { orderId, tableId: order.tableId }); publish("table.updated", actor.establishmentId, { tableId: order.tableId }); }
   return getOrder(actor.establishmentId, orderId);
 }
 
@@ -398,6 +449,10 @@ export async function cancelOrder(actor: Actor, orderId: string, reason: string)
   assertOpen(order);
   if (order.paidTotal > 0) throw new ApiError(409, "ORDER_PAID", "Remboursez les paiements avant d'annuler");
   await prisma.$transaction(async (tx) => {
+    await lockOrder(tx, orderId);
+    const fresh = await tx.order.findUniqueOrThrow({ where: { id: orderId }, select: { status: true, paidTotal: true } });
+    assertOpen(fresh);
+    if (fresh.paidTotal > 0) throw new ApiError(409, "ORDER_PAID", "Remboursez les paiements avant d'annuler");
     await tx.order.update({ where: { id: orderId }, data: { status: "CANCELLED", cancelReason: reason, closedAt: new Date(), version: { increment: 1 } } });
     await tx.kitchenTicket.updateMany({ where: { orderId, status: { in: ["NEW", "ACCEPTED", "IN_PROGRESS", "READY"] } }, data: { status: "CANCELLED", completedAt: new Date() } });
     await onOrderClosed(tx, orderId);

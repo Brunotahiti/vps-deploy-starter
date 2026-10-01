@@ -3,6 +3,7 @@ import { ApiError } from "@/server/errors";
 import { hashPassword, hashPin, randomToken } from "@/server/auth/password";
 import { audit } from "@/server/audit";
 import { invitationMail, isEmailConfigured, sendMail } from "@/server/email/mailer";
+import { isDemoOrganization } from "./demo";
 
 /**
  * Invitations par e-mail : le manager crée le compte avec ses rôles, l'employé reçoit un lien
@@ -22,7 +23,7 @@ async function deliver(user: { id: string; email: string; firstName: string; inv
   ]);
   const url = inviteUrl(user.inviteToken!);
   let emailSent = false;
-  if (isEmailConfigured()) {
+  if (isEmailConfigured() && !(await isDemoOrganization(organizationId))) { // démo : lien affiché seulement, pas d'e-mail réel
     try { await sendMail(invitationMail({ to: user.email, firstName: user.firstName, organizationName: org.name, establishments: memberships.map((m) => m.establishment.name), inviterName, url, expiresDays: INVITE_DAYS })); emailSent = true; } catch { emailSent = false; }
   }
   return { inviteUrl: url, emailSent };

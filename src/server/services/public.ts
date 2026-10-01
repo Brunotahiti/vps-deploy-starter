@@ -3,7 +3,7 @@ import { prisma } from "@/server/db";
 import { ApiError } from "@/server/errors";
 import { publish } from "@/server/realtime/bus";
 import { getPosCatalog } from "./catalog";
-import { createOrder, addItem, sendCourse, cancelOrder, getOrder, type Actor } from "./orders";
+import { createOrder, addItem, sendCourse, cancelOrder, getOrder, recalcOrder, type Actor } from "./orders";
 import { findOrCreatePublicCustomer } from "./customers";
 import type { ProductChoice } from "@/components/pos/product-modal";
 
@@ -58,7 +58,7 @@ export async function siteMenu(establishmentId: string) {
 
 /** Site public du restaurant : coordonnées, horaires, réglages du site, canaux ouverts (commande en ligne, réservation) et menu. */
 export async function restaurantSite(orgSlug: string, estSlug: string) {
-  const est = await prisma.establishment.findFirst({ where: { slug: estSlug, isActive: true, organization: { slug: orgSlug } }, select: { ...estPublic, addressLine2: true, postalCode: true } });
+  const est = await prisma.establishment.findFirst({ where: { slug: estSlug, isActive: true, organization: { slug: orgSlug, blockedAt: null } }, select: { ...estPublic, addressLine2: true, postalCode: true } });
   if (!est) throw new ApiError(404, "NOT_FOUND", "Établissement introuvable");
   const [site, digital] = await Promise.all([siteSettings(est.id), digitalSettings(est.id)]);
   if (!site.enabled) throw new ApiError(404, "SITE_DISABLED", "Ce restaurant n'a pas activé son site");
@@ -72,18 +72,25 @@ export async function publicCatalog(establishmentId: string) {
   return {
     categories: c.categories,
     products: c.products.filter((p) => p.isAvailable && !p.autoUnavailable).map(({ costPrice: _c, trackStock: _t, stockQty: _s, sku: _k, barcode: _b, kitchenStationId: _ks, ...p }) => p),
-    menus: c.menus,
+    // Formules : projection publique (aucun prix de revient, poste cuisine ni identifiant interne de TVA)
+    menus: c.menus.map((m) => ({
+      id: m.id, name: m.name, description: m.description, priceTtc: m.priceTtc, imageUrl: m.imageUrl, color: m.color, sortOrder: m.sortOrder,
+      sections: m.sections.map((sec) => ({
+        id: sec.id, name: sec.name, minSelect: sec.minSelect, maxSelect: sec.maxSelect, sortOrder: sec.sortOrder,
+        items: sec.items.map((it) => ({ id: it.id, productId: it.productId, supplement: it.supplement, sortOrder: it.sortOrder, product: { id: it.product.id, name: it.product.name, priceTtc: it.product.priceTtc, isAvailable: it.product.isAvailable && it.product.isActive } })),
+      })),
+    })),
   };
 }
 
 export async function resolveTable(qrToken: string) {
-  const table = await prisma.table.findUnique({ where: { qrToken }, include: { room: { select: { name: true } }, establishment: { select: estPublic } } });
-  if (!table || !table.isActive) throw new ApiError(404, "NOT_FOUND", "QR code inconnu");
+  const table = await prisma.table.findFirst({ where: { qrToken, isActive: true, establishment: { isActive: true, organization: { blockedAt: null } } }, include: { room: { select: { name: true } }, establishment: { select: estPublic } } });
+  if (!table) throw new ApiError(404, "NOT_FOUND", "QR code inconnu");
   return table;
 }
 
 export async function resolveEstablishment(orgSlug: string, estSlug: string) {
-  const est = await prisma.establishment.findFirst({ where: { slug: estSlug, isActive: true, organization: { slug: orgSlug } }, select: estPublic });
+  const est = await prisma.establishment.findFirst({ where: { slug: estSlug, isActive: true, organization: { slug: orgSlug, blockedAt: null } }, select: estPublic });
   if (!est) throw new ApiError(404, "NOT_FOUND", "Établissement introuvable");
   return est;
 }
@@ -124,8 +131,28 @@ async function systemActor(establishmentId: string): Promise<Actor> {
 
 export type PublicLine = ProductChoice & { id: string };
 
+/**
+ * Ajoute les lignes d'un panier client. Si une ligne est refusée (produit devenu indisponible, option invalide…),
+ * les lignes déjà ajoutées de CE panier sont retirées : pas de commande à moitié saisie.
+ */
 async function addLines(actor: Actor, orderId: string, lines: PublicLine[], courseId: string | null) {
-  for (const line of lines) await addItem(actor, orderId, { ...line, courseId, seatNumber: null });
+  try {
+    for (const line of lines) await addItem(actor, orderId, { ...line, courseId, seatNumber: null });
+  } catch (e) {
+    const ids = lines.map((l) => l.id);
+    await prisma.$transaction(async (tx) => {
+      await tx.orderItem.deleteMany({ where: { orderId, parentItemId: { in: ids }, status: "PENDING" } });
+      await tx.orderItem.deleteMany({ where: { orderId, id: { in: ids }, status: "PENDING" } });
+      await recalcOrder(tx, orderId);
+    });
+    throw e;
+  }
+}
+
+/** Panier déjà reçu (même identifiants de lignes) : rejeu idempotent, on ne recrée rien. */
+async function findReplayedOrder(establishmentId: string, lines: PublicLine[]) {
+  const item = await prisma.orderItem.findFirst({ where: { id: { in: lines.map((l) => l.id) }, order: { establishmentId } }, select: { orderId: true } });
+  return item?.orderId ?? null;
 }
 
 /** Commande depuis la table : ajoutée à la commande ouverte (ou en crée une) ; envoyée en cuisine directement (ORDER_DIRECT) ou en attente de validation (ORDER). */
@@ -134,16 +161,30 @@ export async function orderFromTable(qrToken: string, input: { id: string; lines
   const settings = await digitalSettings(table.establishmentId);
   if (settings.qrMode !== "ORDER" && settings.qrMode !== "ORDER_DIRECT") throw new ApiError(403, "MODE_OFF", "La commande à table n'est pas activée");
   if (input.lines.length === 0) throw new ApiError(400, "EMPTY", "Panier vide");
+  const replayed = await findReplayedOrder(table.establishmentId, input.lines);
+  if (replayed) return tableOrderView(replayed);
   const actor = await systemActor(table.establishmentId);
-  const existing = await prisma.order.findFirst({ where: { id: input.id } });
-  if (existing) return getOrder(table.establishmentId, existing.id);
   const order = await createOrder(actor, { type: "DINE_IN", tableId: table.id, covers: input.covers ?? table.seats, notes: input.notes ?? null });
+  const created = order.items.length === 0 && order.paidTotal === 0; // commande ouverte à l'instant par ce panier
   const course = order.courses.find((c) => c.status === "PENDING") ?? order.courses[0];
-  await addLines(actor, order.id, input.lines, course?.id ?? null);
-  await prisma.order.update({ where: { id: order.id }, data: { publicToken: order.publicToken ?? randomUUID(), channelMeta: { channel: "QR", table: table.name, batchId: input.id, awaitingValidation: settings.qrMode === "ORDER" } } });
-  if (settings.qrMode === "ORDER_DIRECT") await sendCourse(actor, order.id, { all: true });
+  try {
+    await addLines(actor, order.id, input.lines, course?.id ?? null);
+  } catch (e) {
+    if (created) await cancelOrder(actor, order.id, "Panier QR refusé").catch(() => {});
+    throw e;
+  }
+  const meta = (order.channelMeta ?? {}) as Record<string, unknown>;
+  await prisma.order.update({ where: { id: order.id }, data: { publicToken: order.publicToken ?? randomUUID(), channelMeta: { ...meta, channel: "QR", table: table.name, batchId: input.id, awaitingValidation: settings.qrMode === "ORDER" } } });
+  // Envoi direct : uniquement les articles de CE panier (pas ceux que le serveur garde pour un service suivant)
+  if (settings.qrMode === "ORDER_DIRECT") await sendCourse(actor, order.id, { all: true, itemIds: input.lines.map((l) => l.id) });
   publish("order.updated", table.establishmentId, { orderId: order.id, tableId: table.id, qr: true, awaitingValidation: settings.qrMode === "ORDER" });
-  return getOrder(table.establishmentId, order.id);
+  return tableOrderView(order.id);
+}
+
+/** Réponse publique d'une commande à table : jamais la commande interne (marges, paiements, serveur, notes). */
+async function tableOrderView(orderId: string) {
+  const o = await prisma.order.findUniqueOrThrow({ where: { id: orderId }, select: { publicToken: true } });
+  return trackOrder(o.publicToken!);
 }
 
 export type OnlineInput = { id: string; mode: "PICKUP" | "DELIVERY"; name: string; phone: string; email?: string | null; when?: string | null; address?: string | null; zone?: string | null; notes?: string | null; lines: PublicLine[]; lang?: string };
@@ -157,18 +198,24 @@ export async function createOnlineOrder(orgSlug: string, estSlug: string, input:
   if (input.mode === "DELIVERY" && !settings.online.delivery) throw new ApiError(403, "MODE_OFF", "La livraison n'est pas proposée");
   if (input.mode === "DELIVERY" && settings.online.deliveryZones.length && (!input.zone || !settings.online.deliveryZones.includes(input.zone))) throw new ApiError(400, "OUT_OF_ZONE", "Adresse hors zone de livraison");
   if (input.lines.length === 0) throw new ApiError(400, "EMPTY", "Panier vide");
-  const existing = await prisma.order.findFirst({ where: { id: input.id } });
-  if (existing) return trackOrder(existing.publicToken!);
+  const existing = await prisma.order.findFirst({ where: { id: input.id, establishmentId: est.id } });
+  if (existing) return replayOrFail(existing);
   const actor = await systemActor(est.id);
   const customer = await prisma.$transaction((tx) => findOrCreatePublicCustomer(tx, est.organizationId, { name: input.name, phone: input.phone, email: input.email }));
   const order = await createOrder(actor, { id: input.id, type: input.mode === "DELIVERY" ? "DELIVERY" : "ONLINE", customerName: input.name, notes: input.notes ?? null });
-  await addLines(actor, order.id, input.lines, order.courses[0]?.id ?? null);
+  try { await addLines(actor, order.id, input.lines, order.courses[0]?.id ?? null); } catch (e) { await cancelOrder(actor, order.id, "Panier refusé").catch(() => {}); throw e; }
   const fresh = await getOrder(est.id, order.id);
   if (input.mode === "DELIVERY" && fresh.subtotal < settings.online.deliveryMinOrder) { await cancelOrder(actor, order.id, "Minimum de livraison non atteint"); throw new ApiError(400, "MIN_ORDER", `Minimum de commande en livraison : ${settings.online.deliveryMinOrder} F`); }
   const token = randomUUID();
   await prisma.order.update({ where: { id: order.id }, data: { customerId: customer.id, publicToken: token, channelMeta: { channel: input.mode, name: input.name, phone: input.phone, email: input.email ?? null, when: input.when ?? null, address: input.address ?? null, zone: input.zone ?? null, deliveryFee: input.mode === "DELIVERY" ? settings.online.deliveryFee : 0, lang: input.lang ?? "fr", awaitingAcceptance: true } } });
   publish("order.created", est.id, { orderId: order.id, online: true, type: order.type });
   return trackOrder(token);
+}
+
+/** Rejeu d'une commande publique : suivi si elle a abouti, sinon refus clair (panier refusé la première fois). */
+function replayOrFail(existing: { publicToken: string | null }) {
+  if (existing.publicToken) return trackOrder(existing.publicToken);
+  throw new ApiError(409, "ORDER_FAILED", "Cette commande n'a pas pu être enregistrée : recommencez votre panier");
 }
 
 /** Suivi public d'une commande (jeton) : statut lisible par le client, sans données internes. */
@@ -207,11 +254,11 @@ export async function createKioskOrder(establishmentId: string, terminalId: stri
   const settings = await digitalSettings(establishmentId);
   if (!settings.kiosk.enabled) throw new ApiError(403, "MODE_OFF", "La borne n'est pas activée");
   if (input.lines.length === 0) throw new ApiError(400, "EMPTY", "Panier vide");
-  const existing = await prisma.order.findFirst({ where: { id: input.id } });
-  if (existing) return trackOrder(existing.publicToken!);
+  const existing = await prisma.order.findFirst({ where: { id: input.id, establishmentId } });
+  if (existing) return replayOrFail(existing);
   const actor = { ...(await systemActor(establishmentId)), terminalId };
   const order = await createOrder(actor, { id: input.id, type: "KIOSK", customerName: input.name ?? null });
-  await addLines(actor, order.id, input.lines, order.courses[0]?.id ?? null);
+  try { await addLines(actor, order.id, input.lines, order.courses[0]?.id ?? null); } catch (e) { await cancelOrder(actor, order.id, "Panier refusé").catch(() => {}); throw e; }
   const token = randomUUID();
   await prisma.order.update({ where: { id: order.id }, data: { publicToken: token, acceptedAt: new Date(), channelMeta: { channel: "KIOSK", mode: input.mode, name: input.name ?? null, lang: input.lang ?? "fr", payAtCounter: true } } });
   await sendCourse(actor, order.id, { all: true });

@@ -60,3 +60,9 @@ export function parseQuery<T extends ZodType>(req: NextRequest, schema: T): z.in
 
 export const ok = <T>(data: T, init?: ResponseInit) => NextResponse.json({ data }, init);
 export const created = <T>(data: T) => NextResponse.json({ data }, { status: 201 });
+
+/** En-tête Content-Disposition sûr pour un nom de fichier accentué (ex. « Pōtē ») : repli ASCII + nom UTF-8 (RFC 6266). */
+export function contentDisposition(kind: "inline" | "attachment", filename: string) {
+  const ascii = filename.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^\x20-\x7e]/g, "_").replace(/["\\]/g, "_");
+  return `${kind}; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(filename)}`;
+}

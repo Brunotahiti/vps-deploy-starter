@@ -17,12 +17,18 @@ jobs:
       configured: ${{ steps.c.outputs.configured }}
     steps:
       - id: c
+        env:
+          KEY: ${{ secrets.VPS_SSH_KEY }}
+          HOST: ${{ secrets.VPS_HOST }}
+          USER: ${{ secrets.VPS_USER }}
+          VPATH: ${{ secrets.VPS_PATH }}
         run: |
-          if [ -n "${{ secrets.VPS_SSH_KEY }}" ] && [ -n "${{ secrets.VPS_HOST }}" ]; then
+          # Les QUATRE secrets sont obligatoires : sans VPS_PATH, rsync --delete viserait la racine du serveur
+          if [ -n "$KEY" ] && [ -n "$HOST" ] && [ -n "$USER" ] && [ -n "$VPATH" ]; then
             echo "configured=true" >> "$GITHUB_OUTPUT"
           else
             echo "configured=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::Déploiement ignoré : secrets VPS non configurés (lancer scripts/setup-ci.sh une fois)."
+            echo "::notice::Déploiement ignoré : secrets VPS incomplets (VPS_SSH_KEY, VPS_HOST, VPS_USER, VPS_PATH ; lancer scripts/setup-ci.sh une fois)."
           fi
 
   deploy:
@@ -30,9 +36,22 @@ jobs:
     needs: check
     if: needs.check.outputs.configured == 'true'
     runs-on: ubuntu-latest
+    env:
+      VPS_HOST: ${{ secrets.VPS_HOST }}
+      VPS_USER: ${{ secrets.VPS_USER }}
+      VPS_PATH: ${{ secrets.VPS_PATH }}
+      PUBLIC_HOST: ${{ secrets.PUBLIC_HOST }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Garde-fou du dossier de destination
+        run: |
+          # rsync --delete ne doit JAMAIS viser autre chose que le dossier de l'application (/opt/<nom>)
+          case "${VPS_PATH:?VPS_PATH manquant}" in
+            /opt/?*) ;;
+            *) echo "::error::VPS_PATH doit être un dossier sous /opt (reçu : '$VPS_PATH')"; exit 1 ;;
+          esac
 
       - name: Setup SSH key
         uses: webfactory/ssh-agent@v0.9.0
@@ -42,7 +61,7 @@ jobs:
       - name: Add VPS to known_hosts
         run: |
           mkdir -p ~/.ssh
-          ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
+          ssh-keyscan -H "$VPS_HOST" >> ~/.ssh/known_hosts
 
       - name: Sync code to VPS
         run: |
@@ -59,29 +78,36 @@ jobs:
             --exclude .env.local \
             --exclude .env.production \
             --exclude .DS_Store \
-            ./ ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:${{ secrets.VPS_PATH }}/
+            ./ "$VPS_USER@$VPS_HOST:${VPS_PATH%/}/"
 
       - name: Rebuild & restart on VPS
         run: |
-          ssh ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} <<'EOF'
+          ssh "$VPS_USER@$VPS_HOST" "VPS_PATH='${VPS_PATH%/}' BUILD_ID='$(echo "$GITHUB_SHA" | cut -c1-12)' bash -s" <<'EOF'
             set -e
-            cd ${{ secrets.VPS_PATH }}
-            if [ -f .env ]; then set -a && source .env && set +a; fi
-            docker network create traefik 2>/dev/null || true
-            export BUILD_ID=$(echo "${{ github.sha }}" | cut -c1-12)
+            cd "$VPS_PATH"
+            # Constater, ne jamais modifier : le réseau et le Traefik du serveur doivent exister (voir scripts/vps-bootstrap.sh)
+            docker network inspect traefik >/dev/null 2>&1 || { echo "Réseau Docker « traefik » absent : déploiement interrompu"; exit 1; }
+            if [ -f .env ]; then set -a && . ./.env && set +a; fi
+            export BUILD_ID
+            # Version des styles/scripts du site vitrine = commit déployé
+            sed -i -E "s/\.(css|js)\?v=[A-Za-z0-9]+/.\1?v=$BUILD_ID/g" site/*.html 2>/dev/null || true
+            # Sauvegarde de la base avant toute migration
+            if docker ps --format '{{.Names}}' | grep -qx "${APP_NAME:-manaresto}-db"; then bash scripts/db-backup.sh; fi
             docker compose build migrate app
             docker compose up -d
+            (docker compose exec -T site nginx -s reload >/dev/null 2>&1 || true)
             docker image prune -f
             docker compose ps
           EOF
 
       - name: Verify health
         run: |
-          sleep 8
-          STATUS=$(curl -fsS -o /dev/null -w "%{http_code}\n" "https://${{ secrets.PUBLIC_HOST }}/api/health" || echo "000")
-          echo "→ HTTP status: $STATUS"
-          if [ "$STATUS" = "200" ] || [ "$STATUS" = "302" ] || [ "$STATUS" = "301" ]; then
-            echo "✅ App reachable on https://${{ secrets.PUBLIC_HOST }}"
-          else
-            echo "⚠️  Status $STATUS — vérifie les logs du container"
-          fi
+          if [ -z "$PUBLIC_HOST" ]; then echo "::notice::Secret PUBLIC_HOST absent : vérification ignorée"; exit 0; fi
+          for i in 1 2 3 4 5 6; do
+            sleep 10
+            STATUS=$(curl -sS -o /dev/null -w "%{http_code}" "https://$PUBLIC_HOST/api/health" || echo "000")
+            echo "→ essai $i : HTTP $STATUS"
+            if [ "$STATUS" = "200" ]; then echo "✅ Application en ligne sur https://$PUBLIC_HOST"; exit 0; fi
+          done
+          echo "::error::L'application ne répond pas 200 sur https://$PUBLIC_HOST/api/health"
+          exit 1
