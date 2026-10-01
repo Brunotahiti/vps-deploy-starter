@@ -13,6 +13,8 @@ import { formatDateTime } from "@/lib/dates";
 import { useSession } from "@/hooks/use-session";
 import { PinModal, withPin, type PinRequest } from "./pin-modal";
 import { PAYMENT_LABEL, type SessionReport } from "./types";
+import { Archive } from "lucide-react";
+import { reportPrint, type PrintResult } from "@/lib/print-client";
 
 const KIND_LABEL: Record<string, string> = { OPENING: "Ouverture", SALE: "Vente", REFUND: "Remboursement", PAY_IN: "Entrée", PAY_OUT: "Sortie", DEPOSIT: "Dépôt", CORRECTION: "Correction", CLOSING: "Clôture" };
 
@@ -43,6 +45,7 @@ export function CashScreen() {
             <p className="text-xl font-bold">Aucune session de caisse ouverte</p>
             <p className="mt-1 text-sm text-muted">Ouvrez la caisse avec le fond de caisse pour commencer à encaisser des espèces.</p>
             {can("cash.open") ? <Button size="xl" className="mt-4" onClick={() => setDialog("open")}>Ouvrir la caisse</Button> : <p className="mt-4 text-sm text-corail-500">Vous n&apos;avez pas la permission d&apos;ouvrir la caisse.</p>}
+            <div className="mt-3 flex justify-center"><DrawerButton /></div>
           </div>
         </Card>
       ) : (
@@ -56,6 +59,7 @@ export function CashScreen() {
           <div className="flex flex-wrap gap-2">
             {can("cash.movement") || can("cash.correct") ? <Button size="lg" variant="secondary" onClick={() => setDialog("movement")}>Entrée / sortie d&apos;espèces</Button> : null}
             {can("cash.close") ? <Button size="lg" variant="accent" onClick={() => setDialog("close")}>Clôturer la caisse</Button> : null}
+            <DrawerButton />
             <a className="touch inline-flex h-14 items-center rounded-xl border border-line px-6 text-base font-semibold" href={`/api/cash/${s.session.id}/report`} target="_blank" rel="noreferrer">Rapport X (impression)</a>
           </div>
           <div className="grid gap-4 md:grid-cols-2">
@@ -98,5 +102,35 @@ export function CashScreen() {
       </Modal>
       <PinModal request={pin} onClose={() => setPin(null)} />
     </div>
+  );
+}
+
+const DRAWER_REASONS = ["Faire de la monnaie", "Erreur de rendu", "Vérification du fond"];
+
+/** Ouverture du tiroir sans vente : visible seulement si un tiroir est configuré et que le rôle le permet ; motif tracé dans le journal d'audit. */
+function DrawerButton() {
+  const { toast } = useToast();
+  const { can } = useSession();
+  const allowed = can("pos.open_drawer");
+  const drawer = useQuery({ queryKey: ["drawer"], queryFn: () => api.get<{ available: boolean }>("/api/hardware/drawer"), enabled: allowed, staleTime: 60_000 });
+  const [open, setOpen] = useState(false);
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+  if (!allowed || !drawer.data?.available) return null;
+  const go = async () => {
+    setBusy(true);
+    try { await reportPrint(await api.post<PrintResult>("/api/hardware/drawer", { reason: reason.trim() || null }), toast, "Tiroir-caisse"); setOpen(false); setReason(""); }
+    catch (e) { toast(e instanceof ApiClientError ? e.message : "Ouverture impossible", "error"); }
+    finally { setBusy(false); }
+  };
+  return (
+    <>
+      <Button size="lg" variant="secondary" onClick={() => setOpen(true)}><Archive className="h-5 w-5 text-amber-600" />Ouvrir le tiroir</Button>
+      <Modal open={open} onClose={() => setOpen(false)} title="Ouvrir le tiroir-caisse" size="sm" footer={<Button size="lg" className="w-full" loading={busy} onClick={go}><Archive className="h-5 w-5" />Ouvrir le tiroir</Button>}>
+        <p className="mb-3 text-sm text-muted">Ouverture sans vente : elle est enregistrée dans le journal d&apos;audit avec votre nom et le motif.</p>
+        <div className="mb-3 flex flex-wrap gap-2">{DRAWER_REASONS.map((r) => <button key={r} type="button" onClick={() => setReason(r)} className={`touch rounded-full px-3 py-1.5 text-sm font-semibold ${reason === r ? "bg-brand text-white" : "surface-2"}`}>{r}</button>)}</div>
+        <input value={reason} onChange={(e) => setReason(e.target.value)} maxLength={200} placeholder="Motif (facultatif)" aria-label="Motif" className="h-12 w-full rounded-xl border border-line surface px-3 text-base outline-none focus:border-lagon-500 focus:ring-4 focus:ring-lagon-500/15" />
+      </Modal>
+    </>
   );
 }

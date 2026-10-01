@@ -1,7 +1,7 @@
 import { prisma } from "@/server/db";
 import { getKitchenTicket } from "@/server/services/kitchen";
 import { formatTime } from "@/lib/dates";
-import { EscPosBuilder } from "@/server/hardware/escpos";
+import { EscPosBuilder, encodeEscPos, type PrintOp } from "@/server/hardware/escpos";
 
 const ORDER_TYPE_LABEL: Record<string, string> = { DINE_IN: "Sur place", COUNTER: "Comptoir", TAKEAWAY: "À emporter", DELIVERY: "Livraison", ONLINE: "En ligne", KIOSK: "Borne" };
 
@@ -27,9 +27,14 @@ ${t.order.notes ? `<div><em>Commande : « ${esc(t.order.notes)} »</em></div><hr
 
 /** Bon cuisine ESC/POS (imprimante thermique 80 mm, caractères doublés). */
 export async function renderKitchenTicketEscPos(establishmentId: string, ticketId: string): Promise<Uint8Array> {
+  return encodeEscPos(await renderKitchenTicketDoc(establishmentId, ticketId));
+}
+
+/** Bon cuisine sous forme de document neutre (encodé ensuite selon l'imprimante). */
+export async function renderKitchenTicketDoc(establishmentId: string, ticketId: string, cols = 42): Promise<PrintOp[]> {
   const t = await getKitchenTicket(establishmentId, ticketId);
   const est = await prisma.establishment.findUniqueOrThrow({ where: { id: establishmentId }, select: { timezone: true } });
-  const b = new EscPosBuilder(42);
+  const b = new EscPosBuilder(cols);
   if (t.isUrgent) b.align("center").bold(true).size(2, 1).line("!! URGENT !!").size(1, 1).bold(false);
   b.align("center").bold(true).size(2, 2).line(t.order.table ? `TABLE ${t.order.table.name}` : ORDER_TYPE_LABEL[t.order.type].toUpperCase()).size(1, 2).line(`${t.station?.name ?? "CUISINE"}${t.course ? ` - ${t.course.name}` : ""}`).size(1, 1).bold(false);
   b.align("left").line(`n° ${t.order.number} · ${t.order.covers} couv. · ${t.order.server?.displayName || t.order.server?.firstName || ""} · ${formatTime(t.createdAt, est.timezone)}`);
@@ -45,5 +50,5 @@ export async function renderKitchenTicketEscPos(establishmentId: string, ticketI
   b.separator("=");
   if (t.order.notes) b.line(`Commande : ${t.order.notes}`);
   b.feed(3).cut();
-  return b.build();
+  return b.ops();
 }

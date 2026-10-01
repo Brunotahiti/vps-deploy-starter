@@ -4,7 +4,7 @@ import { formatMoney, formatBps } from "@/lib/money";
 import { computeOrderTotals } from "@/lib/order-calc";
 import { formatDateTime } from "@/lib/dates";
 import { orderInclude } from "@/server/services/orders";
-import { EscPosBuilder } from "@/server/hardware/escpos";
+import { EscPosBuilder, encodeEscPos, type PrintOp } from "@/server/hardware/escpos";
 
 const METHOD: Record<string, string> = { CASH: "Espèces", CARD: "Carte bancaire", CHECK: "Chèque", TRANSFER: "Virement", MEAL_VOUCHER: "Ticket restaurant", COMPLIMENTARY: "Offert", OTHER: "Autre" };
 
@@ -109,8 +109,16 @@ export async function renderReceiptPdf(establishmentId: string, orderId: string)
 
 /** Ticket au format ESC/POS (octets), prêt pour un transport imprimante. */
 export async function renderReceiptEscPos(establishmentId: string, orderId: string): Promise<Uint8Array> {
+  return encodeEscPos(await renderReceiptDoc(establishmentId, orderId));
+}
+
+/**
+ * Ticket thermique sous forme de document neutre (encodé ensuite selon l'imprimante).
+ * Le tiroir-caisse n'est pas ouvert ici : il l'est à l'encaissement, jamais à la réimpression d'un ticket.
+ */
+export async function renderReceiptDoc(establishmentId: string, orderId: string, cols = 42): Promise<PrintOp[]> {
   const { order, est, active, totals, f, methodLabel } = await buildReceiptData(establishmentId, orderId);
-  const b = new EscPosBuilder(42);
+  const b = new EscPosBuilder(cols);
   b.align("center").bold(true).size(2, 2).line(est.name).size(1, 1).bold(false);
   if (est.addressLine1) b.line(est.addressLine1);
   if (est.city) b.line([est.postalCode, est.city].filter(Boolean).join(" "));
@@ -135,6 +143,5 @@ export async function renderReceiptEscPos(establishmentId: string, orderId: stri
   const pays = order.payments.filter((p) => p.status !== "VOIDED");
   if (pays.length) { b.separator(); for (const p of pays) b.row(methodLabel[p.method], f(p.amount)); }
   b.separator().align("center").line(order.status === "PAID" ? "Mauruuru !" : "A regler en caisse").feed(3).cut();
-  if (pays.some((p) => p.method === "CASH")) b.drawer();
-  return b.build();
+  return b.ops();
 }

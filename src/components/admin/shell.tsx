@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { LayoutDashboard, UtensilsCrossed, Map, Receipt, Wallet, Users, Settings, ScrollText, Building2, Moon, Sun, LogOut, Menu, X, MonitorSmartphone, ChefHat, Boxes, CalendarDays, Heart, QrCode, BarChart3, Clock, Plug, Network, TrendingUp, ShieldCheck } from "lucide-react";
+import { LayoutDashboard, UtensilsCrossed, Map, Receipt, Wallet, Users, Settings, ScrollText, Building2, Moon, Sun, LogOut, Menu, X, MonitorSmartphone, ChefHat, Boxes, CalendarDays, Heart, QrCode, BarChart3, Clock, Plug, Network, TrendingUp, ShieldCheck, Printer } from "lucide-react";
 import { useSession } from "@/hooks/use-session";
 import { useRealtime } from "@/hooks/use-realtime";
 import { useTheme } from "@/hooks/use-theme";
@@ -47,7 +47,8 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
     { href: "/admin/digital", label: "Digital : QR, en ligne, borne", icon: QrCode, show: can("settings.manage") },
     { href: "/admin/establishments", label: "Établissements", icon: Building2, show: can("establishments.manage") || (me?.establishments?.length ?? 0) > 1 },
     { href: "/admin/organization", label: "Multi-sites", icon: Network, show: can("reports.view_global") },
-    { href: "/admin/integrations", label: "Intégrations : API, webhooks, imprimantes, TPE", icon: Plug, show: can("settings.manage") },
+    { href: "/admin/hardware", label: "Imprimantes & tiroir", icon: Printer, show: can("settings.manage") },
+    { href: "/admin/integrations", label: "Intégrations : API, webhooks, TPE", icon: Plug, show: can("settings.manage") },
     { href: "/platform", label: "Console ManaResto", icon: ShieldCheck, show: !!me?.platformAdmin },
   ].filter((n) => n.show);
 
