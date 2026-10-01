@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 const PROTECTED = ["/pos", "/admin", "/onboarding", "/kds"]; // /platform a son propre écran de connexion administrateur
-const PUBLIC_POS = ["/pos/login"];
+const PUBLIC_POS = ["/pos/login", "/kds/login"];
 
 /** Garde de routes : redirige vers la connexion si aucune session n'est présente (vérification réelle côté serveur). */
 export function proxy(req: NextRequest) {
@@ -12,7 +12,7 @@ export function proxy(req: NextRequest) {
     if (!hasSession) {
       const hasTerminal = req.cookies.has("mr_terminal");
       const url = req.nextUrl.clone();
-      url.pathname = hasTerminal ? "/pos/login" : "/login";
+      url.pathname = !hasTerminal ? "/login" : pathname.startsWith("/kds") ? "/kds/login" : "/pos/login";
       url.searchParams.set("next", pathname);
       return NextResponse.redirect(url);
     }

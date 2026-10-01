@@ -168,3 +168,8 @@ h1, h2, h3 { letter-spacing: -0.02em; word-spacing: 0.02em; }
 .brand-float { animation: brand-in .9s .25s cubic-bezier(.2, .8, .2, 1) both, brand-float 7s 1.2s ease-in-out infinite; }
 .brand-float-late { animation: brand-in .9s .5s cubic-bezier(.2, 1.2, .4, 1) both, brand-float 6s 1.6s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) { .brand-rise, .brand-zoom, .brand-float, .brand-float-late { animation: none; } }
+
+/* Portail cuisine : secousse sur PIN incorrect */
+@keyframes shake { 0%, 100% { transform: none; } 20% { transform: translateX(-10px); } 40% { transform: translateX(9px); } 60% { transform: translateX(-6px); } 80% { transform: translateX(4px); } }
+.shake { animation: shake .42s cubic-bezier(.36,.07,.19,.97); }
+@media (prefers-reduced-motion: reduce) { .shake { animation: none; } }

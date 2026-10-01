@@ -11,7 +11,7 @@ export type Me = {
   establishments?: { id: string; name: string; slug: string; roleKey: string }[];
   roleKey?: string | null;
   permissions?: string[];
-  terminal: { id: string; name: string; kind: string; establishmentId: string } | null;
+  terminal: { id: string; name: string; kind: string; establishmentId: string; establishmentName?: string } | null;
   features?: { email: boolean };
   subscription?: import("@/lib/plan").SubscriptionInfo;
   platformAdmin?: boolean;

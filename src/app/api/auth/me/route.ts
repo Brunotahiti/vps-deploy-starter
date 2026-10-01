@@ -10,7 +10,7 @@ import { publicEstablishment } from "@/server/services/establishments";
 export const GET = route(async () => {
   const ctx = await getAuthContext();
   const terminal = await getTerminalFromCookie();
-  if (!ctx) return ok({ user: null, terminal: terminal ? { id: terminal.id, name: terminal.name, kind: terminal.kind, establishmentId: terminal.establishmentId } : null });
+  if (!ctx) return ok({ user: null, terminal: terminal ? { id: terminal.id, name: terminal.name, kind: terminal.kind, establishmentId: terminal.establishmentId, establishmentName: terminal.establishmentName } : null });
   const { user, establishment } = ctx;
   const org = await prisma.organization.findUniqueOrThrow({ where: { id: ctx.organizationId }, select: { plan: true, trialEndsAt: true } });
   return ok({
