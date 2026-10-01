@@ -46,7 +46,7 @@ export default function StatsPage() {
           {/* Bandeau : CA et faits marquants */}
           <section className="grid gap-4 lg:grid-cols-[1.1fr_1fr]">
             <div className="relative overflow-hidden rounded-2xl bg-lagoon p-5 text-white shadow-glow sm:p-6">
-              <div className="absolute -right-16 -top-16 h-56 w-56 rounded-full bg-white/10 blur-2xl" />
+              <div aria-hidden className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-white/10 blur-2xl" />
               <p className="text-xs font-bold uppercase tracking-wider text-white/80">Chiffre d&apos;affaires TTC</p>
               <p className="mt-1 text-4xl font-extrabold tracking-tight sm:text-5xl" data-testid="stats-revenue"><Money amount={p.revenue} /></p>
               <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-white/90"><Delta value={pct(p.revenue, p.previous?.revenue)} suffix={prevLabel} light /><span>· {formatMoney(p.days ? Math.round(p.revenue / p.days) : 0, currency)} par jour</span></div>
