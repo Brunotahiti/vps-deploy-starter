@@ -348,13 +348,35 @@ export async function getPosCatalog(establishmentId: string) {
 // ---------------------------------------------------------------- Import CSV
 export type ImportRow = { category: string; name: string; description?: string; priceTtc: number; taxRateBps?: number | null; costPrice?: number; sku?: string; isAvailable?: boolean };
 
+/** Nom comparable : sans accents, majuscules ni espaces superflus (« Poisson cru » = « POISSON  CRU »). */
+export function normalizeProductName(name: string) {
+  return name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
+}
+
+/**
+ * Import de la carte. Pas de doublon : un produit existant est mis à jour s'il a la même référence ou, sans référence,
+ * le même nom (accents et majuscules ignorés) ; une ligne répétée dans le fichier est ignorée.
+ */
 export async function importProducts(actor: Actor, rows: ImportRow[]) {
   const taxRates = await listTaxRates(actor.establishmentId);
   const defaultTax = taxRates.find((t) => t.isDefault) ?? taxRates[0] ?? null;
   const categories = new Map((await listCategories(actor.establishmentId)).map((c) => [c.name.toLowerCase(), c.id]));
+  const products = await prisma.product.findMany({ where: { establishmentId: actor.establishmentId }, select: { id: true, name: true, sku: true, isActive: true }, orderBy: { isActive: "desc" } });
+  const bySku = new Map<string, string>();
+  const byName = new Map<string, string>();
+  for (const p of products) {
+    if (p.sku && !bySku.has(p.sku.toLowerCase())) bySku.set(p.sku.toLowerCase(), p.id);
+    if (p.isActive && !byName.has(normalizeProductName(p.name))) byName.set(normalizeProductName(p.name), p.id);
+  }
   let createdCount = 0, updatedCount = 0;
   const errors: { row: number; message: string }[] = [];
+  const duplicates: { row: number; sameAs: number }[] = [];
+  const seen = new Map<string, number>();
   for (const [i, row] of rows.entries()) {
+    const fileKey = row.sku ? `sku:${row.sku.toLowerCase()}` : `name:${normalizeProductName(row.name)}`;
+    const first = seen.get(fileKey);
+    if (first !== undefined) { duplicates.push({ row: i + 1, sameAs: first }); continue; }
+    seen.set(fileKey, i + 1);
     try {
       let categoryId = categories.get(row.category.toLowerCase());
       if (!categoryId) {
@@ -371,14 +393,19 @@ export async function importProducts(actor: Actor, rows: ImportRow[]) {
         }
         taxRateId = t.id;
       }
-      const existing = row.sku ? await prisma.product.findFirst({ where: { establishmentId: actor.establishmentId, sku: row.sku } }) : null;
-      const data = { name: row.name, description: row.description ?? null, categoryId, taxRateId, priceTtc: row.priceTtc, costPrice: row.costPrice ?? 0, sku: row.sku || null, isAvailable: row.isAvailable ?? true };
-      if (existing) { await updateProduct(actor, existing.id, data); updatedCount++; }
-      else { await createProduct(actor, data); createdCount++; }
+      const existingId = (row.sku ? bySku.get(row.sku.toLowerCase()) : undefined) ?? byName.get(normalizeProductName(row.name));
+      const data = { name: row.name, description: row.description ?? null, categoryId, taxRateId, priceTtc: row.priceTtc, costPrice: row.costPrice ?? 0, isAvailable: row.isAvailable ?? true, ...(row.sku ? { sku: row.sku } : existingId ? {} : { sku: null }) };
+      if (existingId) { await updateProduct(actor, existingId, data); updatedCount++; }
+      else {
+        const created = await createProduct(actor, data);
+        createdCount++;
+        if (row.sku) bySku.set(row.sku.toLowerCase(), created.id);
+        byName.set(normalizeProductName(row.name), created.id);
+      }
     } catch (e) {
       errors.push({ row: i + 1, message: e instanceof Error ? e.message : "Erreur" });
     }
   }
-  await audit({ ...actor, action: "catalog.import", entityType: "product", newValue: { createdCount, updatedCount, errors: errors.length } });
-  return { createdCount, updatedCount, errors };
+  await audit({ ...actor, action: "catalog.import", entityType: "product", newValue: { createdCount, updatedCount, duplicates: duplicates.length, errors: errors.length } });
+  return { createdCount, updatedCount, duplicates, errors };
 }

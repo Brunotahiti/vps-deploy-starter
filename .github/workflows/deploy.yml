@@ -95,7 +95,12 @@ jobs:
       - name: Add VPS to known_hosts
         run: |
           mkdir -p ~/.ssh
-          ssh-keyscan -H "$VPS_HOST" >> ~/.ssh/known_hosts
+          # Serveur parfois lent à répondre (juste après un déploiement) : plusieurs essais avant d'abandonner
+          for i in 1 2 3 4 5; do
+            if ssh-keyscan -T 15 -H "$VPS_HOST" > /tmp/vps_keys 2>/dev/null && [ -s /tmp/vps_keys ]; then cat /tmp/vps_keys >> ~/.ssh/known_hosts; exit 0; fi
+            echo "→ essai $i : le serveur ne répond pas encore"; sleep $((i * 5))
+          done
+          echo "::error::Le serveur $VPS_HOST ne répond pas en SSH"; exit 1
 
       - name: Sync code to VPS
         run: |

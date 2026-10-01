@@ -11,7 +11,7 @@ import type { DigitalSettings, SiteSettings } from "@/server/services/public";
 import type { LoyaltySettings } from "@/server/services/customers";
 
 type S = DigitalSettings & { loyalty: LoyaltySettings; site: SiteSettings; urls: { shop: string; reserve: string; kiosk: string; site: string } };
-type QrRow = { id: string; name: string; url: string; room: { name: string } };
+type QrRow = { id: string; name: string; url: string; qrToken: string; room: { name: string } };
 
 /** Canaux clients : QR à table, commande en ligne, borne, fidélité ; QR codes à imprimer. */
 export default function DigitalPage() {
@@ -27,6 +27,7 @@ function DigitalForm({ initial }: { initial: S }) {
   const [photos, setPhotos] = useState(initial.site.photos.join("\n"));
   const site = (patch: Partial<SiteSettings>) => setS({ ...s, site: { ...s.site, ...patch } });
   const qr = useList<QrRow[]>(["tables", "qr"], "/api/tables/qr");
+  const regenerate = (t: QrRow) => confirm(`Créer un nouveau QR code pour la table ${t.name} ? L'ancien cessera aussitôt de fonctionner : il faudra imprimer le nouveau.`) && act(() => api.post(`/api/tables/${t.id}/qr`), { success: `Nouveau QR code pour la table ${t.name} : pensez à l'imprimer`, invalidate: [["tables", "qr"]] });
   const save = () => act(() => api.patch("/api/digital/settings", { qrMode: s.qrMode, online: { ...s.online, deliveryZones: zones.split(",").map((z) => z.trim()).filter(Boolean) }, kiosk: s.kiosk, loyalty: s.loyalty, site: { ...s.site, photos: photos.split(/\n+/).map((u) => u.trim()).filter(Boolean) } }), { success: "Réglages enregistrés", invalidate: [["digital"]] });
   const copy = (v: string) => navigator.clipboard?.writeText(v);
   return (
@@ -93,7 +94,7 @@ function DigitalForm({ initial }: { initial: S }) {
       </div>
       <Card title="QR codes des tables (à imprimer)" className="mt-4">
         <div id="qr" className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6 print:grid-cols-4">
-          {qr.data?.map((t) => <div key={t.id} className="rounded-xl border border-line p-2 text-center"><img src={`/api/tables/${t.id}/qr?size=256`} alt={`QR table ${t.name}`} className="mx-auto h-32 w-32" /><p className="mt-1 text-sm font-extrabold">Table {t.name}</p><p className="text-[10px] text-muted">{t.room.name}</p><a href={t.url} target="_blank" rel="noreferrer" className="text-[10px] text-lagon-600">tester</a></div>)}
+          {qr.data?.map((t) => <div key={t.id} className="rounded-xl border border-line p-2 text-center"><img src={`/api/tables/${t.id}/qr?size=256&v=${t.qrToken.slice(0, 8)}`} alt={`QR table ${t.name}`} className="mx-auto h-32 w-32" /><p className="mt-1 text-sm font-extrabold">Table {t.name}</p><p className="text-[10px] text-muted">{t.room.name}</p><span className="no-print flex items-center justify-center gap-2"><a href={t.url} target="_blank" rel="noreferrer" className="text-[10px] text-lagon-600">tester</a><button type="button" className="text-[10px] font-semibold text-muted underline-offset-2 hover:underline" onClick={() => regenerate(t)}>nouveau QR</button></span></div>)}
         </div>
         <Button variant="secondary" className="mt-3 no-print" onClick={() => window.print()}>Imprimer les QR codes</Button>
       </Card>

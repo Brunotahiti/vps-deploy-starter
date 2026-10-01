@@ -180,4 +180,33 @@ describe("Phase 6 — fidélité et réservations", () => {
     list = await listReservations(T.est.id, day, TZ);
     expect(list.length).toBe(2);
   });
+
+  it("réservations publiques : pas de doublon sur un même service, 3 à venir au plus par numéro, 180 jours maximum", async () => {
+    const at = (h: number) => new Date(Date.now() + h * 3600_000).toISOString();
+    const base = { name: "Robot Test", partySize: 2 };
+    await createPublicReservation(T.est.id, T.org.id, { ...base, phone: "87 00 00 01", startsAt: at(24) });
+    // Même numéro (écrit autrement), même service : refusé
+    await expect(createPublicReservation(T.est.id, T.org.id, { ...base, phone: "+689 87000001", startsAt: at(25) })).rejects.toMatchObject({ code: "ALREADY_BOOKED" });
+    await createPublicReservation(T.est.id, T.org.id, { ...base, phone: "87000001", startsAt: at(48) });
+    await createPublicReservation(T.est.id, T.org.id, { ...base, phone: "87000001", startsAt: at(72) });
+    await expect(createPublicReservation(T.est.id, T.org.id, { ...base, phone: "87000001", startsAt: at(96) })).rejects.toMatchObject({ code: "TOO_MANY_RESERVATIONS" });
+    await expect(createPublicReservation(T.est.id, T.org.id, { ...base, phone: "87000002", startsAt: at(24 * 200) })).rejects.toMatchObject({ code: "BAD_DATE" });
+    // Un autre numéro n'est pas concerné
+    await expect(createPublicReservation(T.est.id, T.org.id, { ...base, phone: "87000002", startsAt: at(24) })).resolves.toMatchObject({ status: "PENDING" });
+  });
+});
+
+describe("QR code d'une table", () => {
+  it("un nouveau QR code remplace l'ancien, qui cesse aussitôt de fonctionner", async () => {
+    const { regenerateTableQr } = await import("@/server/services/floor");
+    const t = await upsertTable(T.managerActor, { roomId: T.room.id, name: "QR1", seats: 2 });
+    const old = (await prisma.table.findUniqueOrThrow({ where: { id: t.id } })).qrToken;
+    await expect(tableMenu(old)).resolves.toBeTruthy();
+    const fresh = await regenerateTableQr(T.managerActor, t.id);
+    expect(fresh.qrToken).not.toBe(old);
+    await expect(tableMenu(old)).rejects.toMatchObject({ status: 404 });
+    await expect(tableMenu(fresh.qrToken)).resolves.toBeTruthy();
+    expect(await prisma.auditLog.count({ where: { action: "table.qr_regenerated", entityId: t.id } })).toBe(1);
+    await expect(regenerateTableQr(T.managerActor, crypto.randomUUID())).rejects.toMatchObject({ code: "NOT_FOUND" });
+  });
 });

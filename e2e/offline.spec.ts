@@ -65,3 +65,48 @@ test("hors ligne : ouvrir une table, commander, envoyer, puis synchroniser", asy
   // Nettoyage : annuler la commande de test
   await page.request.post(`/api/orders/${orderId}/cancel`, { data: { reason: "test hors ligne" } });
 });
+
+/** Table ouverte hors ligne alors qu'un autre appareil l'a ouverte entre-temps : rien n'est perdu, tout rejoint la même commande. */
+test("hors ligne : table ouverte en même temps sur un autre appareil, articles regroupés", async ({ page, context }) => {
+  await page.goto("/login");
+  await page.getByPlaceholder("vous@restaurant.pf").fill("manager@manaresto.pf");
+  await page.getByLabel("Mot de passe").fill("demo1234");
+  await page.getByRole("button", { name: "Se connecter" }).click();
+  await page.waitForURL(/\/(pos|admin)/);
+  await page.goto("/pos");
+  await expect(page.locator("header [data-testid=network-status][data-online=true]")).toBeVisible();
+  await page.waitForFunction(() => navigator.serviceWorker?.controller !== null, null, { timeout: 15000 }).catch(() => {});
+  const free = page.locator("button[title='Libre']:visible").first();
+  const tableName = (await free.getByTestId("table-name").textContent())?.trim();
+  const floor = (await (await page.request.get("/api/floor")).json()).data as { rooms: { tables: { id: string; name: string }[] }[] };
+  const tableId = floor.rooms.flatMap((r) => r.tables).find((t) => t.name === tableName)!.id;
+  const catalog = (await (await page.request.get("/api/pos/catalog")).json()).data as { products: { id: string; name: string }[] };
+  const biere = catalog.products.find((p) => p.name.startsWith("Hinano"))!;
+
+  // ---- Cet appareil perd le réseau et ouvre la table
+  await context.setOffline(true);
+  await page.evaluate(() => window.dispatchEvent(new Event("offline")));
+  await page.locator("button[title='Libre']:visible").first().click();
+  await page.getByRole("button", { name: "2", exact: true }).click();
+  await page.waitForURL(/\/pos\/order\//);
+  const localId = page.url().split("/pos/order/")[1];
+  await page.getByRole("button", { name: "Boissons" }).click();
+  await page.locator("section").first().getByRole("button", { name: "Ajouter Coca-Cola 33 cl" }).click();
+  await expect(page.getByTestId("ticket").getByText("Coca-Cola 33 cl")).toHaveCount(1);
+
+  // ---- Pendant ce temps, un autre appareil (toujours en ligne) ouvre la même table et commande une bière
+  const other = (await (await page.request.post("/api/orders", { data: { type: "DINE_IN", tableId, covers: 3 } })).json()).data as { id: string };
+  expect(other.id).not.toBe(localId);
+  expect((await page.request.post(`/api/orders/${other.id}/items`, { data: { productId: biere.id, quantity: 1 } })).ok()).toBe(true);
+
+  // ---- Retour du réseau : le Coca saisi hors ligne rejoint la commande de l'autre appareil
+  await context.setOffline(false);
+  await page.evaluate(() => window.dispatchEvent(new Event("online")));
+  await expect(page.getByText(/déjà ouverte sur un autre appareil/)).toBeVisible({ timeout: 15000 });
+  await page.waitForURL(new RegExp(`/pos/order/${other.id}`));
+  const merged = (await (await page.request.get(`/api/orders/${other.id}`)).json()).data as { items: { name: string; status: string }[] };
+  expect(merged.items.map((i) => i.name).sort()).toEqual(["Coca-Cola 33 cl", biere.name].sort());
+  expect((await page.request.get(`/api/orders/${localId}`)).status()).toBe(404);
+
+  await page.request.post(`/api/orders/${other.id}/cancel`, { data: { reason: "test hors ligne" } });
+});
