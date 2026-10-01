@@ -150,6 +150,7 @@ export async function platformOverview(now = new Date()) {
   });
 
   return {
+    generatedAt: now.toISOString(), // référence des périodes (7 j, 30 j) pour le détail des indicateurs
     kpis,
     series,
     rows,

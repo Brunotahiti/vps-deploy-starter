@@ -83,17 +83,23 @@ export function Delta({ value, suffix = "vs J-7", upIsGood = true, light = false
 }
 
 /** Tuile statistique : icône teintée, libellé, valeur en chiffres proportionnels, écart ou indication. */
-export function Stat({ label, value, delta, hint, accent = "#14aaa3", icon, upIsGood = true }: { label: string; value: ReactNode; delta?: number | null; hint?: string; accent?: string; icon?: ReactNode; upIsGood?: boolean }) {
-  return (
-    <div className="card relative overflow-hidden p-4">
+/** Vignette d'indicateur ; avec onClick, elle devient un bouton qui ouvre le détail. */
+export function Stat({ label, value, delta, hint, accent = "#14aaa3", icon, upIsGood = true, onClick }: { label: string; value: ReactNode; delta?: number | null; hint?: string; accent?: string; icon?: ReactNode; upIsGood?: boolean; onClick?: () => void }) {
+  const body = (
+    <>
       <div className="flex items-start justify-between gap-2">
         <p className="text-[11px] font-bold uppercase tracking-wider text-muted">{label}</p>
         {icon ? <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full" style={{ background: `color-mix(in srgb, ${accent} 14%, transparent)`, color: accent }}>{icon}</span> : <span className="mt-1 h-2 w-2 rounded-full" style={{ background: accent }} />}
       </div>
       <p className="mt-1 text-2xl font-extrabold tracking-tight">{value}</p>
-      <div className="mt-1 min-h-5 text-xs text-muted">{delta !== undefined && delta !== null ? <Delta value={delta} upIsGood={upIsGood} /> : hint}</div>
-    </div>
+      <div className="mt-1 flex min-h-5 items-end justify-between gap-2 text-xs text-muted">
+        <span>{delta !== undefined && delta !== null ? <Delta value={delta} upIsGood={upIsGood} /> : hint}</span>
+        {onClick ? <span aria-hidden className="shrink-0 font-bold transition group-hover:translate-x-0.5" style={{ color: accent }}>Détail ›</span> : null}
+      </div>
+    </>
   );
+  if (!onClick) return <div className="card relative overflow-hidden p-4">{body}</div>;
+  return <button type="button" onClick={onClick} aria-label={`${label} : voir le détail`} className="group card relative block w-full overflow-hidden p-4 text-left transition hover:-translate-y-0.5 hover:shadow-lift active:scale-[0.99]">{body}</button>;
 }
 
 /** Jauge : ratio contre des seuils ; la piste est une teinte claire de la même couleur, statut avec icône et libellé. */

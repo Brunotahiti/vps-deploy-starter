@@ -35,6 +35,18 @@ test("console : voir un nouvel inscrit, prendre la main, revenir, activer puis b
   await expect(row.getByText("Essai", { exact: true })).toBeVisible();
   await expect(row.getByText(/vu (à l'instant|il y a)/)).toBeVisible();
 
+  // Détail d'une vignette : les essais en cours listent le nouvel inscrit ; un clic ouvre sa fiche
+  await page.getByRole("button", { name: "Essais en cours : voir le détail" }).click();
+  const detail = page.getByTestId("kpi-detail");
+  await expect(detail.getByText(`Snack Tiare ${stamp}`)).toBeVisible();
+  await expect(detail.getByText(/^fin \d/).first()).toBeVisible();
+  await detail.getByText(`Snack Tiare ${stamp}`).click();
+  await expect(page.getByRole("dialog", { name: `Snack Tiare ${stamp}` })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: "Demandes de démo : voir le détail" }).click();
+  await expect(page.getByRole("dialog", { name: "Demandes de démonstration" })).toBeVisible();
+  await page.keyboard.press("Escape");
+
   // Prendre la main puis revenir
   await row.getByRole("button", { name: "Prendre la main" }).click();
   await page.waitForURL(/\/admin/);
