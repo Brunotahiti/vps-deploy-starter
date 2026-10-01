@@ -1,5 +1,6 @@
 import { prisma } from "@/server/db";
 import { reserveAttempt } from "@/server/auth/attempts";
+import { assertPinAvailable } from "./pin-unique";
 import { ApiError } from "@/server/errors";
 import { audit } from "@/server/audit";
 import { publish } from "@/server/realtime/bus";
@@ -27,6 +28,10 @@ export async function upsertEmployee(actor: Actor, input: { id?: string; userId?
     if (!u) throw new ApiError(400, "BAD_USER", "Utilisateur inconnu");
     const taken = await prisma.employee.findFirst({ where: { userId: input.userId, ...(input.id ? { id: { not: input.id } } : {}) } });
     if (taken) throw new ApiError(409, "USER_LINKED", "Cet utilisateur est déjà lié à un employé");
+  }
+  if (input.pin) {
+    const linkedUser = input.userId ?? (input.id ? (await prisma.employee.findFirst({ where: { id: input.id, establishmentId: actor.establishmentId }, select: { userId: true } }))?.userId : null);
+    await assertPinAvailable(input.pin, { establishmentIds: [actor.establishmentId], employeeId: input.id ?? null, userId: linkedUser ?? null, guardKey: actor.userId });
   }
   const pinHash = input.pin ? await hashPin(input.pin) : undefined;
   if (input.id) {
@@ -91,14 +96,16 @@ export async function deleteShift(actor: Actor, id: string) {
 /** Retrouve l'employé par son PIN (PIN employé, sinon PIN de l'utilisateur lié). */
 export async function identifyEmployee(establishmentId: string, pin: string) {
   // Même compteur que la connexion par PIN : le pointage ne doit pas servir à deviner un PIN
-  const release = reserveAttempt(`pin:${establishmentId}`, 12, 15 * 60_000, "Trop de PIN erronés sur cet établissement, réessayez dans quelques minutes");
+  const release = await reserveAttempt(`pin:${establishmentId}`, 12, 15 * 60_000, "Trop de PIN erronés sur cet établissement, réessayez dans quelques minutes");
   const employees = await prisma.employee.findMany({ where: { establishmentId, isActive: true }, include: { user: { select: { pinHash: true, isActive: true } } } });
+  // PIN propre de l'employé, sinon celui de l'utilisateur lié ; un PIN partagé n'identifie personne
+  const matches = [];
   for (const e of employees) {
-    if (e.pinHash && (await verifyPin(pin, e.pinHash))) { release(); return e; }
+    const hash = e.pinHash ?? (e.user?.isActive ? e.user.pinHash : null);
+    if (hash && (await verifyPin(pin, hash))) matches.push(e);
   }
-  for (const e of employees) {
-    if (!e.pinHash && e.user?.isActive && e.user.pinHash && (await verifyPin(pin, e.user.pinHash))) { release(); return e; }
-  }
+  if (matches.length === 1) { await release(); return matches[0]; }
+  if (matches.length > 1) { await release(); throw new ApiError(409, "PIN_SHARED", "Ce PIN est utilisé par plusieurs personnes : demandez à un manager de le changer"); }
   throw new ApiError(401, "BAD_PIN", "PIN inconnu");
 }
 

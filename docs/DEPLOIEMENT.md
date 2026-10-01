@@ -34,7 +34,13 @@ brew install gh && gh auth login
 bash scripts/setup-ci.sh
 ```
 
-Le script enregistre la clé SSH et les secrets GitHub (`VPS_SSH_KEY`, `VPS_HOST`, `VPS_USER`, `VPS_PATH`, `PUBLIC_HOST`). Ensuite chaque push sur `main` déclenche `.github/workflows/deploy.yml` (rsync + rebuild + redémarrage). Tant que les secrets manquent, ce workflow s'ignore proprement.
+Le script enregistre la clé SSH et les secrets GitHub (`VPS_SSH_KEY`, `VPS_HOST`, `VPS_USER`, `VPS_PATH`, `PUBLIC_HOST`). Ensuite chaque push sur `main` déclenche `.github/workflows/deploy.yml` :
+
+1. **tests** (typage, lint, tests automatiques, construction) : si l'un échoue, rien n'est envoyé sur le serveur ;
+2. envoi du code, sauvegarde de la base, conservation de la version en service (étiquette `previous`), reconstruction et redémarrage ;
+3. vérification que `https://PUBLIC_HOST/api/health` répond ; sinon **retour automatique à la version précédente** (les migrations ne faisant qu'ajouter, l'ancienne version fonctionne avec la base à jour) et déploiement marqué en échec.
+
+Tant que les secrets manquent, ce workflow s'ignore proprement.
 
 ## Exploitation
 
@@ -43,7 +49,9 @@ Le script enregistre la clé SSH et les secrets GitHub (`VPS_SSH_KEY`, `VPS_HOST
 | Journaux de l'application | `ssh -i ~/.ssh/manaresto_vps root@187.127.105.242 'cd /opt/manaresto && docker compose logs -f app'` |
 | État des conteneurs | `… 'cd /opt/manaresto && docker compose ps'` |
 | Sauvegarde immédiate | `… '/opt/manaresto/scripts/db-backup.sh'` |
-| Restaurer une sauvegarde | `… 'bash /opt/manaresto/scripts/db-restore.sh /var/backups/manaresto/<fichier>.sql.gz'` |
+| Restaurer une sauvegarde | `… 'bash /opt/manaresto/scripts/db-restore.sh /var/backups/manaresto/<fichier>.sql.gz'` : l'archive est vérifiée avant toute modification, une sauvegarde de sécurité est faite, l'application est arrêtée pendant l'opération, et la restauration se fait en une seule transaction (en cas d'erreur, la base reste dans son état précédent). Confirmation en tapant « restaurer ». |
+| Copie des sauvegardes hors du serveur | Une fois, sur le serveur : `bash /opt/manaresto/scripts/backup-remote-setup.sh` (assistant rclone dans Docker : Backblaze B2, Cloudflare R2, Scaleway, OVH, Google Drive…). Puis dans `/opt/manaresto/.env` : `BACKUP_REMOTE=<stockage>:<dossier>` et `BACKUP_PASSPHRASE=…` (obligatoire : les sauvegardes ne quittent le serveur que chiffrées ; gardez la phrase ailleurs, sans elle rien n'est restaurable). Chaque sauvegarde quotidienne est alors copiée, conservée 90 jours à distance (`REMOTE_RETENTION_DAYS`). |
+| Copie des sauvegardes sur le Mac | `bash scripts/backup-pull-mac.sh` : rapatrie les sauvegardes dans `~/ManaResto-sauvegardes` (deuxième copie gratuite, rien n'est supprimé sur le Mac). |
 | Sauvegardes chiffrées | ajouter `BACKUP_PASSPHRASE=…` dans `/opt/manaresto/.env` (AES-256, déchiffrement automatique à la restauration) |
 | Certificat HTTPS absent (Cloudflare répond 526) | Traefik ne demande le certificat qu'à la mise en place du routeur ; si le DNS n'existait pas encore à ce moment, la demande a échoué et n'est pas réessayée. Mettre le DNS en place **avant** le premier déploiement. Sinon, Traefik refait toutes les demandes manquantes à son redémarrage : `docker restart traefik` (coupure d'environ une seconde pour tous les sites, configuration et certificats existants intacts), puis vérifier `docker exec traefik grep -c manaresto.manaprocess.cloud /letsencrypt/acme.json` (≥ 1). |
 | Serveur lent : diagnostic (lecture seule) | `ssh -i ~/.ssh/manaresto_vps root@187.127.105.242 'bash -s' < scripts/vps-diagnose.sh` : charge, mémoire et swap, disque, journaux Docker, conteneurs qui redémarrent, processus tués faute de mémoire |

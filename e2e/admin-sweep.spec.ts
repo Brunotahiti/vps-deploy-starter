@@ -100,7 +100,8 @@ test("salle, utilisateurs, paramètres et import CSV", async ({ page }) => {
   await field(page, "Nom").fill(tag);
   await field(page, "Email").fill(`test-${tag}@manaresto.pf`);
   await field(page, "Mot de passe (8 car. min.)").fill("password123");
-  await field(page, "PIN caisse (4 à 6 chiffres)").fill("7777");
+  // PIN unique par établissement : un PIN à 6 chiffres tiré au hasard, libre dans le jeu de démonstration
+  await field(page, "PIN caisse (4 à 6 chiffres)").fill(String(100000 + Math.floor(Math.random() * 900000)));
   await page.locator("select").last().selectOption({ label: "Serveur" });
   await page.getByRole("button", { name: "Enregistrer" }).click();
   await expect(page.getByText(`test-${tag}@manaresto.pf`)).toBeVisible();

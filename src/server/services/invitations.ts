@@ -1,4 +1,5 @@
 import { prisma } from "@/server/db";
+import { assertPinAvailable } from "./pin-unique";
 import { ApiError } from "@/server/errors";
 import { hashPassword, hashPin, randomToken } from "@/server/auth/password";
 import { audit } from "@/server/audit";
@@ -77,6 +78,7 @@ export async function acceptInvitation(token: string, input: { password: string;
   const user = await prisma.user.findUnique({ where: { inviteToken: token }, include: { memberships: { select: { establishmentId: true } } } });
   if (!user || !user.isActive) throw new ApiError(404, "NOT_FOUND", "Invitation introuvable ou déjà utilisée");
   if (user.inviteExpiresAt && user.inviteExpiresAt.getTime() < Date.now()) throw new ApiError(410, "INVITE_EXPIRED", "Cette invitation a expiré : demandez à votre manager de la renvoyer");
+  if (input.pin) await assertPinAvailable(input.pin, { establishmentIds: user.memberships.map((m) => m.establishmentId), userId: user.id, guardKey: user.id });
   const updated = await prisma.user.update({
     where: { id: user.id },
     data: { passwordHash: await hashPassword(input.password), ...(input.pin ? { pinHash: await hashPin(input.pin) } : {}), inviteToken: null, inviteExpiresAt: null, lastLoginAt: new Date() },

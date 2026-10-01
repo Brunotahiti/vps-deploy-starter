@@ -31,9 +31,43 @@ jobs:
             echo "::notice::Déploiement ignoré : secrets VPS incomplets (VPS_SSH_KEY, VPS_HOST, VPS_USER, VPS_PATH ; lancer scripts/setup-ci.sh une fois)."
           fi
 
+  test:
+    name: Tests avant mise en ligne
+    needs: check
+    if: needs.check.outputs.configured == 'true'
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: manaresto_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 10s --health-timeout 5s --health-retries 5
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/manaresto
+      TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/manaresto_test
+      SESSION_SECRET: ci-secret-0123456789-0123456789
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm prisma generate
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm test
+      - run: pnpm next build
+
   deploy:
     name: SSH → VPS rebuild
-    needs: check
+    # Rien n'est envoyé sur le serveur si un test échoue
+    needs: [check, test]
     if: needs.check.outputs.configured == 'true'
     runs-on: ubuntu-latest
     env:
@@ -91,8 +125,12 @@ jobs:
             export BUILD_ID
             # Version des styles/scripts du site vitrine = commit déployé
             sed -i -E "s/\.(css|js)\?v=[A-Za-z0-9]+/.\1?v=$BUILD_ID/g" site/*.html 2>/dev/null || true
-            # Sauvegarde de la base avant toute migration
-            if docker ps --format '{{.Names}}' | grep -qx "${APP_NAME:-manaresto}-db"; then bash scripts/db-backup.sh; fi
+            # Sauvegarde de la base avant toute migration (la copie hors serveur ne doit pas bloquer un déploiement)
+            if docker ps --format '{{.Names}}' | grep -qx "${APP_NAME:-manaresto}-db"; then SKIP_REMOTE=1 bash scripts/db-backup.sh; fi
+            # Version en service conservée sous l'étiquette « previous » : retour arrière possible si la nouvelle ne répond pas
+            for img in "${APP_NAME:-manaresto}" "${APP_NAME:-manaresto}-migrate"; do
+              if docker image inspect "$img:latest" >/dev/null 2>&1; then docker tag "$img:latest" "$img:previous"; fi
+            done
             docker compose build migrate app
             docker compose up -d
             (docker compose exec -T site nginx -s reload >/dev/null 2>&1 || true)
@@ -108,6 +146,7 @@ jobs:
           EOF
 
       - name: Verify health
+        id: health
         run: |
           if [ -z "$PUBLIC_HOST" ]; then echo "::notice::Secret PUBLIC_HOST absent : vérification ignorée"; exit 0; fi
           for i in 1 2 3 4 5 6; do
@@ -117,4 +156,28 @@ jobs:
             if [ "$STATUS" = "200" ]; then echo "✅ Application en ligne sur https://$PUBLIC_HOST"; exit 0; fi
           done
           echo "::error::L'application ne répond pas 200 sur https://$PUBLIC_HOST/api/health"
+          exit 1
+
+      - name: Retour à la version précédente si l'application ne répond pas
+        if: failure() && steps.health.outcome == 'failure'
+        run: |
+          echo "::warning::La nouvelle version ne répond pas : remise en service de la précédente"
+          ssh "$VPS_USER@$VPS_HOST" "VPS_PATH='${VPS_PATH%/}' bash -s" <<'EOF'
+            set -e
+            cd "$VPS_PATH"
+            if [ -f .env ]; then set -a && . ./.env && set +a; fi
+            APP="${APP_NAME:-manaresto}"
+            docker image inspect "$APP:previous" >/dev/null 2>&1 || { echo "Aucune version précédente disponible"; exit 1; }
+            # Les migrations ne font qu'ajouter des tables et colonnes : l'ancienne version fonctionne avec la base à jour
+            docker tag "$APP:previous" "$APP:latest"
+            docker compose up -d --no-build --no-deps app
+            docker compose ps app
+          EOF
+          for i in 1 2 3 4 5 6; do
+            sleep 10
+            STATUS=$(curl -sS -o /dev/null -w "%{http_code}" "https://$PUBLIC_HOST/api/health" || echo "000")
+            echo "→ essai $i : HTTP $STATUS"
+            if [ "$STATUS" = "200" ]; then echo "::error::Déploiement annulé : la version précédente est de nouveau en ligne. Corrigez puis redéployez."; exit 1; fi
+          done
+          echo "::error::Ni la nouvelle ni la précédente version ne répondent : intervention nécessaire (docker compose logs app)"
           exit 1

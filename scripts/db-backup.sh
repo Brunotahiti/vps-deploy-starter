@@ -29,6 +29,22 @@ fi
 if [ -z "${BACKUP_PASSPHRASE:-}" ]; then gzip -t "$FILE"; fi
 [ "$(wc -c < "$FILE")" -gt 1000 ] || { echo "✗ Sauvegarde anormalement petite : $FILE"; rm -f "$FILE"; exit 1; }
 echo "✓ Backup → $FILE ($(du -h "$FILE" | cut -f1))"
+trap - ERR # la sauvegarde locale est valide : plus rien ne doit la supprimer
+
+# Copie hors du serveur (BACKUP_REMOTE, ex. « b2:manaresto-sauvegardes ») : si le serveur est perdu, les sauvegardes ne le sont pas.
+# rclone tourne dans Docker (rien à installer) ; configuration une seule fois avec scripts/backup-remote-setup.sh.
+# Les sauvegardes contiennent les données des clients des restaurants : elles ne quittent le serveur que chiffrées.
+if [ -n "${BACKUP_REMOTE:-}" ] && [ -z "${SKIP_REMOTE:-}" ]; then
+  if [ -z "${BACKUP_PASSPHRASE:-}" ]; then
+    echo "✗ Copie hors serveur refusée : définissez BACKUP_PASSPHRASE dans .env pour chiffrer les sauvegardes"; exit 1
+  fi
+  RCLONE=(docker run --rm -v "$BACKUP_DIR:/data:ro" -v "${RCLONE_CONFIG_DIR:-/root/.config/rclone}:/config/rclone" rclone/rclone:1)
+  "${RCLONE[@]}" copyto "/data/$(basename "$FILE")" "$BACKUP_REMOTE/$(basename "$FILE")" --retries 5 \
+    || { echo "✗ Copie hors serveur échouée (la sauvegarde locale est conservée : $FILE)"; exit 1; }
+  echo "✓ Copie hors serveur → $BACKUP_REMOTE"
+  # Côté distant, conservation plus longue qu'en local
+  "${RCLONE[@]}" delete "$BACKUP_REMOTE" --min-age "${REMOTE_RETENTION_DAYS:-90}d" --include "manaresto-*" >/dev/null 2>&1 || true
+fi
 
 # Nettoyer les anciens backups
 find "$BACKUP_DIR" \( -name "manaresto-*.sql.gz" -o -name "manaresto-*.sql.gz.enc" \) -mtime +$RETENTION_DAYS -delete

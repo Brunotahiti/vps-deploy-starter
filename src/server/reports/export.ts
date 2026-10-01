@@ -25,7 +25,7 @@ export async function buildExport(establishmentId: string, type: ExportType, fro
     const kpi: Sheet = { name: "Synthèse", head: ["Indicateur", "Valeur", "Période précédente"], rows: [
       ["Période", period, r.previous ? `${r.previous.from} → ${r.previous.to}` : null], ["CA TTC", r.revenue, r.previous?.revenue ?? null], ["CA HT", r.revenueHt, r.previous?.revenueHt ?? null], ["TVA", r.tax, null],
       ["Tickets", r.tickets, r.previous?.tickets ?? null], ["Couverts", r.covers, r.previous?.covers ?? null], ["Panier moyen", r.avgTicket, r.previous?.avgTicket ?? null], ["CA / couvert", r.avgPerCover, null],
-      ["Remises", r.discounts, null], ["Remboursements", r.refunds, null], ["Annulations", r.cancellations, null], ["Coût matière", r.foodCost, null], ["Ratio coût matière %", r.foodCostPct ?? "", r.previous?.foodCostPct ?? null],
+      ["Remises", r.discounts, null], ["Remboursements", r.refunds, null], ["CA TTC net des remboursements", r.netRevenue, null], ["Annulations", r.cancellations, null], ["Coût matière", r.foodCost, null], ["Ratio coût matière %", r.foodCostPct ?? "", r.previous?.foodCostPct ?? null],
     ] };
     return { title: `Rapport ${period}`, sheets: [kpi,
       { name: "Par jour", head: ["Jour", "CA TTC", "Tickets", "Couverts"], rows: r.byDay.map((d) => [d.day, d.revenue, d.tickets, d.covers]) },
@@ -127,7 +127,9 @@ export async function toPdf(sheets: Sheet[], title: string, establishmentName: s
  *  - Ventes par jour et par taux de TVA (HT, TVA, TTC), remises ;
  *  - Encaissements par jour et moyen de paiement (net des remboursements) ;
  *  - Écritures de journal (format import comptable : date, journal, compte, libellé, débit, crédit) :
- *    707 ventes HT par taux, 4457 TVA collectée, 53 caisse / 512 banque / 467 titres-restaurant, 6 remboursements.
+ *    707 ventes HT par taux, 4457 TVA collectée, 53 caisse / 512 banque / 467 titres-restaurant ;
+ *  - Remboursements à leur date réelle : 709 (HT) et 4457 (TVA reprise) au débit, compte d'encaissement au crédit.
+ *  Chaque journée est équilibrée (écart d'arrondi éventuel en 658/758).
  */
 const ACCOUNTS: Record<string, [string, string]> = { CASH: ["530000", "Caisse"], CARD: ["512000", "Banque (CB)"], CHECK: ["512100", "Banque (chèques)"], TRANSFER: ["512200", "Banque (virements)"], MEAL_VOUCHER: ["467000", "Titres-restaurant"], COMPLIMENTARY: ["658000", "Offerts"], OTHER: ["471000", "Compte d'attente"] };
 
@@ -137,7 +139,8 @@ export async function buildAccountingExport(establishmentId: string, fromDay: st
   const dayFmt = new Intl.DateTimeFormat("en-CA", { timeZone: timezone, year: "numeric", month: "2-digit", day: "2-digit" });
   const byDayRate = new Map<string, { ht: number; tax: number; ttc: number }>();
   const byDayMethod = new Map<string, { amount: number; count: number; tips: number; refunded: number }>();
-  const dayTotals = new Map<string, { ttc: number; discounts: number; tips: number; tickets: number }>();
+  const dayTotals = new Map<string, { ttc: number; discounts: number; tips: number; tickets: number; refunds: number }>();
+  const dayOf = (day: string) => { let d = dayTotals.get(day); if (!d) { d = { ttc: 0, discounts: 0, tips: 0, tickets: 0, refunds: 0 }; dayTotals.set(day, d); } return d; };
   for (const o of orders) {
     const day = dayFmt.format(o.closedAt!);
     const ratio = o.subtotal > 0 ? o.total / o.subtotal : 1; // remise globale répartie au prorata
@@ -146,19 +149,45 @@ export async function buildAccountingExport(establishmentId: string, fromDay: st
       const k = `${day}|${it.taxRateBps}|${it.taxRateName ?? ""}`;
       const e = byDayRate.get(k) ?? { ht: 0, tax: 0, ttc: 0 }; e.ttc += ttc; e.tax += tax; e.ht += ttc - tax; byDayRate.set(k, e);
     }
-    for (const p of o.payments) { const k = `${day}|${p.method}`; const e = byDayMethod.get(k) ?? { amount: 0, count: 0, tips: 0, refunded: 0 }; e.amount += p.amount - p.refundedAmount; e.count++; e.tips += p.tipAmount; e.refunded += p.refundedAmount; byDayMethod.set(k, e); }
-    const d = dayTotals.get(day) ?? { ttc: 0, discounts: 0, tips: 0, tickets: 0 }; d.ttc += o.total; d.discounts += o.discountTotal; d.tips += o.tipTotal; d.tickets++; dayTotals.set(day, d);
+    // Encaissements BRUTS au jour de la vente : les remboursements sont passés à leur propre date (plus bas)
+    for (const p of o.payments) { const k = `${day}|${p.method}`; const e = byDayMethod.get(k) ?? { amount: 0, count: 0, tips: 0, refunded: 0 }; e.amount += p.amount; e.count++; e.tips += p.tipAmount; byDayMethod.set(k, e); }
+    const d = dayOf(day); d.ttc += o.total; d.discounts += o.discountTotal; d.tips += o.tipTotal; d.tickets++;
   }
+
+  // Remboursements datés du jour où ils ont été faits (même pour une vente d'une période précédente), TVA au prorata de la vente
+  const refunds = await prisma.refund.findMany({ where: { payment: { establishmentId }, createdAt: { gte: startOfLocalDay(fromDay, timezone), lt: endOfLocalDay(toDay, timezone) } }, orderBy: { createdAt: "asc" }, include: { payment: { select: { method: true, order: { select: { number: true, total: true, taxTotal: true, closedAt: true } } } } } });
+  const refundRows = refunds.map((r) => {
+    const o = r.payment.order;
+    const tax = o.total > 0 ? Math.round((r.amount * o.taxTotal) / o.total) : 0;
+    return { day: dayFmt.format(r.createdAt), at: r.createdAt, number: o.number, saleDay: o.closedAt ? dayFmt.format(o.closedAt) : "", method: r.payment.method, ttc: r.amount, tax, ht: r.amount - tax, reason: r.reason };
+  });
+  for (const r of refundRows) {
+    dayOf(r.day).refunds += r.ttc;
+    const k = `${r.day}|${r.method}`; const e = byDayMethod.get(k) ?? { amount: 0, count: 0, tips: 0, refunded: 0 }; e.refunded += r.ttc; byDayMethod.set(k, e);
+  }
+
   const sales: Sheet = { name: "Ventes par taux TVA", head: ["Jour", "Taux", "Libellé TVA", "HT", "TVA", "TTC"], rows: [...byDayRate.entries()].sort().map(([k, v]) => { const [day, bps, name] = k.split("|"); return [day, `${Number(bps) / 100} %`, name, v.ht, v.tax, v.ttc]; }) };
-  const receipts: Sheet = { name: "Encaissements", head: ["Jour", "Moyen", "Compte", "Montant net", "Nombre", "Remboursé"], rows: [...byDayMethod.entries()].sort().map(([k, v]) => { const [day, m] = k.split("|"); return [day, METHOD[m] ?? m, ACCOUNTS[m]?.[0] ?? "", v.amount, v.count, v.refunded]; }) };
-  const days: Sheet = { name: "Journal de caisse", head: ["Jour", "Tickets", "CA TTC", "Remises"], rows: [...dayTotals.entries()].sort().map(([day, v]) => [day, v.tickets, v.ttc, v.discounts]) };
-  // Écritures : par jour, débit des comptes d'encaissement, crédit 707 (HT par taux) et 4457 (TVA)
+  const receipts: Sheet = { name: "Encaissements", head: ["Jour", "Moyen", "Compte", "Encaissé", "Nombre", "Remboursé", "Net"], rows: [...byDayMethod.entries()].sort().map(([k, v]) => { const [day, m] = k.split("|"); return [day, METHOD[m] ?? m, ACCOUNTS[m]?.[0] ?? "", v.amount, v.count, v.refunded, v.amount - v.refunded]; }) };
+  const days: Sheet = { name: "Journal de caisse", head: ["Jour", "Tickets", "CA TTC", "Remises", "Remboursements", "CA net"], rows: [...dayTotals.entries()].sort().map(([day, v]) => [day, v.tickets, v.ttc, v.discounts, v.refunds, v.ttc - v.refunds]) };
+  const refundSheet: Sheet = { name: "Remboursements", head: ["Date", "Commande", "Vente du", "Moyen", "TTC", "dont TVA", "HT", "Motif"], rows: refundRows.map((r) => [formatDateTime(r.at, timezone), r.number, r.saleDay, METHOD[r.method] ?? r.method, r.ttc, r.tax, r.ht, r.reason]) };
+
+  // Écritures équilibrées, par jour :
+  //  ventes   : débit des comptes d'encaissement (brut) / crédit 707 HT par taux et 4457 TVA (+ écart d'arrondi en 658/758)
+  //  rembours.: débit 709 (HT) et 4457 (TVA reprise) / crédit du compte d'encaissement utilisé
   const entries: Sheet = { name: "Écritures", head: ["Date", "Journal", "Compte", "Libellé", "Débit", "Crédit"], rows: [] };
   for (const [day] of [...dayTotals.entries()].sort()) {
-    for (const [k, v] of [...byDayMethod.entries()].filter(([k]) => k.startsWith(day + "|"))) { const m = k.split("|")[1]; const [acc, label] = ACCOUNTS[m] ?? ["471000", m]; if (v.amount) entries.rows.push([day, "VT", acc, `${label} — ventes ${day}`, v.amount, 0]); }
-    for (const [k, v] of [...byDayRate.entries()].filter(([k]) => k.startsWith(day + "|"))) { const [, bps, name] = k.split("|"); entries.rows.push([day, "VT", `7070${String(Math.round(Number(bps) / 100)).padStart(2, "0")}`, `Ventes HT ${name || bps + " bps"} ${day}`, 0, v.ht]); if (v.tax) entries.rows.push([day, "VT", "445710", `TVA collectée ${name || bps + " bps"} ${day}`, 0, v.tax]); }
+    let debit = 0, credit = 0;
+    for (const [k, v] of [...byDayMethod.entries()].filter(([k]) => k.startsWith(day + "|"))) { const m = k.split("|")[1]; const [acc, label] = ACCOUNTS[m] ?? ["471000", m]; if (v.amount) { entries.rows.push([day, "VT", acc, `${label} — ventes ${day}`, v.amount, 0]); debit += v.amount; } }
+    for (const [k, v] of [...byDayRate.entries()].filter(([k]) => k.startsWith(day + "|"))) { const [, bps, name] = k.split("|"); entries.rows.push([day, "VT", `7070${String(Math.round(Number(bps) / 100)).padStart(2, "0")}`, `Ventes HT ${name || bps + " bps"} ${day}`, 0, v.ht]); credit += v.ht; if (v.tax) { entries.rows.push([day, "VT", "445710", `TVA collectée ${name || bps + " bps"} ${day}`, 0, v.tax]); credit += v.tax; } }
+    if (debit !== credit) entries.rows.push(debit > credit ? [day, "VT", "758000", `Écart d'arrondi ${day}`, 0, debit - credit] : [day, "VT", "658000", `Écart d'arrondi ${day}`, credit - debit, 0]);
+    for (const r of refundRows.filter((x) => x.day === day)) {
+      const [acc, label] = ACCOUNTS[r.method] ?? ["471000", r.method];
+      entries.rows.push([day, "VT", "709000", `Remboursement ${r.number} (HT)`, r.ht, 0]);
+      if (r.tax) entries.rows.push([day, "VT", "445710", `TVA reprise remboursement ${r.number}`, r.tax, 0]);
+      entries.rows.push([day, "VT", acc, `${label} — remboursement ${r.number}`, 0, r.ttc]);
+    }
   }
   const period = `${fromDay} → ${toDay}`;
   const header: Sheet = { name: "Entête", head: ["Champ", "Valeur"], rows: [["Établissement", est.name], ["Raison sociale", est.legalName ?? ""], ["N° Tahiti", est.tahitiNumber ?? ""], ["Période", period], ["Devise", "XPF (F CFP), sans décimales"], ["Généré le", new Date().toISOString()]] };
-  return { title: `Export comptable ${period}`, sheets: [header, days, sales, receipts, entries] };
+  return { title: `Export comptable ${period}`, sheets: [header, days, sales, receipts, refundSheet, entries] };
 }

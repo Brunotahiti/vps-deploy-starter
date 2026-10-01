@@ -1,4 +1,5 @@
 import { prisma } from "@/server/db";
+import { assertPinAvailable, pinEstablishmentsOfUser } from "./pin-unique";
 import { ApiError } from "@/server/errors";
 import { hashPassword, hashPin } from "@/server/auth/password";
 import { audit } from "@/server/audit";
@@ -28,6 +29,7 @@ export async function createUser(organizationId: string, actorId: string, input:
   if (await prisma.user.findUnique({ where: { email } })) throw new ApiError(409, "EMAIL_TAKEN", "Cet email est déjà utilisé");
   await assertMembershipsInOrg(organizationId, input.memberships);
   if (input.pin && !/^\d{4,6}$/.test(input.pin)) throw new ApiError(400, "INVALID_PIN", "Le PIN doit contenir 4 à 6 chiffres");
+  if (input.pin) await assertPinAvailable(input.pin, { establishmentIds: input.memberships.map((m) => m.establishmentId), guardKey: actorId });
   const user = await prisma.user.create({
     data: {
       organizationId, email, passwordHash: await hashPassword(input.password), firstName: input.firstName, lastName: input.lastName,
@@ -47,6 +49,10 @@ export async function updateUser(organizationId: string, actorId: string, userId
   if (before.isOwner && input.isActive === false) throw new ApiError(400, "OWNER", "Le propriétaire ne peut pas être désactivé");
   if (input.memberships) await assertMembershipsInOrg(organizationId, input.memberships);
   if (input.pin && !/^\d{4,6}$/.test(input.pin)) throw new ApiError(400, "INVALID_PIN", "Le PIN doit contenir 4 à 6 chiffres");
+  if (input.pin) {
+    const establishmentIds = before.isOwner ? await pinEstablishmentsOfUser(userId) : (input.memberships ?? before.memberships).map((m) => m.establishmentId);
+    await assertPinAvailable(input.pin, { establishmentIds, userId, guardKey: actorId });
+  }
   const user = await prisma.$transaction(async (tx) => {
     if (input.memberships) {
       await tx.userEstablishment.deleteMany({ where: { userId } });

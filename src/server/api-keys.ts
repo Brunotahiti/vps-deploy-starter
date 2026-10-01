@@ -39,13 +39,15 @@ export type ApiContext = { keyId: string; organizationId: string; establishmentI
 /** Authentifie une requête de l'API publique et vérifie la portée demandée. */
 export async function requireApiKey(req: NextRequest, scope: ApiScope): Promise<ApiContext> {
   const auth = req.headers.get("authorization") ?? "";
-  const key = auth.startsWith("Bearer ") ? auth.slice(7).trim() : (req.nextUrl.searchParams.get("api_key") ?? "");
-  rateLimit(`api-ip:${clientIp(req)}`, 120);
+  // Clé uniquement dans l'en-tête : dans l'adresse, elle finirait dans les journaux, l'historique et les liens partagés
+  if (req.nextUrl.searchParams.has("api_key")) throw new ApiError(400, "API_KEY_IN_URL", "Ne mettez pas la clé API dans l'adresse : utilisez l'en-tête Authorization: Bearer mr_live_…");
+  const key = auth.startsWith("Bearer ") ? auth.slice(7).trim() : "";
+  await rateLimit(`api-ip:${clientIp(req)}`, 120);
   if (!key.startsWith("mr_live_")) throw new ApiError(401, "UNAUTHORIZED", "Clé API manquante (en-tête Authorization: Bearer mr_live_…)");
   const row = await prisma.apiKey.findUnique({ where: { keyHash: hash(key) }, include: { establishment: { select: { id: true, name: true, timezone: true, currency: true, isActive: true, organization: { select: { blockedAt: true } } } } } });
   if (!row || !row.isActive || !row.establishment.isActive) throw new ApiError(401, "UNAUTHORIZED", "Clé API invalide ou révoquée");
   if (row.establishment.organization.blockedAt) throw new ApiError(403, "ACCOUNT_BLOCKED", "Compte suspendu");
-  rateLimit(`api-key:${row.id}`, 300);
+  await rateLimit(`api-key:${row.id}`, 300);
   if (!row.scopes.includes(scope)) throw new ApiError(403, "FORBIDDEN", `Portée requise : ${scope}`);
   prisma.apiKey.update({ where: { id: row.id }, data: { lastUsedAt: new Date() } }).catch(() => {});
   const { organization: _o, isActive: _a, ...establishment } = row.establishment;

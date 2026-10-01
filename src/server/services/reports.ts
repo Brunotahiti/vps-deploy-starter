@@ -150,6 +150,7 @@ export type PeriodReport = {
   from: string; to: string; days: number;
   revenue: number; revenueHt: number; tax: number; tickets: number; covers: number; avgTicket: number; avgPerCover: number;
   discounts: number; cancellations: number; tips: number; refunds: number;
+  netRevenue: number; // CA TTC déduction faite des remboursements
   foodCost: number; foodCostPct: number | null;
   byDay: { day: string; revenue: number; tickets: number; covers: number }[];
   byWeekday: { weekday: number; label: string; revenue: number; tickets: number }[];
@@ -222,7 +223,7 @@ export async function getPeriodReport(establishmentId: string, fromDay: string, 
     from: fromDay, to: toDay, days,
     revenue, revenueHt: revenue - tax, tax, tickets: paid.length, covers,
     avgTicket: paid.length ? Math.round(revenue / paid.length) : 0, avgPerCover: covers ? Math.round(revenue / covers) : 0,
-    discounts: paid.reduce((a, o) => a + o.discountTotal, 0), cancellations: orders.filter((o) => o.status === "CANCELLED").length, tips: paid.reduce((a, o) => a + o.tipTotal, 0), refunds,
+    discounts: paid.reduce((a, o) => a + o.discountTotal, 0), cancellations: orders.filter((o) => o.status === "CANCELLED").length, tips: paid.reduce((a, o) => a + o.tipTotal, 0), refunds, netRevenue: revenue - refunds,
     foodCost, foodCostPct: revenue - tax > 0 ? Math.round((foodCost / (revenue - tax)) * 1000) / 10 : null, // ratio sur le CA HT (comme le rapport de stock)
     byDay: [...byDay.entries()].map(([day, v]) => ({ day, ...v })),
     byWeekday: [1, 2, 3, 4, 5, 6, 0].map((wd) => ({ weekday: wd, label: WEEKDAYS[wd], ...(byWeekday.get(wd) ?? { revenue: 0, tickets: 0 }) })),
