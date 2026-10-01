@@ -36,6 +36,8 @@ export function welcomeMail(org: Org, owner: Owner): OutgoingMail {
   return platformMail({
     ...base(org, owner),
     subject: `Bienvenue sur ManaResto, ${owner.firstName} !`,
+    // Photo hébergée sur l'application (pas jointe) : l'e-mail reste léger, la photo (≈ 130 Ko) n'est chargée qu'à l'ouverture
+    hero: { src: `${appUrl()}/email/bienvenue.jpg`, alt: "Ia ora na, bienvenue sur ManaResto !", width: 1080, height: 608, href: `${appUrl()}/admin` },
     title: `Ia ora na ${owner.firstName}, bienvenue !`,
     paragraphs: [
       `Votre compte ManaResto pour « ${org.name} » est prêt. Vous profitez de ${OFFER.trialDays} jours d'essai gratuit, sans carte bancaire.`,

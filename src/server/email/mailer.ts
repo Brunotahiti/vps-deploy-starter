@@ -99,11 +99,12 @@ ${input.message ? `<p style="margin:16px 0 0;font-size:14px;line-height:1.5;whit
  * E-mail de la plateforme ManaResto vers un restaurateur (bienvenue, fin d'essai, message du support).
  * Paragraphes en texte brut (échappés), bouton d'action facultatif, réponse vers l'adresse de contact.
  */
-export function platformMail(input: { to: string; subject: string; kicker: string; title: string; paragraphs: string[]; cta?: { label: string; url: string }; secondary?: { label: string; url: string; note?: string }[]; replyTo: string; footer: string }): OutgoingMail {
+export function platformMail(input: { to: string; subject: string; kicker: string; title: string; paragraphs: string[]; cta?: { label: string; url: string }; secondary?: { label: string; url: string; note?: string }[]; hero?: { src: string; alt: string; width: number; height: number; href?: string }; replyTo: string; footer: string }): OutgoingMail {
   const paras = input.paragraphs.map((p) => `<p style="margin:0 0 14px;font-size:15px;line-height:1.55">${esc(p).replace(/\n/g, "<br>")}</p>`).join("");
   const html = `<!doctype html><html lang="fr"><body style="margin:0;background:#f3f5f8;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#0f172a">
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td align="center" style="padding:24px 12px">
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:540px;background:#fff;border-radius:20px;overflow:hidden;box-shadow:0 6px 20px -8px rgba(15,23,42,.15)">
+${input.hero ? `<tr><td style="padding:0;line-height:0;font-size:0">${input.hero.href ? `<a href="${esc(input.hero.href)}">` : ""}<img src="${esc(input.hero.src)}" alt="${esc(input.hero.alt)}" width="540" height="${Math.round((540 * input.hero.height) / input.hero.width)}" style="display:block;width:100%;max-width:540px;height:auto;border:0;background:#14aaa3;color:#fff;font-size:16px;line-height:1.3">${input.hero.href ? "</a>" : ""}</td></tr>` : ""}
 <tr><td style="background:linear-gradient(135deg,#14aaa3,#0f6e6c);padding:28px 28px 24px;color:#fff">
 <div style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;opacity:.85">${esc(input.kicker)}</div>
 <div style="font-size:24px;font-weight:800;margin-top:6px;line-height:1.25">${esc(input.title)}</div></td></tr>
