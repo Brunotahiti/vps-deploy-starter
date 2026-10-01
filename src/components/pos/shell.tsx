@@ -1,5 +1,6 @@
 "use client";
 
+import { VersionBadge } from "@/components/version-badge";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -80,7 +81,7 @@ export function PosShell({ children }: { children: React.ReactNode }) {
         {/* Téléphone : le menu s'ouvre à gauche, comme dans l'administration */}
         <button onClick={() => setMenu(true)} className="touch flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand text-white shadow-glow active:scale-95 sm:hidden" aria-label="Ouvrir le menu"><Menu className="h-5 w-5" /></button>
         {/* Le logo ouvre le menu, sur tous les écrans */}
-        <button type="button" onClick={() => setMenu(true)} aria-label="Menu ManaResto" title="Menu" className="touch mr-1 flex items-center gap-2 rounded-xl text-left transition active:scale-95"><Logo size={32} withText={false} /><span className="hidden flex-col leading-tight md:flex"><span className="text-base font-extrabold tracking-tight">Mana<span className="text-brand">Resto</span></span><span className="truncate text-[11px] font-medium text-muted">{me?.establishment?.name}</span></span></button>
+        <button type="button" onClick={() => setMenu(true)} aria-label="Menu ManaResto" title="Menu" className="touch mr-1 flex items-center gap-2 rounded-xl text-left transition active:scale-95"><Logo size={32} withText={false} /><span className="hidden flex-col leading-tight md:flex"><span className="flex items-center gap-1.5 text-base font-extrabold tracking-tight"><span>Mana<span className="text-brand">Resto</span></span><VersionBadge /></span><span className="truncate text-[11px] font-medium text-muted">{me?.establishment?.name}</span></span></button>
         <nav className="ml-auto hidden items-center gap-1 sm:flex">
           {nav.map((n) => (
             <Link key={n.href} href={n.href} className={`touch flex h-10 items-center gap-2 rounded-xl px-3 text-sm font-semibold transition sm:px-3.5 ${isActive(n.href) ? "bg-brand text-white shadow-glow" : "text-muted hover:surface-2 hover:text-[var(--text)]"}`}>

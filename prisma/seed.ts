@@ -11,7 +11,7 @@ const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: proc
 
 const TZ = "Pacific/Tahiti";
 /** À incrémenter quand le contenu de base de la démo change : elle est alors recréée au déploiement suivant. */
-const DEMO_VERSION = 3;
+const DEMO_VERSION = 4;
 // Illustrations locales des produits (public/demo/*.svg), remplaçables par de vraies photos depuis le back-office
 import demoImages from "./demo-images.json" with { type: "json" };
 import demoPhotos from "./demo-photos.json" with { type: "json" };
