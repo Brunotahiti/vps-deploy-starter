@@ -1,6 +1,6 @@
 "use client";
 
-import { getDb } from "./db";
+import { withDb } from "./db";
 import { outbox } from "./outbox";
 import { setActivePass } from "./passes";
 
@@ -15,10 +15,10 @@ export async function purgeLocalData(opts: { keepWorkingCopy?: boolean } = {}) {
   try { navigator.serviceWorker?.controller?.postMessage("PURGE_API"); } catch { /* sans service worker */ }
   await setActivePass(null).catch(() => {});
   if (opts.keepWorkingCopy) {
-    try { const db = await getDb(); await db?.delete("cache", "me"); } catch { /* IndexedDB indisponible */ }
+    try { await withDb((db) => db.delete("cache", "me"), undefined); } catch { /* IndexedDB indisponible */ }
     return;
   }
-  try { const db = await getDb(); await db?.clear("cache"); } catch { /* IndexedDB indisponible */ }
+  try { await withDb((db) => db.clear("cache"), undefined); } catch { /* IndexedDB indisponible */ }
 }
 
 /** Confirmation avant déconnexion s'il reste des opérations hors ligne non transmises. */
