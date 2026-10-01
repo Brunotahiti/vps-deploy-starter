@@ -8,7 +8,7 @@ import { LayoutDashboard, UtensilsCrossed, Map, Receipt, Wallet, Users, Settings
 import { useSession } from "@/hooks/use-session";
 import { useRealtime } from "@/hooks/use-realtime";
 import { useTheme } from "@/hooks/use-theme";
-import { InstallAppButton } from "@/components/install-app";
+import { InstallAppButton, InstallBanner } from "@/components/install-app";
 import { BUILD_ID } from "@/lib/build";
 import { SubscriptionBanner } from "@/components/admin/subscription";
 import { api } from "@/lib/api-client";
@@ -90,11 +90,9 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
       <div className="flex min-w-0 flex-1 flex-col">
         <SupportBar />
         <header className="glass flex h-14 shrink-0 items-center gap-3 border-b px-4 lg:hidden"><button className="touch flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand text-white shadow-glow active:scale-95" aria-label="Ouvrir le menu" onClick={() => setOpen(true)}><Menu className="h-5 w-5" /></button><Logo size={28} /></header>
-        <main className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden p-4 pb-28 lg:p-8"><SubscriptionBanner />{children}</main>
+        <main className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden p-4 lg:p-8"><InstallBanner className="mb-3 lg:hidden" /><SubscriptionBanner />{children}</main>
         {/* Téléphone / tablette : les portails Salle, Caisse et Cuisine, toujours à portée de pouce */}
-        <div className="pointer-events-none fixed inset-x-0 bottom-0 z-30 flex justify-center p-3 lg:hidden" style={{ paddingBottom: "max(12px, env(safe-area-inset-bottom))" }}>
-          <PortalButtons variant="dock" />
-        </div>
+        <PortalButtons variant="dock" className="lg:hidden" />
       </div>
     </div>
   );

@@ -234,7 +234,7 @@ export function OrderScreen({ orderId: orderIdProp }: { orderId: string }) {
       </aside>
 
       {/* Produits */}
-      <section className="no-print flex min-w-0 flex-1 flex-col">
+      <section className="no-print flex min-h-0 min-w-0 flex-1 flex-col">
         <div className="card mx-2 mt-2 flex h-11 shrink-0 items-center gap-2 px-3 shadow-none">
           <Search className="h-4 w-4 text-muted" />
           <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Rechercher un produit, un code…" className="h-9 flex-1 bg-transparent text-sm outline-none placeholder:text-muted" />
@@ -278,7 +278,8 @@ export function OrderScreen({ orderId: orderIdProp }: { orderId: string }) {
       </section>
 
       {/* Barre mobile : résumé de la commande */}
-      <div className="md:hidden fixed inset-x-0 bottom-0 z-30 flex gap-2 p-2" style={{ paddingBottom: "max(8px, env(safe-area-inset-bottom))" }}>
+      {/* Posée en bas de la zone de contenu, juste au-dessus de la barre des portails */}
+      <div className="md:hidden absolute inset-x-0 bottom-0 z-30 flex gap-2 p-2">
         <button onClick={() => setSheet(true)} aria-label="Voir la commande" className="touch glass flex h-14 min-w-0 flex-1 items-center gap-3 rounded-2xl border px-4 shadow-lift">
           <span className="relative"><ShoppingBasket className="h-6 w-6" />{itemCount > 0 ? <span className="absolute -right-2 -top-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-corail-500 px-1 text-[11px] font-extrabold text-white">{itemCount}</span> : null}</span>
           <span className="min-w-0 flex-1 text-left"><span className="block truncate text-sm font-extrabold">Commande{pendingCount > 0 ? ` · ${pendingCount} à envoyer` : ""}</span><span className="block text-[11px] text-muted">{itemCount} article{itemCount > 1 ? "s" : ""}</span></span>

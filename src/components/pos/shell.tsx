@@ -12,7 +12,7 @@ import { confirmLogoutWithPending, purgeLocalData } from "@/lib/offline/purge";
 import { useTheme } from "@/hooks/use-theme";
 import { useOffline } from "@/lib/offline/provider";
 import { useInstallPrompt } from "@/hooks/use-install-prompt";
-import { InstallAppButton } from "@/components/install-app";
+import { InstallAppButton, InstallBanner } from "@/components/install-app";
 import { PortalButtons } from "@/components/portal/portal-buttons";
 import { Logo } from "@/components/brand";
 import { api } from "@/lib/api-client";
@@ -116,7 +116,10 @@ export function PosShell({ children }: { children: React.ReactNode }) {
           </button>
         </div>
       </header>
-      <main className="min-h-0 flex-1">{children}</main>
+      <InstallBanner className="mx-2 mt-2 lg:hidden" />
+      <main className="relative min-h-0 flex-1 overflow-y-auto">{children}</main>
+      {/* Téléphone / tablette : les portails Salle, Caisse et Cuisine restent visibles sur toutes les pages */}
+      <PortalButtons variant="dock" className="lg:hidden" />
 
       {/* Tiroir de navigation (téléphone) : glisse depuis la gauche, comme le menu de l'administration */}
       <div className={`fixed inset-0 z-[60] sm:hidden ${menu ? "" : "pointer-events-none"}`} aria-hidden={!menu}>

@@ -7,16 +7,20 @@ import { PORTALS, rememberPortal, type PortalMode } from "./portals";
 /**
  * Accès aux portails Salle, Caisse et Cuisine depuis les menus. L'utilisateur étant déjà connecté, le bouton
  * ouvre directement l'écran de l'équipe et mémorise le portail de l'appareil pour le prochain changement d'utilisateur.
- * « tiles » : trois tuiles dans un menu latéral ; « dock » : barre fixe en bas d'écran sur téléphone.
+ * « tiles » : trois tuiles dans un menu latéral ; « dock » : barre du bas, toujours visible sur téléphone et tablette.
+ * Le dock occupe sa propre place sous le contenu (il ne le recouvre jamais) et tient compte de la barre d'accueil de l'iPhone.
  */
-export function PortalButtons({ variant = "tiles", onNavigate }: { variant?: "tiles" | "dock"; onNavigate?: () => void }) {
+export function PortalButtons({ variant = "tiles", onNavigate, className = "" }: { variant?: "tiles" | "dock"; onNavigate?: () => void; className?: string }) {
   const { can } = useSession();
   const modes = (Object.keys(PORTALS) as PortalMode[]).filter((m) => can(PORTALS[m].permission));
   if (!modes.length) return null;
 
   if (variant === "dock") {
+    // Un seul portail accessible : c'est l'écran où l'on se trouve déjà, la barre n'apporterait rien
+    if (modes.length < 2) return null;
     return (
-      <nav aria-label="Portails" className="pointer-events-auto flex w-full max-w-md gap-2 rounded-[22px] bg-nuit-950/85 p-1.5 shadow-[0_16px_40px_-12px_rgb(6_10_23/0.6)] ring-1 ring-white/10 backdrop-blur-xl">
+      <div className={`no-print flex shrink-0 justify-center px-3 pt-2 ${className}`} style={{ paddingBottom: "max(10px, env(safe-area-inset-bottom))" }}>
+      <nav aria-label="Portails" data-testid="portal-dock" className="flex w-full max-w-md gap-2 rounded-[22px] bg-nuit-950/85 p-1.5 shadow-[0_16px_40px_-12px_rgb(6_10_23/0.6)] ring-1 ring-white/10 backdrop-blur-xl">
         {modes.map((m) => {
           const p = PORTALS[m];
           return (
@@ -26,6 +30,7 @@ export function PortalButtons({ variant = "tiles", onNavigate }: { variant?: "ti
           );
         })}
       </nav>
+      </div>
     );
   }
 

@@ -12,6 +12,7 @@ import { useTheme } from "@/hooks/use-theme";
 import { useToast } from "@/components/ui/toast";
 import { Spinner } from "@/components/ui/misc";
 import { Logo } from "@/components/brand";
+import { PortalButtons } from "@/components/portal/portal-buttons";
 import { ORDER_TYPE_LABEL } from "@/components/pos/types";
 import { TICKET_STATUS_LABEL, type KitchenSummary, type KitchenTicket } from "./types";
 
@@ -168,6 +169,7 @@ export function KdsScreen() {
           {list.map((t) => <TicketCard key={t.id} ticket={t} now={now} onStatus={(status) => setStatus.mutate({ id: t.id, status })} onItem={(itemId, ready) => setItem.mutate({ id: t.id, itemId, ready })} busy={setStatus.isPending && setStatus.variables?.id === t.id} />)}
         </div>
       </main>
+      <PortalButtons variant="dock" className="lg:hidden" />
     </div>
   );
 }
