@@ -6,6 +6,7 @@ import { Mail, Printer, FileDown, Check } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { api, ApiClientError } from "@/lib/api-client";
+import { reportPrint, type PrintResult } from "@/lib/print-client";
 import { useToast } from "@/components/ui/toast";
 import { useSession } from "@/hooks/use-session";
 
@@ -20,18 +21,15 @@ export function ReceiptDialog({ orderId, orderNumber, open, onClose, title = "Re
   const [email, setEmail] = useState("");
   const [sending, setSending] = useState(false);
   const [sentTo, setSentTo] = useState<string | null>(null);
-  const printers = useQuery({ queryKey: ["printers"], queryFn: () => api.get<{ id: string; name: string; kind: string; driver: string; isActive: boolean }[]>("/api/printers"), enabled: open, staleTime: 300_000 });
-  const receiptPrinters = (printers.data ?? []).filter((p) => p.kind === "RECEIPT" && p.isActive && p.driver !== "browser");
+  const printers = useQuery({ queryKey: ["printers"], queryFn: () => api.get<{ id: string; name: string; kind: string; driver: string; isActive: boolean; terminalId: string | null }[]>("/api/printers"), enabled: open, staleTime: 300_000 });
+  // Imprimante de cette caisse en priorité, sinon une imprimante commune à toutes les caisses
+  const receiptPrinters = (printers.data ?? []).filter((p) => p.kind === "RECEIPT" && p.isActive && p.driver !== "browser" && (!p.terminalId || p.terminalId === me?.terminal?.id)).sort((a, b) => Number(b.terminalId === me?.terminal?.id) - Number(a.terminalId === me?.terminal?.id));
   const [printing, setPrinting] = useState(false);
-  /** Phase 7 : impression ESC/POS sur une imprimante réseau (serveur) ou via l'agent local (navigateur). */
+  /** Impression thermique : imprimante connectée (file d'attente), réseau (serveur) ou agent local (relais du navigateur). */
   const printThermal = async (printerId: string) => {
     setPrinting(true);
-    try {
-      const r = await api.post<{ delivered: boolean; error?: string; agentUrl?: string; payloadBase64?: string }>("/api/print", { printerId, kind: "receipt", orderId });
-      if (r.delivered) toast("Ticket envoyé à l'imprimante", "success");
-      else if (r.agentUrl && r.payloadBase64) { await fetch(r.agentUrl, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ payloadBase64: r.payloadBase64 }) }); toast("Ticket transmis à l'agent d'impression", "success"); }
-      else toast(r.error ?? "Impression impossible", "error");
-    } catch (e) { toast(e instanceof ApiClientError ? e.message : "Agent d'impression injoignable", "error"); }
+    try { await reportPrint(await api.post<PrintResult>("/api/print", { printerId, kind: "receipt", orderId }), toast); }
+    catch (e) { toast(e instanceof ApiClientError ? e.message : "Impression impossible", "error"); }
     finally { setPrinting(false); }
   };
 

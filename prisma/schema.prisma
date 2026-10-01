@@ -16,8 +16,8 @@ datasource db {
 // ---------------------------------------------------------------------------
 
 enum Plan {
-  TRIAL     // essai gratuit (15 jours)
-  ACTIVE    // abonnement actif
+  TRIAL // essai gratuit (15 jours)
+  ACTIVE // abonnement actif
   SUSPENDED // suspendu (impayé, résiliation)
 }
 
@@ -30,7 +30,7 @@ model Organization {
   planStartedAt DateTime? @map("plan_started_at")
   billingEmail  String?   @map("billing_email")
   periodEndsAt  DateTime? @map("period_ends_at") // fin de la période d'abonnement en cours (engagement)
-  blockedAt     DateTime? @map("blocked_at")     // compte bloqué depuis la console plateforme
+  blockedAt     DateTime? @map("blocked_at") // compte bloqué depuis la console plateforme
   blockedReason String?   @map("blocked_reason")
   createdAt     DateTime  @default(now()) @map("created_at")
   updatedAt     DateTime  @updatedAt @map("updated_at")
@@ -41,7 +41,7 @@ model Organization {
   customers      Customer[]
   auditLogs      AuditLog[]
 
-    apiKeys       ApiKey[]
+  apiKeys        ApiKey[]
   activityDays   ActivityDay[]
   platformEmails PlatformEmail[]
 
@@ -49,67 +49,67 @@ model Organization {
 }
 
 model Establishment {
-  id             String   @id @default(uuid()) @db.Uuid
-  organizationId String   @map("organization_id") @db.Uuid
-  name           String
-  slug           String
-  legalName      String?  @map("legal_name")
-  tahitiNumber   String?  @map("tahiti_number") // N° Tahiti (registre des entreprises PF)
-  addressLine1   String?  @map("address_line1")
-  addressLine2   String?  @map("address_line2")
-  city           String?
-  postalCode     String?  @map("postal_code")
-  island         String?
-  country        String   @default("PF")
-  phone          String?
-  email          String?
-  currency       String   @default("XPF")
-  currencyExponent Int    @default(0) @map("currency_exponent")
-  locale         String   @default("fr-PF")
-  timezone       String   @default("Pacific/Tahiti")
-  tipsEnabled    Boolean  @default(false) @map("tips_enabled")
-  tipPresetsBps  Json     @default("[500,1000,1500]") @map("tip_presets_bps")
-  openingHours   Json?    @map("opening_hours")
-  settings       Json     @default("{}")
-  onboardingStep Int      @default(0) @map("onboarding_step")
-  onboardingDone Boolean  @default(false) @map("onboarding_done")
-  isActive       Boolean  @default(true) @map("is_active")
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
+  id               String   @id @default(uuid()) @db.Uuid
+  organizationId   String   @map("organization_id") @db.Uuid
+  name             String
+  slug             String
+  legalName        String?  @map("legal_name")
+  tahitiNumber     String?  @map("tahiti_number") // N° Tahiti (registre des entreprises PF)
+  addressLine1     String?  @map("address_line1")
+  addressLine2     String?  @map("address_line2")
+  city             String?
+  postalCode       String?  @map("postal_code")
+  island           String?
+  country          String   @default("PF")
+  phone            String?
+  email            String?
+  currency         String   @default("XPF")
+  currencyExponent Int      @default(0) @map("currency_exponent")
+  locale           String   @default("fr-PF")
+  timezone         String   @default("Pacific/Tahiti")
+  tipsEnabled      Boolean  @default(false) @map("tips_enabled")
+  tipPresetsBps    Json     @default("[500,1000,1500]") @map("tip_presets_bps")
+  openingHours     Json?    @map("opening_hours")
+  settings         Json     @default("{}")
+  onboardingStep   Int      @default(0) @map("onboarding_step")
+  onboardingDone   Boolean  @default(false) @map("onboarding_done")
+  isActive         Boolean  @default(true) @map("is_active")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
 
-  organization     Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  memberships      UserEstablishment[]
-  terminals        Terminal[]
-  rooms            Room[]
-  tables           Table[]
-  categories       Category[]
-  products         Product[]
-  modifierGroups   ModifierGroup[]
-  menus            Menu[]
-  taxRates         TaxRate[]
-  kitchenStations  KitchenStation[]
-  printers         Printer[]
-  apiKeys          ApiKey[]
-  webhooks         Webhook[]
-  serviceSteps     TableServiceStep[]
-  serviceReminders ServiceReminder[]
-  uploads          Upload[]
-  paymentMethods   PaymentMethodConfig[]
-  orders           Order[]
-  payments         Payment[]
-  cashSessions     CashSession[]
-  ingredients      Ingredient[]
+  organization       Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  memberships        UserEstablishment[]
+  terminals          Terminal[]
+  rooms              Room[]
+  tables             Table[]
+  categories         Category[]
+  products           Product[]
+  modifierGroups     ModifierGroup[]
+  menus              Menu[]
+  taxRates           TaxRate[]
+  kitchenStations    KitchenStation[]
+  printers           Printer[]
+  apiKeys            ApiKey[]
+  webhooks           Webhook[]
+  serviceSteps       TableServiceStep[]
+  serviceReminders   ServiceReminder[]
+  uploads            Upload[]
+  paymentMethods     PaymentMethodConfig[]
+  orders             Order[]
+  payments           Payment[]
+  cashSessions       CashSession[]
+  ingredients        Ingredient[]
   inventoryMovements InventoryMovement[]
-  suppliers        Supplier[]
-  purchaseOrders   PurchaseOrder[]
-  employees        Employee[]
-  shifts           Shift[]
-  timeEntries      TimeEntry[]
-  reservations     Reservation[]
-  loyaltyAccounts  LoyaltyAccount[]
-  auditLogs        AuditLog[]
-  idempotencyKeys  IdempotencyKey[]
-  orderCounters    OrderCounter[]
+  suppliers          Supplier[]
+  purchaseOrders     PurchaseOrder[]
+  employees          Employee[]
+  shifts             Shift[]
+  timeEntries        TimeEntry[]
+  reservations       Reservation[]
+  loyaltyAccounts    LoyaltyAccount[]
+  auditLogs          AuditLog[]
+  idempotencyKeys    IdempotencyKey[]
+  orderCounters      OrderCounter[]
 
   @@unique([organizationId, slug])
   @@index([organizationId])
@@ -121,48 +121,48 @@ model Establishment {
 // ---------------------------------------------------------------------------
 
 model User {
-  id             String    @id @default(uuid()) @db.Uuid
-  organizationId String    @map("organization_id") @db.Uuid
-  email          String    @unique
-  passwordHash   String    @map("password_hash")
-  pinHash        String?   @map("pin_hash")
-  firstName      String    @map("first_name")
-  lastName       String    @map("last_name")
-  displayName    String?   @map("display_name")
-  color          String?
-  isOwner        Boolean   @default(false) @map("is_owner")
-  isActive       Boolean   @default(true) @map("is_active")
-  lastLoginAt    DateTime? @map("last_login_at")
-  inviteToken     String?   @unique @map("invite_token")      // invitation par e-mail en attente
+  id              String    @id @default(uuid()) @db.Uuid
+  organizationId  String    @map("organization_id") @db.Uuid
+  email           String    @unique
+  passwordHash    String    @map("password_hash")
+  pinHash         String?   @map("pin_hash")
+  firstName       String    @map("first_name")
+  lastName        String    @map("last_name")
+  displayName     String?   @map("display_name")
+  color           String?
+  isOwner         Boolean   @default(false) @map("is_owner")
+  isActive        Boolean   @default(true) @map("is_active")
+  lastLoginAt     DateTime? @map("last_login_at")
+  inviteToken     String?   @unique @map("invite_token") // invitation par e-mail en attente
   inviteExpiresAt DateTime? @map("invite_expires_at")
   invitedAt       DateTime? @map("invited_at")
-  createdAt      DateTime  @default(now()) @map("created_at")
-  updatedAt      DateTime  @updatedAt @map("updated_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
 
-  organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  memberships  UserEstablishment[]
-  sessions     Session[]
-  employee     Employee?
-  ordersServed Order[]             @relation("OrderServer")
-  payments     Payment[]           @relation("PaymentReceivedBy")
-  cashOpened   CashSession[]       @relation("CashOpenedBy")
-  cashClosed   CashSession[]       @relation("CashClosedBy")
-  cashMovements CashMovement[]
-  auditLogs    AuditLog[]
-  refunds      Refund[]
+  organization       Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  memberships        UserEstablishment[]
+  sessions           Session[]
+  employee           Employee?
+  ordersServed       Order[]             @relation("OrderServer")
+  payments           Payment[]           @relation("PaymentReceivedBy")
+  cashOpened         CashSession[]       @relation("CashOpenedBy")
+  cashClosed         CashSession[]       @relation("CashClosedBy")
+  cashMovements      CashMovement[]
+  auditLogs          AuditLog[]
+  refunds            Refund[]
   inventoryMovements InventoryMovement[]
-  activityDays ActivityDay[]
+  activityDays       ActivityDay[]
 
   @@index([organizationId])
   @@map("users")
 }
 
 model Role {
-  id             String  @id @default(uuid()) @db.Uuid
-  organizationId String  @map("organization_id") @db.Uuid
-  key            String  // owner, manager, cashier, server, bartender, kitchen, accountant, custom
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  key            String // owner, manager, cashier, server, bartender, kitchen, accountant, custom
   name           String
-  isSystem       Boolean @default(false) @map("is_system")
+  isSystem       Boolean  @default(false) @map("is_system")
   createdAt      DateTime @default(now()) @map("created_at")
 
   organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
@@ -210,17 +210,17 @@ model UserEstablishment {
 }
 
 model Session {
-  id              String    @id @default(uuid()) @db.Uuid
-  userId          String    @map("user_id") @db.Uuid
-  tokenHash       String    @unique @map("token_hash")
-  establishmentId String?   @map("establishment_id") @db.Uuid
-  terminalId      String?   @map("terminal_id") @db.Uuid
+  id              String   @id @default(uuid()) @db.Uuid
+  userId          String   @map("user_id") @db.Uuid
+  tokenHash       String   @unique @map("token_hash")
+  establishmentId String?  @map("establishment_id") @db.Uuid
+  terminalId      String?  @map("terminal_id") @db.Uuid
   ip              String?
-  userAgent       String?   @map("user_agent")
-  expiresAt       DateTime  @map("expires_at")
-  createdAt       DateTime  @default(now()) @map("created_at")
-  lastSeenAt      DateTime  @default(now()) @map("last_seen_at")
-  impersonatorId  String?   @map("impersonator_id") @db.Uuid // administrateur ManaResto en mode « prendre la main »
+  userAgent       String?  @map("user_agent")
+  expiresAt       DateTime @map("expires_at")
+  createdAt       DateTime @default(now()) @map("created_at")
+  lastSeenAt      DateTime @default(now()) @map("last_seen_at")
+  impersonatorId  String?  @map("impersonator_id") @db.Uuid // administrateur ManaResto en mode « prendre la main »
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -250,6 +250,7 @@ model Terminal {
   orders        Order[]
   cashSessions  CashSession[]
   auditLogs     AuditLog[]
+  printers      Printer[]
 
   @@index([establishmentId])
   @@map("terminals")
@@ -370,14 +371,14 @@ model Category {
 }
 
 model KitchenStation {
-  id              String   @id @default(uuid()) @db.Uuid
-  establishmentId String   @map("establishment_id") @db.Uuid
-  name            String   // CUISINE, BAR, PIZZA, DESSERTS, GRILL, PASSE
-  color           String   @default("#F97316")
-  sortOrder       Int      @default(0) @map("sort_order")
-  warnAfterSec    Int      @default(600) @map("warn_after_sec")
-  alertAfterSec   Int      @default(900) @map("alert_after_sec")
-  isActive        Boolean  @default(true) @map("is_active")
+  id              String  @id @default(uuid()) @db.Uuid
+  establishmentId String  @map("establishment_id") @db.Uuid
+  name            String // CUISINE, BAR, PIZZA, DESSERTS, GRILL, PASSE
+  color           String  @default("#F97316")
+  sortOrder       Int     @default(0) @map("sort_order")
+  warnAfterSec    Int     @default(600) @map("warn_after_sec")
+  alertAfterSec   Int     @default(900) @map("alert_after_sec")
+  isActive        Boolean @default(true) @map("is_active")
 
   establishment  Establishment   @relation(fields: [establishmentId], references: [id], onDelete: Cascade)
   products       Product[]
@@ -399,16 +400,52 @@ model Printer {
   stationId       String?     @map("station_id") @db.Uuid
   name            String
   kind            PrinterKind @default(RECEIPT)
-  driver          String      @default("escpos-network") // escpos-network | escpos-usb | browser
+  driver          String      @default("escpos-network") // escpos-network | agent | cloud-epson | cloud-star | browser
   connection      Json        @default("{}")
   paperWidthMm    Int         @default(80) @map("paper_width_mm")
   isActive        Boolean     @default(true) @map("is_active")
+  hasDrawer       Boolean     @default(false) @map("has_drawer") // tiroir-caisse branché sur l'imprimante (prise RJ11)
+  drawerPin       Int         @default(2) @map("drawer_pin") // broche 2 ou 5 du connecteur tiroir
+  terminalId      String?     @map("terminal_id") @db.Uuid // caisse servie en priorité par cette imprimante
+  cloudTokenHash  String?     @unique @map("cloud_token_hash") // imprimantes connectées : jeton de l'adresse d'interrogation
+  lastSeenAt      DateTime?   @map("last_seen_at")
+  lastStatus      String?     @map("last_status")
 
   establishment Establishment   @relation(fields: [establishmentId], references: [id], onDelete: Cascade)
   station       KitchenStation? @relation(fields: [stationId], references: [id], onDelete: SetNull)
+  terminal      Terminal?       @relation(fields: [terminalId], references: [id], onDelete: SetNull)
+  jobs          PrintJob[]
 
   @@index([establishmentId])
   @@map("printers")
+}
+
+enum PrintJobStatus {
+  PENDING
+  SENT
+  DONE
+  FAILED
+}
+
+/**
+ * File d'attente des imprimantes connectées (Epson Server Direct Print, Star CloudPRNT) : l'imprimante vient chercher ses travaux.
+ */
+model PrintJob {
+  id              String         @id @default(uuid()) @db.Uuid
+  establishmentId String         @map("establishment_id") @db.Uuid
+  printerId       String         @map("printer_id") @db.Uuid
+  kind            String // receipt | kitchen | test | drawer
+  document        Json // suite d'opérations (texte, gras, coupe, tiroir…) encodée au format de l'imprimante à l'envoi
+  status          PrintJobStatus @default(PENDING)
+  error           String?
+  createdAt       DateTime       @default(now()) @map("created_at")
+  sentAt          DateTime?      @map("sent_at")
+  doneAt          DateTime?      @map("done_at")
+
+  printer Printer @relation(fields: [printerId], references: [id], onDelete: Cascade)
+
+  @@index([printerId, status, createdAt])
+  @@map("print_jobs")
 }
 
 model Product {
@@ -427,7 +464,7 @@ model Product {
   barcode          String?
   isAvailable      Boolean  @default(true) @map("is_available") // rupture manuelle
   autoUnavailable  Boolean  @default(false) @map("auto_unavailable") // rupture automatique (stock)
-  availability     Json?    // horaires de disponibilité { days:[1..7], from:"11:00", to:"14:30" }
+  availability     Json? // horaires de disponibilité { days:[1..7], from:"11:00", to:"14:30" }
   trackStock       Boolean  @default(false) @map("track_stock")
   stockQty         Int      @default(0) @map("stock_qty")
   stockMin         Int      @default(0) @map("stock_min")
@@ -436,15 +473,15 @@ model Product {
   createdAt        DateTime @default(now()) @map("created_at")
   updatedAt        DateTime @updatedAt @map("updated_at")
 
-  establishment  Establishment          @relation(fields: [establishmentId], references: [id], onDelete: Cascade)
-  category       Category?              @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  taxRate        TaxRate?               @relation(fields: [taxRateId], references: [id], onDelete: SetNull)
-  kitchenStation KitchenStation?        @relation(fields: [kitchenStationId], references: [id], onDelete: SetNull)
-  variants       ProductVariant[]
-  modifierGroups ProductModifierGroup[]
-  menuItems      MenuItem[]
-  orderItems     OrderItem[]
-  recipeLines    RecipeLine[]
+  establishment    Establishment          @relation(fields: [establishmentId], references: [id], onDelete: Cascade)
+  category         Category?              @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  taxRate          TaxRate?               @relation(fields: [taxRateId], references: [id], onDelete: SetNull)
+  kitchenStation   KitchenStation?        @relation(fields: [kitchenStationId], references: [id], onDelete: SetNull)
+  variants         ProductVariant[]
+  modifierGroups   ProductModifierGroup[]
+  menuItems        MenuItem[]
+  orderItems       OrderItem[]
+  recipeLines      RecipeLine[]
   supplierProducts SupplierProduct[]
 
   @@unique([establishmentId, sku])
@@ -474,7 +511,7 @@ model ModifierGroup {
   establishmentId String   @map("establishment_id") @db.Uuid
   name            String
   minSelect       Int      @default(0) @map("min_select") // >0 → obligatoire
-  maxSelect       Int?     @map("max_select")             // null → illimité ; 1 → choix unique
+  maxSelect       Int?     @map("max_select") // null → illimité ; 1 → choix unique
   sortOrder       Int      @default(0) @map("sort_order")
   isActive        Boolean  @default(true) @map("is_active")
   createdAt       DateTime @default(now()) @map("created_at")
@@ -676,9 +713,9 @@ enum OrderType {
 }
 
 enum OrderStatus {
-  OPEN            // en cours de saisie
-  SENT            // au moins un service envoyé en cuisine
-  BILL_REQUESTED  // addition demandée
+  OPEN // en cours de saisie
+  SENT // au moins un service envoyé en cuisine
+  BILL_REQUESTED // addition demandée
   PAID
   CANCELLED
 }
@@ -697,7 +734,7 @@ model OrderCounter {
 model Order {
   id              String      @id @default(uuid()) @db.Uuid
   establishmentId String      @map("establishment_id") @db.Uuid
-  number          String      // ex. 20260929-0042
+  number          String // ex. 20260929-0042
   type            OrderType   @default(DINE_IN)
   status          OrderStatus @default(OPEN)
   tableId         String?     @map("table_id") @db.Uuid
@@ -705,8 +742,8 @@ model Order {
   terminalId      String?     @map("terminal_id") @db.Uuid
   customerId      String?     @map("customer_id") @db.Uuid
   publicToken     String?     @unique @map("public_token") // suivi client (commande en ligne / QR)
-  channelMeta     Json?       @map("channel_meta")          // retrait / livraison / contact (Phase 6)
-  acceptedAt      DateTime?   @map("accepted_at")           // acceptation d'une commande en ligne par le restaurant
+  channelMeta     Json?       @map("channel_meta") // retrait / livraison / contact (Phase 6)
+  acceptedAt      DateTime?   @map("accepted_at") // acceptation d'une commande en ligne par le restaurant
   customerName    String?     @map("customer_name")
   covers          Int         @default(1)
   subtotal        Int         @default(0) // TTC avant remise
@@ -725,18 +762,18 @@ model Order {
   createdAt       DateTime    @default(now()) @map("created_at")
   updatedAt       DateTime    @updatedAt @map("updated_at")
 
-  establishment  Establishment   @relation(fields: [establishmentId], references: [id], onDelete: Cascade)
-  table          Table?          @relation(fields: [tableId], references: [id], onDelete: SetNull)
+  establishment    Establishment      @relation(fields: [establishmentId], references: [id], onDelete: Cascade)
+  table            Table?             @relation(fields: [tableId], references: [id], onDelete: SetNull)
   serviceSteps     TableServiceStep[]
   serviceReminders ServiceReminder[]
-  server         User?           @relation("OrderServer", fields: [serverId], references: [id], onDelete: SetNull)
-  terminal       Terminal?       @relation(fields: [terminalId], references: [id], onDelete: SetNull)
-  customer       Customer?       @relation(fields: [customerId], references: [id], onDelete: SetNull)
-  items          OrderItem[]
-  courses        Course[]
-  kitchenTickets KitchenTicket[]
-  payments       Payment[]
-  cashMovements  CashMovement[]
+  server           User?              @relation("OrderServer", fields: [serverId], references: [id], onDelete: SetNull)
+  terminal         Terminal?          @relation(fields: [terminalId], references: [id], onDelete: SetNull)
+  customer         Customer?          @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  items            OrderItem[]
+  courses          Course[]
+  kitchenTickets   KitchenTicket[]
+  payments         Payment[]
+  cashMovements    CashMovement[]
 
   @@unique([establishmentId, number])
   @@index([establishmentId, status])
@@ -748,9 +785,9 @@ model Order {
 
 enum CourseStatus {
   PENDING
-  HOLD      // "ne pas envoyer immédiatement"
+  HOLD // "ne pas envoyer immédiatement"
   SENT
-  FIRE      // "faire marcher"
+  FIRE // "faire marcher"
   READY
   SERVED
 }
@@ -758,7 +795,7 @@ enum CourseStatus {
 model Course {
   id        String       @id @default(uuid()) @db.Uuid
   orderId   String       @map("order_id") @db.Uuid
-  name      String       // APÉRITIFS, ENTRÉES, PLATS, DESSERTS
+  name      String // APÉRITIFS, ENTRÉES, PLATS, DESSERTS
   sortOrder Int          @default(0) @map("sort_order")
   status    CourseStatus @default(PENDING)
   sentAt    DateTime?    @map("sent_at")
@@ -794,10 +831,10 @@ model OrderItem {
   kitchenTicketId  String?         @map("kitchen_ticket_id") @db.Uuid
   name             String
   quantity         Int             @default(1)
-  unitPrice        Int             @map("unit_price")   // TTC, hors options
+  unitPrice        Int             @map("unit_price") // TTC, hors options
   modifiersTotal   Int             @default(0) @map("modifiers_total") // par unité
   discountAmount   Int             @default(0) @map("discount_amount")
-  lineTotal        Int             @default(0) @map("line_total")   // (unitPrice + modifiersTotal) * qty - discount
+  lineTotal        Int             @default(0) @map("line_total") // (unitPrice + modifiersTotal) * qty - discount
   taxRateBps       Int             @default(0) @map("tax_rate_bps")
   taxRateName      String?         @map("tax_rate_name")
   taxAmount        Int             @default(0) @map("tax_amount")
@@ -899,7 +936,7 @@ model PaymentMethodConfig {
   label           String
   isEnabled       Boolean       @default(true) @map("is_enabled")
   opensDrawer     Boolean       @default(false) @map("opens_drawer")
-  provider        String?       // abstraction prestataire électronique (null = terminal externe)
+  provider        String? // abstraction prestataire électronique (null = terminal externe)
   providerConfig  Json          @default("{}") @map("provider_config")
   sortOrder       Int           @default(0) @map("sort_order")
 
@@ -924,20 +961,20 @@ model Payment {
   receivedById    String?       @map("received_by_id") @db.Uuid
   method          PaymentMethod
   status          PaymentStatus @default(COMPLETED)
-  amount          Int           // montant imputé à l'addition
+  amount          Int // montant imputé à l'addition
   tipAmount       Int           @default(0) @map("tip_amount")
-  tendered        Int?          // espèces reçues
+  tendered        Int? // espèces reçues
   changeGiven     Int           @default(0) @map("change_given")
   refundedAmount  Int           @default(0) @map("refunded_amount")
-  reference       String?       // n° chèque, réf. TPE…
+  reference       String? // n° chèque, réf. TPE…
   splitLabel      String?       @map("split_label") // "Client 2", "Part 1/4"
   providerRef     String?       @map("provider_ref")
   createdAt       DateTime      @default(now()) @map("created_at")
 
-  establishment Establishment @relation(fields: [establishmentId], references: [id], onDelete: Cascade)
-  order         Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  cashSession   CashSession?  @relation(fields: [cashSessionId], references: [id], onDelete: SetNull)
-  receivedBy    User?         @relation("PaymentReceivedBy", fields: [receivedById], references: [id], onDelete: SetNull)
+  establishment Establishment  @relation(fields: [establishmentId], references: [id], onDelete: Cascade)
+  order         Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  cashSession   CashSession?   @relation(fields: [cashSessionId], references: [id], onDelete: SetNull)
+  receivedBy    User?          @relation("PaymentReceivedBy", fields: [receivedById], references: [id], onDelete: SetNull)
   refunds       Refund[]
   cashMovements CashMovement[]
 
@@ -948,12 +985,12 @@ model Payment {
 }
 
 model Refund {
-  id          String   @id @default(uuid()) @db.Uuid
-  paymentId   String   @map("payment_id") @db.Uuid
-  issuedById  String?  @map("issued_by_id") @db.Uuid
-  amount      Int
-  reason      String
-  createdAt   DateTime @default(now()) @map("created_at")
+  id         String   @id @default(uuid()) @db.Uuid
+  paymentId  String   @map("payment_id") @db.Uuid
+  issuedById String?  @map("issued_by_id") @db.Uuid
+  amount     Int
+  reason     String
+  createdAt  DateTime @default(now()) @map("created_at")
 
   payment  Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
   issuedBy User?   @relation(fields: [issuedById], references: [id], onDelete: SetNull)
@@ -1011,7 +1048,7 @@ model CashMovement {
   paymentId     String?          @map("payment_id") @db.Uuid
   orderId       String?          @map("order_id") @db.Uuid
   kind          CashMovementKind
-  amount        Int              // signé : + entrée, − sortie
+  amount        Int // signé : + entrée, − sortie
   reason        String?
   createdAt     DateTime         @default(now()) @map("created_at")
 
@@ -1127,9 +1164,9 @@ model SupplierProduct {
   avgPrice     Int      @default(0) @map("avg_price")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
-  supplier   Supplier    @relation(fields: [supplierId], references: [id], onDelete: Cascade)
-  ingredient Ingredient? @relation(fields: [ingredientId], references: [id], onDelete: SetNull)
-  product    Product?    @relation(fields: [productId], references: [id], onDelete: SetNull)
+  supplier   Supplier            @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  ingredient Ingredient?         @relation(fields: [ingredientId], references: [id], onDelete: SetNull)
+  product    Product?            @relation(fields: [productId], references: [id], onDelete: SetNull)
   lines      PurchaseOrderLine[]
 
   @@index([supplierId])
@@ -1253,7 +1290,7 @@ model ApiKey {
   organizationId  String    @map("organization_id") @db.Uuid
   establishmentId String    @map("establishment_id") @db.Uuid
   name            String
-  prefix          String    // 12 premiers caractères visibles (mr_live_xxxx)
+  prefix          String // 12 premiers caractères visibles (mr_live_xxxx)
   keyHash         String    @unique @map("key_hash")
   scopes          String[]  @default([]) // orders:read, catalog:read, reports:read, stock:read, orders:write
   lastUsedAt      DateTime? @map("last_used_at")
@@ -1317,7 +1354,7 @@ model AuditLog {
   userId          String?  @map("user_id") @db.Uuid
   authorizedById  String?  @map("authorized_by_id") @db.Uuid // manager ayant validé par PIN
   terminalId      String?  @map("terminal_id") @db.Uuid
-  action          String   // order.cancel, item.void, payment.refund, price.update…
+  action          String // order.cancel, item.void, payment.refund, price.update…
   entityType      String   @map("entity_type")
   entityId        String?  @map("entity_id")
   oldValue        Json?    @map("old_value")
@@ -1359,11 +1396,11 @@ enum ServiceStepStatus {
 }
 
 enum ServiceReminderKind {
-  BRING       // commande prête à apporter
-  TAKE_ORDER  // table qui attend une prise de commande
-  CHECK       // vérification de satisfaction
-  DESSERT     // dessert ou café à proposer
-  BILL        // table prête pour l'addition
+  BRING // commande prête à apporter
+  TAKE_ORDER // table qui attend une prise de commande
+  CHECK // vérification de satisfaction
+  DESSERT // dessert ou café à proposer
+  BILL // table prête pour l'addition
   CUSTOM
 }
 
@@ -1450,7 +1487,7 @@ model DemoRequest {
   phone          String
   email          String
   commune        String
-  kind           String   // RESTAURANT | ROULOTTE | SNACK | BAR | CAFE | AUTRE
+  kind           String // RESTAURANT | ROULOTTE | SNACK | BAR | CAFE | AUTRE
   message        String?
   consent        Boolean  @default(false)
   status         String   @default("NEW") // NEW | CONTACTED | DONE
@@ -1467,7 +1504,9 @@ model DemoRequest {
 // CONSOLE PLATEFORME : activité des comptes et e-mails envoyés aux restaurateurs
 // ---------------------------------------------------------------------------
 
-/** Temps d'utilisation par utilisateur et par jour (battement de cœur minute par minute). */
+/**
+ * Temps d'utilisation par utilisateur et par jour (battement de cœur minute par minute).
+ */
 model ActivityDay {
   id             String   @id @default(uuid()) @db.Uuid
   organizationId String   @map("organization_id") @db.Uuid
@@ -1484,14 +1523,16 @@ model ActivityDay {
   @@map("activity_days")
 }
 
-/** Journal des e-mails envoyés par la plateforme (bienvenue, fin d'essai, message manuel). */
+/**
+ * Journal des e-mails envoyés par la plateforme (bienvenue, fin d'essai, message manuel).
+ */
 model PlatformEmail {
   id             String   @id @default(uuid()) @db.Uuid
   organizationId String   @map("organization_id") @db.Uuid
-  kind           String   // WELCOME | TRIAL_REMINDER | TRIAL_EXPIRED | MANUAL
+  kind           String // WELCOME | TRIAL_REMINDER | TRIAL_EXPIRED | MANUAL
   to             String
   subject        String
-  status         String   // SENT | FAILED
+  status         String // SENT | FAILED
   error          String?
   sentById       String?  @map("sent_by_id") @db.Uuid
   createdAt      DateTime @default(now()) @map("created_at")

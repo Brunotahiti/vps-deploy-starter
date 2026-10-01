@@ -65,6 +65,12 @@ Dans une commande, l'onglet **Service** montre la prochaine action, le serveur r
 
 ## 9. Intégrations
 
+**Imprimantes & tiroir-caisse** (`/admin/hardware`) :
+
+- **Imprimantes connectées** Epson (Server Direct Print) ou Star (CloudPRNT) : l'imprimante vient chercher ses tickets sur ManaResto toutes les quelques secondes ; rien à installer, fonctionne avec la version en ligne. ManaResto donne l'adresse à saisir dans la page de configuration de l'imprimante ; l'état « En ligne » s'affiche ensuite.
+- **Tiroir-caisse** : branché (câble RJ11) sur l'imprimante de caisse. Il s'ouvre à chaque encaissement d'un moyen de paiement qui le demande (espèces par défaut, réglable dans Paramètres), à l'ouverture et à la clôture de caisse, et par le bouton « Ouvrir le tiroir » de l'écran Caisse (permission « Ouvrir le tiroir-caisse sans vente », motif enregistré dans le journal d'audit). Un ticket réimprimé n'ouvre jamais le tiroir.
+- Avec plusieurs caisses, chaque imprimante peut être attribuée à une caisse.
+
 **Intégrations : API, webhooks, imprimantes, TPE** :
 - **Clés API** pour vos partenaires (comptable, site, automatisations) : voir `docs/API-PUBLIQUE.md`.
 - **Webhooks** : notification signée à chaque événement (commande clôturée…), test et journal.

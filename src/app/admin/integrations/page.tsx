@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { api } from "@/lib/api-client";
 import { useSession } from "@/hooks/use-session";
 import { Button } from "@/components/ui/button";
@@ -11,12 +12,9 @@ import { formatDateTime } from "@/lib/dates";
 import { PageHeader, Table, Tr, Td, useAction, useList } from "@/components/admin/common";
 import type { listApiKeys } from "@/server/api-keys";
 import type { listWebhooks } from "@/server/webhooks";
-import type { listPrinters } from "@/server/hardware/printers";
-import type { KitchenStation } from "@/generated/prisma/client";
 
 type Key = Awaited<ReturnType<typeof listApiKeys>>[number];
 type Hook = Awaited<ReturnType<typeof listWebhooks>>[number];
-type Printer = Awaited<ReturnType<typeof listPrinters>>[number];
 type Tab = "api" | "webhooks" | "printers" | "terminal";
 
 /** Intégrations : API publique, webhooks, imprimantes, terminal de paiement. */
@@ -69,28 +67,12 @@ function Webhooks() {
   );
 }
 
+/** Les imprimantes et le tiroir-caisse ont leur page dédiée (Administration → Imprimantes & tiroir). */
 function Printers() {
-  const act = useAction();
-  const q = useList<Printer[]>(["printers"], "/api/printers");
-  const stations = useList<KitchenStation[]>(["stations"], "/api/kitchen-stations");
-  const [form, setForm] = useState<{ id?: string; name: string; kind: "RECEIPT" | "KITCHEN"; driver: "escpos-network" | "agent" | "browser"; host: string; port: string; agentUrl: string; paperWidthMm: string; stationId: string } | null>(null);
-  const save = async () => { if (!form) return; const body = { name: form.name, kind: form.kind, driver: form.driver, connection: { host: form.host || undefined, port: form.port ? Number(form.port) : undefined, agentUrl: form.agentUrl || undefined }, paperWidthMm: Number(form.paperWidthMm || 80), stationId: form.stationId || null }; const r = await act(() => (form.id ? api.patch(`/api/printers/${form.id}`, body) : api.post("/api/printers", body)), { success: "Imprimante enregistrée", invalidate: [["printers"]] }); if (r) setForm(null); };
-  const test = async (p: Printer) => { const r = await act(() => api.post<{ delivered: boolean; error?: string; agentUrl?: string; payloadBase64?: string }>("/api/print", { printerId: p.id, kind: "test" })); if (!r) return; if (r.delivered) alert("Test envoyé à l'imprimante"); else if (r.agentUrl && r.payloadBase64) { try { await fetch(r.agentUrl, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ payloadBase64: r.payloadBase64 }) }); alert("Test transmis à l'agent d'impression"); } catch { alert("Agent d'impression injoignable depuis ce navigateur"); } } else alert(r.error ?? "Impression impossible"); };
   return (
-    <div>
-      <div className="mb-3 flex items-center justify-between gap-2"><p className="text-sm text-muted">Réseau (TCP 9100) quand ManaResto tourne sur place ; sinon un <b>agent d&apos;impression</b> local (<code>tools/print-agent</code>) reçoit les tickets depuis la tablette.</p><Button onClick={() => setForm({ name: "", kind: "RECEIPT", driver: "escpos-network", host: "", port: "9100", agentUrl: "", paperWidthMm: "80", stationId: "" })}>Nouvelle imprimante</Button></div>
-      {q.isLoading ? <Spinner /> : <Table head={["Nom", "Type", "Pilote", "Connexion", "Poste", ""]}>{q.data?.map((p) => { const c = p.connection as { host?: string; port?: number; agentUrl?: string }; return <Tr key={p.id}><Td className="font-semibold">{p.name}</Td><Td>{p.kind === "KITCHEN" ? "Cuisine" : "Caisse"}</Td><Td className="text-xs">{p.driver}</Td><Td className="text-xs">{c.host ? `${c.host}:${c.port ?? 9100}` : c.agentUrl ?? "navigateur"}</Td><Td>{p.station?.name ?? "—"}</Td><Td className="space-x-3 whitespace-nowrap"><button onClick={() => test(p)} className="text-xs font-semibold text-lagon-600">Tester</button><button onClick={() => setForm({ id: p.id, name: p.name, kind: p.kind, driver: p.driver as "escpos-network", host: c.host ?? "", port: String(c.port ?? 9100), agentUrl: c.agentUrl ?? "", paperWidthMm: String(p.paperWidthMm), stationId: p.stationId ?? "" })} className="text-xs font-semibold text-lagon-600">Modifier</button><button onClick={() => confirm("Supprimer ?") && act(() => api.delete(`/api/printers/${p.id}`), { success: "Supprimée", invalidate: [["printers"]] })} className="text-xs font-semibold text-red-600">Supprimer</button></Td></Tr>; })}{q.data?.length === 0 ? <Tr><Td className="py-6 text-center text-muted">Aucune imprimante : l&apos;impression passe par le navigateur.</Td></Tr> : null}</Table>}
-      <Modal open={!!form} onClose={() => setForm(null)} title={form?.id ? "Modifier l'imprimante" : "Nouvelle imprimante"} size="md" footer={<Button className="w-full" disabled={!form?.name} onClick={save}>Enregistrer</Button>}>
-        {form ? <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Nom"><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Caisse bar, Cuisine chaude…" /></Field>
-          <Field label="Type"><Select value={form.kind} onChange={(e) => setForm({ ...form, kind: e.target.value as "RECEIPT" })}><option value="RECEIPT">Reçus (caisse)</option><option value="KITCHEN">Bons cuisine</option></Select></Field>
-          <Field label="Pilote"><Select value={form.driver} onChange={(e) => setForm({ ...form, driver: e.target.value as "agent" })}><option value="escpos-network">Réseau ESC/POS (TCP 9100, serveur sur place)</option><option value="agent">Agent d&apos;impression local (HTTP)</option><option value="browser">Navigateur (HTML)</option></Select></Field>
-          <Field label="Largeur papier (mm)"><Input type="number" value={form.paperWidthMm} onChange={(e) => setForm({ ...form, paperWidthMm: e.target.value })} /></Field>
-          {form.driver === "escpos-network" ? <><Field label="Adresse IP"><Input value={form.host} onChange={(e) => setForm({ ...form, host: e.target.value })} placeholder="192.168.1.50" /></Field><Field label="Port"><Input type="number" value={form.port} onChange={(e) => setForm({ ...form, port: e.target.value })} /></Field></> : null}
-          {form.driver === "agent" ? <Field label="URL de l'agent" className="sm:col-span-2" hint="Ex. http://192.168.1.20:9123/print — l'agent transmet à l'imprimante"><Input value={form.agentUrl} onChange={(e) => setForm({ ...form, agentUrl: e.target.value })} /></Field> : null}
-          {form.kind === "KITCHEN" ? <Field label="Poste cuisine (bons auto-imprimés à l'envoi)"><Select value={form.stationId} onChange={(e) => setForm({ ...form, stationId: e.target.value })}><option value="">Tous les postes</option>{stations.data?.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</Select></Field> : null}
-        </div> : null}
-      </Modal>
+    <div className="card flex flex-wrap items-center gap-4 p-5">
+      <p className="flex-1 text-sm text-muted">Les imprimantes (tickets de caisse, bons cuisine) et le tiroir-caisse se configurent dans leur propre page.</p>
+      <Link href="/admin/hardware" className="rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-white shadow-glow">Imprimantes & tiroir-caisse</Link>
     </div>
   );
 }

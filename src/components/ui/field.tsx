@@ -21,9 +21,9 @@ export function Select(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
 export function Textarea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
   return <textarea {...props} className={`min-h-[80px] w-full rounded-xl border border-line surface px-3 py-2 text-sm outline-none focus:border-lagon-500 focus:ring-2 focus:ring-lagon-500/30 ${props.className ?? ""}`} />;
 }
-export function Toggle({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label?: string }) {
+export function Toggle({ checked, onChange, label, ariaLabel }: { checked: boolean; onChange: (v: boolean) => void; label?: string; ariaLabel?: string }) {
   return (
-    <button type="button" onClick={() => onChange(!checked)} className="touch flex items-center gap-3">
+    <button type="button" role="switch" aria-checked={checked} aria-label={label ? undefined : ariaLabel} onClick={() => onChange(!checked)} className="touch flex items-center gap-3">
       <span className={`relative h-7 w-12 rounded-full transition ${checked ? "bg-lagon-600" : "bg-slate-400/50"}`}>
         <span className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition ${checked ? "left-6" : "left-1"}`} />
       </span>
