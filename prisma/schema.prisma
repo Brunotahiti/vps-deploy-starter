@@ -1574,6 +1574,7 @@ model PlatformEmail {
   subject        String
   status         String // SENT | FAILED
   error          String?
+  messageId      String?  @map("message_id") // référence de l'envoi chez le prestataire (Brevo) : retrouver le message dans ses journaux
   sentById       String?  @map("sent_by_id") @db.Uuid
   createdAt      DateTime @default(now()) @map("created_at")
 
