@@ -118,7 +118,8 @@ $SSH "cd $VPS_PATH && if docker ps --format '{{.Names}}' | grep -qx \"\${APP_NAM
 $SSH "cd $VPS_PATH && set -a && . ./.env && set +a && export BUILD_ID=$BUILD_ID && docker compose build migrate app && docker compose up -d --remove-orphans && (docker compose exec -T site nginx -s reload >/dev/null 2>&1 || true) && docker image prune -f >/dev/null && docker builder prune -f --filter until=168h >/dev/null && docker compose ps"
 
 # 5. Sauvegarde quotidienne à 3 h, heure de Tahiti (13 h UTC : le serveur est en UTC) — uniquement la ligne ManaResto de la crontab
-$SSH "chmod +x $VPS_PATH/scripts/db-backup.sh; (crontab -l 2>/dev/null | grep -v '$VPS_PATH/scripts/db-backup.sh'; echo '0 13 * * * $VPS_PATH/scripts/db-backup.sh >> /var/log/manaresto-backup.log 2>&1') | crontab -"
+# Démo vivante : rafraîchie chaque heure (activité du jour, journées manquantes) quand SEED_DEMO=true
+$SSH "chmod +x $VPS_PATH/scripts/db-backup.sh; cd $VPS_PATH && set -a && . ./.env && set +a; (crontab -l 2>/dev/null | grep -v '$VPS_PATH/scripts/db-backup.sh' | grep -v 'manaresto-demo.log'; echo '0 13 * * * $VPS_PATH/scripts/db-backup.sh >> /var/log/manaresto-backup.log 2>&1'; if [ \"\${SEED_DEMO:-}\" = true ]; then echo '17 * * * * cd $VPS_PATH && docker compose run --rm --no-deps -T migrate pnpm tsx prisma/seed.ts >> /var/log/manaresto-demo.log 2>&1'; fi) | crontab -"
 
 # 6. Vérification
 echo "→ Vérification…"
