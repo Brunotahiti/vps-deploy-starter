@@ -14,7 +14,7 @@ export default function robots(): MetadataRoute.Robots {
     rules: [{
       userAgent: "*",
       allow: ["/site/", "/commander/", "/reserver/"],
-      disallow: ["/api/", "/admin", "/pos", "/kds", "/platform", "/onboarding", "/kiosk", "/suivi/", "/invitation/", "/desabonnement/", "/m/", "/salle", "/commande$", "/commande/", "/demo"],
+      disallow: ["/api/", "/admin", "/pos", "/kds", "/platform", "/onboarding", "/kiosk", "/suivi/", "/invitation/", "/desabonnement/", "/ecran/", "/m/", "/salle", "/commande$", "/commande/", "/demo"],
     }],
     sitemap: `${base()}/sitemap.xml`,
   };

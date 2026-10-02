@@ -123,6 +123,7 @@ model Establishment {
   accountSettlements  AccountSettlement[]
   giftCards           GiftCard[]
   marketingCampaigns  MarketingCampaign[]
+  screens             Screen[]
   hygieneEquipment    HygieneEquipment[]
   temperatureReadings TemperatureReading[]
   cleaningTasks       CleaningTask[]
@@ -2006,4 +2007,31 @@ model MarketingCampaign {
 
   @@index([establishmentId, createdAt])
   @@map("marketing_campaigns")
+}
+
+// ─── Écrans en salle (option payante « screens ») ───────────────────────────────
+
+/// Écran (télévision, tablette) qui affiche la carte : page publique à adresse secrète, sans connexion d'un employé.
+model Screen {
+  id              String    @id @default(uuid()) @db.Uuid
+  establishmentId String    @map("establishment_id") @db.Uuid
+  name            String
+  token           String    @unique // adresse secrète de l'écran (régénérable)
+  categoryIds     String[]  @default([]) @map("category_ids") // vide : toute la carte
+  showPrices      Boolean   @default(true) @map("show_prices")
+  hideSoldOut     Boolean   @default(false) @map("hide_sold_out") // sinon : « Épuisé » barré
+  showImages      Boolean   @default(true) @map("show_images")
+  rotateSeconds   Int       @default(12) @map("rotate_seconds")
+  theme           String    @default("lagoon") // lagoon, night, light
+  headline        String? // mise en avant : « Plat du jour », « Happy hour »…
+  headlineText    String?   @map("headline_text")
+  headlinePrice   Int?      @map("headline_price")
+  isActive        Boolean   @default(true) @map("is_active")
+  lastSeenAt      DateTime? @map("last_seen_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  establishment Establishment @relation(fields: [establishmentId], references: [id], onDelete: Cascade)
+
+  @@index([establishmentId])
+  @@map("screens")
 }
