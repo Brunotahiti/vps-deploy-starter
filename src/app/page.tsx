@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getAuthContext } from "@/server/auth/context";
 import { getTerminalFromCookie } from "@/server/auth/session";
 import { hasPermission } from "@/lib/permissions";
+import { profileHome } from "@/lib/profiles";
 
 export const dynamic = "force-dynamic";
 
@@ -12,7 +13,10 @@ export default async function Home() {
     redirect(!terminal ? "/login" : terminal.kind === "KDS" ? "/kds/login" : "/pos/login");
   }
   if (ctx.establishment && !ctx.establishment.onboardingDone && ctx.user.isOwner) redirect("/onboarding");
-  if (ctx.roleKey === "kitchen") redirect("/kds");
-  if (hasPermission(ctx.permissions, "pos.use") && !ctx.user.isOwner && ctx.roleKey !== "manager") redirect("/pos");
+  // Chaque profil arrive sur son écran : Chef en cuisine → cuisine, Équipe en salle → salle, Admin et Gérant → gestion
+  const home = profileHome(ctx.roleKey, ctx.user.isOwner);
+  if (home) redirect(home);
+  if (hasPermission(ctx.permissions, "pos.use")) redirect("/pos");
+  if (hasPermission(ctx.permissions, "kds.use") && !hasPermission(ctx.permissions, "reports.view")) redirect("/kds");
   redirect("/admin");
 }
