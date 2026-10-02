@@ -155,6 +155,7 @@ export const digitalSettingsSchema = z.object({
 
 // Avancé (Phase 7)
 export const apiKeySchema = z.object({ name: z.string().min(1).max(80), scopes: z.array(z.string()).min(1).max(10) });
+export const boxSchema = z.object({ name: z.string().trim().min(1).max(80) });
 export const webhookSchema = z.object({ url: z.string().url().max(500), events: z.array(z.string()).min(1).max(20), description: z.string().max(200).nullable().optional(), isActive: z.boolean().optional() });
 export const printerSchema = z.object({ name: z.string().min(1).max(60), kind: z.enum(["RECEIPT", "KITCHEN"]), driver: z.enum(["cloud-epson", "cloud-star", "escpos-network", "agent", "browser"]), terminalId: uuid.nullable().optional(), hasDrawer: z.boolean().optional(), drawerPin: z.union([z.literal(2), z.literal(5)]).optional(), connection: z.object({ host: z.string().max(80).optional(), port: z.number().int().min(1).max(65535).optional(), agentUrl: z.string().max(300).optional(), timeoutMs: z.number().int().min(500).max(30000).optional() }).optional(), paperWidthMm: z.number().int().min(40).max(112).optional(), stationId: uuid.nullable().optional(), isActive: z.boolean().optional() });
 export const drawerOpenSchema = z.object({ reason: z.string().trim().max(200).nullable().optional() });

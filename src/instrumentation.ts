@@ -4,8 +4,8 @@ import * as Sentry from "@sentry/nextjs";
 export async function register() {
   if (process.env.NEXT_RUNTIME === "nodejs") {
     await import("../sentry.server.config");
-    // Relances automatiques (rappel de fin d'essai, essai expiré) : production uniquement
-    if (process.env.NODE_ENV === "production") {
+    // Relances automatiques (rappel de fin d'essai, essai expiré) : production uniquement, jamais sur un boîtier local
+    if (process.env.NODE_ENV === "production" && process.env.BOX_MODE !== "1") {
       const { startLifecycleScheduler } = await import("@/server/services/platform-emails");
       startLifecycleScheduler();
     }

@@ -12,6 +12,7 @@ import { Badge, Spinner } from "@/components/ui/misc";
 import { useToast } from "@/components/ui/toast";
 import { PageHeader, useAction, useList } from "@/components/admin/common";
 import { reportPrint, type PrintResult } from "@/lib/print-client";
+import { LocalBoxes } from "@/components/admin/local-box";
 import type { listPrinters, PrinterDriver } from "@/server/hardware/printers";
 import type { KitchenStation } from "@/generated/prisma/client";
 
@@ -187,6 +188,8 @@ export function HardwareSettings() {
           <li>Il se branche avec son câble RJ11 sur la prise « DK » de l&apos;imprimante de caisse.</li>
         </ul>
       </div>
+
+      <LocalBoxes now={now} />
 
       <Modal open={!!form} onClose={() => setForm(null)} title={form?.id ? "Modifier l'imprimante" : "Ajouter une imprimante"} size="lg" footer={<Button className="w-full" disabled={!form?.name} onClick={save}>Enregistrer</Button>}>
         {form ? (
