@@ -39,12 +39,25 @@ async function request<T>(method: string, url: string, body?: unknown, opts: Opt
   }
   const json = await res.json().catch(() => null);
   if (!res.ok) {
-    const err = json?.error ?? { code: "HTTP_" + res.status, message: res.statusText };
-    throw new ApiClientError(res.status, err.code, err.message, err.details);
+    const err = json?.error ?? { code: "HTTP_" + res.status, message: "" };
+    throw new ApiClientError(res.status, err.code, err.message || httpMessage(res.status), err.details);
   }
   // Enveloppe { data } : une donnée nulle (ex. aucune caisse ouverte) doit rester null, pas devenir l'enveloppe elle-même
   if (json && typeof json === "object" && "data" in json) return json.data as T;
   return json as T;
+}
+
+/**
+ * Réponse sans message exploitable (serveur en cours de redémarrage, proxy) : en HTTPS (HTTP/2) le texte de statut
+ * est toujours vide, il faut donc un message lisible, sans quoi la notification d'erreur s'afficherait vide.
+ */
+export function httpMessage(status: number): string {
+  if (status === 502 || status === 503 || status === 504) return "Le serveur redémarre (mise à jour en cours) : réessayez dans quelques secondes";
+  if (status === 404) return "Service momentanément indisponible : réessayez dans quelques secondes";
+  if (status === 413) return "Envoi trop volumineux";
+  if (status === 429) return "Trop de tentatives : patientez un instant puis réessayez";
+  if (status === 401 || status === 403) return "Accès refusé : reconnectez-vous";
+  return `Erreur inattendue (${status}) : réessayez`;
 }
 
 export const api = {

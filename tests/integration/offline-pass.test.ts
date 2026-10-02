@@ -31,7 +31,9 @@ describe("connexion par PIN sans internet : laissez-passer chiffrés par le PIN"
     await rememberOfflineKey(T.manager.id, T.est.id, "2000"); // autorisation manager en ligne
     const issued = await issueOfflinePasses(terminal);
     expect(issued.passes.map((p) => p.userId).sort()).toEqual([T.server.id, T.manager.id].sort());
-    expect(JSON.stringify(issued)).not.toContain("1001"); // jamais le PIN
+    // Jamais le PIN en clair : « 1001 » peut apparaître par hasard au milieu d'un identifiant ou d'un chiffré,
+    // on cherche donc le PIN comme valeur isolée (ni entouré de caractères d'identifiant ni de base64)
+    expect(JSON.stringify(issued)).not.toMatch(/(^|[^0-9A-Za-z+/=-])1001([^0-9A-Za-z+/=-]|$)/);
 
     const server = await openSealedPass<OfflinePassPayload>("1001", issued.kdf, sealed(issued.passes));
     expect(server?.userId).toBe(T.server.id);
