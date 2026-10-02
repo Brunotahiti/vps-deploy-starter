@@ -7,7 +7,9 @@ export const POST = route(async () => {
   const token = await getSessionToken();
   if (token) await destroySession(token);
   await clearSessionCookie();
-  // Fin d'une éventuelle prise en main : le jeton de retour vers la console ne doit pas survivre à la déconnexion
+  // Fin d'une éventuelle prise en main : la session administrateur mise de côté est fermée, pas seulement oubliée
+  const platformToken = (await cookies()).get("mr_platform")?.value;
+  if (platformToken) await destroySession(platformToken);
   (await cookies()).set("mr_platform", "", { httpOnly: true, path: "/", maxAge: 0 });
   // Déconnexion pendant la visite du restaurant exemple : la session mise de côté est fermée aussi
   const back = await findReturnSession();

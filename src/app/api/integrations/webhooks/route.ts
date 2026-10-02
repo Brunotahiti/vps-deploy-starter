@@ -3,6 +3,7 @@ import { requirePermission } from "@/server/auth/context";
 import { actorFrom } from "@/server/auth/authorize";
 import { webhookSchema } from "@/server/schemas";
 import { WEBHOOK_EVENTS, createWebhook, listWebhooks } from "@/server/webhooks";
+import { assertNotDemoAccount } from "@/server/services/demo";
 
 export const GET = route(async () => {
   const ctx = await requirePermission("settings.manage");
@@ -10,5 +11,6 @@ export const GET = route(async () => {
 });
 export const POST = route(async (req) => {
   const ctx = await requirePermission("settings.manage");
+  await assertNotDemoAccount(ctx.organizationId);
   return created(await createWebhook(actorFrom(ctx), await parseBody(req, webhookSchema)));
 });

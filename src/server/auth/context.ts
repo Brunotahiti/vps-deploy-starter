@@ -32,7 +32,8 @@ async function loadContext(): Promise<AuthContext | null> {
     if (pass) {
       const { organization: _org, ...user } = pass.user;
       void _org;
-      return buildContext({ id: pass.id, userId: pass.userId, establishmentId: pass.establishmentId, impersonatorId: null, user });
+      // Opérations de caisse seulement, dans l'établissement du laissez-passer
+      return buildContext({ id: pass.id, userId: pass.userId, establishmentId: pass.establishmentId, impersonatorId: null, scope: "pos", user });
     }
   }
   const token = await getSessionToken();

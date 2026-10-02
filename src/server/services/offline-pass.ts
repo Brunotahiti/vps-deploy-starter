@@ -1,3 +1,4 @@
+import { POS_SCOPE_PERMISSIONS } from "@/lib/permissions";
 /**
  * Connexion par PIN sans internet.
  *
@@ -22,7 +23,7 @@ const pbkdf2Async = promisify(pbkdf2);
 /** Paramètres partagés avec la tablette (WebCrypto) : toute modification invalide les laissez-passer existants. */
 export const OFFLINE_KDF = { iterations: 210_000, hash: "SHA-256" as const, keyLength: 32 };
 export const offlineSalt = (establishmentId: string) => `manaresto-offline:${establishmentId}`;
-const PASS_TTL_MS = 14 * 86_400_000;
+const PASS_TTL_MS = 7 * 86_400_000; // réémis chaque jour en ligne ; une semaine de coupure au plus
 const RENEW_AFTER_MS = 86_400_000; // réémis chaque jour (droits à jour) ; l'ancien reste valide pour les opérations déjà en file
 
 export function deriveOfflineKey(pin: string, establishmentId: string) {
@@ -113,7 +114,8 @@ export async function issueOfflinePasses(terminal: { id: string; establishmentId
     await prisma.offlinePass.create({ data: { userId: u.id, establishmentId, terminalId: terminal.id, tokenHash: sha256(token), expiresAt } });
     const payload: OfflinePassPayload = {
       token, userId: u.id, firstName: u.firstName, lastName: u.lastName, displayName: u.displayName, color: u.color, isOwner: u.isOwner,
-      roleKey: u.isOwner ? "owner" : (m?.role.key ?? null), permissions: u.isOwner ? ["*"] : (m?.role.permissions.map((p) => p.permissionKey) ?? []),
+      // Droits de caisse seulement (même pour le propriétaire) : le serveur applique la même règle au rejeu
+      roleKey: u.isOwner ? "owner" : (m?.role.key ?? null), permissions: POS_SCOPE_PERMISSIONS.filter((p) => u.isOwner || m?.role.permissions.some((rp) => rp.permissionKey === p)),
       expiresAt: expiresAt.toISOString(),
     };
     passes.push({ userId: u.id, ...seal(Buffer.from(k.key), payload) });
