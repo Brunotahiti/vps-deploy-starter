@@ -15,7 +15,9 @@ export const POST = route(async () => {
   const pass = token ? await findOfflinePass(token, terminal.id) : null;
   if (!pass) throw new ApiError(401, "INVALID_PASS", "Reconnectez-vous avec votre PIN");
   const meta = await requestMeta();
-  const { token: sessionToken } = await createSession({ userId: pass.userId, establishmentId: pass.establishmentId, terminalId: terminal.id, ...meta });
-  await setSessionCookie(sessionToken);
+  // Session « caisse » de 12 h : un PIN deviné sur une tablette volée ne donne jamais accès à la gestion
+  const ttlMs = 12 * 3600_000;
+  const { token: sessionToken } = await createSession({ userId: pass.userId, establishmentId: pass.establishmentId, terminalId: terminal.id, ...meta, ttlMs, scope: "pos" });
+  await setSessionCookie(sessionToken, ttlMs);
   return ok({ id: pass.userId });
 });

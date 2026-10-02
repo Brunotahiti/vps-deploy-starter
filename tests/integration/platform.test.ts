@@ -74,9 +74,17 @@ describe("Console plateforme", () => {
     await setOrganizationBlocked(B.org.id, true, "impayé", admin);
     expect(await findSessionByToken(token)).toBeNull();
     await expect(loginWithPassword("manager-plat-b@test.pf", "password123")).rejects.toMatchObject({ status: 403, code: "ACCOUNT_BLOCKED" });
-    const support = await createSession({ userId: B.owner.id, impersonatorId: A.owner.id });
+    // Prise en main par un vrai administrateur de la plateforme (adresse listée dans PLATFORM_ADMIN_EMAILS)
+    const realAdmin = await prisma.user.create({ data: { organizationId: A.org.id, email: "autre@manaresto.com", passwordHash: "x", firstName: "Support", lastName: "ManaResto" } });
+    const support = await createSession({ userId: B.owner.id, impersonatorId: realAdmin.id });
     const s = await findSessionByToken(support.token);
-    expect(s?.impersonatorId).toBe(A.owner.id);
+    expect(s?.impersonatorId).toBe(realAdmin.id);
+    // Une prise en main ouverte par un compte qui n'est pas (ou plus) administrateur ne vaut rien
+    const fake = await createSession({ userId: B.owner.id, impersonatorId: A.owner.id });
+    expect(await findSessionByToken(fake.token)).toBeNull();
+    await prisma.user.update({ where: { id: realAdmin.id }, data: { isActive: false } });
+    expect(await findSessionByToken(support.token)).toBeNull();
+    await prisma.user.update({ where: { id: realAdmin.id }, data: { isActive: true } });
     const ov = await platformOverview();
     expect(ov.rows.find((r) => r.id === B.org.id)).toMatchObject({ status: "BLOCKED", blockedReason: "impayé" });
     await setOrganizationBlocked(B.org.id, false, null, admin);

@@ -1,6 +1,7 @@
 import acme from "acme-client";
 import { prisma } from "@/server/db";
 import { ApiError } from "@/server/errors";
+import { isPrivateIpv4 } from "@/server/net/lan";
 
 /**
  * Adresse HTTPS du boîtier sur le réseau du restaurant : `<8 premiers caractères de l'id>.<BOX_DNS_ZONE>`
@@ -15,14 +16,7 @@ const zone = () => (process.env.BOX_DNS_ZONE ?? "").replace(/^\.+|\.+$/g, "").to
 export const dnsConfigured = () => !!(zone() && process.env.CLOUDFLARE_API_TOKEN && process.env.CLOUDFLARE_ZONE_ID);
 export const boxHostname = (boxId: string) => (zone() ? `${boxId.replace(/-/g, "").slice(0, 8)}.${zone()}` : null);
 
-/** Adresse IPv4 d'un réseau local (10/8, 172.16/12, 192.168/16) : jamais une adresse publique. */
-export function isPrivateIpv4(ip: string) {
-  const m = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(ip.trim());
-  if (!m) return false;
-  const [a, b, c, d] = m.slice(1).map(Number);
-  if ([a, b, c, d].some((n) => n > 255)) return false;
-  return a === 10 || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168);
-}
+export { isPrivateIpv4 };
 
 type CfRecord = { id: string; type: string; name: string; content: string };
 

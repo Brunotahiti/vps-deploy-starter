@@ -19,3 +19,13 @@ export async function isDemoEstablishment(establishmentId: string) {
 export async function assertNotDemoEmail(organizationId: string) {
   if (await isDemoOrganization(organizationId)) throw new ApiError(403, "DEMO_EMAIL_DISABLED", "L'envoi d'e-mails est désactivé sur le compte de démonstration");
 }
+
+/**
+ * Compte partagé par tous les visiteurs : comptes, rôles, clés d'API, webhooks et boîtiers n'y sont pas modifiables
+ * (un visiteur ne doit ni verrouiller les autres, ni laisser derrière lui un accès durable).
+ */
+export async function assertNotDemoAccount(organizationId: string) {
+  // Serveur de tests de bout en bout (DEMO_UNLOCKED=1) : la démo sert de compte de test ; jamais en production
+  if (process.env.DEMO_UNLOCKED === "1") return;
+  if (await isDemoOrganization(organizationId)) throw new ApiError(403, "DEMO_READ_ONLY", "Réglage non modifiable sur le restaurant exemple : créez votre compte pour l'essayer");
+}

@@ -3,6 +3,7 @@ import { requirePermission } from "@/server/auth/context";
 import { userCreateSchema } from "@/server/schemas";
 import { createUser, listUsers } from "@/server/services/users";
 import { assertCanAssign, assertEmailAllowed } from "@/server/auth/guards";
+import { assertNotDemoAccount } from "@/server/services/demo";
 
 export const GET = route(async (req) => {
   const ctx = await requirePermission("users.manage");
@@ -12,6 +13,7 @@ export const GET = route(async (req) => {
 
 export const POST = route(async (req) => {
   const ctx = await requirePermission("users.manage");
+  await assertNotDemoAccount(ctx.organizationId);
   const body = await parseBody(req, userCreateSchema);
   assertEmailAllowed(body.email);
   await assertCanAssign(ctx, body.memberships);

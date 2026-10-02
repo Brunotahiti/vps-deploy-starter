@@ -84,6 +84,7 @@ $SSH "cd $VPS_PATH && sed -i -E 's/\.(css|js)\?v=[A-Za-z0-9]+/.\1?v=$BUILD_ID/g'
 # 3. Fichier .env de production (créé une seule fois, mots de passe générés sur le VPS)
 $SSH "cd $VPS_PATH && if [ ! -f .env ]; then
   cp .env.vps.example .env
+  chmod 600 .env
   PG=\$(openssl rand -base64 24 | tr -d '/+=' | head -c 32)
   SS=\$(openssl rand -base64 48 | tr -d '\n')
   sed -i \"s|^PUBLIC_HOST=.*|PUBLIC_HOST=$PUBLIC_HOST|; s|^PUBLIC_URL=.*|PUBLIC_URL=https://$PUBLIC_HOST|; s|^POSTGRES_PASSWORD=.*|POSTGRES_PASSWORD=\$PG|; s|^SESSION_SECRET=.*|SESSION_SECRET=\$SS|; s|^SEED_DEMO=.*|SEED_DEMO=$SEED_DEMO|\" .env

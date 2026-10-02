@@ -3,6 +3,7 @@ import { requirePermission } from "@/server/auth/context";
 import { actorFrom } from "@/server/auth/authorize";
 import { boxSchema } from "@/server/schemas";
 import { assertOwner, createBox, listBoxes } from "@/server/box/boxes";
+import { assertNotDemoAccount } from "@/server/services/demo";
 
 export const GET = route(async () => {
   const ctx = await requirePermission("settings.manage");
@@ -10,6 +11,7 @@ export const GET = route(async () => {
 });
 export const POST = route(async (req) => {
   const ctx = await requirePermission("settings.manage");
+  await assertNotDemoAccount(ctx.organizationId);
   assertOwner(ctx);
   return created(await createBox(actorFrom(ctx), await parseBody(req, boxSchema)));
 });

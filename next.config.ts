@@ -21,6 +21,8 @@ const nextConfig: NextConfig = {
           { key: "X-Frame-Options", value: "DENY" },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
           { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+          // Défense en profondeur : ni plugins, ni balise <base> détournée, ni formulaire envoyé ailleurs, ni affichage dans un cadre
+          { key: "Content-Security-Policy", value: "object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'" },
         ],
       },
       // Photos de démonstration, icônes et polices : gardées 30 jours par le navigateur et par Cloudflare
