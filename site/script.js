@@ -22,6 +22,8 @@
   // Liens vers l'application
   $$("[data-signup]").forEach(function (a) { a.href = app + "/signup"; });
   $$("[data-login]").forEach(function (a) { a.href = app + "/login"; });
+  // Visite du restaurant exemple : ouvre directement le compte de démonstration, sans inscription
+  $$("[data-demo]").forEach(function (a) { a.href = app + "/login?demo=1"; });
   $$("[data-install]").forEach(function (a) { a.href = app + "/login?install=1"; });
   $$("[data-admin]").forEach(function (a) { a.href = app + "/platform"; });
   $$("[data-year]").forEach(function (el) { el.textContent = String(new Date().getFullYear()); });
