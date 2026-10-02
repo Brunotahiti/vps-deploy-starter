@@ -40,6 +40,8 @@ services:
     restart: "no"
     logging: *logging
     mem_limit: ${MIGRATE_MEM_LIMIT:-512m}
+    # Priorité basse face à l'application : le rafraîchissement horaire de la démo ne doit pas ralentir le service
+    cpu_shares: 256
     env_file:
       - .env
     environment:
