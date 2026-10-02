@@ -7,6 +7,11 @@ test("menus du téléphone : même côté, fermeture par la croix", async ({ pag
   await page.request.post("/api/auth/login", { data: { email: "demo@manaresto.pf", password: "demo1234" } });
 
   await page.goto("/admin");
+  // Bouton « Menu » en tuile, comme la barre des portails ; dans la gestion, il clignote trois fois à l'arrivée
+  const adminBtn = page.getByTestId("menu-button").locator("visible=true");
+  await expect(adminBtn).toHaveClass(/menu-blink/);
+  expect(await adminBtn.evaluate((el) => getComputedStyle(el).animationIterationCount)).toBe("3");
+  expect((await adminBtn.boundingBox())!.height).toBe(56);
   await page.getByRole("button", { name: "Ouvrir le menu" }).click();
   const adminClose = page.getByRole("button", { name: "Fermer le menu" }).last();
   await expect(adminClose).toBeVisible();
@@ -15,6 +20,11 @@ test("menus du téléphone : même côté, fermeture par la croix", async ({ pag
   await adminClose.tap();
   await expect(adminClose).toBeHidden();
 
+  await page.goto("/pos");
+  await expect(page.getByTestId("menu-button").locator("visible=true")).not.toHaveClass(/menu-blink/);
+  // Retour dans la gestion par la barre des portails : il clignote de nouveau
+  await page.getByTestId("portal-dock").locator("visible=true").getByRole("link", { name: "Gestion" }).tap();
+  await expect(page.getByTestId("menu-button").locator("visible=true")).toHaveClass(/menu-blink/);
   await page.goto("/pos");
   await page.getByRole("button", { name: "Ouvrir le menu" }).tap();
   const posMenu = page.getByRole("dialog", { name: "Menu" });

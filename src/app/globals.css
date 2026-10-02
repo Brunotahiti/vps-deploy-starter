@@ -183,3 +183,7 @@ h1, h2, h3 { letter-spacing: -0.02em; word-spacing: 0.02em; }
 .site-bounce { animation: site-bounce 1.8s ease-in-out infinite; }
 html:has(.site) { scroll-behavior: smooth; }
 @media (prefers-reduced-motion: reduce) { .site-kenburns, .site-rise, .site-bounce { animation: none; } }
+
+/* Bouton « Menu » : clignote trois fois en arrivant dans la gestion */
+@keyframes menu-blink { 0%, 100% { opacity: 1; transform: scale(1); box-shadow: 0 10px 30px -10px rgb(20 170 163 / 0.8); } 50% { opacity: 0.35; transform: scale(1.06); box-shadow: 0 0 0 6px rgb(20 170 163 / 0.35); } }
+.menu-blink { animation: menu-blink 0.6s ease-in-out 0.3s 3; }

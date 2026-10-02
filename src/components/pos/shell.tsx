@@ -7,7 +7,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { LayoutGrid, ListOrdered, Wallet, Settings, Moon, Sun, LogOut, Wifi, WifiOff, RefreshCw, ChefHat, Download, Menu, X, ChevronRight, Clock, CalendarDays, ShoppingBag } from "lucide-react";
+import { LayoutGrid, ListOrdered, Wallet, Settings, Moon, Sun, LogOut, Wifi, WifiOff, RefreshCw, ChefHat, Download, X, ChevronRight, Clock, CalendarDays, ShoppingBag } from "lucide-react";
 import { markLogoutPending, useSession } from "@/hooks/use-session";
 import { useRealtime } from "@/hooks/use-realtime";
 import { SupportBar } from "@/components/support-bar";
@@ -23,6 +23,7 @@ import { Logo } from "@/components/brand";
 import { api } from "@/lib/api-client";
 import { Money } from "@/components/money";
 import { TodoButton, TodoPanel, useServiceReminders } from "./service-todo";
+import { MenuButton } from "@/components/ui/menu-button";
 
 export function PosShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -107,11 +108,11 @@ export function PosShell({ children }: { children: React.ReactNode }) {
       <DemoVisitBar />
       <BoxBar />
       <TodoPanel open={todo} onClose={() => setTodo(false)} data={reminders.data} />
-      <header className="no-print glass flex h-14 shrink-0 items-center gap-1.5 border-b px-2 sm:h-16 sm:gap-2 sm:px-4">
+      <header className="no-print glass flex h-[72px] shrink-0 items-center gap-1.5 border-b px-2 sm:h-16 sm:gap-2 sm:px-4">
         {/* Téléphone : le menu s'ouvre à gauche, comme dans l'administration */}
-        <button onClick={() => setMenu(true)} className="touch flex h-12 w-12 shrink-0 flex-col items-center justify-center gap-0.5 rounded-xl bg-brand text-white shadow-glow active:scale-95 sm:hidden" aria-label="Ouvrir le menu"><Menu className="h-5 w-5" /><span className="text-[10px] font-extrabold leading-none" aria-hidden>Menu</span></button>
+        <MenuButton onClick={() => setMenu(true)} className="sm:hidden" />
         {/* Le logo ouvre le menu, sur tous les écrans */}
-        <button type="button" onClick={() => setMenu(true)} aria-label="Menu ManaResto" title="Menu" className="touch mr-1 flex items-center gap-2 rounded-xl text-left transition active:scale-95"><span className="flex flex-col items-center gap-0.5"><Logo size={32} withText={false} /><span className="text-[10px] font-extrabold leading-none text-muted" aria-hidden>Menu</span></span><span className="hidden flex-col leading-tight md:flex"><span className="flex items-center gap-1.5 text-base font-extrabold tracking-tight"><span>Mana<span className="text-brand">Resto</span></span><VersionBadge /></span><span className="truncate text-[11px] font-medium text-muted">{me?.establishment?.name}</span></span></button>
+        <button type="button" onClick={() => setMenu(true)} aria-label="Menu ManaResto" title="Menu" className="touch mr-1 flex items-center gap-2 rounded-xl text-left transition active:scale-95"><span className="flex flex-col items-center gap-0.5"><Logo size={32} withText={false} /><span className="hidden text-[10px] font-extrabold leading-none text-muted sm:block" aria-hidden>Menu</span></span><span className="hidden flex-col leading-tight md:flex"><span className="flex items-center gap-1.5 text-base font-extrabold tracking-tight"><span>Mana<span className="text-brand">Resto</span></span><VersionBadge /></span><span className="truncate text-[11px] font-medium text-muted">{me?.establishment?.name}</span></span></button>
         <nav className="ml-auto hidden items-center gap-1 sm:flex">
           {nav.map((n) => (
             <Link key={n.href} href={n.href} title={n.label} className={`touch relative flex h-10 items-center gap-2 rounded-xl px-3 text-sm font-semibold transition sm:px-3.5 ${isActive(n.href) ? "bg-brand text-white shadow-glow" : "text-muted hover:surface-2 hover:text-[var(--text)]"}`}>
