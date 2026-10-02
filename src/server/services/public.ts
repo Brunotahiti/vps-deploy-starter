@@ -220,11 +220,12 @@ function replayOrFail(existing: { publicToken: string | null }) {
 
 /** Suivi public d'une commande (jeton) : statut lisible par le client, sans données internes. */
 export async function trackOrder(publicToken: string) {
-  const o = await prisma.order.findUnique({ where: { publicToken }, select: { id: true, number: true, type: true, status: true, total: true, subtotal: true, discountTotal: true, openedAt: true, acceptedAt: true, closedAt: true, cancelReason: true, channelMeta: true, customerName: true, publicToken: true, table: { select: { name: true } }, establishment: { select: { name: true, phone: true, addressLine1: true, city: true, currency: true, timezone: true } }, items: { where: { status: { not: "VOIDED" }, parentItemId: null }, orderBy: { sortOrder: "asc" }, select: { id: true, name: true, quantity: true, lineTotal: true, status: true, notes: true, modifiers: { select: { name: true } } } } } });
+  const o = await prisma.order.findUnique({ where: { publicToken }, select: { id: true, number: true, type: true, status: true, total: true, subtotal: true, discountTotal: true, openedAt: true, acceptedAt: true, closedAt: true, cancelReason: true, channelMeta: true, readyAt: true, pickedUpAt: true, customerName: true, publicToken: true, table: { select: { name: true } }, establishment: { select: { name: true, phone: true, addressLine1: true, city: true, currency: true, timezone: true } }, items: { where: { status: { not: "VOIDED" }, parentItemId: null }, orderBy: { sortOrder: "asc" }, select: { id: true, name: true, quantity: true, lineTotal: true, status: true, notes: true, modifiers: { select: { name: true } } } } } });
   if (!o) throw new ApiError(404, "NOT_FOUND", "Commande introuvable");
   const meta = (o.channelMeta ?? {}) as Record<string, unknown>;
   const kitchen = o.items.map((i) => i.status);
-  const stage = o.status === "CANCELLED" ? "CANCELLED" : o.status === "PAID" ? "DONE" : !o.acceptedAt && meta.awaitingAcceptance ? "RECEIVED" : kitchen.length && kitchen.every((s) => s === "READY" || s === "SERVED") ? "READY" : kitchen.some((s) => s === "PREPARING" || s === "READY") ? "PREPARING" : "ACCEPTED";
+  // À emporter : « prête » et « remise » données par le restaurant priment sur l'état des plats
+  const stage = o.status === "CANCELLED" ? "CANCELLED" : o.pickedUpAt ? "DONE" : o.readyAt ? "READY" : o.status === "PAID" ? "DONE" : !o.acceptedAt && meta.awaitingAcceptance ? "RECEIVED" : kitchen.length && kitchen.every((s) => s === "READY" || s === "SERVED") ? "READY" : kitchen.some((s) => s === "PREPARING" || s === "READY") ? "PREPARING" : "ACCEPTED";
   const fee = typeof meta.deliveryFee === "number" ? meta.deliveryFee : 0;
   return { ...o, channelMeta: { channel: meta.channel ?? null, when: meta.when ?? null, address: meta.address ?? null, zone: meta.zone ?? null, deliveryFee: fee }, stage, totalWithFee: o.total + fee };
 }

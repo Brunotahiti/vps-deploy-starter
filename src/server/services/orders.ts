@@ -123,7 +123,7 @@ export async function settleAfterChange(tx: Tx, actor: Actor, orderId: string, o
 }
 
 // ---------------------------------------------------------------- Création
-export type CreateOrderInput = { id?: string; type: OrderType; tableId?: string | null; covers?: number; customerName?: string | null; notes?: string | null; courses?: { id: string; name: string }[]; openedAt?: string };
+export type CreateOrderInput = { id?: string; type: OrderType; tableId?: string | null; covers?: number; customerName?: string | null; customerPhone?: string | null; pickupAt?: string | null; notes?: string | null; courses?: { id: string; name: string }[]; openedAt?: string };
 
 export async function createOrder(actor: Actor, input: CreateOrderInput) {
   const est = await prisma.establishment.findUniqueOrThrow({ where: { id: actor.establishmentId } });
@@ -151,6 +151,7 @@ export async function createOrder(actor: Actor, input: CreateOrderInput) {
       data: {
         id: input.id, establishmentId: actor.establishmentId, number, type: input.type, tableId: input.tableId ?? null, serverId: actor.userId,
         terminalId: actor.terminalId ?? null, covers: input.covers ?? 1, customerName: input.customerName ?? null, notes: input.notes ?? null,
+        customerPhone: input.customerPhone ?? null, pickupAt: input.pickupAt ? new Date(input.pickupAt) : null,
         openedAt: input.openedAt ? new Date(input.openedAt) : undefined,
         courses: { create: input.courses ? input.courses.map((c, i) => ({ id: c.id, name: c.name, sortOrder: i })) : courseNames.map((name, i) => ({ name, sortOrder: i })) },
       },
@@ -164,10 +165,10 @@ export async function createOrder(actor: Actor, input: CreateOrderInput) {
   return order;
 }
 
-export async function updateOrder(actor: Actor, orderId: string, input: { covers?: number; customerName?: string | null; notes?: string | null; type?: OrderType }) {
+export async function updateOrder(actor: Actor, orderId: string, input: { covers?: number; customerName?: string | null; customerPhone?: string | null; pickupAt?: string | null; notes?: string | null; type?: OrderType }) {
   const order = await getOrder(actor.establishmentId, orderId);
   assertOpen(order);
-  await prisma.order.update({ where: { id: orderId }, data: { covers: input.covers, customerName: input.customerName, notes: input.notes, type: input.type, version: { increment: 1 } } });
+  await prisma.order.update({ where: { id: orderId }, data: { covers: input.covers, customerName: input.customerName, customerPhone: input.customerPhone, pickupAt: input.pickupAt === undefined ? undefined : input.pickupAt ? new Date(input.pickupAt) : null, notes: input.notes, type: input.type, version: { increment: 1 } } });
   publish("order.updated", actor.establishmentId, { orderId, tableId: order.tableId });
   return getOrder(actor.establishmentId, orderId);
 }
@@ -509,6 +510,8 @@ export async function transferTable(actor: Actor, orderId: string, tableId: stri
   return getOrder(actor.establishmentId, orderId);
 }
 
+const PAY_FIRST_TYPES: OrderType[] = ["COUNTER", "TAKEAWAY", "ONLINE", "DELIVERY", "KIOSK"];
+
 /** Clôture technique (appelée par le paiement lorsque le solde est atteint). */
 export async function closeOrderIfPaid(tx: Tx, establishmentId: string, orderId: string) {
   const order = await tx.order.findUniqueOrThrow({ where: { id: orderId } });
@@ -524,8 +527,12 @@ export async function closeOrderIfPaid(tx: Tx, establishmentId: string, orderId:
     await consumeForItems(tx, establishmentId, neverSent, -1, orderId, null);
     await tx.orderItem.updateMany({ where: { id: { in: neverSent.map((i) => i.id) } }, data: { status: "SERVED", servedAt: new Date() } });
   }
-  await tx.orderItem.updateMany({ where: { orderId, status: { in: ["SENT", "PREPARING", "READY"] } }, data: { status: "SERVED", servedAt: new Date() } });
-  await tx.kitchenTicket.updateMany({ where: { orderId, status: { in: ["NEW", "ACCEPTED", "IN_PROGRESS", "READY"] } }, data: { status: "DONE", completedAt: new Date() } });
+  // Sur place : l'addition clôt le service. Comptoir, à emporter, en ligne, borne : souvent payés AVANT la préparation,
+  // la cuisine garde ses tickets et la commande suit son cours (prête puis remise, écran « À emporter »)
+  if (!PAY_FIRST_TYPES.includes(order.type)) {
+    await tx.orderItem.updateMany({ where: { orderId, status: { in: ["SENT", "PREPARING", "READY"] } }, data: { status: "SERVED", servedAt: new Date() } });
+    await tx.kitchenTicket.updateMany({ where: { orderId, status: { in: ["NEW", "ACCEPTED", "IN_PROGRESS", "READY"] } }, data: { status: "DONE", completedAt: new Date() } });
+  }
   if (order.tableId) await tx.table.update({ where: { id: order.tableId }, data: { state: settings.markTablesToClean ? "TO_CLEAN" : "FREE" } });
   await onOrderClosed(tx, orderId);
   return closed;
