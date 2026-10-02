@@ -17,7 +17,7 @@ export const POST = route(async () => {
   const meta = await requestMeta();
   // Session « caisse » de 12 h : un PIN deviné sur une tablette volée ne donne jamais accès à la gestion
   const ttlMs = 12 * 3600_000;
-  const { token: sessionToken } = await createSession({ userId: pass.userId, establishmentId: pass.establishmentId, terminalId: terminal.id, ...meta, ttlMs, scope: "pos" });
+  const { token: sessionToken } = await createSession({ userId: pass.userId, establishmentId: pass.establishmentId, terminalId: terminal.id, ...meta, ttlMs, scope: "pos", via: "offline" });
   await setSessionCookie(sessionToken, ttlMs);
   return ok({ id: pass.userId });
 });

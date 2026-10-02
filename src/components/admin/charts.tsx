@@ -84,7 +84,7 @@ export function Delta({ value, suffix = "vs J-7", upIsGood = true, light = false
 
 /** Tuile statistique : icône teintée, libellé, valeur en chiffres proportionnels, écart ou indication. */
 /** Vignette d'indicateur ; avec onClick, elle devient un bouton qui ouvre le détail. */
-export function Stat({ label, value, delta, hint, accent = "#14aaa3", icon, upIsGood = true, onClick }: { label: string; value: ReactNode; delta?: number | null; hint?: string; accent?: string; icon?: ReactNode; upIsGood?: boolean; onClick?: () => void }) {
+export function Stat({ label, value, delta, deltaSuffix, hint, accent = "#14aaa3", icon, upIsGood = true, onClick }: { label: string; value: ReactNode; delta?: number | null; deltaSuffix?: string; hint?: string; accent?: string; icon?: ReactNode; upIsGood?: boolean; onClick?: () => void }) {
   const body = (
     <>
       <div className="flex items-start justify-between gap-2">
@@ -93,7 +93,7 @@ export function Stat({ label, value, delta, hint, accent = "#14aaa3", icon, upIs
       </div>
       <p className="mt-1 text-2xl font-extrabold tracking-tight">{value}</p>
       <div className="mt-1 flex min-h-5 items-end justify-between gap-2 text-xs text-muted">
-        <span>{delta !== undefined && delta !== null ? <Delta value={delta} upIsGood={upIsGood} /> : hint}</span>
+        <span>{delta !== undefined && delta !== null ? <Delta value={delta} upIsGood={upIsGood} suffix={deltaSuffix} /> : hint}</span>
         {onClick ? <span aria-hidden className="shrink-0 font-bold transition group-hover:translate-x-0.5" style={{ color: accent }}>Détail ›</span> : null}
       </div>
     </>

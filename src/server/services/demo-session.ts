@@ -40,7 +40,7 @@ export async function openDemoSession() {
   const demo = await demoOwner();
   if (mine?.userId === demo.id) return { returnTo: !!(await findReturnSession()) }; // déjà dans le restaurant exemple
   const meta = await requestMeta();
-  const { token } = await createSession({ userId: demo.id, establishmentId: demo.establishmentId, ttlMs: DEMO_TTL, ...meta });
+  const { token } = await createSession({ userId: demo.id, establishmentId: demo.establishmentId, ttlMs: DEMO_TTL, ...meta, via: "demo" });
   const store = await cookies();
   if (mine && current) {
     // Sa session reste valide côté serveur ; le cookie expire avec elle

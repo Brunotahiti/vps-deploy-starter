@@ -10,7 +10,7 @@ export const POST = route<{ token: string }>(async (req, { params }) => {
   const body = await parseBody(req, acceptInviteSchema);
   const { user, establishmentId } = await acceptInvitation(params.token, body);
   const meta = await requestMeta();
-  const { token } = await createSession({ userId: user.id, establishmentId, ...meta });
+  const { token } = await createSession({ userId: user.id, establishmentId, ...meta, via: "invite" });
   await setSessionCookie(token);
   return ok({ id: user.id, email: user.email });
 });
