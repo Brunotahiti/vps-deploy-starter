@@ -101,3 +101,36 @@ export const isBusinessType = (k: string): k is BusinessType => k in BUSINESS_TY
 export function businessTypeSettings(type: BusinessType): Record<string, unknown> {
   return type === "restaurant" ? {} : { service: { enabled: false } };
 }
+
+/**
+ * Services ponctuels (facturés une fois) : demandés depuis Gestion → Options, réalisés par l'équipe ManaResto.
+ * Ils réutilisent les demandes et les prix des options sous la clé « service:<clé> » (prix unique, pas mensuel).
+ */
+export const SERVICES = {
+  menu_setup: {
+    label: "Saisie de votre carte",
+    tagline: "Nous saisissons votre carte pour vous",
+    includes: ["Plats, prix, catégories et taux de TVA", "Options et suppléments (cuissons, sauces, formules)", "Photos fournies par vous mises en place", "Vous relisez, nous corrigeons"],
+  },
+  onsite_setup: {
+    label: "Mise en place",
+    tagline: "Tout est prêt avant votre premier service",
+    includes: ["Installation des tablettes, imprimantes et tiroir-caisse", "Plan de salle, profils de l'équipe et codes PIN", "Réglage des tickets et de l'écran cuisine", "Un service d'essai complet ensemble"],
+  },
+  training: {
+    label: "Formation de l'équipe",
+    tagline: "Votre équipe à l'aise dès le premier jour",
+    includes: ["Prise de commande, envoi en cuisine, encaissement", "Ouverture et clôture de caisse", "Réservations et vente à emporter", "Réponses à vos questions, au rythme de votre équipe"],
+  },
+  hardware_pack: {
+    label: "Pack matériel",
+    tagline: "Le matériel adapté, configuré et testé",
+    includes: ["Choisi avec vous selon votre activité (tablette, imprimante tickets, tiroir-caisse)", "Configuré et relié à ManaResto avant la livraison", "Testé avec votre carte"],
+  },
+} as const satisfies Record<string, { label: string; tagline: string; includes: readonly string[] }>;
+export type ServiceKey = keyof typeof SERVICES;
+export const SERVICE_KEYS = Object.keys(SERVICES) as ServiceKey[];
+export const isServiceKey = (k: string): k is ServiceKey => k in SERVICES;
+/** Clé de demande / de prix d'un service ponctuel */
+export const serviceRef = (k: ServiceKey) => `service:${k}`;
+export const serviceOf = (ref: string): ServiceKey | null => (ref.startsWith("service:") && isServiceKey(ref.slice(8)) ? (ref.slice(8) as ServiceKey) : null);

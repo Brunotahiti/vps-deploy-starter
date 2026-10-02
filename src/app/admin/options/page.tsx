@@ -1,10 +1,13 @@
 "use client";
 
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { BarChart3, BookUser, Boxes, Megaphone, Tv, BrainCircuit, CheckCircle2, Clock, Globe2, Rocket, ShieldCheck, Sparkles, ThermometerSnowflake, UsersRound, Wallet } from "lucide-react";
+import { BarChart3, BookOpen, BookUser, Boxes, GraduationCap, Megaphone, Printer, Tv, Wrench, BrainCircuit, CheckCircle2, Clock, Globe2, Rocket, ShieldCheck, Sparkles, ThermometerSnowflake, UsersRound, Wallet } from "lucide-react";
 import { api } from "@/lib/api-client";
 import { PageHeader, useAction } from "@/components/admin/common";
 import { Button } from "@/components/ui/button";
+import { Modal } from "@/components/ui/modal";
+import { Textarea } from "@/components/ui/field";
 import { Spinner } from "@/components/ui/misc";
 import { formatDate } from "@/lib/dates";
 import type { OptionKey } from "@/lib/options";
@@ -69,6 +72,55 @@ export default function OptionsPage() {
         </div>
       )}
       <p className="mt-5 text-center text-xs text-muted">« Débloquer » envoie une demande à l&apos;équipe ManaResto : nous vous recontactons pour l&apos;activer.</p>
+      <Services />
     </div>
+  );
+}
+
+type Service = { key: string; label: string; tagline: string; includes: string[]; price: number | null; requestedAt: string | null; doneAt: string | null };
+const SERVICE_ICON: Record<string, typeof Boxes> = { menu_setup: BookOpen, onsite_setup: Wrench, training: GraduationCap, hardware_pack: Printer };
+
+/** Services ponctuels (facturés une fois) : demandés ici, réalisés par l'équipe ManaResto. */
+function Services() {
+  const act = useAction();
+  const q = useQuery({ queryKey: ["services"], queryFn: () => api.get<Service[]>("/api/options/services") });
+  const [asking, setAsking] = useState<Service | null>(null);
+  const [note, setNote] = useState("");
+  const send = async () => {
+    if (!asking) return;
+    const r = await act(() => api.post("/api/options/services/request", { service: asking.key, note: note || null }), { success: "Demande envoyée : l'équipe ManaResto vous recontacte rapidement", invalidate: [["services"]] });
+    if (r) { setAsking(null); setNote(""); }
+  };
+  if (!q.data?.length) return null;
+  return (
+    <section className="mt-8" data-testid="services">
+      <h2 className="text-xl font-extrabold tracking-tight">Services ponctuels</h2>
+      <p className="mb-4 text-sm text-muted">Un coup de main de l&apos;équipe ManaResto pour démarrer sereinement, facturé une seule fois.</p>
+      <div className="grid gap-4 md:grid-cols-2">
+        {q.data.map((sv) => {
+          const I = SERVICE_ICON[sv.key] ?? Sparkles;
+          return (
+            <article key={sv.key} className="card flex flex-col p-5" data-testid={`service-${sv.key}`}>
+              <div className="flex items-start gap-3">
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-400 to-orange-600 text-white shadow-lift"><I className="h-5 w-5" /></span>
+                <div className="min-w-0 flex-1"><h3 className="text-base font-extrabold">{sv.label}</h3><p className="text-sm text-muted">{sv.tagline}</p></div>
+              </div>
+              <ul className="mt-3 flex-1 space-y-1 text-sm">{sv.includes.map((i) => <li key={i} className="flex items-start gap-2"><CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-green-600" />{i}</li>)}</ul>
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-3">
+                <span className="text-sm font-bold">{sv.price !== null ? `${sv.price.toLocaleString("fr-FR").replace(/ /g, " ")} F CFP (une fois)` : <span className="text-muted">Prix sur demande</span>}</span>
+                {sv.requestedAt ? <span className="inline-flex items-center gap-1.5 rounded-full bg-orange-500/10 px-3 py-1.5 text-xs font-bold text-orange-700 dark:text-orange-300"><Clock className="h-4 w-4" />Demandé le {formatDate(sv.requestedAt, "Pacific/Tahiti")}</span>
+                  : <Button variant="secondary" onClick={() => setAsking(sv)}>{sv.doneAt ? "Redemander" : "Demander"}</Button>}
+              </div>
+            </article>
+          );
+        })}
+      </div>
+      {asking ? (
+        <Modal open onClose={() => setAsking(null)} size="sm" title={asking.label} footer={<Button size="lg" className="w-full" onClick={send} data-testid="service-send">Envoyer la demande</Button>}>
+          <p className="mb-3 text-sm text-muted">L&apos;équipe ManaResto vous recontacte pour convenir du jour et des détails.</p>
+          <Textarea rows={3} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Précisions utiles : nombre de plats, de tablettes, d'employés, vos disponibilités…" aria-label="Précisions" />
+        </Modal>
+      ) : null}
+    </section>
   );
 }

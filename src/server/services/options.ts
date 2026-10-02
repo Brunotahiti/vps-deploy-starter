@@ -2,7 +2,7 @@ import { prisma } from "@/server/db";
 import { ApiError } from "@/server/errors";
 import { audit } from "@/server/audit";
 import { isEmailConfigured, platformMail, sendMail } from "@/server/email/mailer";
-import { OPTIONS, OPTION_KEYS, isOptionKey, type OptionKey } from "@/lib/options";
+import { OPTIONS, OPTION_KEYS, SERVICES, SERVICE_KEYS, isOptionKey, isServiceKey, serviceOf, serviceRef, type OptionKey } from "@/lib/options";
 import { OFFER } from "@/lib/plan";
 import { DEMO_ORG_SLUG } from "@/lib/platform";
 import { consoleUrl, teamRecipients } from "./platform-emails";
@@ -18,7 +18,53 @@ const fmt = (n: number) => `${n.toLocaleString("fr-FR").replace(/ /g, " ")} F CF
 
 export async function optionPrices(): Promise<Record<string, number | null>> {
   const rows = await prisma.optionPrice.findMany();
-  return Object.fromEntries(OPTION_KEYS.map((k) => [k, rows.find((r) => r.option === k)?.monthly ?? null]));
+  // Options : prix mensuel ; services ponctuels (« service:… ») : prix unique
+  return Object.fromEntries([...OPTION_KEYS, ...SERVICE_KEYS.map(serviceRef)].map((k) => [k, rows.find((r) => r.option === k)?.monthly ?? null]));
+}
+
+/** Services ponctuels pour l'écran Options : prix unique (ou « sur demande »), demande en cours, dernière réalisation. */
+export async function listServices(organizationId: string) {
+  const [prices, requests] = await Promise.all([
+    optionPrices(),
+    prisma.optionRequest.findMany({ where: { organizationId, option: { startsWith: "service:" } }, orderBy: { createdAt: "desc" }, select: { option: true, status: true, createdAt: true, handledAt: true } }),
+  ]);
+  return SERVICE_KEYS.map((key) => ({
+    key, ...SERVICES[key],
+    price: prices[serviceRef(key)],
+    requestedAt: requests.find((r) => r.option === serviceRef(key) && r.status === "PENDING")?.createdAt ?? null,
+    doneAt: requests.find((r) => r.option === serviceRef(key) && r.status === "DONE")?.handledAt ?? null,
+  }));
+}
+
+/** Demande d'un service ponctuel : notée (une seule en attente par service) et signalée à l'équipe ManaResto. */
+export async function requestService(actor: Actor, key: string, note?: string | null) {
+  if (!isServiceKey(key)) throw new ApiError(400, "BAD_SERVICE", "Service inconnu");
+  const org = await prisma.organization.findUniqueOrThrow({ where: { id: actor.organizationId }, select: { name: true, slug: true } });
+  if (org.slug === DEMO_ORG_SLUG) throw new ApiError(403, "DEMO_READ_ONLY", "Sur le restaurant exemple, les services ne se demandent pas : créez votre compte");
+  const ref = serviceRef(key);
+  const existing = await prisma.optionRequest.findFirst({ where: { organizationId: actor.organizationId, option: ref, status: "PENDING" } });
+  if (existing) return existing;
+  const req = await prisma.optionRequest.create({ data: { organizationId: actor.organizationId, option: ref, requestedById: actor.userId } });
+  await audit({ ...actor, action: "service.request", entityType: "organization", entityId: actor.organizationId, newValue: { service: key, note: note?.trim() || null } });
+  if (isEmailConfigured()) {
+    const who = await prisma.user.findUnique({ where: { id: actor.userId }, select: { firstName: true, lastName: true, email: true } });
+    await sendMail(platformMail({
+      to: teamRecipients(), replyTo: who?.email ?? OFFER.contactEmail, subject: `Demande de service : ${SERVICES[key].label} · ${org.name}`,
+      kicker: "ManaResto · console", title: `${org.name} demande « ${SERVICES[key].label} »`,
+      paragraphs: [`Demande faite par ${who ? `${who.firstName} ${who.lastName} (${who.email})` : "le restaurant"}.`, ...(note?.trim() ? [`Précisions : ${note.trim()}`] : []), "Recontactez le restaurant pour convenir des détails, puis marquez la demande comme traitée dans la console."],
+      cta: { label: "Ouvrir la console", url: consoleUrl() }, footer: "Message automatique de ManaResto.",
+    })).catch(() => {});
+  }
+  return req;
+}
+
+/** Console : demande de service traitée (réalisée) ou refusée. Les options, elles, se closent en les activant. */
+export async function handleServiceRequest(id: string, status: "DONE" | "DECLINED", admin: { id: string; email: string }) {
+  const r = await prisma.optionRequest.findUnique({ where: { id } });
+  if (!r || !serviceOf(r.option)) throw new ApiError(404, "NOT_FOUND", "Demande de service introuvable");
+  const upd = await prisma.optionRequest.update({ where: { id }, data: { status, handledAt: new Date() } });
+  await audit({ organizationId: r.organizationId, action: "platform.service", entityType: "organization", entityId: r.organizationId, newValue: { service: r.option, status }, reason: `Console ManaResto (${admin.email})` });
+  return upd;
 }
 
 /** Les quatre options pour l'écran Options : actives, demandées ou à débloquer, avec leur prix (ou « sur demande »). */
@@ -85,14 +131,17 @@ export async function setOrganizationOptions(organizationId: string, options: st
 
 /** Console : prix mensuel d'une option (null = « sur demande »). */
 export async function setOptionPrice(key: string, monthly: number | null, admin: { id: string; email: string }) {
-  if (!isOptionKey(key)) throw new ApiError(400, "BAD_OPTION", "Option inconnue");
+  if (!isOptionKey(key) && !serviceOf(key)) throw new ApiError(400, "BAD_OPTION", "Option inconnue");
   await prisma.optionPrice.upsert({ where: { option: key }, create: { option: key, monthly }, update: { monthly } });
   console.info(`[options] prix de « ${key} » réglé par ${admin.email} : ${monthly ?? "sur demande"}`);
-  return { key, monthly, label: monthly === null ? "sur demande" : `${fmt(monthly)} / mois` };
+  return { key, monthly, label: monthly === null ? "sur demande" : serviceOf(key) ? `${fmt(monthly)} (prix unique)` : `${fmt(monthly)} / mois` };
 }
 
 /** Console : demandes en attente, tous restaurants confondus */
 export async function pendingOptionRequests() {
   const rows = await prisma.optionRequest.findMany({ where: { status: "PENDING" }, orderBy: { createdAt: "asc" }, include: { organization: { select: { id: true, name: true } } } });
-  return rows.map((r) => ({ id: r.id, organizationId: r.organization.id, organizationName: r.organization.name, option: r.option, label: isOptionKey(r.option) ? OPTIONS[r.option].label : r.option, createdAt: r.createdAt }));
+  return rows.map((r) => {
+    const service = serviceOf(r.option);
+    return { id: r.id, organizationId: r.organization.id, organizationName: r.organization.name, option: r.option, kind: service ? "service" as const : "option" as const, label: isOptionKey(r.option) ? OPTIONS[r.option].label : service ? `Service : ${SERVICES[service].label}` : r.option, createdAt: r.createdAt };
+  });
 }
