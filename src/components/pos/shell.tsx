@@ -96,9 +96,6 @@ export function PosShell({ children }: { children: React.ReactNode }) {
             </Link>
           ))}
           <TodoButton count={dueCount} late={lateAny} onClick={() => setTodo(true)} />
-          {/* Boutons explicites : couleur du portail Cuisine et libellé visible */}
-          {can("kds.use") ? <Link href="/kds" className="touch flex h-10 items-center gap-2 rounded-xl bg-gradient-to-br from-corail-400 to-corail-600 px-3.5 text-sm font-bold text-white shadow-[0_8px_20px_-10px_rgb(240_110_70/0.9)] transition hover:brightness-105 active:scale-95" title="Écran cuisine : tickets, plats à préparer"><ChefHat className="h-4 w-4" /><span>Cuisine</span></Link> : null}
-          {can("reports.view") || can("catalog.manage") ? <Link href="/admin" className="touch flex h-10 items-center gap-2 rounded-xl border border-line surface px-3.5 text-sm font-bold text-[var(--text)] shadow-soft transition hover:surface-2 active:scale-95" title="Gestion : carte, rapports, équipe, réglages"><Settings className="h-4 w-4" /><span>Gestion</span></Link> : null}
         </nav>
         {/* Téléphone : nom de l'écran, état réseau, bouton menu */}
         <span className="ml-1 truncate text-base font-extrabold sm:hidden">{pathname.startsWith("/pos/order/") ? "Commande" : (nav.find((n) => isActive(n.href))?.label ?? "")}</span>
@@ -128,8 +125,8 @@ export function PosShell({ children }: { children: React.ReactNode }) {
       </header>
       <InstallBanner className="mx-2 mt-2 lg:hidden" />
       <main className="relative min-h-0 flex-1 overflow-y-auto">{children}</main>
-      {/* Téléphone / tablette : les portails Salle, Caisse et Cuisine restent visibles sur toutes les pages */}
-      <PortalButtons variant="dock" className="lg:hidden" />
+      {/* Les quatre portails, toujours visibles sous la page */}
+      <PortalButtons />
 
       {/* Tiroir de navigation : glisse depuis la gauche (bouton menu sur téléphone, logo sur tous les écrans) */}
       <div className={`fixed inset-0 z-[60] ${menu ? "" : "pointer-events-none"}`} aria-hidden={!menu}>

@@ -172,7 +172,7 @@ export function KdsScreen() {
           {list.map((t) => <TicketCard key={t.id} ticket={t} now={now} onStatus={(status) => setStatus.mutate({ id: t.id, status })} onItem={(itemId, ready) => setItem.mutate({ id: t.id, itemId, ready })} busy={setStatus.isPending && setStatus.variables?.id === t.id} />)}
         </div>
       </main>
-      <PortalButtons variant="dock" className="lg:hidden" />
+      <PortalButtons />
     </div>
   );
 }
