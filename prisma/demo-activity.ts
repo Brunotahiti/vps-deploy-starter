@@ -471,8 +471,11 @@ async function refreshToday(prisma: PrismaClient, ctx: DemoCtx, today: string) {
   await writePendingChannel(prisma, ctx, today, seq++, "DELIVERY", r, false, { channel: "DELIVERY", name: "Vaimiti Pambrun", when: "Dès que possible", address: "PK 15,8 côté montagne, portail vert", zone: "Punaauia", deliveryFee: ctx.deliveryFee, lang: "fr" }, used);
   await writePendingChannel(prisma, ctx, today, seq++, "KIOSK", r, true, { channel: "KIOSK", name: "Moe", mode: "TAKEAWAY", payAtCounter: true, lang: "en" }, used);
   // Les commandes des visiteurs prennent leurs numéros après ceux réservés à la démo
+  // (et jamais avant un numéro déjà pris : sinon la prochaine commande d'un visiteur échouerait sur un doublon)
   const counter = await prisma.orderCounter.findUnique({ where: { establishmentId_day: { establishmentId: ctx.estId, day: today } } });
-  await prisma.orderCounter.upsert({ where: { establishmentId_day: { establishmentId: ctx.estId, day: today } }, update: { value: Math.max(FIRST_FREE_NUMBER, counter?.value ?? 0) }, create: { establishmentId: ctx.estId, day: today, value: FIRST_FREE_NUMBER } });
+  const highest = Math.max(0, ...[...used].map((n) => Number(n.split("-")[1]) || 0));
+  const value = Math.max(FIRST_FREE_NUMBER, counter?.value ?? 0, highest);
+  await prisma.orderCounter.upsert({ where: { establishmentId_day: { establishmentId: ctx.estId, day: today } }, update: { value }, create: { establishmentId: ctx.estId, day: today, value } });
 
   // Parcours de service et rappels des tables en cours (un rappel en retard pour l'exemple)
   const { startTracking, onTicketReady } = await import("../src/server/services/service-tracking");
