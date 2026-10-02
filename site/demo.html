@@ -19,7 +19,7 @@
   <meta name="twitter:title" content="Voir ManaResto en direct, comme si c'était votre restaurant">
   <meta name="twitter:description" content="Plan de salle, commandes, cuisine, caisse et statistiques d'un restaurant exemple. Sans inscription.">
   <meta name="twitter:image" content="https://www.manaresto.com/assets/img/og.png">
-  <meta http-equiv="refresh" content="3;url=https://app.manaresto.com/login?demo=1">
+  <meta http-equiv="refresh" content="3;url=https://app.manaresto.com/demo">
   <link rel="icon" href="assets/img/logo.png" type="image/png">
   <link rel="apple-touch-icon" href="assets/icon-192.png">
   <style>
@@ -40,13 +40,13 @@
     <h1>Ouverture du restaurant exemple…</h1>
     <p>Découvrez ManaResto comme si c'était votre restaurant.</p>
     <div class="dots" aria-hidden="true"><i></i><i></i><i></i></div>
-    <p style="margin-top:22px;font-size:.85rem"><a id="go" href="https://app.manaresto.com/login?demo=1">Ouvrir maintenant</a></p>
+    <p style="margin-top:22px;font-size:.85rem"><a id="go" href="https://app.manaresto.com/demo">Ouvrir maintenant</a></p>
   </main>
   <script src="config.js?v=dev"></script>
   <script>
     (function () {
       var app = (window.MANARESTO_CONFIG && window.MANARESTO_CONFIG.app) || "https://app.manaresto.com";
-      var url = app + "/login?demo=1";
+      var url = app + "/demo";
       document.getElementById("go").href = url;
       try { window.dataLayer = window.dataLayer || []; window.dataLayer.push({ event: "demo_link" }); } catch (e) { /* sans importance */ }
       location.replace(url);
