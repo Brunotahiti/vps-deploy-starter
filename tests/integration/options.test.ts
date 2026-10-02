@@ -4,7 +4,7 @@ import { makeTenant } from "../setup/fixtures";
 import { prisma } from "@/server/db";
 import { lockedPermissions, OPTION_KEYS, businessTypeSettings } from "@/lib/options";
 import { requireOption } from "@/server/auth/context";
-import { listOptions, pendingOptionRequests, requestOption, setOptionPrice, setOrganizationOptions } from "@/server/services/options";
+import { handleServiceRequest, listOptions, listServices, pendingOptionRequests, requestOption, requestService, setOptionPrice, setOrganizationOptions } from "@/server/services/options";
 import { assertDigitalOption, createOnlineOrder, restaurantSite, tableMenu } from "@/server/services/public";
 import { DEMO_ORG_SLUG } from "@/lib/platform";
 
@@ -54,10 +54,30 @@ describe("programme de base et options payantes", () => {
     await setOrganizationOptions(base.org.id, [], admin);
   });
 
+  it("services ponctuels : demande (une seule en attente), prix unique, traité par la console", async () => {
+    await setOptionPrice("service:menu_setup", 15000, admin);
+    let list = await listServices(base.org.id);
+    expect(list.map((x) => x.key)).toEqual(["menu_setup", "onsite_setup", "training", "hardware_pack"]);
+    expect(list.find((x) => x.key === "menu_setup")).toMatchObject({ price: 15000, requestedAt: null, doneAt: null });
+    expect(list.find((x) => x.key === "training")!.price).toBeNull(); // « sur demande »
+    await expect(requestService(base.managerActor, "inconnu")).rejects.toMatchObject({ status: 400 });
+    const r1 = await requestService(base.managerActor, "menu_setup", "Environ 60 plats, photos fournies");
+    expect((await requestService(base.managerActor, "menu_setup")).id).toBe(r1.id);
+    const pending = (await pendingOptionRequests()).find((p) => p.id === r1.id)!;
+    expect(pending).toMatchObject({ kind: "service", label: "Service : Saisie de votre carte" });
+    await expect(handleServiceRequest((await pendingOptionRequests()).find((p) => p.kind === "option")?.id ?? "00000000-0000-4000-8000-000000000001", "DONE", admin)).rejects.toMatchObject({ status: 404 });
+    await handleServiceRequest(r1.id, "DONE", admin);
+    list = await listServices(base.org.id);
+    expect(list.find((x) => x.key === "menu_setup")!.requestedAt).toBeNull();
+    expect(list.find((x) => x.key === "menu_setup")!.doneAt).not.toBeNull();
+    expect((await pendingOptionRequests()).some((p) => p.id === r1.id)).toBe(false);
+  });
+
   it("le restaurant exemple ne fait pas de demande (tout y est déjà ouvert)", async () => {
     const demo = await makeTenant("opt-demo");
     await prisma.organization.update({ where: { id: demo.org.id }, data: { slug: DEMO_ORG_SLUG, options: [] } });
     await expect(requestOption(demo.managerActor, "team")).rejects.toMatchObject({ status: 403 });
+    await expect(requestService(demo.managerActor, "training")).rejects.toMatchObject({ status: 403 });
     await prisma.organization.update({ where: { id: demo.org.id }, data: { slug: "opt-demo-x" } });
   });
 

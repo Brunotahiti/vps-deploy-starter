@@ -8,11 +8,11 @@ import { useAction } from "@/components/admin/common";
 import { Button } from "@/components/ui/button";
 import { Input, Toggle } from "@/components/ui/field";
 import { Badge } from "@/components/ui/misc";
-import { OPTIONS, OPTION_KEYS, type OptionKey } from "@/lib/options";
+import { OPTIONS, OPTION_KEYS, SERVICES, SERVICE_KEYS, serviceRef, type OptionKey } from "@/lib/options";
 import { formatDateTime } from "@/lib/dates";
 
 const TZ = "Pacific/Tahiti";
-type Pending = { id: string; organizationId: string; organizationName: string; option: string; label: string; createdAt: string };
+type Pending = { id: string; organizationId: string; organizationName: string; option: string; kind: "option" | "service"; label: string; createdAt: string };
 
 /** Console : demandes d'options en attente et prix mensuels (vide = « sur demande » pour le restaurateur). */
 export function OptionsPanel({ onOpen }: { onOpen: (organizationId: string) => void }) {
@@ -20,7 +20,8 @@ export function OptionsPanel({ onOpen }: { onOpen: (organizationId: string) => v
   const q = useQuery({ queryKey: ["platform-options"], queryFn: () => api.get<{ prices: Record<string, number | null>; requests: Pending[] }>("/api/platform/options") });
   const [draft, setDraft] = useState<Record<string, string>>({});
   if (!q.data) return null;
-  const save = (k: OptionKey) => {
+  const handle = (r: Pending, status: "DONE" | "DECLINED") => act(() => api.patch(`/api/platform/option-requests/${r.id}`, { status }), { success: status === "DONE" ? "Service marqué comme réalisé" : "Demande refusée", invalidate: [["platform-options"]] });
+  const save = (k: string) => {
     const raw = (draft[k] ?? "").replace(/\s/g, "");
     const monthly = raw === "" ? null : Number(raw);
     if (monthly !== null && (!Number.isInteger(monthly) || monthly < 0)) return;
@@ -37,7 +38,10 @@ export function OptionsPanel({ onOpen }: { onOpen: (organizationId: string) => v
               {q.data.requests.map((r) => (
                 <li key={r.id} className="flex items-center justify-between gap-3 px-3 py-2 text-sm">
                   <span><b>{r.organizationName}</b> · {r.label}<span className="block text-xs text-muted">{formatDateTime(r.createdAt, TZ)} (heure de Tahiti)</span></span>
-                  <Button size="sm" variant="secondary" onClick={() => onOpen(r.organizationId)}>Ouvrir la fiche</Button>
+                  <span className="flex shrink-0 gap-1.5">
+                    {r.kind === "service" ? <><Button size="sm" onClick={() => handle(r, "DONE")}>Réalisé</Button><Button size="sm" variant="ghost" onClick={() => handle(r, "DECLINED")}>Refuser</Button></> : null}
+                    <Button size="sm" variant="secondary" onClick={() => onOpen(r.organizationId)}>Ouvrir la fiche</Button>
+                  </span>
                 </li>
               ))}
             </ul>
@@ -53,6 +57,16 @@ export function OptionsPanel({ onOpen }: { onOpen: (organizationId: string) => v
                 <Button size="sm" variant="secondary" onClick={() => save(k)}>OK</Button>
               </li>
             ))}
+          </ul>
+          <h3 className="mb-2 mt-4 text-sm font-bold">Services ponctuels : prix unique (F CFP)</h3>
+          <ul className="space-y-2">
+            {SERVICE_KEYS.map((k) => { const ref = serviceRef(k); return (
+              <li key={k} className="flex items-center gap-2 text-sm">
+                <span className="w-36 shrink-0 font-semibold">{SERVICES[k].label}</span>
+                <Input inputMode="numeric" className="h-9" placeholder="sur demande" value={draft[ref] ?? (q.data.prices[ref]?.toString() ?? "")} onChange={(e) => setDraft({ ...draft, [ref]: e.target.value })} aria-label={`Prix du service ${SERVICES[k].label}`} />
+                <Button size="sm" variant="secondary" onClick={() => save(ref)}>OK</Button>
+              </li>
+            ); })}
           </ul>
           <p className="mt-2 text-xs text-muted">Laissez vide pour afficher « sur demande » au restaurateur.</p>
         </div>

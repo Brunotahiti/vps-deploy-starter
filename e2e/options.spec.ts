@@ -64,6 +64,12 @@ test("snack : programme de base épuré, demande d'option, activation par la con
   await expect(stock).toContainText("Stock et recettes");
   await stock.getByRole("button", { name: "Débloquer" }).click();
   await expect(stock).toContainText("Demande envoyée");
+  // Service ponctuel : formation de l'équipe, avec des précisions
+  const training = page.getByTestId("service-training");
+  await training.getByRole("button", { name: "Demander" }).click();
+  await page.getByLabel("Précisions").fill("3 serveurs, le lundi matin");
+  await page.getByTestId("service-send").click();
+  await expect(training).toContainText("Demandé le");
   await page.screenshot({ path: test.info().outputPath("options.png"), fullPage: true });
 
   // Console ManaResto : la demande apparaît, l'option est activée depuis la fiche du restaurant
@@ -72,11 +78,17 @@ test("snack : programme de base épuré, demande d'option, activation par la con
   await admin.request.post("/api/auth/login", { data: { email: "demo@manaresto.pf", password: "demo1234" } });
   await admin.goto("/platform");
   const panel = admin.getByTestId("platform-options");
-  const row = panel.getByRole("listitem").filter({ hasText: `Roulotte ${stamp}` });
-  await expect(row).toContainText("Stock et recettes");
+  const rows = panel.getByRole("listitem").filter({ hasText: `Roulotte ${stamp}` });
+  const row = rows.filter({ hasText: "Stock et recettes" });
+  await expect(row).toBeVisible();
   await row.getByRole("button", { name: "Ouvrir la fiche" }).click();
   await admin.getByTestId("org-options").getByRole("switch", { name: "Option Stock et recettes" }).click();
-  await expect(panel.getByRole("listitem").filter({ hasText: `Roulotte ${stamp}` })).toHaveCount(0);
+  await expect(rows.filter({ hasText: "Stock et recettes" })).toHaveCount(0);
+  // Le service demandé reste en attente jusqu'à sa réalisation (retour à l'accueil de la console)
+  await admin.goto("/platform");
+  const service = rows.filter({ hasText: "Service : Formation de l'équipe" });
+  await service.getByRole("button", { name: "Réalisé" }).click();
+  await expect(rows).toHaveCount(0);
   await ctx.close();
 
   // Chez le restaurateur : l'option est active et son menu apparaît
