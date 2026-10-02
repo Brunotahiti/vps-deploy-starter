@@ -33,6 +33,8 @@ section "Conteneurs qui redémarrent en boucle"
 docker ps -a --format '{{.Names}}' 2>/dev/null | while read -r c; do
   n=$(docker inspect -f '{{.RestartCount}}' "$c" 2>/dev/null || echo 0)
   [ "${n:-0}" -gt 0 ] && echo "$c : $n redémarrages"
+  # Coupé par Docker faute de mémoire : augmenter sa limite (…_MEM_LIMIT) et le réglage associé dans .env
+  [ "$(docker inspect -f '{{.State.OOMKilled}}' "$c" 2>/dev/null)" = "true" ] && echo "$c : coupé faute de mémoire (limite atteinte, voir « Limites de mémoire » dans docs/DEPLOIEMENT.md)"
 done
 echo "(rien au-dessus = tout va bien)"
 
