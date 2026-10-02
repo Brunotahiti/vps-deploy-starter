@@ -82,45 +82,50 @@ model Establishment {
   createdAt        DateTime @default(now()) @map("created_at")
   updatedAt        DateTime @updatedAt @map("updated_at")
 
-  organization       Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  memberships        UserEstablishment[]
-  terminals          Terminal[]
-  offlinePinKeys     OfflinePinKey[]
-  offlinePasses      OfflinePass[]
-  boxes              LocalBox[]
-  rooms              Room[]
-  tables             Table[]
-  categories         Category[]
-  products           Product[]
-  modifierGroups     ModifierGroup[]
-  menus              Menu[]
-  taxRates           TaxRate[]
-  kitchenStations    KitchenStation[]
-  printers           Printer[]
-  apiKeys            ApiKey[]
-  webhooks           Webhook[]
-  serviceSteps       TableServiceStep[]
-  serviceReminders   ServiceReminder[]
-  uploads            Upload[]
-  paymentMethods     PaymentMethodConfig[]
-  orders             Order[]
-  payments           Payment[]
-  cashSessions       CashSession[]
-  ingredients        Ingredient[]
-  inventoryMovements InventoryMovement[]
-  suppliers          Supplier[]
-  purchaseOrders     PurchaseOrder[]
-  employees          Employee[]
-  shifts             Shift[]
-  timeEntries        TimeEntry[]
-  reservations       Reservation[]
-  loyaltyAccounts    LoyaltyAccount[]
-  auditLogs          AuditLog[]
-  idempotencyKeys    IdempotencyKey[]
-  orderCounters      OrderCounter[]
-  customerAccounts   CustomerAccount[]
-  accountInvoices    AccountInvoice[]
-  accountSettlements AccountSettlement[]
+  organization        Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  memberships         UserEstablishment[]
+  terminals           Terminal[]
+  offlinePinKeys      OfflinePinKey[]
+  offlinePasses       OfflinePass[]
+  boxes               LocalBox[]
+  rooms               Room[]
+  tables              Table[]
+  categories          Category[]
+  products            Product[]
+  modifierGroups      ModifierGroup[]
+  menus               Menu[]
+  taxRates            TaxRate[]
+  kitchenStations     KitchenStation[]
+  printers            Printer[]
+  apiKeys             ApiKey[]
+  webhooks            Webhook[]
+  serviceSteps        TableServiceStep[]
+  serviceReminders    ServiceReminder[]
+  uploads             Upload[]
+  paymentMethods      PaymentMethodConfig[]
+  orders              Order[]
+  payments            Payment[]
+  cashSessions        CashSession[]
+  ingredients         Ingredient[]
+  inventoryMovements  InventoryMovement[]
+  suppliers           Supplier[]
+  purchaseOrders      PurchaseOrder[]
+  employees           Employee[]
+  shifts              Shift[]
+  timeEntries         TimeEntry[]
+  reservations        Reservation[]
+  loyaltyAccounts     LoyaltyAccount[]
+  auditLogs           AuditLog[]
+  idempotencyKeys     IdempotencyKey[]
+  orderCounters       OrderCounter[]
+  customerAccounts    CustomerAccount[]
+  accountInvoices     AccountInvoice[]
+  accountSettlements  AccountSettlement[]
+  hygieneEquipment    HygieneEquipment[]
+  temperatureReadings TemperatureReading[]
+  cleaningTasks       CleaningTask[]
+  cleaningLogs        CleaningLog[]
+  traceRecords        TraceRecord[]
 
   @@unique([organizationId, slug])
   @@index([organizationId])
@@ -150,21 +155,24 @@ model User {
   createdAt       DateTime  @default(now()) @map("created_at")
   updatedAt       DateTime  @updatedAt @map("updated_at")
 
-  organization       Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  memberships        UserEstablishment[]
-  sessions           Session[]
-  offlinePinKeys     OfflinePinKey[]
-  offlinePasses      OfflinePass[]
-  employee           Employee?
-  ordersServed       Order[]             @relation("OrderServer")
-  payments           Payment[]           @relation("PaymentReceivedBy")
-  cashOpened         CashSession[]       @relation("CashOpenedBy")
-  cashClosed         CashSession[]       @relation("CashClosedBy")
-  cashMovements      CashMovement[]
-  auditLogs          AuditLog[]
-  refunds            Refund[]
-  inventoryMovements InventoryMovement[]
-  activityDays       ActivityDay[]
+  organization        Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  memberships         UserEstablishment[]
+  sessions            Session[]
+  offlinePinKeys      OfflinePinKey[]
+  offlinePasses       OfflinePass[]
+  employee            Employee?
+  ordersServed        Order[]              @relation("OrderServer")
+  payments            Payment[]            @relation("PaymentReceivedBy")
+  cashOpened          CashSession[]        @relation("CashOpenedBy")
+  cashClosed          CashSession[]        @relation("CashClosedBy")
+  cashMovements       CashMovement[]
+  auditLogs           AuditLog[]
+  refunds             Refund[]
+  inventoryMovements  InventoryMovement[]
+  activityDays        ActivityDay[]
+  temperatureReadings TemperatureReading[]
+  cleaningLogs        CleaningLog[]
+  traceRecords        TraceRecord[]
 
   @@index([organizationId])
   @@map("users")
@@ -1755,6 +1763,112 @@ model SiteEvent {
   @@index([kind, at])
   @@index([at])
   @@map("site_events")
+}
+
+// ─── Hygiène & HACCP (option payante « hygiene ») ───────────────────────────────
+
+/// Équipement dont on relève la température (réfrigérateur, congélateur, maintien au chaud). Températures en dixièmes de °C.
+model HygieneEquipment {
+  id              String   @id @default(uuid()) @db.Uuid
+  establishmentId String   @map("establishment_id") @db.Uuid
+  name            String
+  kind            String   @default("FRIDGE") // FRIDGE, FREEZER, HOT, OTHER
+  minTemp         Int      @map("min_temp")
+  maxTemp         Int      @map("max_temp")
+  isActive        Boolean  @default(true) @map("is_active")
+  sortOrder       Int      @default(0) @map("sort_order")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  establishment Establishment        @relation(fields: [establishmentId], references: [id], onDelete: Cascade)
+  readings      TemperatureReading[]
+
+  @@index([establishmentId])
+  @@map("hygiene_equipment")
+}
+
+/// Relevé de température : hors limites, une action corrective est obligatoire.
+model TemperatureReading {
+  id               String   @id @default(uuid()) @db.Uuid
+  establishmentId  String   @map("establishment_id") @db.Uuid
+  equipmentId      String   @map("equipment_id") @db.Uuid
+  value            Int // dixièmes de °C
+  minTemp          Int      @map("min_temp") // limites en vigueur au moment du relevé
+  maxTemp          Int      @map("max_temp")
+  compliant        Boolean
+  correctiveAction String?  @map("corrective_action")
+  userId           String?  @map("user_id") @db.Uuid
+  takenAt          DateTime @default(now()) @map("taken_at")
+
+  establishment Establishment    @relation(fields: [establishmentId], references: [id], onDelete: Cascade)
+  equipment     HygieneEquipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+  user          User?            @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([establishmentId, takenAt])
+  @@index([equipmentId, takenAt])
+  @@map("temperature_readings")
+}
+
+/// Tâche du plan de nettoyage.
+model CleaningTask {
+  id              String   @id @default(uuid()) @db.Uuid
+  establishmentId String   @map("establishment_id") @db.Uuid
+  name            String
+  area            String? // zone : cuisine, salle, plonge…
+  frequency       String   @default("DAILY") // DAILY, WEEKLY, MONTHLY
+  instructions    String?
+  isActive        Boolean  @default(true) @map("is_active")
+  sortOrder       Int      @default(0) @map("sort_order")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  establishment Establishment @relation(fields: [establishmentId], references: [id], onDelete: Cascade)
+  logs          CleaningLog[]
+
+  @@index([establishmentId])
+  @@map("cleaning_tasks")
+}
+
+model CleaningLog {
+  id              String   @id @default(uuid()) @db.Uuid
+  establishmentId String   @map("establishment_id") @db.Uuid
+  taskId          String   @map("task_id") @db.Uuid
+  userId          String?  @map("user_id") @db.Uuid
+  note            String?
+  doneAt          DateTime @default(now()) @map("done_at")
+
+  establishment Establishment @relation(fields: [establishmentId], references: [id], onDelete: Cascade)
+  task          CleaningTask  @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user          User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([establishmentId, doneAt])
+  @@index([taskId, doneAt])
+  @@map("cleaning_logs")
+}
+
+/// Traçabilité : réception de marchandise (lot, DLC, température à réception) ou préparation maison (DLC, étiquette).
+model TraceRecord {
+  id              String    @id @default(uuid()) @db.Uuid
+  establishmentId String    @map("establishment_id") @db.Uuid
+  kind            String // RECEPTION, PREPARATION
+  name            String
+  supplierName    String?   @map("supplier_name")
+  lotNumber       String?   @map("lot_number")
+  quantity        String?
+  temperature     Int? // dixièmes de °C, à réception
+  compliant       Boolean   @default(true)
+  issue           String? // non-conformité constatée et suite donnée
+  madeAt          DateTime  @default(now()) @map("made_at") // réception ou fabrication
+  useBy           DateTime? @map("use_by") // date limite de consommation
+  closedAt        DateTime? @map("closed_at")
+  closedReason    String?   @map("closed_reason") // USED, DISCARDED
+  userId          String?   @map("user_id") @db.Uuid
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  establishment Establishment @relation(fields: [establishmentId], references: [id], onDelete: Cascade)
+  user          User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([establishmentId, madeAt])
+  @@index([establishmentId, useBy])
+  @@map("trace_records")
 }
 
 // ─── Comptes clients & factures pro (option payante « accounts ») ───────────────

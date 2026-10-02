@@ -64,9 +64,19 @@ describe("Démo vivante", () => {
     // Comptes clients pro : comptes fictifs et consommations sur compte à facturer
     expect((await prisma.organization.findUniqueOrThrow({ where: { id: T.org.id } })).options).toContain("accounts");
     expect(await prisma.customerAccount.count({ where: { establishmentId: T.est.id } })).toBe(3);
+    // Hygiène : option ouverte, relevés et nettoyages des jours passés, traçabilité en cours
+    expect((await prisma.organization.findUniqueOrThrow({ where: { id: T.org.id } })).options).toContain("hygiene");
+    expect(await prisma.temperatureReading.count({ where: { establishmentId: T.est.id, takenAt: { lt: todayStart } } })).toBeGreaterThan(50);
+    expect(await prisma.temperatureReading.count({ where: { establishmentId: T.est.id, compliant: false, correctiveAction: { not: null } } })).toBe(1);
+    expect(await prisma.cleaningLog.count({ where: { establishmentId: T.est.id } })).toBeGreaterThan(50);
+    expect(await prisma.traceRecord.count({ where: { establishmentId: T.est.id, closedAt: null } })).toBeGreaterThan(0);
+    const hygiene = async () => [await prisma.temperatureReading.count(), await prisma.cleaningLog.count(), await prisma.traceRecord.count()];
+    const hygieneBefore = await hygiene();
+
     const before = await totals();
     await refreshDemo(db, { historyDays: 3 });
     expect(await totals()).toEqual(before);
+    expect(await hygiene()).toEqual(hygieneBefore);
   });
 
   it("garde les commandes des visiteurs et nettoie celles restées ouvertes au changement de jour", async () => {

@@ -207,6 +207,22 @@ export const demoRequestSchema = z.object({
   startedAt: z.number().optional(), // horodatage d'ouverture du formulaire (anti-robot)
 });
 
+// ─── Hygiène & HACCP ───
+const celsius = z.number().min(-60).max(300); // °C, au dixième près
+const hygieneDay = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date attendue au format AAAA-MM-JJ");
+export const hygieneEquipmentSchema = z.object({ name: z.string().trim().min(1).max(80), kind: z.enum(["FRIDGE", "FREEZER", "HOT", "OTHER"]), minTemp: celsius, maxTemp: celsius, isActive: z.boolean().optional() })
+  .refine((v) => v.minTemp <= v.maxTemp, { message: "La température minimale doit être inférieure ou égale à la maximale", path: ["maxTemp"] });
+export const temperatureReadingSchema = z.object({ equipmentId: uuid, value: celsius, correctiveAction: z.string().trim().max(300).nullable().optional() });
+export const cleaningTaskSchema = z.object({ name: z.string().trim().min(1).max(100), area: z.string().trim().max(60).nullable().optional(), frequency: z.enum(["DAILY", "WEEKLY", "MONTHLY"]), instructions: z.string().trim().max(500).nullable().optional(), isActive: z.boolean().optional() });
+export const cleaningDoneSchema = z.object({ note: z.string().trim().max(300).nullable().optional() });
+export const traceRecordSchema = z.object({
+  kind: z.enum(["RECEPTION", "PREPARATION"]), name: z.string().trim().min(1).max(120), supplierName: z.string().trim().max(120).nullable().optional(),
+  lotNumber: z.string().trim().max(60).nullable().optional(), quantity: z.string().trim().max(40).nullable().optional(), temperature: celsius.nullable().optional(),
+  compliant: z.boolean().optional(), issue: z.string().trim().max(300).nullable().optional(), useBy: hygieneDay.nullable().optional(),
+});
+export const traceCloseSchema = z.object({ reason: z.enum(["USED", "DISCARDED"]) });
+export const hygieneRangeQuery = z.object({ from: hygieneDay.optional(), to: hygieneDay.optional() });
+
 // ─── Comptes clients & factures pro ───
 const optText = (n: number) => z.string().trim().max(n).nullable().optional();
 export const customerAccountSchema = z.object({

@@ -42,6 +42,12 @@ export const OPTIONS = {
     includes: ["Prévisions de fréquentation à 14 jours, façon Bison Futé (vert, orange, rouge, noir)", "Conseils de la semaine : équipe, mise en place, jours calmes à remplir", "Analyse qualité du restaurant inspirée de la norme ISO 9001, avec un plan d'actions", "Commande d'achats proposée selon votre consommation et les prévisions"],
     permissions: [],
   },
+  hygiene: {
+    label: "Hygiène & HACCP",
+    tagline: "Votre plan de maîtrise sanitaire, sans papier",
+    includes: ["Relevés de température des frigos et congélateurs, avec alerte hors limites", "Plan de nettoyage à cocher par l'équipe", "Traçabilité : réceptions, lots, préparations et dates limites (DLC)", "Étiquettes de préparation et registre prêt pour un contrôle sanitaire"],
+    permissions: ["hygiene.record", "hygiene.manage"],
+  },
   accounts: {
     label: "Comptes clients & factures pro",
     tagline: "Faire crédit aux entreprises et aux habitués, en toute clarté",

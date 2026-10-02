@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { BarChart3, BookUser, Boxes, BrainCircuit, CheckCircle2, Clock, Globe2, Rocket, ShieldCheck, Sparkles, UsersRound, Wallet } from "lucide-react";
+import { BarChart3, BookUser, Boxes, BrainCircuit, CheckCircle2, Clock, Globe2, Rocket, ShieldCheck, Sparkles, ThermometerSnowflake, UsersRound, Wallet } from "lucide-react";
 import { api } from "@/lib/api-client";
 import { PageHeader, useAction } from "@/components/admin/common";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,7 @@ const LOOK: Record<OptionKey, { icon: typeof Boxes; tile: string }> = {
   stats: { icon: BarChart3, tile: "from-cyan-400 to-blue-600" },
   continuity: { icon: ShieldCheck, tile: "from-rose-400 to-red-600" },
   ai: { icon: BrainCircuit, tile: "from-fuchsia-500 to-purple-700" },
+  hygiene: { icon: ThermometerSnowflake, tile: "from-teal-400 to-cyan-700" },
   accounts: { icon: BookUser, tile: "from-slate-500 to-slate-800" },
   advanced: { icon: Rocket, tile: "from-violet-500 to-fuchsia-600" },
 };

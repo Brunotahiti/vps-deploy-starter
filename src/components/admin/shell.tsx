@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { BrainCircuit, LayoutDashboard, UtensilsCrossed, Map, Receipt, Wallet, Users, Settings, ScrollText, Building2, Moon, Sun, LogOut, X, Boxes, CalendarDays, Heart, QrCode, BarChart3, Clock, Plug, Network, TrendingUp, ShieldCheck, Printer, ChevronDown, Store, BookOpen, UsersRound, SlidersHorizontal, Globe, ExternalLink, type LucideIcon, Sparkles, BookUser } from "lucide-react";
+import { BrainCircuit, LayoutDashboard, UtensilsCrossed, Map, Receipt, Wallet, Users, Settings, ScrollText, Building2, Moon, Sun, LogOut, X, Boxes, CalendarDays, Heart, QrCode, BarChart3, Clock, Plug, Network, TrendingUp, ShieldCheck, Printer, ChevronDown, Store, BookOpen, UsersRound, SlidersHorizontal, Globe, ExternalLink, type LucideIcon, Sparkles, ThermometerSnowflake, BookUser } from "lucide-react";
 import { markLogoutPending, useSession } from "@/hooks/use-session";
 import { useRealtime } from "@/hooks/use-realtime";
 import { useTheme } from "@/hooks/use-theme";
@@ -49,6 +49,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
     { key: "carte", label: "Carte & stocks", icon: BookOpen, items: [
       { href: "/admin/catalog/products", label: "Catalogue", icon: UtensilsCrossed, show: can("catalog.view"), match: "/admin/catalog" },
       { href: "/admin/stock", label: "Stocks & achats", icon: Boxes, show: can("stock.view"), match: "/admin/stock" },
+      { href: "/admin/hygiene", label: "Hygiène (HACCP)", icon: ThermometerSnowflake, show: hasOption("hygiene") && (can("hygiene.record") || can("hygiene.manage")) },
     ] },
     { key: "clients", label: "Salle & clients", icon: Heart, items: [
       { href: "/admin/floor", label: "Plan de salle", icon: Map, show: can("floor.manage") && businessType !== "snack" },
