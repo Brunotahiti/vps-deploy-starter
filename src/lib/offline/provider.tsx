@@ -5,6 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { outbox } from "./outbox";
 import { clearFloorOverrides, clearOfflineCreatedOrders } from "./local-orders";
 import { loadActivePass } from "./passes";
+import { clearCashLocal } from "./cash-local";
 import { useToast } from "@/components/ui/toast";
 
 type OfflineState = { online: boolean; pending: number; syncing: boolean; lastError: string | null; flush: () => Promise<void> };
@@ -29,7 +30,7 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
       if (r.sent > 0 || r.failed > 0) {
         // Copies locales des commandes créées hors ligne : effacées seulement si TOUT a été accepté
         if (r.failed === 0 && (await outbox.count()) === 0) await clearOfflineCreatedOrders().catch(() => {});
-        if ((await outbox.count()) === 0) await clearFloorOverrides().catch(() => {});
+        if ((await outbox.count()) === 0) { await clearFloorOverrides().catch(() => {}); await clearCashLocal().catch(() => {}); }
         qc.invalidateQueries();
         for (const m of outbox.takeMergeNotices()) toast(`${m.tableName ? `Table ${m.tableName}` : "Table"} déjà ouverte sur un autre appareil : les articles saisis hors ligne ont été ajoutés à sa commande n° ${m.number.split("-").pop()}`, "info");
         if (r.sent > 0) toast(`Synchronisation : ${r.sent} opération${r.sent > 1 ? "s" : ""} transmise${r.sent > 1 ? "s" : ""}`, "success");
@@ -53,7 +54,7 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
   const flush = async () => {
     const r = await outbox.flush();
     if (r.failed === 0 && (await outbox.count()) === 0) await clearOfflineCreatedOrders().catch(() => {});
-    if ((await outbox.count()) === 0) await clearFloorOverrides().catch(() => {});
+    if ((await outbox.count()) === 0) { await clearFloorOverrides().catch(() => {}); await clearCashLocal().catch(() => {}); }
     if (r.sent > 0) qc.invalidateQueries();
   };
   return <Ctx.Provider value={{ online, ...state, flush }}>{children}</Ctx.Provider>;

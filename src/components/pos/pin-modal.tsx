@@ -50,6 +50,8 @@ const isQueued = (e: unknown) => e instanceof ApiClientError && e.code === "QUEU
  */
 export function withPin(setRequest: (r: PinRequest) => void, permission: PermissionKey, run: (managerPin?: string) => Promise<unknown>) {
   return run().catch((e) => {
+    // Déjà mise en file d'attente par l'appel lui-même : ne jamais la mettre en file une seconde fois
+    if (isQueued(e)) throw e;
     if (e instanceof ApiClientError && e.isNetwork) {
       if (localCan(permission)) return withOfflineAuth({ forceQueue: true }, () => run());
       return new Promise((resolve, reject) => setRequest({

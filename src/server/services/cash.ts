@@ -10,15 +10,26 @@ export async function findOpenSession(establishmentId: string, terminalId: strin
   return sessions.find((s) => s.terminalId === terminalId) ?? sessions.find((s) => s.terminalId === null) ?? sessions[0] ?? null;
 }
 
-export async function openSession(actor: Actor, input: { openingFloat: number; notes?: string | null }) {
+export async function openSession(actor: Actor, input: { id?: string; openingFloat: number; notes?: string | null }, opts: { offlineReplay?: boolean } = {}) {
+  // Rejeu d'une ouverture faite hors ligne : déjà appliquée → même session
+  if (input.id) {
+    const same = await prisma.cashSession.findFirst({ where: { id: input.id, establishmentId: actor.establishmentId }, select: { id: true } });
+    if (same) return getSessionReport(actor.establishmentId, same.id);
+  }
   const existing = await prisma.cashSession.findFirst({ where: { establishmentId: actor.establishmentId, status: "OPEN", terminalId: actor.terminalId ?? null } });
+  if (existing && opts.offlineReplay) {
+    // Caisse ouverte entre-temps sur ce terminal (autre appareil, avant la coupure) : la tablette rejoint cette session ;
+    // le fond saisi hors ligne est tracé pour le comptage
+    await audit({ ...actor, action: "cash.open_offline_merged", entityType: "cash_session", entityId: existing.id, newValue: { openingFloatOffline: input.openingFloat, offlineSessionId: input.id ?? null } });
+    return getSessionReport(actor.establishmentId, existing.id);
+  }
   if (existing) throw new ApiError(409, "ALREADY_OPEN", "Une session de caisse est déjà ouverte sur ce terminal");
   if (!Number.isInteger(input.openingFloat) || input.openingFloat < 0) throw new ApiError(400, "BAD_AMOUNT", "Fond de caisse invalide");
   const session = await prisma.$transaction(async (tx) => {
     // Verrou par (établissement, terminal) : un double appui sur « Ouvrir » ne crée pas deux sessions
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`cash:${actor.establishmentId}:${actor.terminalId ?? "none"}`}))`;
     if (await tx.cashSession.findFirst({ where: { establishmentId: actor.establishmentId, status: "OPEN", terminalId: actor.terminalId ?? null } })) throw new ApiError(409, "ALREADY_OPEN", "Une session de caisse est déjà ouverte sur ce terminal");
-    const s = await tx.cashSession.create({ data: { establishmentId: actor.establishmentId, terminalId: actor.terminalId ?? null, openedById: actor.userId, openingFloat: input.openingFloat, notes: input.notes ?? null } });
+    const s = await tx.cashSession.create({ data: { ...(input.id ? { id: input.id } : {}), establishmentId: actor.establishmentId, terminalId: actor.terminalId ?? null, openedById: actor.userId, openingFloat: input.openingFloat, notes: input.notes ?? null } });
     await tx.cashMovement.create({ data: { cashSessionId: s.id, userId: actor.userId, kind: "OPENING", amount: input.openingFloat, reason: "Fond de caisse" } });
     await attachOfflineCashPayments(tx, actor, s.id);
     await audit({ ...actor, action: "cash.open", entityType: "cash_session", entityId: s.id, newValue: { openingFloat: input.openingFloat } }, tx);

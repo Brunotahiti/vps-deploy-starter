@@ -95,7 +95,7 @@ export const paymentsSchema = z.object({
 });
 export const refundSchema = z.object({ amount: z.number().int().min(1), reason: z.string().min(1).max(200), managerPin: pin.optional() });
 
-export const cashOpenSchema = z.object({ openingFloat: money, notes: z.string().max(300).nullable().optional() });
+export const cashOpenSchema = z.object({ id: z.string().uuid().optional(), openingFloat: money, notes: z.string().max(300).nullable().optional() }); // id : ouverture hors ligne (rejeu sans doublon)
 export const cashMovementSchema = z.object({ kind: z.enum(["PAY_IN", "PAY_OUT", "DEPOSIT", "CORRECTION"]), amount: z.number().int(), reason: z.string().min(1).max(200), managerPin: pin.optional() });
 export const cashCloseSchema = z.object({ countedCash: money, notes: z.string().max(300).nullable().optional() });
 
