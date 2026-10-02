@@ -37,8 +37,23 @@ describe("boîtier de secours : copie du restaurant", () => {
     await addPayments(T.actor, paid.id, [{ method: "CASH", amount: paid.total }]);
     await createOrder(U.actor, { type: "COUNTER" });
 
+    // Une invitation en attente et un membre d'un autre établissement de la même entreprise
+    await prisma.user.update({ where: { id: T.server.id }, data: { inviteToken: "jeton-invitation-secret" } });
+    const est2 = await prisma.establishment.create({ data: { organizationId: T.org.id, name: "Autre resto", slug: "autre-resto-box" } });
+    const other = await prisma.user.create({ data: { organizationId: T.org.id, email: "ailleurs@test.pf", passwordHash: "hash-ailleurs", pinHash: "pin-ailleurs", firstName: "Ailleurs", lastName: "X", memberships: { create: { establishmentId: est2.id, roleId: T.roles.server } } } });
+
     const snap = await exportSnapshot(prisma, T.est.id);
     expect(Object.keys(snap.tables)).toEqual(BOX_TABLES.map((t) => t.table));
+    // Le boîtier ne reçoit que de quoi se connecter dans SON établissement
+    const users = snap.tables.users as { id: string; email: string; password_hash: string; pin_hash: string | null; invite_token: string | null }[];
+    const byId = (id: string) => users.find((u) => u.id === id)!;
+    expect(JSON.stringify(snap)).not.toContain("jeton-invitation-secret");
+    expect(byId(T.owner.id).password_hash).toBe("!"); // jamais le mot de passe du propriétaire
+    expect(byId(T.owner.id).pin_hash).toBeTruthy(); // son PIN reste utilisable (session limitée à la caisse)
+    expect(byId(other.id)).toMatchObject({ password_hash: "!", pin_hash: null, email: `${other.id}@absent.invalid` });
+    expect(byId(T.server.id).password_hash).not.toBe("!");
+    expect((snap.tables.establishments as { id: string }[]).map((e) => e.id)).toEqual([T.est.id]);
+    expect(JSON.stringify(snap.tables.user_establishments)).not.toContain(est2.id);
     expect(snap.tables.organizations).toHaveLength(1);
     expect((snap.tables.orders as { id: string }[]).map((x) => x.id).sort()).toEqual([o.id, paid.id].sort());
     expect(JSON.stringify(snap)).not.toContain(U.est.id);
@@ -95,10 +110,19 @@ describe("boîtier de secours : copie du restaurant", () => {
     const req = new NextRequest("http://localhost/api/box/sessions", { method: "POST", headers: { authorization: `Bearer ${box.key}`, cookie: "mr_terminal=tablette-box" } });
     const s = await openBoxSession(req, await requireBox(req), T.server.id);
     const row = await prisma.session.findUniqueOrThrow({ where: { tokenHash: sha256(s.token) } });
-    expect(row).toMatchObject({ userId: T.server.id, establishmentId: T.est.id, terminalId: terminal.id });
+    expect(row).toMatchObject({ userId: T.server.id, establishmentId: T.est.id, terminalId: terminal.id, scope: "pos", boxId: box.id });
     expect(s.maxAge).toBeGreaterThan(3600);
-    // Jamais pour un compte d'un autre restaurant
+    expect(s.maxAge).toBeLessThanOrEqual(12 * 3600);
+    // Même le propriétaire n'obtient qu'une session « caisse »
+    const ownerSession = await openBoxSession(req, await requireBox(req), T.owner.id);
+    expect((await prisma.session.findUniqueOrThrow({ where: { tokenHash: sha256(ownerSession.token) } })).scope).toBe("pos");
+    // Jamais pour un compte d'un autre restaurant, jamais sans tablette enregistrée de l'établissement
     await expect(openBoxSession(req, await requireBox(req), U.server.id)).rejects.toMatchObject({ status: 404 });
+    const noTerminal = new NextRequest("http://localhost/api/box/sessions", { method: "POST", headers: { authorization: `Bearer ${box.key}` } });
+    await expect(openBoxSession(noTerminal, await requireBox(noTerminal), T.server.id)).rejects.toMatchObject({ status: 403 });
+    // Boîtier retiré : ses sessions disparaissent avec lui
+    await revokeBox(T.managerActor, box.id);
+    expect(await prisma.session.count({ where: { boxId: box.id } })).toBe(0);
   });
 
   it("même envoi en cuisine, même bon : l'id ne dépend que des articles envoyés", () => {

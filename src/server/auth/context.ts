@@ -1,7 +1,7 @@
 import { cache } from "react";
 import { prisma } from "@/server/db";
 import { ApiError } from "@/server/errors";
-import { hasPermission, type PermissionKey } from "@/lib/permissions";
+import { hasPermission, POS_SCOPE_PERMISSIONS, type PermissionKey } from "@/lib/permissions";
 import { headers } from "next/headers";
 import { findSessionByToken, getSessionToken, getTerminalFromCookie } from "./session";
 import { findOfflinePass } from "@/server/services/offline-pass";
@@ -42,7 +42,8 @@ async function loadContext(): Promise<AuthContext | null> {
   return buildContext(session);
 }
 
-async function buildContext(session: { id: string; userId: string; establishmentId: string | null; impersonatorId: string | null; user: User }): Promise<AuthContext> {
+async function buildContext(session: { id: string; userId: string; establishmentId: string | null; impersonatorId: string | null; scope?: string | null; user: User }): Promise<AuthContext> {
+  const posOnly = session.scope === "pos";
   const memberships = await prisma.userEstablishment.findMany({
     where: { userId: session.userId, establishment: { isActive: true } },
     include: { establishment: true, role: { include: { permissions: true } } },
@@ -73,6 +74,13 @@ async function buildContext(session: { id: string; userId: string; establishment
   } else if (current) {
     for (const p of current.role.permissions) permissions.add(p.permissionKey);
   }
+  // Session « caisse » : droits de caisse seulement, dans son établissement seulement
+  if (posOnly) {
+    const granted = new Set(permissions);
+    permissions.clear();
+    for (const p of POS_SCOPE_PERMISSIONS) if (granted.has("*") || granted.has(p)) permissions.add(p);
+    if (establishment && establishment.id !== session.establishmentId) { establishment = null; permissions.clear(); }
+  }
 
   const terminal = await getTerminalFromCookie();
   const ownerEstablishments = user.isOwner
@@ -83,9 +91,10 @@ async function buildContext(session: { id: string; userId: string; establishment
       })
     : [];
 
-  const establishments = user.isOwner
+  const allEstablishments = user.isOwner
     ? ownerEstablishments.map((e) => ({ ...e, roleKey: "owner" }))
     : memberships.map((m) => ({ id: m.establishmentId, name: m.establishment.name, slug: m.establishment.slug, roleKey: m.role.key }));
+  const establishments = posOnly ? allEstablishments.filter((e) => e.id === session.establishmentId) : allEstablishments;
 
   return {
     sessionId: session.id,

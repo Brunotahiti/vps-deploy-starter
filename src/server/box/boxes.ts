@@ -7,6 +7,7 @@ import { audit } from "@/server/audit";
 import type { Actor } from "@/server/services/orders";
 import { createSession, TERMINAL_COOKIE } from "@/server/auth/session";
 import { sha256 } from "@/server/auth/password";
+import { boxHostname, deleteDnsRecords, dnsConfigured } from "@/server/box/certificate";
 
 /**
  * Boîtiers locaux (mini-PC de secours) : chaque boîtier reçoit une clé `mrbox_…` (affichée une seule fois,
@@ -15,8 +16,15 @@ import { sha256 } from "@/server/auth/password";
 const hash = (key: string) => createHash("sha256").update(key).digest("hex");
 const view = { id: true, name: true, lastSeenAt: true, lastIp: true, lanIp: true, version: true, revokedAt: true, createdAt: true } as const;
 
+/** Un boîtier garde une copie de l'équipe et du restaurant : seul le propriétaire en ajoute ou en retire. */
+export function assertOwner(ctx: { user: { isOwner: boolean } }) {
+  if (!ctx.user.isOwner) throw new ApiError(403, "OWNER_ONLY", "Seul le propriétaire peut ajouter ou retirer un boîtier de secours");
+}
+
 export async function listBoxes(establishmentId: string) {
-  return prisma.localBox.findMany({ where: { establishmentId, revokedAt: null }, orderBy: { createdAt: "desc" }, select: view });
+  const rows = await prisma.localBox.findMany({ where: { establishmentId, revokedAt: null }, orderBy: { createdAt: "desc" }, select: view });
+  // Adresse HTTPS à ouvrir sur les tablettes (si les adresses des boîtiers sont configurées sur ManaResto)
+  return rows.map((b) => ({ ...b, hostname: dnsConfigured() ? boxHostname(b.id) : null }));
 }
 
 export async function createBox(actor: Actor, input: { name: string }) {
@@ -30,6 +38,10 @@ export async function revokeBox(actor: Actor, id: string) {
   const existing = await prisma.localBox.findFirst({ where: { id, establishmentId: actor.establishmentId, revokedAt: null } });
   if (!existing) throw new ApiError(404, "NOT_FOUND", "Boîtier introuvable");
   await prisma.localBox.update({ where: { id }, data: { revokedAt: new Date() } });
+  // Sessions ouvertes par le boîtier et adresse HTTPS : retirées avec lui
+  await prisma.session.deleteMany({ where: { boxId: id } });
+  const host = boxHostname(id);
+  if (dnsConfigured() && host) await deleteDnsRecords("A", host).catch(() => {});
   await audit({ ...actor, action: "box.revoke", entityType: "local_box", entityId: id, oldValue: { name: existing.name } });
 }
 
@@ -70,9 +82,12 @@ export async function openBoxSession(req: NextRequest, box: { id: string; establ
   const est = await prisma.establishment.findUniqueOrThrow({ where: { id: box.establishmentId }, select: { organizationId: true } });
   const user = await prisma.user.findFirst({ where: { id: userId, organizationId: est.organizationId, isActive: true, OR: [{ isOwner: true }, { memberships: { some: { establishmentId: box.establishmentId } } }] }, select: { id: true } });
   if (!user) throw new ApiError(404, "NOT_FOUND", "Compte introuvable pour ce boîtier");
+  // Seulement depuis une tablette enregistrée de l'établissement (comme la connexion par PIN)
   const deviceKey = req.cookies.get(TERMINAL_COOKIE)?.value;
   const terminal = deviceKey ? await prisma.terminal.findFirst({ where: { deviceKeyHash: sha256(deviceKey), establishmentId: box.establishmentId, isActive: true }, select: { id: true } }) : null;
-  const { token, session } = await createSession({ userId, establishmentId: box.establishmentId, terminalId: terminal?.id ?? null, ip: clientIp(req), userAgent: req.headers.get("user-agent") });
+  if (!terminal) throw new ApiError(403, "NO_TERMINAL", "Connexion reprise seulement depuis une tablette enregistrée de l'établissement");
+  // Session « caisse » de 12 h dans l'établissement du boîtier, même pour le propriétaire ; supprimée si le boîtier est retiré
+  const { token, session } = await createSession({ userId, establishmentId: box.establishmentId, terminalId: terminal.id, ip: clientIp(req), userAgent: req.headers.get("user-agent"), ttlMs: 12 * 3600_000, scope: "pos", boxId: box.id });
   await audit({ organizationId: est.organizationId, establishmentId: box.establishmentId, userId, action: "box.session", entityType: "local_box", entityId: box.id, newValue: { sessionId: session.id } });
   return { token, maxAge: Math.max(0, Math.floor((session.expiresAt.getTime() - Date.now()) / 1000)) };
 }
