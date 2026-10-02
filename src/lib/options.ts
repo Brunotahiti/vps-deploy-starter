@@ -24,10 +24,22 @@ export const OPTIONS = {
     includes: ["Fiches du personnel et plannings", "Pointage des arrivées et départs", "Heures travaillées et coût de la main d'œuvre"],
     permissions: ["staff.manage"],
   },
+  stats: {
+    label: "Statistiques & rapports",
+    tagline: "Comprendre vos ventes et exporter vos chiffres",
+    includes: ["Statistiques : ventes par jour, par heure, par produit et par serveur", "Rapports sur la période de votre choix", "Exports tableur et exports comptables"],
+    permissions: [],
+  },
+  continuity: {
+    label: "Continuité de service",
+    tagline: "La caisse continue quand internet coupe",
+    includes: ["Mode hors ligne des tablettes : commandes, encaissements et tickets sans internet", "Connexion des employés par PIN sans internet", "Boîtier de secours sur place pour les longues coupures", "Tout se resynchronise au retour du réseau"],
+    permissions: [],
+  },
   advanced: {
     label: "Avancé",
     tagline: "Pour les établissements qui grandissent",
-    includes: ["Plusieurs établissements et chiffre d'affaires global", "Boîtier de secours pour les coupures d'internet", "Exports comptables, journal d'audit, rôles sur mesure", "API et intégrations (webhooks)"],
+    includes: ["Plusieurs établissements et chiffre d'affaires global", "Journal d'audit et rôles sur mesure", "API et intégrations (webhooks)"],
     permissions: ["establishments.manage", "reports.view_global", "audit.view"],
   },
 } as const satisfies Record<string, { label: string; tagline: string; includes: readonly string[]; permissions: readonly PermissionKey[] }>;

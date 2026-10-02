@@ -1,12 +1,14 @@
 import { route, parseQuery } from "@/server/http";
-import { requirePermission } from "@/server/auth/context";
+import { requireOption, requirePermission } from "@/server/auth/context";
 import { exportQuery } from "@/server/schemas";
 import { buildExport, toCsv, toPdf, toXlsx } from "@/server/reports/export";
 
 /** Export CSV / Excel / PDF : `?type=period|products|orders|staff&format=csv|xlsx|pdf&from&to`. */
 export const GET = route(async (req) => {
   const q = parseQuery(req, exportQuery);
-  const ctx = await requirePermission(q.type === "staff" ? "staff.manage" : q.type === "orders" ? "orders.view_history" : q.type === "accounting" ? "audit.view" : "reports.view");
+  // Exports : option Statistiques & rapports (l'export comptable n'exige plus le journal d'audit, réservé à l'option Avancé)
+  const ctx = await requirePermission(q.type === "staff" ? "staff.manage" : q.type === "orders" ? "orders.view_history" : "reports.view");
+  requireOption(ctx, "stats");
   const est = ctx.establishment;
   const { title, sheets } = await buildExport(est.id, q.type, q.from, q.to, est.timezone);
   const base = `manaresto-${q.type}-${q.from}-${q.to}`;

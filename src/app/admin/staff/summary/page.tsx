@@ -13,7 +13,7 @@ import { fmtHours, type StaffSummary } from "@/components/admin/staff-types";
 
 /** Heures travaillées, écart au planning, coût du personnel et ratio sur le CA HT. */
 export default function StaffSummaryPage() {
-  const { timezone } = useSession();
+  const { timezone, hasOption } = useSession();
   const today = localDay(new Date(), timezone);
   const [from, setFrom] = useState(addDays(today, -6));
   const [to, setTo] = useState(today);
@@ -22,7 +22,7 @@ export default function StaffSummaryPage() {
   const exportUrl = (format: string) => `/api/reports/export?type=staff&format=${format}&from=${from}&to=${to}`;
   return (
     <div>
-      <PageHeader title="Heures & coût du personnel" subtitle="Calculé à partir des pointages et du coût horaire de chaque employé" action={<div className="flex flex-wrap items-center gap-2"><Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="w-40!" /><span>→</span><Input type="date" value={to} max={today} onChange={(e) => setTo(e.target.value)} className="w-40!" /><a href={exportUrl("xlsx")} className="touch rounded-xl border border-line px-3 py-2 text-sm font-semibold">Excel</a><a href={exportUrl("csv")} className="touch rounded-xl border border-line px-3 py-2 text-sm font-semibold">CSV</a><a href={exportUrl("pdf")} target="_blank" rel="noreferrer" className="touch rounded-xl border border-line px-3 py-2 text-sm font-semibold">PDF</a></div>} />
+      <PageHeader title="Heures & coût du personnel" subtitle="Calculé à partir des pointages et du coût horaire de chaque employé" action={<div className="flex flex-wrap items-center gap-2"><Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="w-40!" /><span>→</span><Input type="date" value={to} max={today} onChange={(e) => setTo(e.target.value)} className="w-40!" />{hasOption("stats") ? <><a href={exportUrl("xlsx")} className="touch rounded-xl border border-line px-3 py-2 text-sm font-semibold">Excel</a><a href={exportUrl("csv")} className="touch rounded-xl border border-line px-3 py-2 text-sm font-semibold">CSV</a><a href={exportUrl("pdf")} target="_blank" rel="noreferrer" className="touch rounded-xl border border-line px-3 py-2 text-sm font-semibold">PDF</a></> : null}</div>} />
       <StaffTabs />
       {s.isLoading || !d ? <div className="flex justify-center py-10"><Spinner /></div> : (
         <div className="space-y-4">

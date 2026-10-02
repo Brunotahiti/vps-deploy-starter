@@ -41,8 +41,8 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
     { key: "ventes", label: "Ventes", icon: Store, items: [
       { href: "/admin/orders", label: "Commandes", icon: Receipt, show: can("orders.view_history") },
       { href: "/admin/cash", label: "Caisse", icon: Wallet, show: can("reports.view") },
-      { href: "/admin/stats", label: "Statistiques", icon: TrendingUp, show: can("reports.view") },
-      { href: "/admin/reports", label: "Rapports & exports", icon: BarChart3, show: can("reports.view") },
+      { href: "/admin/stats", label: "Statistiques", icon: TrendingUp, show: can("reports.view") && hasOption("stats") },
+      { href: "/admin/reports", label: "Rapports & exports", icon: BarChart3, show: can("reports.view") && hasOption("stats") },
     ] },
     { key: "carte", label: "Carte & stocks", icon: BookOpen, items: [
       { href: "/admin/catalog/products", label: "Catalogue", icon: UtensilsCrossed, show: can("catalog.view"), match: "/admin/catalog" },

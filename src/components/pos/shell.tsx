@@ -36,7 +36,7 @@ export function PosShell({ children }: { children: React.ReactNode }) {
   const posAllowed = !!me?.user && can("pos.use");
   // Phase 9 : rappels de service (« À faire maintenant »)
   const reminders = useServiceReminders(posAllowed);
-  useOfflineSnapshot(posAllowed); // copie de travail pour les coupures d'internet
+  useOfflineSnapshot(posAllowed, hasOption("continuity")); // copie de travail pour les coupures d'internet (option Continuité)
   // Réservations du jour sur l'onglet : toujours en vue, en orange s'il y a des demandes à confirmer
   const resaToday = useQuery({ queryKey: ["reservations-summary", "today"], queryFn: () => api.get<{ count: number; pending: number }[]>("/api/reservations/summary?days=1"), enabled: posAllowed && businessType !== "snack", refetchInterval: 60_000 });
   const [todo, setTodoState] = useState(false);
@@ -131,6 +131,11 @@ export function PosShell({ children }: { children: React.ReactNode }) {
         </div>
       </header>
       <InstallBanner className="mx-2 mt-2 lg:hidden" />
+      {!online && !hasOption("continuity") ? (
+        <div role="alert" data-testid="offline-locked" className="shrink-0 bg-red-600 px-4 py-2 text-center text-sm font-semibold text-white">
+          Connexion internet perdue : la caisse attend le retour du réseau. Avec l&apos;option « Continuité de service », elle continue sans internet.
+        </div>
+      ) : null}
       <main className="relative min-h-0 flex-1 overflow-y-auto">{children}</main>
       {/* Les quatre portails, toujours visibles sous la page */}
       <PortalButtons />

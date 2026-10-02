@@ -1,6 +1,6 @@
 /** Client HTTP côté navigateur : enveloppe { data } / { error }, erreurs typées, support hors ligne. */
 import { outbox } from "./offline/outbox";
-import { forceQueue, liveHeaders, queuedHeaders } from "./offline/auth-state";
+import { forceQueue, liveHeaders, offlineAllowed, OFFLINE_OPTION_MESSAGE, queuedHeaders } from "./offline/auth-state";
 
 export class ApiClientError extends Error {
   constructor(public status: number, public code: string, message: string, public details?: unknown) {
@@ -17,7 +17,8 @@ async function request<T>(method: string, url: string, body?: unknown, opts: Opt
   // Lu tout de suite (avant tout await) : une autorisation hors ligne vaut pour les requêtes lancées dans withOfflineAuth
   const headers: Record<string, string> = { Accept: "application/json", ...liveHeaders() };
   const queueHeaders = queuedHeaders();
-  const queueIfOffline = opts.queueIfOffline || forceQueue();
+  // Sans l'option Continuité de service, rien n'est mis en file : l'opération échoue avec un message clair
+  const queueIfOffline = offlineAllowed() && (opts.queueIfOffline || forceQueue());
   if (body !== undefined) headers["Content-Type"] = "application/json";
   // Clé d'idempotence dès le PREMIER envoi : si la réponse se perd, le rejeu ne s'applique pas deux fois
   const idempotencyKey = opts.idempotencyKey ?? (queueIfOffline && method !== "GET" ? crypto.randomUUID() : undefined);
@@ -34,7 +35,7 @@ async function request<T>(method: string, url: string, body?: unknown, opts: Opt
       await outbox.enqueue({ method, url, body, idempotencyKey: idempotencyKey ?? crypto.randomUUID(), ...(Object.keys(queueHeaders).length ? { headers: queueHeaders } : {}) });
       throw new ApiClientError(0, "QUEUED", "Hors ligne : opération mise en file d'attente");
     }
-    throw new ApiClientError(0, "NETWORK", "Connexion indisponible", e);
+    throw new ApiClientError(0, "NETWORK", offlineAllowed() ? "Connexion indisponible" : OFFLINE_OPTION_MESSAGE, e);
   }
   const json = await res.json().catch(() => null);
   if (!res.ok) {

@@ -13,6 +13,6 @@ export const POST = route(async (req) => {
   const ctx = await requirePermission("settings.manage");
   await assertNotDemoAccount(ctx.organizationId);
   assertOwner(ctx);
-  requireOption(ctx, "advanced");
+  requireOption(ctx, "continuity");
   return created(await createBox(actorFrom(ctx), await parseBody(req, boxSchema)));
 });

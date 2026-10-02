@@ -22,6 +22,7 @@ import { useSession } from "@/hooks/use-session";
 import { TABLE_STATUS_COLOR, TABLE_STATUS_LABEL, type FloorStatus, type FloorTable, type Order } from "./types";
 import { addFloorOverride, applyFloorOverrides, buildLocalOrder, DEFAULT_COURSE_NAMES, getFloorOverrides, listOfflineCreatedOrders, saveLocalOrder } from "@/lib/offline/local-orders";
 import { useOffline } from "@/lib/offline/provider";
+import { offlineAllowed } from "@/lib/offline/auth-state";
 
 export function useFloor() {
   const { me } = useSession();
@@ -76,7 +77,7 @@ export function FloorPlan() {
     const courses = courseNames.map((name) => ({ id: crypto.randomUUID(), name }));
     const body = { id, ...input, courses, openedAt: new Date().toISOString() };
     try {
-      const order = await (online ? api.post<Order>("/api/orders", body, { idempotencyKey: id, queueIfOffline: true }) : Promise.reject(new ApiClientError(0, "QUEUED", "offline")));
+      const order = await (online || !offlineAllowed() ? api.post<Order>("/api/orders", body, { idempotencyKey: id, queueIfOffline: true }) : Promise.reject(new ApiClientError(0, "QUEUED", "offline")));
       await saveLocalOrder(order);
       qc.invalidateQueries({ queryKey: ["floor"] });
       router.push(`/pos/order/${order.id}`);
