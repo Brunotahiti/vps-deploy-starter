@@ -99,7 +99,7 @@ function Row({ r, upcoming }: { r: Reminder; upcoming?: boolean }) {
 export function TodoPanel({ open, onClose, data }: { open: boolean; onClose: () => void; data?: Reminders }) {
   const due = data?.due ?? [], upcoming = data?.upcoming ?? [];
   return (
-    <div className={`fixed inset-0 z-[55] ${open ? "" : "pointer-events-none"}`} aria-hidden={!open}>
+    <div className={`fixed inset-0 z-[55] overflow-hidden ${open ? "" : "pointer-events-none"}`} aria-hidden={!open}>
       <div className={`absolute inset-0 bg-black/40 transition-opacity ${open ? "opacity-100" : "opacity-0"}`} onClick={onClose} />
       <aside className={`absolute inset-y-0 right-0 flex w-full max-w-md flex-col surface shadow-2xl transition-transform duration-300 ease-out ${open ? "translate-x-0" : "translate-x-full"}`} style={{ paddingTop: "env(safe-area-inset-top)", paddingBottom: "env(safe-area-inset-bottom)" }} role="dialog" aria-label="À faire maintenant" data-testid="todo-panel">
         <header className="flex items-center gap-3 border-b border-line px-4 py-3">
