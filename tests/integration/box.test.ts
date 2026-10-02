@@ -9,6 +9,8 @@ import { prisma } from "@/server/db";
 import { addItem, createOrder } from "@/server/services/orders";
 import { addPayments } from "@/server/services/payments";
 import { openSession } from "@/server/services/cash";
+import { createInvoice, upsertAccount } from "@/server/services/accounts";
+import { sellGiftCard } from "@/server/services/marketing";
 import { exportSnapshot, importSnapshot, BOX_TABLES } from "@/server/box/snapshot";
 import { createBox, openBoxSession, requireBox, requireBoxSecret, revokeBox } from "@/server/box/boxes";
 import { sha256 } from "@/server/auth/password";
@@ -35,6 +37,14 @@ describe("boîtier de secours : copie du restaurant", () => {
     const o = await addItem(T.actor, (await createOrder(T.actor, { type: "DINE_IN", tableId: T.t1.id, covers: 2 })).id, { productId: T.biere.id });
     const paid = await addItem(T.actor, (await createOrder(T.actor, { type: "COUNTER" })).id, { productId: T.biere.id });
     await addPayments(T.actor, paid.id, [{ method: "CASH", amount: paid.total }]);
+    // Options : addition « Sur compte » d'un client pro (facturée) et payée par carte cadeau (les paiements y renvoient)
+    const account = await upsertAccount(T.managerActor, { name: "Entreprise du boîtier" });
+    const onAccount = await addItem(T.actor, (await createOrder(T.actor, { type: "COUNTER" })).id, { productId: T.eau.id });
+    await addPayments(T.actor, onAccount.id, [{ method: "ACCOUNT", amount: onAccount.total, customerAccountId: account.id }]);
+    await createInvoice(T.managerActor, account.id);
+    const card = await sellGiftCard(T.managerActor, { amount: 5000, method: "CARD" });
+    const byCard = await addItem(T.actor, (await createOrder(T.actor, { type: "COUNTER" })).id, { productId: T.eau.id });
+    await addPayments(T.actor, byCard.id, [{ method: "GIFT_CARD", amount: byCard.total, giftCardCode: card.code }]);
     await createOrder(U.actor, { type: "COUNTER" });
 
     // Une invitation en attente et un membre d'un autre établissement de la même entreprise
@@ -55,11 +65,13 @@ describe("boîtier de secours : copie du restaurant", () => {
     expect((snap.tables.establishments as { id: string }[]).map((e) => e.id)).toEqual([T.est.id]);
     expect(JSON.stringify(snap.tables.user_establishments)).not.toContain(est2.id);
     expect(snap.tables.organizations).toHaveLength(1);
-    expect((snap.tables.orders as { id: string }[]).map((x) => x.id).sort()).toEqual([o.id, paid.id].sort());
+    expect((snap.tables.orders as { id: string }[]).map((x) => x.id).sort()).toEqual([o.id, paid.id, onAccount.id, byCard.id].sort());
     expect(JSON.stringify(snap)).not.toContain(U.est.id);
 
     const counts = await importSnapshot(boxDb, snap);
-    expect(counts.orders).toBe(2);
+    expect(counts.orders).toBe(4);
+    expect((await boxDb.payment.findFirstOrThrow({ where: { orderId: onAccount.id } })).customerAccountId).toBe(account.id);
+    expect((await boxDb.giftCard.findUniqueOrThrow({ where: { id: card.id } })).balance).toBe(5000 - byCard.total);
     // Même commande, mêmes montants, même équipe (le PIN marche sur le boîtier)
     const local = await boxDb.order.findUniqueOrThrow({ where: { id: o.id }, include: { items: true } });
     expect(local.total).toBe(o.total);
@@ -74,20 +86,20 @@ describe("boîtier de secours : copie du restaurant", () => {
   it("une nouvelle copie remplace la précédente ; une copie d'une autre version est refusée sans rien toucher", async () => {
     await createOrder(T.actor, { type: "TAKEAWAY" });
     const snap = await exportSnapshot(prisma, T.est.id);
-    expect((await importSnapshot(boxDb, snap)).orders).toBe(3);
-    expect(await boxDb.order.count()).toBe(3);
+    expect((await importSnapshot(boxDb, snap)).orders).toBe(5);
+    expect(await boxDb.order.count()).toBe(5);
 
     // Caisse ouverte depuis plusieurs jours : la vente ancienne n'est pas copiée, son mouvement garde le montant sans le lien
     const old = await addItem(T.actor, (await createOrder(T.actor, { type: "COUNTER" })).id, { productId: T.eau.id });
     await addPayments(T.actor, old.id, [{ method: "CASH", amount: old.total }]);
     await prisma.order.update({ where: { id: old.id }, data: { openedAt: new Date(Date.now() - 3 * 86400_000) } });
     const older = await exportSnapshot(prisma, T.est.id);
-    expect((await importSnapshot(boxDb, older)).orders).toBe(3);
+    expect((await importSnapshot(boxDb, older)).orders).toBe(5);
     const mv = await boxDb.cashMovement.findFirstOrThrow({ where: { amount: old.total, kind: "SALE", orderId: null } });
     expect(mv.paymentId).toBeNull();
 
     await expect(importSnapshot(boxDb, { ...snap, schema: "20990101000000_futur", tables: { ...snap.tables, orders: [] } })).rejects.toThrow(/mettez le boîtier à jour/);
-    expect(await boxDb.order.count()).toBe(3);
+    expect(await boxDb.order.count()).toBe(5);
   });
 
   it("clé du boîtier : affichée une fois, limitée à son restaurant, inutilisable une fois retiré", async () => {

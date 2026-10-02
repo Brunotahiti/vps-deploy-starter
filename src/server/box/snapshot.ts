@@ -63,6 +63,11 @@ export const BOX_TABLES: { table: string; where: string; set?: Record<string, st
   // Clients de l'entreprise : seulement ceux de cet établissement (fidélité, commandes et réservations en cours)
   { table: "customers", where: `organization_id = $2 AND (id IN (SELECT customer_id FROM loyalty_accounts WHERE establishment_id = $1) OR id IN (SELECT customer_id FROM orders WHERE ${ORDERS}) OR id IN (SELECT customer_id FROM reservations WHERE establishment_id = $1 AND starts_at > now() - interval '1 day'))` },
   { table: "loyalty_accounts", where: "establishment_id = $1" },
+  // Options Comptes clients et Marketing : les paiements « Sur compte » et par carte cadeau y renvoient,
+  // et la caisse du boîtier en a besoin pour encaisser pendant une coupure
+  { table: "customer_accounts", where: "establishment_id = $1" },
+  { table: "account_invoices", where: "establishment_id = $1" },
+  { table: "gift_cards", where: "establishment_id = $1" },
   { table: "employees", where: "establishment_id = $1" },
   { table: "shifts", where: "establishment_id = $1 AND starts_at > now() - interval '2 days'" },
   { table: "time_entries", where: "establishment_id = $1 AND at > now() - interval '2 days'" },
