@@ -30,14 +30,23 @@ export const orderInclude = {
 
 export type OrderWithDetails = Prisma.OrderGetPayload<{ include: typeof orderInclude }>;
 
+const orderNumber = (prefix: string, n: number) => `${prefix}-${String(n).padStart(4, "0")}`;
+
 async function nextOrderNumber(tx: Tx, establishmentId: string, timezone: string) {
   const day = localDay(new Date(), timezone);
+  const prefix = day.replace(/-/g, "");
   const counter = await tx.orderCounter.upsert({
     where: { establishmentId_day: { establishmentId, day } },
     update: { value: { increment: 1 } },
     create: { establishmentId, day, value: 1 },
   });
-  return `${day.replace(/-/g, "")}-${String(counter.value).padStart(4, "0")}`;
+  const number = orderNumber(prefix, counter.value);
+  if (!(await tx.order.findFirst({ where: { establishmentId, number }, select: { id: true } }))) return number;
+  // Numéro déjà pris (commandes de la démo, import, restauration) : on repart après le plus grand numéro du jour
+  const taken = await tx.order.findMany({ where: { establishmentId, number: { startsWith: `${prefix}-` } }, select: { number: true } });
+  const next = Math.max(counter.value, ...taken.map((o) => Number(o.number.slice(prefix.length + 1)) || 0)) + 1;
+  await tx.orderCounter.update({ where: { establishmentId_day: { establishmentId, day } }, data: { value: next } });
+  return orderNumber(prefix, next);
 }
 
 export async function getOrder(establishmentId: string, id: string, tx?: Tx): Promise<OrderWithDetails> {
