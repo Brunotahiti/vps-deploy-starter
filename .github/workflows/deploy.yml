@@ -136,7 +136,9 @@ jobs:
             # Version des styles/scripts du site vitrine = commit déployé
             sed -i -E "s/\.(css|js)\?v=[A-Za-z0-9]+/.\1?v=$BUILD_ID/g" site/*.html 2>/dev/null || true
             # Sauvegarde de la base avant toute migration (la copie hors serveur ne doit pas bloquer un déploiement)
-            if docker ps --format '{{.Names}}' | grep -qx "${APP_NAME:-manaresto}-db"; then SKIP_REMOTE=1 bash scripts/db-backup.sh; fi
+            # Le script lui-même arrive par l'entrée standard (bash -s) : toute commande qui la lit avalerait la suite.
+            # D'où « < /dev/null » sur chaque commande susceptible de la lire (docker compose run/exec, scripts).
+            if docker ps --format '{{.Names}}' | grep -qx "${APP_NAME:-manaresto}-db"; then SKIP_REMOTE=1 bash scripts/db-backup.sh < /dev/null; fi
             # Version en service conservée sous l'étiquette « previous » : retour arrière possible si la nouvelle ne répond pas
             for img in "${APP_NAME:-manaresto}" "${APP_NAME:-manaresto}-migrate"; do
               if docker image inspect "$img:latest" >/dev/null 2>&1; then docker tag "$img:latest" "$img:previous"; fi
@@ -146,12 +148,18 @@ jobs:
             LOCK=""; CRON_LOCK=""; if command -v flock >/dev/null 2>&1; then LOCK="flock -w 900 /tmp/manaresto-demo.lock"; CRON_LOCK="flock -n /tmp/manaresto-demo.lock"; fi
             echo "Migrations et démarrage…"
             $LOCK docker compose up -d
+            # Site vitrine : nouvelle configuration nginx prise en compte (vérifiée avant rechargement)
+            if docker compose exec -T site nginx -t < /dev/null >/dev/null 2>&1; then
+              if docker compose exec -T site nginx -s reload < /dev/null >/dev/null 2>&1; then echo "Site vitrine : configuration rechargée"; else echo "::warning::Rechargement du site vitrine impossible"; fi
+            else
+              echo "::warning::Configuration nginx du site vitrine invalide : ancienne configuration conservée"
+              docker compose exec -T site nginx -t < /dev/null 2>&1 | tail -3 || true
+            fi
             # Démo vivante rafraîchie une fois l'application en ligne (elle ne retarde plus la remise en service)
             if [ "${SEED_DEMO:-}" = "true" ]; then
               echo "Rafraîchissement de la démo…"
-              $LOCK docker compose run --rm --no-deps -T migrate pnpm tsx prisma/seed.ts || echo "::warning::Rafraîchissement de la démo en échec (l'application reste en ligne)"
+              $LOCK docker compose run --rm --no-deps -T migrate pnpm tsx prisma/seed.ts < /dev/null || echo "::warning::Rafraîchissement de la démo en échec (l'application reste en ligne)"
             fi
-            (docker compose exec -T site nginx -s reload >/dev/null 2>&1 || true)
             # Tâches planifiées de ManaResto (seules ses lignes de la crontab sont réécrites) :
             # sauvegarde quotidienne à 3 h heure de Tahiti, et démo vivante rafraîchie chaque heure si SEED_DEMO=true
             CRON_BACKUP="0 13 * * * $VPS_PATH/scripts/db-backup.sh >> /var/log/manaresto-backup.log 2>&1"
@@ -161,6 +169,7 @@ jobs:
             # Cache de construction : l'application est construite sur le serveur, il grossit à chaque déploiement
             docker builder prune -f --filter until=168h >/dev/null
             docker compose ps
+            echo "Déploiement sur le serveur terminé"
           EOF
 
       - name: Verify health
