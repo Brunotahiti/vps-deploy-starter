@@ -89,6 +89,18 @@ Encore en ligne seulement : transfert de table, client et fidélité, TPE connec
 
 Parcours testés (`e2e/offline.spec.ts`) : table ouverte hors ligne → articles → envoi → reconnexion sans doublon ; table ouverte en même temps sur un autre appareil (articles regroupés) ; **démarrage à froid sans réseau** et encaissement espèces d'une table ouverte sur un autre appareil, table libérée sur le plan, paiement transmis au retour du réseau ; **changement d'utilisateur et connexion par PIN sans réseau**, remise autorisée par le PIN du manager vérifié sur la tablette, rejeu au nom de la serveuse avec l'autorisation du manager (journal d'audit). Les tests coupent aussi le réseau du service worker (`PW_EXPERIMENTAL_SERVICE_WORKER_NETWORK_EVENTS`). `e2e/offline-print-cash.spec.ts` : vrai agent d'impression et fausse imprimante TCP sur le réseau local, serveur coupé : ouverture de caisse, entrée d'espèces, bon cuisine imprimé, tiroir ouvert et ticket imprimé à l'encaissement, clôture avec écart nul ; au retour du réseau, session close côté serveur avec les mêmes espèces théoriques.
 
+### Boîtier de secours (étape 2 — mini-PC du restaurant)
+
+Un mini-PC branché sur la box du restaurant fait tourner la même application (`BOX_MODE=1`) avec sa propre base. Il sert de relais : en ligne, il transmet tout au cloud ; pendant une coupure, il prend le relais pour toutes les tablettes (commandes, cuisine, encaissements, imprimantes réseau), puis renvoie au cloud ce qui a été saisi.
+
+| Élément | Rôle |
+|---|---|
+| `local_boxes`, `src/server/box/boxes.ts`, Admin → Imprimantes (`src/components/admin/local-box.tsx`) | Enregistrement d'un boîtier (droit `settings.manage`) : clé `mrbox_…` affichée une seule fois, stockée hachée, limitée à un établissement, révocable. Dernière visite, adresse locale et version affichées. |
+| `src/server/box/snapshot.ts`, `GET /api/box/snapshot` | **Copie du restaurant** (clé du boîtier en `Authorization: Bearer`) : une transaction `REPEATABLE READ`, table par table (`json_agg`, aucune liste de colonnes à maintenir) : équipe (comptes, rôles, sessions en cours, laissez-passer hors ligne), carte, salle, imprimantes, clients, personnel du jour, caisses ouvertes ou récentes, commandes en cours et des 36 dernières heures avec leurs articles, bons, paiements et suivi. Rien d'un autre restaurant. Non copiés : journaux, idempotence, achats et stocks détaillés, intégrations, fichiers. Un lien vers une ligne non copiée (mouvement de caisse d'une vente ancienne) est vidé, le montant reste. |
+| `POST /api/box/import` (boîtier seulement, en-tête `X-Box-Secret`) | La passerelle du boîtier remplace la base par la dernière copie, en une transaction (`json_populate_recordset`, dans l'ordre des clés étrangères). Copie d'une autre version du schéma (dernière migration) refusée : le boîtier doit être mis à jour. |
+
+Sur le boîtier, les relances e-mail planifiées sont désactivées. À venir : passerelle (relais, bascule, file d'attente et rejeu vers le cloud) puis installation du mini-PC (HTTPS sur le réseau local).
+
 PWA : `manifest.webmanifest` (standalone, icônes, thème), bouton « Installer » (événement `beforeinstallprompt`, Android / Chrome / Edge) ; sur iPad : Partager → « Sur l'écran d'accueil ».
 
 ## Sécurité
