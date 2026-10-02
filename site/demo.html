@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Voir ManaResto en direct | Restaurant exemple</title>
+  <meta name="description" content="Ouvrez ManaResto comme si c'était votre restaurant : plan de salle, prise de commande, cuisine, caisse et statistiques d'un restaurant exemple. Sans inscription.">
+  <meta name="theme-color" content="#0b4f4d">
+  <!-- Aperçu du lien partagé (WhatsApp, Messenger, SMS, Facebook) -->
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="fr_PF">
+  <meta property="og:site_name" content="ManaResto">
+  <meta property="og:url" content="https://www.manaresto.com/demo">
+  <meta property="og:title" content="Voir ManaResto en direct, comme si c'était votre restaurant">
+  <meta property="og:description" content="Plan de salle, commandes, cuisine, caisse et statistiques d'un restaurant exemple. Sans inscription, en un clic.">
+  <meta property="og:image" content="https://www.manaresto.com/assets/img/og.png">
+  <meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Voir ManaResto en direct, comme si c'était votre restaurant">
+  <meta name="twitter:description" content="Plan de salle, commandes, cuisine, caisse et statistiques d'un restaurant exemple. Sans inscription.">
+  <meta name="twitter:image" content="https://www.manaresto.com/assets/img/og.png">
+  <meta http-equiv="refresh" content="3;url=https://app.manaresto.com/login?demo=1">
+  <link rel="icon" href="assets/img/logo.png" type="image/png">
+  <link rel="apple-touch-icon" href="assets/icon-192.png">
+  <style>
+    body { margin: 0; min-height: 100vh; display: grid; place-items: center; font-family: "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background: radial-gradient(circle at 30% 20%, #14aaa3 0%, #0b4f4d 55%, #083a38 100%); color: #fff; text-align: center; padding: 24px; box-sizing: border-box; }
+    img { width: 84px; height: 84px; border-radius: 22px; box-shadow: 0 18px 40px -16px rgb(0 0 0 / .6); }
+    h1 { font-size: 1.35rem; margin: 22px 0 6px; letter-spacing: -.02em; }
+    p { margin: 0; color: rgb(255 255 255 / .8); }
+    .dots { display: inline-flex; gap: 6px; margin-top: 22px; }
+    .dots i { width: 9px; height: 9px; border-radius: 50%; background: #fff; animation: b 1s infinite ease-in-out; }
+    .dots i:nth-child(2) { animation-delay: .15s; } .dots i:nth-child(3) { animation-delay: .3s; }
+    @keyframes b { 0%, 80%, 100% { opacity: .25; transform: scale(.8); } 40% { opacity: 1; transform: none; } }
+    a { color: #fff; font-weight: 700; }
+  </style>
+</head>
+<body>
+  <main>
+    <img src="assets/img/logo.png" alt="ManaResto">
+    <h1>Ouverture du restaurant exemple…</h1>
+    <p>Découvrez ManaResto comme si c'était votre restaurant.</p>
+    <div class="dots" aria-hidden="true"><i></i><i></i><i></i></div>
+    <p style="margin-top:22px;font-size:.85rem"><a id="go" href="https://app.manaresto.com/login?demo=1">Ouvrir maintenant</a></p>
+  </main>
+  <script src="config.js?v=dev"></script>
+  <script>
+    (function () {
+      var app = (window.MANARESTO_CONFIG && window.MANARESTO_CONFIG.app) || "https://app.manaresto.com";
+      var url = app + "/login?demo=1";
+      document.getElementById("go").href = url;
+      try { window.dataLayer = window.dataLayer || []; window.dataLayer.push({ event: "demo_link" }); } catch (e) { /* sans importance */ }
+      location.replace(url);
+    })();
+  </script>
+</body>
+</html>
