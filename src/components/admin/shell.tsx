@@ -18,6 +18,7 @@ import { Spinner } from "@/components/ui/misc";
 import { SupportBar } from "@/components/support-bar";
 import { DemoVisitBar } from "@/components/demo-visit";
 import { PortalButtons } from "@/components/portal/portal-buttons";
+import { roleLabel } from "@/components/admin/profile-picker";
 import { confirmLogoutWithPending, purgeLocalData } from "@/lib/offline/purge";
 
 type NavItem = { href: string; label: string; icon: LucideIcon; show?: boolean; match?: string; external?: boolean };
@@ -114,7 +115,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
         <InstallAppButton variant="secondary" className="mb-2 h-10 w-full justify-start" label="Installer l'application" compact />
         <div className="mt-2 flex items-center gap-2 px-1">
           <span className="flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold text-white" style={{ background: me?.user?.color ?? "#0ea5a4" }}>{(me?.user?.firstName ?? "?").slice(0, 1)}</span>
-          <span className="min-w-0 flex-1 truncate text-sm font-semibold">{me?.user?.firstName} {me?.user?.lastName}<span className="block text-xs font-normal text-muted">{me?.roleKey}</span></span>
+          <span className="min-w-0 flex-1 truncate text-sm font-semibold">{me?.user?.firstName} {me?.user?.lastName}<span className="block text-xs font-normal text-muted">{roleLabel(me?.roleKey)}</span></span>
           <button onClick={toggle} className="touch rounded-lg p-2 hover:surface-2"><Sun className="h-4 w-4 dark:hidden" /><Moon className="hidden h-4 w-4 dark:block" /></button>
           <button onClick={logout} className="touch rounded-lg p-2 hover:surface-2" title="Déconnexion"><LogOut className="h-4 w-4" /></button>
         </div>

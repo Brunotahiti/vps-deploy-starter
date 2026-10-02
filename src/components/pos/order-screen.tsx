@@ -11,7 +11,7 @@ import { Modal } from "@/components/ui/modal";
 import { Spinner } from "@/components/ui/misc";
 import { useToast } from "@/components/ui/toast";
 import { Money } from "@/components/money";
-import { formatElapsed } from "@/lib/dates";
+import { dateToZonedInput, formatElapsed, localDay, zonedInputToDate } from "@/lib/dates";
 import { celebrate } from "@/lib/celebrate";
 import { useSession } from "@/hooks/use-session";
 import { usePosCatalog } from "./use-catalog";
@@ -485,7 +485,7 @@ export function OrderScreen({ orderId: orderIdProp }: { orderId: string }) {
         router.push("/pos");
       })} />
       <TransferDialog open={dialog === "transfer"} currentTableId={o.tableId} onClose={() => setDialog(null)} onPick={(tableId) => run(() => api.post<Order>(`/api/orders/${orderId}/transfer`, { tableId })).then((ok) => { if (ok) { setDialog(null); toast("Table transférée", "success"); } })} />
-      {dialog === "covers" ? <CoversDialog key={`${o.covers}-${o.customerName ?? ""}`} open order={o} onClose={() => setDialog(null)} onSave={(body) => run(() => api.patch<Order>(`/api/orders/${orderId}`, body, { queueIfOffline: true }), (o) => ({ ...o, ...body })).then(() => setDialog(null))} /> : null}
+      {dialog === "covers" ? <CoversDialog key={`${o.covers}-${o.customerName ?? ""}`} open order={o} onClose={() => setDialog(null)} onSave={(body) => run(() => api.patch<Order>(`/api/orders/${orderId}`, body, { queueIfOffline: true }), (o) => ({ ...o, ...body, pickupAt: body.pickupAt === undefined ? o.pickupAt : body.pickupAt ? new Date(body.pickupAt) : null })).then(() => setDialog(null))} /> : null}
       {/* En dernier : la demande de PIN manager s'affiche au-dessus de la fenêtre qui l'a déclenchée (remise, annulation…) */}
       <PinModal request={pin} onClose={() => setPin(null)} />
       {currentCourse?.status === "HOLD" ? <div className="pointer-events-none fixed bottom-24 right-4 rounded-lg bg-orange-500 px-3 py-1 text-xs font-bold text-white">Service « {currentCourse.name} » en attente</div> : null}
@@ -537,16 +537,33 @@ function TransferDialog({ open, currentTableId, onClose, onPick }: { open: boole
   );
 }
 
-function CoversDialog({ open, order, onClose, onSave }: { open: boolean; order: Order; onClose: () => void; onSave: (b: { covers: number; customerName: string | null }) => Promise<unknown> }) {
+function CoversDialog({ open, order, onClose, onSave }: { open: boolean; order: Order; onClose: () => void; onSave: (b: { covers: number; customerName: string | null; customerPhone?: string | null; pickupAt?: string | null }) => Promise<unknown> }) {
+  const { timezone } = useSession();
+  const takeaway = order.type !== "DINE_IN";
   const [covers, setCovers] = useState(order.covers);
   const [name, setName] = useState(order.customerName ?? "");
+  const [phone, setPhone] = useState(order.customerPhone ?? "");
+  // Heure de retrait (à emporter) : saisie à l'heure du restaurant, aujourd'hui
+  const [pickup, setPickup] = useState(order.pickupAt ? dateToZonedInput(order.pickupAt, timezone).slice(11, 16) : "");
+  const save = () => onSave({
+    covers, customerName: name || null,
+    ...(takeaway ? { customerPhone: phone.trim() || null, pickupAt: pickup ? zonedInputToDate(`${localDay(new Date(), timezone)}T${pickup}`, timezone).toISOString() : null } : {}),
+  });
   return (
-    <Modal open={open} onClose={onClose} title="Commande" size="sm">
-      <p className="mb-1 text-xs font-bold uppercase text-muted">Couverts</p>
-      <div className="mb-3 grid grid-cols-6 gap-2">{Array.from({ length: 12 }, (_, i) => i + 1).map((n) => <button key={n} onClick={() => setCovers(n)} className={`touch h-12 rounded-lg text-lg font-bold ${covers === n ? "bg-lagon-600 text-white" : "surface-2"}`}>{n}</button>)}</div>
-      <p className="mb-1 text-xs font-bold uppercase text-muted">Nom du client (comptoir / à emporter)</p>
+    <Modal open={open} onClose={onClose} title={takeaway ? "Client et retrait" : "Commande"} size="sm">
+      {!takeaway ? <>
+        <p className="mb-1 text-xs font-bold uppercase text-muted">Couverts</p>
+        <div className="mb-3 grid grid-cols-6 gap-2">{Array.from({ length: 12 }, (_, i) => i + 1).map((n) => <button key={n} onClick={() => setCovers(n)} className={`touch h-12 rounded-lg text-lg font-bold ${covers === n ? "bg-lagon-600 text-white" : "surface-2"}`}>{n}</button>)}</div>
+      </> : null}
+      <p className="mb-1 text-xs font-bold uppercase text-muted">Nom du client</p>
       <input value={name} onChange={(e) => setName(e.target.value)} className="h-11 w-full rounded-xl border border-line surface px-3 text-sm" />
-      <Button className="mt-3 w-full" size="lg" onClick={() => onSave({ covers, customerName: name || null })}>Enregistrer</Button>
+      {takeaway ? <>
+        <p className="mb-1 mt-3 text-xs font-bold uppercase text-muted">Téléphone</p>
+        <input value={phone} onChange={(e) => setPhone(e.target.value)} inputMode="tel" className="h-11 w-full rounded-xl border border-line surface px-3 text-sm" />
+        <p className="mb-1 mt-3 text-xs font-bold uppercase text-muted">Heure de retrait</p>
+        <div className="flex gap-2"><input type="time" value={pickup} onChange={(e) => setPickup(e.target.value)} aria-label="Heure de retrait" className="h-11 flex-1 rounded-xl border border-line surface px-3 text-sm" />{pickup ? <button onClick={() => setPickup("")} className="rounded-xl px-3 text-xs font-semibold text-muted hover:surface-2">Dès que possible</button> : null}</div>
+      </> : null}
+      <Button className="mt-3 w-full" size="lg" onClick={save}>Enregistrer</Button>
     </Modal>
   );
 }

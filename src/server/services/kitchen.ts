@@ -5,6 +5,7 @@ import { publish } from "@/server/realtime/bus";
 import { startOfLocalDay, localDay } from "@/lib/dates";
 import type { Actor } from "./orders";
 import { serviceSettings, onTicketReady, onTicketNotReady } from "./service-tracking";
+import { syncTakeawayReady } from "./takeaway";
 import type { KitchenTicketStatus, Prisma } from "@/generated/prisma/client";
 
 /**
@@ -114,6 +115,8 @@ export async function setTicketStatus(actor: Actor, ticketId: string, status: Ki
   publish("kitchen.updated", actor.establishmentId, { orderId: ticket.orderId, ticketId, status });
   publish("order.updated", actor.establishmentId, { orderId: ticket.orderId, tableId: ticket.order.table?.id ?? null });
   publish("table.updated", actor.establishmentId, { tableId: ticket.order.table?.id ?? null });
+  // À emporter : dernier plat prêt → la commande est prête (numéro appelé, client prévenu)
+  if (status === "READY" || status === "DONE") await syncTakeawayReady(actor.establishmentId, ticket.orderId).catch((e) => console.error("[à emporter] statut prêt non mis à jour", e));
   const after = await loadTicket(actor.establishmentId, ticketId);
   if (tracking && (status === "READY" || status === "DONE")) await onTicketReady(actor, { id: after.id, orderId: after.orderId, items: after.items, order: { tableId: after.order.table?.id ?? null, serverId: after.order.serverId, type: after.order.type } });
   return after;

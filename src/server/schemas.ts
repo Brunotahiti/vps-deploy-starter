@@ -68,11 +68,13 @@ export const orderType = z.enum(["DINE_IN", "COUNTER", "TAKEAWAY", "DELIVERY", "
 export const orderCreateSchema = z.object({
   id: uuid.optional(), type: orderType.default("DINE_IN"), tableId: uuid.nullable().optional(), covers: z.number().int().min(1).max(200).optional(),
   customerName: z.string().max(80).nullable().optional(), notes: z.string().max(500).nullable().optional(),
+  customerPhone: z.string().max(30).nullable().optional(), pickupAt: z.string().datetime().nullable().optional(),
   // Services pré-générés par le client (mode hors ligne) : ids connus avant la synchronisation
   courses: z.array(z.object({ id: uuid, name: z.string().min(1).max(40) })).min(1).max(10).optional(),
   openedAt: z.string().datetime().optional(),
 });
-export const orderUpdateSchema = z.object({ covers: z.number().int().min(1).max(200).optional(), customerName: z.string().max(80).nullable().optional(), notes: z.string().max(500).nullable().optional(), type: orderType.optional() });
+export const orderUpdateSchema = z.object({ covers: z.number().int().min(1).max(200).optional(), customerName: z.string().max(80).nullable().optional(), customerPhone: z.string().max(30).nullable().optional(), pickupAt: z.string().datetime().nullable().optional(), notes: z.string().max(500).nullable().optional(), type: orderType.optional() });
+export const takeawayStepSchema = z.object({ step: z.enum(["ready", "not_ready", "picked_up"]) });
 const modifierSel = z.array(z.object({ modifierId: uuid, quantity: z.number().int().min(1).max(20).optional() })).optional();
 export const addItemSchema = z.object({
   id: uuid.optional(), productId: uuid.optional(), menuId: uuid.optional(), variantId: uuid.nullable().optional(), quantity: z.number().int().min(1).max(200).optional(),

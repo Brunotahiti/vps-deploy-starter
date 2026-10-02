@@ -52,10 +52,20 @@ export const POS_SCOPE_PERMISSIONS: PermissionKey[] = [
 ];
 
 export const SYSTEM_ROLES: Record<string, { name: string; permissions: PermissionKey[] | "*" }> = {
-  owner: { name: "Propriétaire", permissions: "*" },
+  owner: { name: "Admin (propriétaire)", permissions: "*" },
+  // Les quatre profils principaux (voir src/lib/profiles.ts) puis les profils spécialisés
+  admin: { name: "Admin", permissions: "*" },
   manager: {
-    name: "Manager",
+    name: "Gérant",
     permissions: ALL_PERMISSIONS.filter((p) => !["establishments.manage", "reports.view_global"].includes(p)),
+  },
+  kitchen: {
+    name: "Chef en cuisine",
+    permissions: ["kds.use", "catalog.view", "catalog.manage", "catalog.availability", "stock.view", "stock.manage", "orders.view_history"],
+  },
+  server: {
+    name: "Équipe en salle",
+    permissions: ["pos.use", "pos.transfer_table", "catalog.view", "catalog.availability", "customers.manage"],
   },
   cashier: {
     name: "Responsable caisse",
@@ -65,15 +75,10 @@ export const SYSTEM_ROLES: Record<string, { name: string; permissions: Permissio
       "catalog.view", "catalog.availability", "orders.view_history", "reports.view", "customers.manage",
     ],
   },
-  server: {
-    name: "Serveur",
-    permissions: ["pos.use", "pos.transfer_table", "catalog.view", "catalog.availability", "customers.manage"],
-  },
   bartender: {
     name: "Barman",
     permissions: ["pos.use", "kds.use", "catalog.view", "catalog.availability", "cash.open", "cash.close", "cash.movement"],
   },
-  kitchen: { name: "Cuisine", permissions: ["kds.use", "catalog.availability", "stock.view"] },
   accountant: {
     name: "Comptable",
     permissions: ["reports.view", "reports.view_global", "audit.view", "orders.view_history", "stock.view"],

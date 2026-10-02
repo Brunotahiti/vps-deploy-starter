@@ -7,7 +7,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { LayoutGrid, ListOrdered, Wallet, Settings, Moon, Sun, LogOut, Wifi, WifiOff, RefreshCw, ChefHat, Download, Menu, X, ChevronRight, Clock, CalendarDays } from "lucide-react";
+import { LayoutGrid, ListOrdered, Wallet, Settings, Moon, Sun, LogOut, Wifi, WifiOff, RefreshCw, ChefHat, Download, Menu, X, ChevronRight, Clock, CalendarDays, ShoppingBag } from "lucide-react";
 import { markLogoutPending, useSession } from "@/hooks/use-session";
 import { useRealtime } from "@/hooks/use-realtime";
 import { SupportBar } from "@/components/support-bar";
@@ -38,6 +38,7 @@ export function PosShell({ children }: { children: React.ReactNode }) {
   const reminders = useServiceReminders(posAllowed);
   useOfflineSnapshot(posAllowed, hasOption("continuity")); // copie de travail pour les coupures d'internet (option Continuité)
   // Réservations du jour sur l'onglet : toujours en vue, en orange s'il y a des demandes à confirmer
+  const takeaway = useQuery({ queryKey: ["takeaway"], queryFn: () => api.get<{ toAccept: unknown[]; preparing: unknown[]; ready: unknown[] }>("/api/takeaway"), enabled: posAllowed, refetchInterval: 20_000 });
   const resaToday = useQuery({ queryKey: ["reservations-summary", "today"], queryFn: () => api.get<{ count: number; pending: number }[]>("/api/reservations/summary?days=1"), enabled: posAllowed && businessType !== "snack", refetchInterval: 60_000 });
   const [todo, setTodoState] = useState(false);
   const setTodo = (open: boolean) => { setTodoState(open); if (open) qc.invalidateQueries({ queryKey: ["service"] }); };
@@ -61,6 +62,8 @@ export function PosShell({ children }: { children: React.ReactNode }) {
 
   if (pathname === "/pos/login") return <>{children}</>;
   if (me?.user && !can("pos.use")) return <div className="flex h-dvh items-center justify-center p-6 text-center text-sm text-muted">Ce compte n&apos;a pas accès à la caisse. Redirection…</div>;
+  // Écran d'appel des numéros (tourné vers les clients) : plein écran, sans rien d'autre
+  if (pathname.startsWith("/pos/appel")) return <>{children}</>;
   // Portail « Commande » sur téléphone : plein écran, sans l'en-tête de la caisse
   if (pathname.startsWith("/pos/m")) {
     return (
@@ -85,9 +88,11 @@ export function PosShell({ children }: { children: React.ReactNode }) {
 
   // Réservations (option Digital) et pointage (option Équipe) : seulement si débloqués ; un snack vend au comptoir
   const today = resaToday.data?.[0];
+  const takeawayCount = (takeaway.data?.toAccept.length ?? 0) + (takeaway.data?.preparing.length ?? 0) + (takeaway.data?.ready.length ?? 0);
   const nav: { href: string; label: string; icon: typeof LayoutGrid; badge?: { count: number; alert: boolean } }[] = [
     { href: "/pos", label: businessType === "snack" ? "Comptoir" : "Salle", icon: LayoutGrid },
     { href: "/pos/orders", label: "Commandes", icon: ListOrdered },
+    { href: "/pos/emporter", label: "À emporter", icon: ShoppingBag, badge: takeawayCount ? { count: takeawayCount, alert: (takeaway.data?.toAccept.length ?? 0) > 0 } : undefined },
     { href: "/pos/cash", label: "Caisse", icon: Wallet },
     ...(businessType !== "snack" ? [{ href: "/pos/reservations", label: "Réservations", icon: CalendarDays, badge: today?.count ? { count: today.count, alert: today.pending > 0 } : undefined }] : []),
     ...(hasOption("team") ? [{ href: "/pos/clock", label: "Pointage", icon: Clock }] : []),
@@ -110,8 +115,8 @@ export function PosShell({ children }: { children: React.ReactNode }) {
         <nav className="ml-auto hidden items-center gap-1 sm:flex">
           {nav.map((n) => (
             <Link key={n.href} href={n.href} title={n.label} className={`touch relative flex h-10 items-center gap-2 rounded-xl px-3 text-sm font-semibold transition sm:px-3.5 ${isActive(n.href) ? "bg-brand text-white shadow-glow" : "text-muted hover:surface-2 hover:text-[var(--text)]"}`}>
-              <n.icon className="h-4 w-4" /><span className={n.badge ? "hidden md:inline" : "hidden lg:inline"}>{n.label}</span>
-              {n.badge ? <span data-testid="nav-reservations-badge" title={`${n.badge.count} réservation${n.badge.count > 1 ? "s" : ""} aujourd'hui`} className={`flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-extrabold ${n.badge.alert ? "bg-amber-500 text-white" : isActive(n.href) ? "bg-white/25 text-white" : "bg-lagon-500/15 text-brand"}`}>{n.badge.count}</span> : null}
+              <n.icon className="h-4 w-4" /><span className={`whitespace-nowrap ${n.badge ? "hidden md:inline" : "hidden lg:inline"}`}>{n.label}</span>
+              {n.badge ? <span data-testid={n.href === "/pos/reservations" ? "nav-reservations-badge" : "nav-takeaway-badge"} title={n.href === "/pos/reservations" ? `${n.badge.count} réservation${n.badge.count > 1 ? "s" : ""} aujourd'hui` : `${n.badge.count} commande${n.badge.count > 1 ? "s" : ""} à emporter en cours`} className={`flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-extrabold ${n.badge.alert ? "bg-amber-500 text-white" : isActive(n.href) ? "bg-white/25 text-white" : "bg-lagon-500/15 text-brand"}`}>{n.badge.count}</span> : null}
             </Link>
           ))}
           {serviceOn ? <TodoButton count={dueCount} late={lateAny} onClick={() => setTodo(true)} /> : null}
