@@ -66,6 +66,7 @@ describe("Démo vivante", () => {
     expect(await prisma.customerAccount.count({ where: { establishmentId: T.est.id } })).toBe(3);
     // Marketing : cartes cadeaux et clients inscrits aux offres
     expect(await prisma.giftCard.count({ where: { establishmentId: T.est.id } })).toBe(3);
+    expect(await prisma.screen.count({ where: { establishmentId: T.est.id } })).toBe(2);
     // Hygiène : option ouverte, relevés et nettoyages des jours passés, traçabilité en cours
     expect((await prisma.organization.findUniqueOrThrow({ where: { id: T.org.id } })).options).toContain("hygiene");
     expect(await prisma.temperatureReading.count({ where: { establishmentId: T.est.id, takenAt: { lt: todayStart } } })).toBeGreaterThan(50);

@@ -16,6 +16,7 @@ import { addDays, localDay, startOfLocalDay } from "../src/lib/dates";
 import { hygieneDemo } from "./demo-hygiene";
 import { accountsDemo } from "./demo-accounts";
 import { marketingDemo } from "./demo-marketing";
+import { screensDemo } from "./demo-screens";
 
 export const DEMO_SLUG = "demo-mana-beach";
 const SERVER_EMAILS = ["moana@manaresto.pf", "vaiana@manaresto.pf", "tamatoa@manaresto.pf", "poema@manaresto.pf", "heimana@manaresto.pf"];
@@ -560,6 +561,9 @@ export async function refreshDemo(prisma: PrismaClient, opts: { historyDays?: nu
 
     // Marketing : cartes cadeaux et clients inscrits aux offres (une seule fois)
     if (await marketingDemo(prisma, ctx, today)) log("→ Marketing : cartes cadeaux et clients inscrits");
+
+    // Écrans en salle : comptoir et terrasse (une seule fois)
+    if (await screensDemo(prisma, ctx)) log("→ Écrans en salle : comptoir et terrasse");
 
     // Activité trop ancienne
     const cutoff = startOfLocalDay(addDays(today, -KEEP_DAYS), ctx.tz);

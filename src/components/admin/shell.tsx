@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { BrainCircuit, LayoutDashboard, UtensilsCrossed, Map, Receipt, Wallet, Users, Settings, ScrollText, Building2, Moon, Sun, LogOut, X, Boxes, CalendarDays, Heart, QrCode, BarChart3, Clock, Plug, Network, TrendingUp, ShieldCheck, Printer, ChevronDown, Store, BookOpen, UsersRound, SlidersHorizontal, Globe, ExternalLink, type LucideIcon, Sparkles, ThermometerSnowflake, BookUser, Megaphone } from "lucide-react";
+import { BrainCircuit, LayoutDashboard, UtensilsCrossed, Map, Receipt, Wallet, Users, Settings, ScrollText, Building2, Moon, Sun, LogOut, X, Boxes, CalendarDays, Heart, QrCode, BarChart3, Clock, Plug, Network, TrendingUp, ShieldCheck, Printer, ChevronDown, Store, BookOpen, UsersRound, SlidersHorizontal, Globe, ExternalLink, type LucideIcon, Sparkles, ThermometerSnowflake, BookUser, Megaphone, Tv } from "lucide-react";
 import { markLogoutPending, useSession } from "@/hooks/use-session";
 import { useRealtime } from "@/hooks/use-realtime";
 import { useTheme } from "@/hooks/use-theme";
@@ -67,6 +67,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
     { key: "reglages", label: "Réglages", icon: SlidersHorizontal, items: [
       { href: "/admin/settings", label: "Paramètres", icon: Settings, show: can("settings.manage") },
       { href: "/admin/hardware", label: "Imprimantes & tiroir", icon: Printer, show: can("settings.manage") },
+      { href: "/admin/screens", label: "Écrans en salle", icon: Tv, show: hasOption("screens") && can("settings.manage") },
       { href: "/admin/integrations", label: "Intégrations", icon: Plug, show: can("settings.manage") && hasOption("advanced") },
       { href: "/admin/establishments", label: "Établissements", icon: Building2, show: hasOption("advanced") && (can("establishments.manage") || (me?.establishments?.length ?? 0) > 1) },
       { href: "/admin/organization", label: "Multi-sites", icon: Network, show: can("reports.view_global") },

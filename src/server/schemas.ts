@@ -243,3 +243,10 @@ export const giftCardCancelSchema = z.object({ reason: z.string().trim().min(1).
 export const campaignSegment = z.enum(["ALL", "INACTIVE", "BIRTHDAY_MONTH", "NEW"]);
 export const campaignSchema = z.object({ name: z.string().trim().min(1).max(120), segment: campaignSegment, subject: z.string().trim().min(1).max(150), body: z.string().trim().min(1).max(5000) });
 export const reviewSettingsSchema = z.object({ reviewUrl: z.string().trim().url().max(500).refine((u) => u.startsWith("https://"), "Adresse https:// attendue").nullable().or(z.literal("")) });
+
+// ─── Écrans en salle ───
+export const screenSchema = z.object({
+  name: z.string().trim().min(1).max(60), categoryIds: z.array(uuid).max(100).optional(), showPrices: z.boolean().optional(), hideSoldOut: z.boolean().optional(), showImages: z.boolean().optional(),
+  rotateSeconds: z.number().int().min(5).max(120).optional(), theme: z.enum(["lagoon", "night", "light"]).optional(), headline: z.string().trim().max(40).nullable().optional(),
+  headlineText: z.string().trim().max(160).nullable().optional(), headlinePrice: z.number().int().min(0).max(10_000_000).nullable().optional(), isActive: z.boolean().optional(),
+});

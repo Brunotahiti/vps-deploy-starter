@@ -60,6 +60,12 @@ export const OPTIONS = {
     includes: ["Cartes cadeaux et bons d'achat : vente à la caisse, utilisation en une ou plusieurs fois", "Campagnes par e-mail : anniversaires du mois, clients qui ne reviennent plus, nouveautés", "Seulement aux clients qui l'ont accepté, avec un lien de désabonnement", "Avis Google : lien sur les reçus et affiche avec QR code pour les tables"],
     permissions: ["giftcards.sell", "marketing.manage"],
   },
+  screens: {
+    label: "Écrans en salle",
+    tagline: "Votre carte sur une télévision, toujours à jour",
+    includes: ["Menu affiché sur une télévision ou une tablette, sans connexion d'un employé", "Mis à jour tout seul : prix, plats épuisés, nouveautés", "Plat du jour ou happy hour mis en avant, catégories au choix, défilement automatique", "Plusieurs écrans : comptoir, terrasse, vitrine"],
+    permissions: [],
+  },
   advanced: {
     label: "Avancé",
     tagline: "Pour les établissements qui grandissent",
