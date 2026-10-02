@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { BrainCircuit, LayoutDashboard, UtensilsCrossed, Map, Receipt, Wallet, Users, Settings, ScrollText, Building2, Moon, Sun, LogOut, Menu, X, Boxes, CalendarDays, Heart, QrCode, BarChart3, Clock, Plug, Network, TrendingUp, ShieldCheck, Printer, ChevronDown, Store, BookOpen, UsersRound, SlidersHorizontal, Globe, ExternalLink, type LucideIcon, Sparkles } from "lucide-react";
+import { BrainCircuit, LayoutDashboard, UtensilsCrossed, Map, Receipt, Wallet, Users, Settings, ScrollText, Building2, Moon, Sun, LogOut, X, Boxes, CalendarDays, Heart, QrCode, BarChart3, Clock, Plug, Network, TrendingUp, ShieldCheck, Printer, ChevronDown, Store, BookOpen, UsersRound, SlidersHorizontal, Globe, ExternalLink, type LucideIcon, Sparkles } from "lucide-react";
 import { markLogoutPending, useSession } from "@/hooks/use-session";
 import { useRealtime } from "@/hooks/use-realtime";
 import { useTheme } from "@/hooks/use-theme";
@@ -15,6 +15,7 @@ import { SubscriptionBanner } from "@/components/admin/subscription";
 import { api } from "@/lib/api-client";
 import { Logo } from "@/components/brand";
 import { Spinner } from "@/components/ui/misc";
+import { MenuButton } from "@/components/ui/menu-button";
 import { SupportBar } from "@/components/support-bar";
 import { DemoVisitBar } from "@/components/demo-visit";
 import { PortalButtons } from "@/components/portal/portal-buttons";
@@ -131,7 +132,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
       <div className="flex min-w-0 flex-1 flex-col">
         <SupportBar />
         <DemoVisitBar />
-        <header className="glass flex h-16 shrink-0 items-center gap-3 border-b px-4 lg:hidden"><button className="touch flex h-12 w-12 shrink-0 flex-col items-center justify-center gap-0.5 rounded-xl bg-brand text-white shadow-glow active:scale-95" aria-label="Ouvrir le menu" onClick={() => setOpen(true)}><Menu className="h-5 w-5" /><span className="text-[10px] font-extrabold leading-none" aria-hidden>Menu</span></button><Logo size={28} /><VersionBadge /></header>
+        <header className="glass flex h-[72px] shrink-0 items-center gap-3 border-b px-4 lg:hidden"><MenuButton onClick={() => setOpen(true)} blink /><Logo size={28} /><VersionBadge /></header>
         <main className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden p-4 lg:p-8"><InstallBanner className="mb-3 lg:hidden" /><SubscriptionBanner />{children}</main>
         {/* Les quatre portails, toujours visibles sous la page */}
         <PortalButtons />
