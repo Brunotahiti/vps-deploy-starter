@@ -24,7 +24,8 @@ ARG SENTRY_AUTH_TOKEN=
 ENV NEXT_TELEMETRY_DISABLED=1 DATABASE_URL=postgresql://build:build@localhost:5432/build BUILD_ID=$BUILD_ID SENTRY_DSN=$SENTRY_DSN SENTRY_ENVIRONMENT=$SENTRY_ENVIRONMENT SENTRY_AUTH_TOKEN=$SENTRY_AUTH_TOKEN
 RUN pnpm prisma generate && pnpm next build
 
-# Image de migration / seed : contient le CLI Prisma et le seed (lancée une fois avant l'app)
+# Image de migration / seed : contient le CLI Prisma et le seed. Lancée avant l'app pour les migrations seulement ;
+# la démo est rafraîchie ensuite, application déjà en ligne (déploiement, puis chaque heure)
 FROM node:22-alpine AS migrator
 WORKDIR /app
 RUN corepack enable pnpm
@@ -34,7 +35,7 @@ COPY prisma ./prisma
 COPY src/lib ./src/lib
 COPY src/server ./src/server
 COPY --from=builder /app/src/generated ./src/generated
-CMD ["sh", "-c", "pnpm prisma migrate deploy && if [ \"$SEED_DEMO\" = \"true\" ]; then pnpm tsx prisma/seed.ts; fi"]
+CMD ["pnpm", "prisma", "migrate", "deploy"]
 
 FROM node:22-alpine AS runner
 WORKDIR /app
