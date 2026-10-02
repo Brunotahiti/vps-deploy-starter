@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { restaurantSite } from "@/server/services/public";
+import { DEMO_ORG_SLUG } from "@/lib/platform";
 import { RestaurantSite, type SiteLang } from "@/components/public/restaurant-site";
 
 export const dynamic = "force-dynamic";
@@ -24,6 +25,8 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
     description,
     openGraph: { title: e.name, description, type: "website", locale: "fr_PF", ...(data.site.coverUrl ? { images: [data.site.coverUrl] } : {}) },
     alternates: { canonical: `${base()}/site/${e.organization.slug}/${e.slug}` },
+    // Vitrine du restaurant : indexée par Google (sauf le restaurant exemple, fictif)
+    robots: e.organization.slug === DEMO_ORG_SLUG ? { index: false, follow: true } : { index: true, follow: true },
   };
 }
 

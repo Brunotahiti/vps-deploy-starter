@@ -9,6 +9,9 @@ export const metadata: Metadata = {
   applicationName: "ManaResto",
   appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "ManaResto" },
   icons: { icon: "/icons/icon-192.png", apple: "/icons/icon-192.png" },
+  // L'application (caisse, gestion, connexion) ne doit pas apparaître dans Google ; les pages publiques des restaurants
+  // le réautorisent (src/app/site, commander, reserver)
+  robots: { index: false, follow: false },
 };
 
 export const viewport: Viewport = {
