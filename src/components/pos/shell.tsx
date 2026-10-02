@@ -112,11 +112,11 @@ export function PosShell({ children }: { children: React.ReactNode }) {
         {/* Téléphone : le menu s'ouvre à gauche, comme dans l'administration */}
         <MenuButton onClick={() => setMenu(true)} className="sm:hidden" />
         {/* Le logo ouvre le menu, sur tous les écrans */}
-        <button type="button" onClick={() => setMenu(true)} aria-label="Menu ManaResto" title="Menu" className="touch mr-1 flex items-center gap-2 rounded-xl text-left transition active:scale-95"><span className="flex flex-col items-center gap-0.5"><Logo size={32} withText={false} /><span className="hidden text-[10px] font-extrabold leading-none text-muted sm:block" aria-hidden>Menu</span></span><span className="hidden flex-col leading-tight md:flex"><span className="flex items-center gap-1.5 text-base font-extrabold tracking-tight"><span>Mana<span className="text-brand">Resto</span></span><VersionBadge /></span><span className="truncate text-[11px] font-medium text-muted">{me?.establishment?.name}</span></span></button>
-        <nav className="ml-auto hidden items-center gap-1 sm:flex">
+        <button type="button" onClick={() => setMenu(true)} aria-label="Menu ManaResto" title="Menu" className="touch mr-1 flex items-center gap-2 rounded-xl text-left transition active:scale-95"><span className="flex flex-col items-center gap-0.5"><Logo size={32} withText={false} /><span className="hidden text-[10px] font-extrabold leading-none text-muted sm:block" aria-hidden>Menu</span></span><span className="hidden flex-col leading-tight 2xl:flex"><span className="flex items-center gap-1.5 text-base font-extrabold tracking-tight"><span>Mana<span className="text-brand">Resto</span></span><VersionBadge /></span><span className="truncate text-[11px] font-medium text-muted">{me?.establishment?.name}</span></span></button>
+        <nav className="ml-auto hidden shrink-0 items-center gap-1 sm:flex">
           {nav.map((n) => (
             <Link key={n.href} href={n.href} title={n.label} className={`touch relative flex h-10 items-center gap-2 rounded-xl px-3 text-sm font-semibold transition sm:px-3.5 ${isActive(n.href) ? "bg-brand text-white shadow-glow" : "text-muted hover:surface-2 hover:text-[var(--text)]"}`}>
-              <n.icon className="h-4 w-4" /><span className={`whitespace-nowrap ${n.badge ? "hidden md:inline" : "hidden lg:inline"}`}>{n.label}</span>
+              <n.icon className="h-4 w-4" /><span className="hidden whitespace-nowrap xl:inline">{n.label}</span>
               {n.badge ? <span data-testid={n.href === "/pos/reservations" ? "nav-reservations-badge" : "nav-takeaway-badge"} title={n.href === "/pos/reservations" ? `${n.badge.count} réservation${n.badge.count > 1 ? "s" : ""} aujourd'hui` : `${n.badge.count} commande${n.badge.count > 1 ? "s" : ""} à emporter en cours`} className={`flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-extrabold ${n.badge.alert ? "bg-amber-500 text-white" : isActive(n.href) ? "bg-white/25 text-white" : "bg-lagon-500/15 text-brand"}`}>{n.badge.count}</span> : null}
             </Link>
           ))}
@@ -130,20 +130,20 @@ export function PosShell({ children }: { children: React.ReactNode }) {
             {online ? <Wifi className="h-4 w-4" /> : <WifiOff className="h-4 w-4" />}{pending > 0 ? <span className="absolute -mt-6 ml-6 flex h-4 min-w-4 items-center justify-center rounded-full bg-orange-500 px-1 text-[10px] font-extrabold text-white">{pending}</span> : null}
           </button>
         </div>
-        <div className="ml-1 hidden items-center gap-1 border-l border-line pl-1.5 sm:ml-2 sm:flex sm:gap-2 sm:pl-2">
+        <div className="ml-1 hidden shrink-0 items-center gap-1 border-l border-line pl-1.5 sm:ml-2 sm:flex sm:gap-2 sm:pl-2">
           <button data-testid="network-status" data-online={online ? "true" : "false"} aria-label={`${!online ? "Hors ligne" : "En ligne"}${pending > 0 ? ` · ${pending} à synchroniser` : ""}`} onClick={() => (pending > 0 ? flush() : undefined)} className={`touch flex h-9 items-center gap-1.5 whitespace-nowrap rounded-full px-3 text-[11px] font-bold tracking-wide ${!online ? "bg-red-500/15 text-red-600 dark:text-red-400" : pending > 0 ? "bg-orange-500/15 text-orange-600" : connected ? "bg-green-500/10 text-green-600 dark:text-green-400" : "surface-2 text-muted"}`} title={online ? (connected ? "En ligne, temps réel actif" : "En ligne") : "Hors ligne : les opérations sont mises en file d'attente"}>
             {online ? <Wifi className="h-4 w-4" /> : <WifiOff className="h-4 w-4" />}
-            <span className="hidden xl:inline">{!online ? "HORS LIGNE" : "EN LIGNE"}{pending > 0 ? ` · ${pending} à synchroniser` : ""}</span>{pending > 0 ? <span className="xl:hidden">{pending}</span> : null}
+            <span className="hidden min-[1700px]:inline">{!online ? "HORS LIGNE" : "EN LIGNE"}{pending > 0 ? ` · ${pending} à synchroniser` : ""}</span>{pending > 0 ? <span className="min-[1700px]:hidden">{pending}</span> : null}
             {syncing ? <RefreshCw className="h-3 w-3 animate-spin" /> : null}
           </button>
-          <Link href="/pos/cash" className={`hidden h-9 items-center gap-1 whitespace-nowrap rounded-full px-3 text-[11px] font-bold xl:flex ${cash.data ? "bg-lagon-500/10 text-lagon-700 dark:text-lagon-300" : "bg-orange-500/15 text-orange-600"}`}>
-            {cash.data?.summary ? <><span className="hidden xl:inline">Caisse ouverte ·</span><Money amount={cash.data.summary.cashExpected} /></> : "Caisse fermée"}
+          <Link href="/pos/cash" className={`hidden h-9 items-center gap-1 whitespace-nowrap rounded-full px-3 text-[11px] font-bold min-[1700px]:flex ${cash.data ? "bg-lagon-500/10 text-lagon-700 dark:text-lagon-300" : "bg-orange-500/15 text-orange-600"}`}>
+            {cash.data?.summary ? <><span className="hidden min-[1700px]:inline">Caisse ouverte ·</span><Money amount={cash.data.summary.cashExpected} /></> : "Caisse fermée"}
           </Link>
-          {canInstall ? <button onClick={install} className="touch hidden h-9 items-center gap-1 rounded-lg bg-corail-500/15 px-2 text-xs font-bold text-corail-600 xl:flex" title="Installer ManaResto sur cet appareil"><Download className="h-4 w-4" /><span className="hidden xl:inline">Installer</span></button> : null}
-          <button onClick={toggle} className="touch hidden rounded-lg p-2 hover:surface-2 xl:block" aria-label="Changer de thème"><Sun className="h-4 w-4 dark:hidden" /><Moon className="hidden h-4 w-4 dark:block" /></button>
+          {canInstall ? <button onClick={install} className="touch hidden h-9 items-center gap-1 rounded-lg bg-corail-500/15 px-2 text-xs font-bold text-corail-600 min-[1700px]:flex" title="Installer ManaResto sur cet appareil"><Download className="h-4 w-4" /><span className="hidden min-[1700px]:inline">Installer</span></button> : null}
+          <button onClick={toggle} className="touch hidden rounded-lg p-2 hover:surface-2 min-[1700px]:block" aria-label="Changer de thème"><Sun className="h-4 w-4 dark:hidden" /><Moon className="hidden h-4 w-4 dark:block" /></button>
           <button onClick={logout} className="touch flex items-center gap-2 rounded-full py-1 pl-1 pr-1 text-sm font-semibold hover:surface-2 sm:pr-2.5" title="Changer d'utilisateur">
             <span className="flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold text-white shadow-soft" style={{ background: me?.user?.color ?? "#0ea5a4" }}>{(me?.user?.displayName || me?.user?.firstName || "?").slice(0, 1)}</span>
-            <span className="hidden xl:inline">{me?.user?.displayName || me?.user?.firstName}</span>
+            <span className="hidden min-[1700px]:inline">{me?.user?.displayName || me?.user?.firstName}</span>
             <LogOut className="hidden h-4 w-4 text-muted sm:block" />
           </button>
         </div>
