@@ -175,6 +175,7 @@ export async function platformOrgDetail(organizationId: string, now = new Date()
       establishments: { orderBy: { createdAt: "asc" }, select: { id: true, name: true, slug: true, city: true, island: true, phone: true, email: true, isActive: true, onboardingDone: true, createdAt: true } },
       users: { orderBy: [{ isOwner: "desc" }, { createdAt: "asc" }], select: { id: true, firstName: true, lastName: true, email: true, isOwner: true, isActive: true, lastLoginAt: true, inviteToken: true, createdAt: true } },
       platformEmails: { orderBy: { createdAt: "desc" }, take: 30 },
+      optionRequests: { where: { status: "PENDING" }, orderBy: { createdAt: "asc" }, select: { option: true, createdAt: true } },
     },
   });
   if (!org) throw new ApiError(404, "NOT_FOUND", "Restaurant introuvable");
@@ -199,6 +200,7 @@ export async function platformOrgDetail(organizationId: string, now = new Date()
     id: org.id, name: org.name, slug: org.slug, status: accountStatus(org, now), plan: org.plan,
     trialEndsAt: org.trialEndsAt?.toISOString() ?? null, planStartedAt: org.planStartedAt?.toISOString() ?? null, periodEndsAt: org.periodEndsAt?.toISOString() ?? null,
     blockedAt: org.blockedAt?.toISOString() ?? null, blockedReason: org.blockedReason, createdAt: org.createdAt.toISOString(), billingEmail: org.billingEmail,
+    options: org.options, optionRequests: org.optionRequests.map((r) => ({ option: r.option, createdAt: r.createdAt.toISOString() })),
     establishments: org.establishments.map((e) => ({ ...e, createdAt: e.createdAt.toISOString(), publicPath: `/site/${org.slug}/${e.slug}` })),
     users: org.users.map((u) => ({ id: u.id, name: `${u.firstName} ${u.lastName}`.trim(), email: u.email, isOwner: u.isOwner, isActive: u.isActive, invitePending: !!u.inviteToken, lastLoginAt: u.lastLoginAt?.toISOString() ?? null, minutes30: userAct.get(u.id)?._sum.minutes ?? 0, lastSeenAt: userAct.get(u.id)?._max.lastAt?.toISOString() ?? null })),
     sessions: sessions.map((s) => ({ id: s.id, user: names.get(s.userId) ?? "—", device: describeDevice(s.userAgent), createdAt: s.createdAt.toISOString(), lastSeenAt: s.lastSeenAt.toISOString(), support: !!s.impersonatorId })),

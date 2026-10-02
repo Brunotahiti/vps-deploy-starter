@@ -57,7 +57,7 @@ export type EstablishmentUpdate = Partial<
     Prisma.EstablishmentUncheckedUpdateInput,
     | "name" | "legalName" | "tahitiNumber" | "addressLine1" | "addressLine2" | "city" | "postalCode" | "island"
     | "phone" | "email" | "currency" | "currencyExponent" | "locale" | "timezone" | "tipsEnabled" | "tipPresetsBps"
-    | "openingHours" | "settings" | "onboardingStep" | "onboardingDone"
+    | "openingHours" | "settings" | "onboardingStep" | "onboardingDone" | "businessType"
   >
 >;
 

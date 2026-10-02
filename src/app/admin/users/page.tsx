@@ -16,8 +16,20 @@ type R = Awaited<ReturnType<typeof listRoles>>[number];
 type Perm = { key: string; group: string; description: string };
 type Form = { id?: string; email: string; password: string; currentPassword?: string; firstName: string; lastName: string; displayName: string; color: string; pin: string; isActive: boolean; memberships: { establishmentId: string; roleId: string }[] };
 
+/** Profils simples : ce que chacun peut faire, en une phrase */
+const PROFILE_HINT: Record<string, string> = {
+  manager: "gère tout l'établissement",
+  cashier: "encaisse, ouvre et clôture la caisse",
+  server: "prend les commandes et encaisse",
+  bartender: "bar : commandes, boissons et caisse",
+  kitchen: "écran cuisine",
+  accountant: "rapports et exports, sans la caisse",
+};
+
 export default function UsersPage() {
-  const { me } = useSession();
+  const { me, hasOption } = useSession();
+  // Rôles sur mesure (droits détaillés) : option Avancé ; sinon des profils simples
+  const customRoles = hasOption("advanced");
   const act = useAction();
   const [tab, setTab] = useState<"users" | "roles">("users");
   const users = useList<U[]>(["users"], "/api/users?all=1");
@@ -58,9 +70,9 @@ export default function UsersPage() {
 
   return (
     <div>
-      <PageHeader title="Utilisateurs & rôles" subtitle="Comptes du personnel, PIN de caisse, rôles et permissions granulaires" action={tab === "users" ? <div className="flex flex-wrap gap-2"><Button variant="secondary" disabled={!roles.data || !me} onClick={() => setInvite({ email: "", firstName: "", lastName: "", memberships: me?.establishment ? [{ establishmentId: me.establishment.id, roleId: assignable.find((r) => r.key === "server")?.id ?? "" }] : [] })}>Inviter par e-mail</Button><Button disabled={!roles.data || !me} onClick={() => setEdit({ email: "", password: "", firstName: "", lastName: "", displayName: "", color: "#0EA5A4", pin: "", isActive: true, memberships: me?.establishment ? [{ establishmentId: me.establishment.id, roleId: assignable.find((r) => r.key === "server")?.id ?? "" }] : [] })}>Nouvel utilisateur</Button></div> : <Button onClick={() => setRoleEdit({ name: "", permissions: [], isSystem: false })}>Nouveau rôle</Button>} />
-      <div className="mb-4 flex gap-1 border-b border-line">{(["users", "roles"] as const).map((t) => <button key={t} onClick={() => setTab(t)} className={`border-b-2 px-3 py-2 text-sm font-semibold ${tab === t ? "border-lagon-500 text-lagon-600" : "border-transparent text-muted"}`}>{t === "users" ? "Utilisateurs" : "Rôles & permissions"}</button>)}</div>
-      {tab === "users" ? (users.isLoading ? <div className="flex justify-center py-10"><Spinner /></div> : (
+      <PageHeader title={customRoles ? "Utilisateurs & rôles" : "Accès & PIN"} subtitle={customRoles ? "Comptes du personnel, PIN de caisse, rôles et permissions granulaires" : "Un compte et un PIN par personne, avec un profil : Responsable, Serveur, Cuisine…"} action={tab === "users" || !customRoles ? <div className="flex flex-wrap gap-2"><Button variant="secondary" disabled={!roles.data || !me} onClick={() => setInvite({ email: "", firstName: "", lastName: "", memberships: me?.establishment ? [{ establishmentId: me.establishment.id, roleId: assignable.find((r) => r.key === "server")?.id ?? "" }] : [] })}>Inviter par e-mail</Button><Button disabled={!roles.data || !me} onClick={() => setEdit({ email: "", password: "", firstName: "", lastName: "", displayName: "", color: "#0EA5A4", pin: "", isActive: true, memberships: me?.establishment ? [{ establishmentId: me.establishment.id, roleId: assignable.find((r) => r.key === "server")?.id ?? "" }] : [] })}>Nouvel utilisateur</Button></div> : <Button onClick={() => setRoleEdit({ name: "", permissions: [], isSystem: false })}>Nouveau rôle</Button>} />
+      {customRoles ? <div className="mb-4 flex gap-1 border-b border-line">{(["users", "roles"] as const).map((t) => <button key={t} onClick={() => setTab(t)} className={`border-b-2 px-3 py-2 text-sm font-semibold ${tab === t ? "border-lagon-500 text-lagon-600" : "border-transparent text-muted"}`}>{t === "users" ? "Utilisateurs" : "Rôles & permissions"}</button>)}</div> : null}
+      {tab === "users" || !customRoles ? (users.isLoading ? <div className="flex justify-center py-10"><Spinner /></div> : (
         <Table head={["Nom", "Email", "Rôle(s)", "PIN", "Statut", "Dernière connexion", ""]}>
           {users.data?.map((u) => (
             <Tr key={u.id}>
@@ -91,7 +103,7 @@ export default function UsersPage() {
               {invite.memberships.map((m, i) => (
                 <div key={i} className="mb-2 grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
                   <Select value={m.establishmentId} onChange={(e) => setInvite({ ...invite, memberships: invite.memberships.map((x, j) => (j === i ? { ...x, establishmentId: e.target.value } : x)) })}>{ests.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}</Select>
-                  <Select value={m.roleId} onChange={(e) => setInvite({ ...invite, memberships: invite.memberships.map((x, j) => (j === i ? { ...x, roleId: e.target.value } : x)) })}><option value="">Rôle…</option>{assignable.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}</Select>
+                  <Select value={m.roleId} onChange={(e) => setInvite({ ...invite, memberships: invite.memberships.map((x, j) => (j === i ? { ...x, roleId: e.target.value } : x)) })}><option value="">Rôle…</option>{assignable.map((r) => <option key={r.id} value={r.id}>{r.name}{PROFILE_HINT[r.key] ? ` — ${PROFILE_HINT[r.key]}` : ""}</option>)}</Select>
                   <button onClick={() => setInvite({ ...invite, memberships: invite.memberships.filter((_, j) => j !== i) })} className="text-xs font-semibold text-red-600">Retirer</button>
                 </div>
               ))}
@@ -116,7 +128,7 @@ export default function UsersPage() {
           <Field label="Couleur"><Input type="color" value={edit.color || "#0ea5a4"} onChange={(e) => setEdit({ ...edit, color: e.target.value })} className="h-11 p-1" /></Field>
           <div className="flex items-end"><Toggle checked={edit.isActive} onChange={(v) => setEdit({ ...edit, isActive: v })} label="Compte actif" /></div>
           <div className="sm:col-span-2"><p className="mb-1 text-xs font-semibold uppercase text-muted">Accès par établissement</p>
-            {ests.map((e) => { const m = edit.memberships.find((x) => x.establishmentId === e.id); return <div key={e.id} className="mb-1 flex items-center gap-2"><Toggle checked={!!m} onChange={(v) => setEdit({ ...edit, memberships: v ? [...edit.memberships, { establishmentId: e.id, roleId: assignable[0]?.id ?? "" }] : edit.memberships.filter((x) => x.establishmentId !== e.id) })} /><span className="w-40 truncate text-sm font-semibold">{e.name}</span>{m ? <Select value={m.roleId} onChange={(ev) => setEdit({ ...edit, memberships: edit.memberships.map((x) => (x.establishmentId === e.id ? { ...x, roleId: ev.target.value } : x)) })} className="flex-1"><option value="">Choisir un rôle</option>{assignable.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}</Select> : null}</div>; })}
+            {ests.map((e) => { const m = edit.memberships.find((x) => x.establishmentId === e.id); return <div key={e.id} className="mb-1 flex items-center gap-2"><Toggle checked={!!m} onChange={(v) => setEdit({ ...edit, memberships: v ? [...edit.memberships, { establishmentId: e.id, roleId: assignable[0]?.id ?? "" }] : edit.memberships.filter((x) => x.establishmentId !== e.id) })} /><span className="w-40 truncate text-sm font-semibold">{e.name}</span>{m ? <Select value={m.roleId} onChange={(ev) => setEdit({ ...edit, memberships: edit.memberships.map((x) => (x.establishmentId === e.id ? { ...x, roleId: ev.target.value } : x)) })} className="flex-1"><option value="">Choisir un rôle</option>{assignable.map((r) => <option key={r.id} value={r.id}>{r.name}{PROFILE_HINT[r.key] ? ` — ${PROFILE_HINT[r.key]}` : ""}</option>)}</Select> : null}</div>; })}
           </div>
         </div> : null}
       </Modal>

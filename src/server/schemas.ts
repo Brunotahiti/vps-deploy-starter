@@ -9,6 +9,7 @@ export const loginSchema = z.object({ email: z.string().email(), password: z.str
 export const signupSchema = z.object({
   organizationName: z.string().min(2).max(80), establishmentName: z.string().min(2).max(80), email: z.string().email(), password: z.string().min(8).max(128),
   firstName: z.string().min(1).max(60), lastName: z.string().min(1).max(60),
+  businessType: z.enum(["snack", "restaurant", "bar"]).optional(),
 });
 export const pinLoginSchema = z.object({ pin });
 export const terminalRegisterSchema = z.object({ name: z.string().min(1).max(60), kind: z.enum(["POS", "KDS", "KIOSK", "MANAGER"]).default("POS") });
@@ -20,6 +21,7 @@ export const establishmentUpdateSchema = z.object({
   email: z.string().email().nullable().optional(), currency: z.enum(["XPF", "EUR", "USD", "NZD"]).optional(), timezone: z.string().max(60).optional(),
   tipsEnabled: z.boolean().optional(), tipPresetsBps: z.array(bps).max(6).optional(), openingHours: z.unknown().optional(), settings: z.record(z.string(), z.unknown()).optional(),
   onboardingStep: z.number().int().min(0).max(20).optional(), onboardingDone: z.boolean().optional(),
+  businessType: z.enum(["snack", "restaurant", "bar"]).optional(),
 });
 export const establishmentCreateSchema = z.object({ name: z.string().min(1).max(80), city: z.string().max(80).nullable().optional() });
 

@@ -32,6 +32,8 @@ model Organization {
   periodEndsAt  DateTime? @map("period_ends_at") // fin de la période d'abonnement en cours (engagement)
   blockedAt     DateTime? @map("blocked_at") // compte bloqué depuis la console plateforme
   blockedReason String?   @map("blocked_reason")
+  /// Options payantes débloquées : "stock", "digital", "team", "advanced" (programme de base sans option)
+  options       String[]  @default([])
   createdAt     DateTime  @default(now()) @map("created_at")
   updatedAt     DateTime  @updatedAt @map("updated_at")
 
@@ -44,6 +46,7 @@ model Organization {
   apiKeys        ApiKey[]
   activityDays   ActivityDay[]
   platformEmails PlatformEmail[]
+  optionRequests OptionRequest[]
 
   @@map("organizations")
 }
@@ -73,6 +76,8 @@ model Establishment {
   settings         Json     @default("{}")
   onboardingStep   Int      @default(0) @map("onboarding_step")
   onboardingDone   Boolean  @default(false) @map("onboarding_done")
+  /// Type d'activité : "snack" (roulotte, comptoir), "restaurant" (service à table) ou "bar" ; adapte l'écran et les réglages conseillés
+  businessType     String   @default("restaurant") @map("business_type")
   isActive         Boolean  @default(true) @map("is_active")
   createdAt        DateTime @default(now()) @map("created_at")
   updatedAt        DateTime @updatedAt @map("updated_at")
@@ -1616,4 +1621,30 @@ model RateHit {
 
   @@index([key, at])
   @@map("rate_hits")
+}
+
+/// Demande de déblocage d'une option, faite depuis le programme ; traitée depuis la console plateforme
+model OptionRequest {
+  id             String    @id @default(uuid()) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  option         String
+  requestedById  String?   @map("requested_by_id") @db.Uuid
+  status         String    @default("PENDING") // PENDING, DONE, DECLINED
+  createdAt      DateTime  @default(now()) @map("created_at")
+  handledAt      DateTime? @map("handled_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([status])
+  @@map("option_requests")
+}
+
+/// Prix mensuel d'une option (F CFP), réglé dans la console ; absent = « sur demande »
+model OptionPrice {
+  option    String   @id
+  monthly   Int?
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("option_prices")
 }

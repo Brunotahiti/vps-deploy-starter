@@ -92,7 +92,7 @@ function CloudSetup({ info, onClose }: { info: { url: string; driver: string } |
 export function HardwareSettings() {
   const act = useAction();
   const { toast } = useToast();
-  const { me } = useSession();
+  const { me, hasOption } = useSession();
   // Rafraîchi régulièrement : l'état « en ligne » des imprimantes connectées évolue seul
   const q = useQuery({ queryKey: ["printers"], queryFn: () => api.get<Printer[]>("/api/printers"), refetchInterval: 15_000 });
   const stations = useList<KitchenStation[]>(["stations"], "/api/kitchen-stations");
@@ -189,7 +189,8 @@ export function HardwareSettings() {
         </ul>
       </div>
 
-      <LocalBoxes now={now} />
+      {/* Boîtier de secours : option Avancé */}
+      {hasOption("advanced") ? <LocalBoxes now={now} /> : null}
 
       <Modal open={!!form} onClose={() => setForm(null)} title={form?.id ? "Modifier l'imprimante" : "Ajouter une imprimante"} size="lg" footer={<Button className="w-full" disabled={!form?.name} onClick={save}>Enregistrer</Button>}>
         {form ? (

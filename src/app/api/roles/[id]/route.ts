@@ -1,5 +1,5 @@
 import { route, parseBody, ok } from "@/server/http";
-import { requirePermission } from "@/server/auth/context";
+import { requirePermission, requireOption } from "@/server/auth/context";
 import { roleSchema } from "@/server/schemas";
 import { deleteRole, updateRole } from "@/server/services/roles";
 import type { PermissionKey } from "@/lib/permissions";
@@ -9,6 +9,7 @@ import { ApiError } from "@/server/errors";
 
 export const PATCH = route<{ id: string }>(async (req, { params }) => {
   const ctx = await requirePermission("users.manage");
+  requireOption(ctx, "advanced");
   const body = await parseBody(req, roleSchema.partial());
   if (!ctx.user.isOwner) {
     // Hors propriétaire : pas de modification des rôles système (communs à toute l'entreprise) ni d'un rôle plus puissant que soi
@@ -23,6 +24,7 @@ export const PATCH = route<{ id: string }>(async (req, { params }) => {
 
 export const DELETE = route<{ id: string }>(async (_req, { params }) => {
   const ctx = await requirePermission("users.manage");
+  requireOption(ctx, "advanced");
   if (!ctx.user.isOwner) {
     const role = await prisma.role.findFirst({ where: { id: params.id, organizationId: ctx.organizationId }, include: { permissions: true } });
     if (role) assertCanGrant(ctx, role.permissions.map((p) => p.permissionKey));

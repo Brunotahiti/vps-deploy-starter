@@ -6,6 +6,7 @@ import { getActivePass, setKnownPermissions } from "@/lib/offline/auth-state";
 import { getStoredPasses, loadActivePass, offlineMe, setActivePass } from "@/lib/offline/passes";
 import { cacheGet, cacheSet } from "@/lib/offline/db";
 import type { Establishment } from "@/generated/prisma/client";
+import type { BusinessType, OptionKey } from "@/lib/options";
 
 export type Me = {
   user: { id: string; email: string; firstName: string; lastName: string; displayName: string | null; color: string | null; isOwner: boolean; hasPin: boolean } | null;
@@ -23,6 +24,8 @@ export type Me = {
   publicSitePath?: string | null;
   /** Compte du restaurant exemple */
   isDemo?: boolean;
+  /** Options payantes débloquées (src/lib/options.ts) */
+  options?: string[];
   /** Visite du restaurant exemple depuis son propre compte (« Revenir à mon restaurant ») */
   demoVisit?: { returnTo: { firstName: string; establishmentName: string | null } } | null;
 };
@@ -85,5 +88,8 @@ export function useSession() {
   const q = useQuery({ queryKey: ["me"], queryFn: loadMe, staleTime: 60_000 });
   const perms = new Set(q.data?.permissions ?? []);
   const can = (key: string) => perms.has("*") || perms.has(key);
-  return { ...q, me: q.data, can, currency: q.data?.establishment?.currency ?? "XPF", timezone: q.data?.establishment?.timezone ?? "Pacific/Tahiti" };
+  // Profil construit hors ligne (sans liste d'options) : rien n'est masqué
+  const hasOption = (key: OptionKey) => !q.data?.options || q.data.options.includes(key);
+  const businessType = ((q.data?.establishment as { businessType?: string } | null | undefined)?.businessType ?? "restaurant") as BusinessType;
+  return { ...q, me: q.data, can, hasOption, businessType, currency: q.data?.establishment?.currency ?? "XPF", timezone: q.data?.establishment?.timezone ?? "Pacific/Tahiti" };
 }
