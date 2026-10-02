@@ -3,6 +3,7 @@ import { requirePermission, requireOption } from "@/server/auth/context";
 import { actorFrom } from "@/server/auth/authorize";
 import { apiKeySchema } from "@/server/schemas";
 import { API_SCOPES, createApiKey, listApiKeys } from "@/server/api-keys";
+import { assertNotDemoAccount } from "@/server/services/demo";
 
 export const GET = route(async () => {
   const ctx = await requirePermission("settings.manage");
@@ -11,6 +12,7 @@ export const GET = route(async () => {
 });
 export const POST = route(async (req) => {
   const ctx = await requirePermission("settings.manage");
+  await assertNotDemoAccount(ctx.organizationId);
   requireOption(ctx, "advanced");
   return created(await createApiKey(actorFrom(ctx), await parseBody(req, apiKeySchema)));
 });

@@ -5,6 +5,10 @@ on:
   push:
     branches-ignore: [main]
 
+# Jeton GitHub en lecture seule : les jobs n'écrivent rien dans le dépôt
+permissions:
+  contents: read
+
 jobs:
   test:
     name: Typecheck, lint, tests

@@ -16,18 +16,26 @@ import { createEstablishmentDefaults } from "./establishments";
 import { sendSignupAlert, sendWelcomeEmail } from "./platform-emails";
 
 const PASSWORD_LIMIT = 8;         // échecs par e-mail / 15 min
+const PASSWORD_IP_LIMIT = 30;     // échecs par adresse IP / 15 min
 const PIN_LIMIT = 12;             // échecs par établissement / 15 min (tous terminaux confondus)
 const WINDOW = 15 * 60_000;
 
+let dummyHash: Promise<string> | null = null;
+
 export async function loginWithPassword(email: string, password: string, establishmentId?: string) {
+  const meta = await requestMeta().catch(() => ({ ip: null, userAgent: null })); // hors requête (tests) : pas d'adresse
+  // Par adresse IP (essais sur de nombreux comptes) puis par compte
+  const releaseIp = await reserveAttempt(`pw-ip:${meta.ip ?? "?"}`, PASSWORD_IP_LIMIT, WINDOW);
   const release = await reserveAttempt(`pw:${email.toLowerCase()}`, PASSWORD_LIMIT, WINDOW);
   const user = await prisma.user.findUnique({ where: { email: email.toLowerCase() }, include: { organization: { select: { blockedAt: true } } } });
-  if (!user || !user.isActive || !(await verifyPassword(password, user.passwordHash))) {
+  // Même durée de vérification que le compte existe ou non : la réponse ne révèle pas les adresses inscrites
+  const valid = await verifyPassword(password, user?.passwordHash ?? (await (dummyHash ??= hashPassword(randomToken(16)))));
+  if (!user || !user.isActive || !valid) {
     throw new ApiError(401, "INVALID_CREDENTIALS", "Email ou mot de passe incorrect");
   }
   await release();
+  await releaseIp();
   assertNotBlocked(user.organization.blockedAt);
-  const meta = await requestMeta();
   const { token } = await createSession({ userId: user.id, establishmentId: establishmentId ?? null, ...meta });
   await setSessionCookie(token);
   return user;

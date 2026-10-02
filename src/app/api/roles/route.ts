@@ -4,6 +4,7 @@ import { roleSchema } from "@/server/schemas";
 import { createRole, listRoles } from "@/server/services/roles";
 import type { PermissionKey } from "@/lib/permissions";
 import { assertCanGrant } from "@/server/auth/guards";
+import { assertNotDemoAccount } from "@/server/services/demo";
 
 export const GET = route(async () => {
   const ctx = await requireAuth();
@@ -12,6 +13,7 @@ export const GET = route(async () => {
 
 export const POST = route(async (req) => {
   const ctx = await requirePermission("users.manage");
+  await assertNotDemoAccount(ctx.organizationId);
   requireOption(ctx, "advanced");
   const body = await parseBody(req, roleSchema);
   assertCanGrant(ctx, body.permissions);

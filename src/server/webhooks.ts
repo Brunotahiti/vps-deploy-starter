@@ -1,5 +1,7 @@
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
-import { assertPublicUrl, assertPublicUrlShape } from "@/server/net/public-url";
+import http from "node:http";
+import https from "node:https";
+import { assertPublicUrlShape, publicOnlyLookup } from "@/server/net/public-url";
 import { prisma } from "@/server/db";
 import { ApiError } from "@/server/errors";
 import { audit } from "@/server/audit";
@@ -57,15 +59,17 @@ export async function deleteWebhook(actor: Actor, id: string) {
 
 type Transport = (url: string, body: string, headers: Record<string, string>) => Promise<{ status: number; text: string }>;
 let transport: Transport = async (url, body, headers) => {
-  const ctrl = new AbortController();
-  const t = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
-  try {
-    await assertPublicUrl(url); // résolution DNS au moment de l'appel : aucune adresse interne
-    const res = await fetch(url, { method: "POST", body, headers, signal: ctrl.signal, redirect: "manual" });
-    await res.body?.cancel().catch(() => {}); // le contenu de la réponse n'est ni lu ni renvoyé
-    return { status: res.status, text: "" };
-  }
-  finally { clearTimeout(t); }
+  const u = assertPublicUrlShape(url);
+  // Adresse vérifiée à la connexion même (publicOnlyLookup) ; pas de redirection suivie ; réponse ni lue ni renvoyée
+  return new Promise((resolve, reject) => {
+    const req = (u.protocol === "https:" ? https : http).request(u, { method: "POST", headers: { ...headers, "content-length": Buffer.byteLength(body) }, lookup: publicOnlyLookup, timeout: TIMEOUT_MS }, (res) => {
+      res.resume();
+      resolve({ status: res.statusCode ?? 0, text: "" });
+    });
+    req.on("timeout", () => req.destroy(new Error("Délai dépassé")));
+    req.on("error", reject);
+    req.end(body);
+  });
 };
 /** Pour les tests : remplace l'envoi HTTP. */
 export function setWebhookTransport(t: Transport | null) { transport = t ?? transport; }

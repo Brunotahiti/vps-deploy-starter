@@ -9,6 +9,10 @@ concurrency:
   group: deploy-vps-manaresto
   cancel-in-progress: false
 
+# Jeton GitHub en lecture seule : les jobs n'écrivent rien dans le dépôt
+permissions:
+  contents: read
+
 jobs:
   check:
     name: Secrets configurés ?

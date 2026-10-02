@@ -1,3 +1,4 @@
+import { printableHtml } from "@/server/html";
 import { route } from "@/server/http";
 import { requireEstablishment, can } from "@/server/auth/context";
 import { ApiError } from "@/server/errors";
@@ -13,5 +14,5 @@ export const GET = route<{ id: string }>(async (req, { params }) => {
     return new Response(Buffer.from(bytes), { headers: { "Content-Type": "application/octet-stream", "Content-Disposition": `attachment; filename="cuisine-${params.id}.bin"` } });
   }
   const html = await renderKitchenTicketHtml(ctx.establishment.id, params.id, { autoPrint: req.nextUrl.searchParams.get("print") === "1" });
-  return new Response(html, { headers: { "Content-Type": "text/html; charset=utf-8" } });
+  return printableHtml(html);
 });

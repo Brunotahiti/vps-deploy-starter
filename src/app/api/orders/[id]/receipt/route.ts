@@ -1,3 +1,4 @@
+import { printableHtml } from "@/server/html";
 import { route } from "@/server/http";
 import { requirePermission } from "@/server/auth/context";
 import { renderReceiptEscPos, renderReceiptHtml, renderReceiptPdf } from "@/server/receipts/receipt";
@@ -16,5 +17,5 @@ export const GET = route<{ id: string }>(async (req, { params }) => {
     return new Response(Buffer.from(bytes), { headers: { "Content-Type": "application/octet-stream" } });
   }
   const html = await renderReceiptHtml(ctx.establishment.id, params.id, { autoPrint: req.nextUrl.searchParams.get("print") === "1" });
-  return new Response(html, { headers: { "Content-Type": "text/html; charset=utf-8" } });
+  return printableHtml(html);
 });

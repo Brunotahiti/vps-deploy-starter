@@ -231,8 +231,12 @@ model Session {
   createdAt       DateTime @default(now()) @map("created_at")
   lastSeenAt      DateTime @default(now()) @map("last_seen_at")
   impersonatorId  String?  @map("impersonator_id") @db.Uuid // administrateur ManaResto en mode « prendre la main »
+  /// « pos » : session limitée à la caisse de son établissement (ouverte par un boîtier de secours)
+  scope           String?
+  boxId           String?  @map("box_id") @db.Uuid // boîtier qui a ouvert la session : supprimée quand il est retiré
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  box  LocalBox? @relation(fields: [boxId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([expiresAt])
@@ -290,6 +294,7 @@ model LocalBox {
   createdAt       DateTime  @default(now()) @map("created_at")
 
   establishment Establishment @relation(fields: [establishmentId], references: [id], onDelete: Cascade)
+  sessions      Session[]
 
   @@index([establishmentId])
   @@map("local_boxes")
@@ -1647,4 +1652,13 @@ model OptionPrice {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   @@map("option_prices")
+}
+
+/// Secrets de la plateforme gardés en base (ex. compte Let's Encrypt des boîtiers de secours)
+model PlatformSecret {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("platform_secrets")
 }

@@ -181,3 +181,48 @@ describe("passerelle du boîtier : relais, coupure, rejeu", () => {
     expect(await r.json()).toMatchObject({ mode: "relay", pending: 0 });
   });
 });
+
+describe("boîtier : adresse du mini-PC sur le réseau du restaurant", () => {
+  const ipv4 = (address: string): os.NetworkInterfaceInfo => ({ address, family: "IPv4", internal: false, netmask: "255.255.255.0", mac: "00:00:00:00:00:00", cidr: null });
+  it("ignore les réseaux de Docker et préfère celui de la box", async () => {
+    const { detectLanIp } = await import("../../tools/box-gateway/box.mjs");
+    const noEnv = {} as NodeJS.ProcessEnv;
+    expect(detectLanIp(noEnv, { lo: [{ ...ipv4("127.0.0.1"), internal: true }], docker0: [ipv4("172.17.0.1")], "br-1a2b": [ipv4("172.18.0.1")], enp2s0: [ipv4("192.168.1.20")] })).toBe("192.168.1.20");
+    expect(detectLanIp(noEnv, { eth0: [ipv4("172.20.0.5")], wlan0: [ipv4("10.0.0.12")] })).toBe("10.0.0.12");
+    expect(detectLanIp(noEnv, { docker0: [ipv4("172.17.0.1")] })).toBe("");
+    expect(detectLanIp({ ...noEnv, LAN_IP: "192.168.0.9" }, {})).toBe("192.168.0.9");
+  });
+});
+
+describe("boîtier : mise à jour automatique de la version", () => {
+  it("télécharge la version du cloud, l'installe à côté, bascule « current » et ne garde que deux versions", async () => {
+    const { execFileSync } = await import("node:child_process");
+    const { installRelease } = await import("../../tools/box-gateway/box.mjs");
+    const work = fs.mkdtempSync(path.join(os.tmpdir(), "box-up-"));
+    const src = path.join(work, "src");
+    fs.mkdirSync(path.join(src, "box"), { recursive: true });
+    fs.writeFileSync(path.join(src, "box", "box.mjs"), "export const v = 2;");
+    fs.writeFileSync(path.join(src, "server.js"), "// v2");
+    execFileSync("tar", ["-czf", path.join(work, "v2.tgz"), "-C", src, "."]);
+    const release = fake((r, res) => {
+      if (r.url !== "/api/box/release" || r.headers.authorization !== "Bearer mrbox_up") { res.writeHead(401); return res.end(); }
+      res.writeHead(200, { "content-type": "application/gzip", "x-box-release": "202610030900" });
+      res.end(fs.readFileSync(path.join(work, "v2.tgz")));
+    });
+    await release.start();
+    const dataDir = path.join(work, "data");
+    fs.mkdirSync(path.join(dataDir, "releases", "ancienne"), { recursive: true });
+    try {
+      const id = await installRelease({ cloudUrl: release.url, boxToken: "mrbox_up", dataDir });
+      expect(id).toBe("202610030900");
+      expect(fs.readlinkSync(path.join(dataDir, "current"))).toBe(path.join("releases", "202610030900"));
+      expect(fs.readFileSync(path.join(dataDir, "current", "box", "box.mjs"), "utf8")).toContain("v = 2");
+      expect(fs.readdirSync(path.join(dataDir, "releases"))).toEqual(["202610030900"]); // anciennes versions retirées
+      await expect(installRelease({ cloudUrl: release.url, boxToken: "mrbox_faux", dataDir })).rejects.toThrow(/401/);
+      expect(fs.readlinkSync(path.join(dataDir, "current"))).toBe(path.join("releases", "202610030900")); // intact
+    } finally {
+      await release.stop();
+      fs.rmSync(work, { recursive: true, force: true });
+    }
+  });
+});

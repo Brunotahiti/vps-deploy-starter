@@ -1,7 +1,7 @@
 import { cache } from "react";
 import { prisma } from "@/server/db";
 import { ApiError } from "@/server/errors";
-import { ALL_PERMISSIONS, hasPermission, type PermissionKey } from "@/lib/permissions";
+import { ALL_PERMISSIONS, hasPermission, POS_SCOPE_PERMISSIONS, type PermissionKey } from "@/lib/permissions";
 import { lockedPermissions, OPTIONS, type OptionKey } from "@/lib/options";
 import { headers } from "next/headers";
 import { findSessionByToken, getSessionToken, getTerminalFromCookie } from "./session";
@@ -35,7 +35,8 @@ async function loadContext(): Promise<AuthContext | null> {
     if (pass) {
       const { organization: _org, ...user } = pass.user;
       void _org;
-      return buildContext({ id: pass.id, userId: pass.userId, establishmentId: pass.establishmentId, impersonatorId: null, user });
+      // Opérations de caisse seulement, dans l'établissement du laissez-passer
+      return buildContext({ id: pass.id, userId: pass.userId, establishmentId: pass.establishmentId, impersonatorId: null, scope: "pos", user });
     }
   }
   const token = await getSessionToken();
@@ -45,7 +46,8 @@ async function loadContext(): Promise<AuthContext | null> {
   return buildContext(session);
 }
 
-async function buildContext(session: { id: string; userId: string; establishmentId: string | null; impersonatorId: string | null; user: User }): Promise<AuthContext> {
+async function buildContext(session: { id: string; userId: string; establishmentId: string | null; impersonatorId: string | null; scope?: string | null; user: User }): Promise<AuthContext> {
+  const posOnly = session.scope === "pos";
   const memberships = await prisma.userEstablishment.findMany({
     where: { userId: session.userId, establishment: { isActive: true } },
     include: { establishment: true, role: { include: { permissions: true } } },
@@ -83,6 +85,13 @@ async function buildContext(session: { id: string; userId: string; establishment
     if (permissions.delete("*")) for (const p of ALL_PERMISSIONS) permissions.add(p);
     for (const p of locked) permissions.delete(p);
   }
+  // Session « caisse » : droits de caisse seulement, dans son établissement seulement
+  if (posOnly) {
+    const granted = new Set(permissions);
+    permissions.clear();
+    for (const p of POS_SCOPE_PERMISSIONS) if (granted.has("*") || granted.has(p)) permissions.add(p);
+    if (establishment && establishment.id !== session.establishmentId) { establishment = null; permissions.clear(); }
+  }
 
   const terminal = await getTerminalFromCookie();
   const ownerEstablishments = user.isOwner
@@ -93,9 +102,10 @@ async function buildContext(session: { id: string; userId: string; establishment
       })
     : [];
 
-  const establishments = user.isOwner
+  const allEstablishments = user.isOwner
     ? ownerEstablishments.map((e) => ({ ...e, roleKey: "owner" }))
     : memberships.map((m) => ({ id: m.establishmentId, name: m.establishment.name, slug: m.establishment.slug, roleKey: m.role.key }));
+  const establishments = posOnly ? allEstablishments.filter((e) => e.id === session.establishmentId) : allEstablishments;
 
   return {
     sessionId: session.id,

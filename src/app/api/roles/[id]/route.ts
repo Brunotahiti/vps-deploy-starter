@@ -6,9 +6,11 @@ import type { PermissionKey } from "@/lib/permissions";
 import { assertCanGrant } from "@/server/auth/guards";
 import { prisma } from "@/server/db";
 import { ApiError } from "@/server/errors";
+import { assertNotDemoAccount } from "@/server/services/demo";
 
 export const PATCH = route<{ id: string }>(async (req, { params }) => {
   const ctx = await requirePermission("users.manage");
+  await assertNotDemoAccount(ctx.organizationId);
   requireOption(ctx, "advanced");
   const body = await parseBody(req, roleSchema.partial());
   if (!ctx.user.isOwner) {
@@ -24,6 +26,7 @@ export const PATCH = route<{ id: string }>(async (req, { params }) => {
 
 export const DELETE = route<{ id: string }>(async (_req, { params }) => {
   const ctx = await requirePermission("users.manage");
+  await assertNotDemoAccount(ctx.organizationId);
   requireOption(ctx, "advanced");
   if (!ctx.user.isOwner) {
     const role = await prisma.role.findFirst({ where: { id: params.id, organizationId: ctx.organizationId }, include: { permissions: true } });

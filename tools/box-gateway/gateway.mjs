@@ -304,8 +304,11 @@ export function createGateway(options) {
 
   async function handle(req, res) {
     if (req.url === "/__box/status") {
+      // Tablettes : l'état du relais ; détail (conflits, copie, adresse) seulement depuis le mini-PC lui-même
+      const local = ["127.0.0.1", "::1", "::ffff:127.0.0.1"].includes(req.socket.remoteAddress ?? "");
+      const st = status();
       res.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" });
-      return res.end(JSON.stringify(status()));
+      return res.end(JSON.stringify(local ? st : { mode: st.mode, pending: st.pending, replaying: st.replaying }));
     }
     let body = null;
     try {
@@ -427,6 +430,8 @@ export function createGateway(options) {
       if (w.status !== 200) throw new Error(`boîtier ${w.status} ${w.body.toString("utf8").slice(0, 300)}`);
       state.lastSync = new Date().toISOString();
       state.lastSyncError = null;
+      // Nouvelle version sur le cloud : le boîtier se met à jour (rien en attente, relais en cours)
+      if (snap.release && c.onRelease) c.onRelease(snap.release);
     } catch (err) {
       state.lastSyncError = err.message;
       c.log(`[boîtier] copie impossible : ${err.message}`);
@@ -436,7 +441,7 @@ export function createGateway(options) {
   }
 
   function status() {
-    return { mode: state.mode, since: new Date(state.since).toISOString(), pending: store.outbox.length, replaying: state.draining, lastSync: state.lastSync, lastSyncError: state.lastSyncError, lastCloudOk: state.lastCloudOk ? new Date(state.lastCloudOk).toISOString() : null, conflicts: store.conflicts.slice(0, 20), version: c.version };
+    return { mode: state.mode, since: new Date(state.since).toISOString(), pending: store.outbox.length, replaying: state.draining, lastSync: state.lastSync, lastSyncError: state.lastSyncError, lastCloudOk: state.lastCloudOk ? new Date(state.lastCloudOk).toISOString() : null, conflicts: store.conflicts.slice(0, 20), version: c.version, ...(c.extraStatus ? c.extraStatus() : {}) };
   }
 
   // Au démarrage, une file non vide (coupure en cours au redémarrage) : le boîtier répond jusqu'au rejeu

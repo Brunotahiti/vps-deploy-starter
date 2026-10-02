@@ -2,6 +2,7 @@ import { cookies, headers } from "next/headers";
 import { prisma } from "@/server/db";
 import { randomToken, sha256 } from "./password";
 import { resolveClientIp } from "@/server/net/client-ip";
+import { parseAdminEmails } from "@/lib/platform";
 
 export const SESSION_COOKIE = "mr_session";
 export const TERMINAL_COOKIE = "mr_terminal";
@@ -19,6 +20,8 @@ export async function createSession(opts: {
   userAgent?: string | null;
   impersonatorId?: string | null; // console plateforme : « prendre la main »
   ttlMs?: number;
+  scope?: "pos" | null; // session limitée à la caisse de son établissement
+  boxId?: string | null;
 }) {
   const token = randomToken(32);
   const session = await prisma.session.create({
@@ -30,6 +33,8 @@ export async function createSession(opts: {
       ip: opts.ip ?? null,
       userAgent: opts.userAgent?.slice(0, 255) ?? null,
       impersonatorId: opts.impersonatorId ?? null,
+      scope: opts.scope ?? null,
+      boxId: opts.boxId ?? null,
       expiresAt: new Date(Date.now() + (opts.ttlMs ?? ttlMs())),
     },
   });
@@ -59,12 +64,19 @@ export async function getSessionToken(): Promise<string | null> {
   return store.get(SESSION_COOKIE)?.value ?? null;
 }
 
+async function impersonatorStillAdmin(id: string) {
+  const admin = await prisma.user.findUnique({ where: { id }, select: { email: true, isActive: true } });
+  return !!admin?.isActive && parseAdminEmails(process.env.PLATFORM_ADMIN_EMAILS).includes(admin.email.toLowerCase());
+}
+
 export async function findSessionByToken(token: string) {
   const found = await prisma.session.findUnique({
     where: { tokenHash: sha256(token) },
     include: { user: { include: { organization: { select: { blockedAt: true } } } } },
   });
   if (!found || found.expiresAt < new Date() || !found.user.isActive) return null;
+  // Prise en main par le support : l'administrateur doit l'être encore (actif et toujours dans PLATFORM_ADMIN_EMAILS)
+  if (found.impersonatorId && !(await impersonatorStillAdmin(found.impersonatorId))) return null;
   // Compte bloqué depuis la console plateforme : seules les prises en main du support restent possibles
   if (found.user.organization.blockedAt && !found.impersonatorId) return null;
   const { organization: _org, ...user } = found.user;

@@ -7,6 +7,7 @@ import { ApiError } from "@/server/errors";
 import { prisma } from "@/server/db";
 import { verifyPassword } from "@/server/auth/password";
 import { assertCanAssign, assertCanManageUser, assertEmailAllowed } from "@/server/auth/guards";
+import { assertNotDemoAccount } from "@/server/services/demo";
 
 /** Ferme les autres sessions de l'utilisateur après un changement d'identifiants (mot de passe, PIN, e-mail). */
 async function closeOtherSessions(userId: string, keepSessionId: string) {
@@ -15,6 +16,7 @@ async function closeOtherSessions(userId: string, keepSessionId: string) {
 
 export const PATCH = route<{ id: string }>(async (req, { params }) => {
   const ctx = await requireAuth();
+  await assertNotDemoAccount(ctx.organizationId);
   const body = await parseBody(req, userUpdateSchema);
   const self = ctx.user.id === params.id;
   const { currentPassword, ...changes } = body;

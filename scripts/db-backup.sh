@@ -2,6 +2,8 @@
 # Sauvegarde quotidienne de la base Postgres.
 # À ajouter au crontab : 0 3 * * * /opt/manaresto/scripts/db-backup.sh
 set -euo pipefail
+# Sauvegardes lisibles par l'administrateur seul (elles contiennent toute la base)
+umask 077
 
 cd "$(dirname "$0")/.."
 
@@ -11,6 +13,7 @@ TIMESTAMP=$(date -u +%Y%m%d-%H%M%S)
 FILE="$BACKUP_DIR/manaresto-$TIMESTAMP.sql.gz"
 
 mkdir -p "$BACKUP_DIR"
+chmod 700 "$BACKUP_DIR"
 # Un dump interrompu ne doit jamais laisser un fichier tronqué qui ressemble à une sauvegarde valide
 trap 'rm -f "$FILE"' ERR
 
