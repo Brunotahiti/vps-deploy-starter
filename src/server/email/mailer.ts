@@ -222,6 +222,26 @@ export function invoiceReminderMail(input: { to: string; establishmentName: stri
   return { to: input.to, subject: `${title} ${input.number} — ${input.establishmentName}`, text, html, ...(input.replyTo ? { replyTo: input.replyTo } : {}), attachments: [{ filename: `facture-${input.number}.pdf`, content: input.pdf, contentType: "application/pdf" }] };
 }
 
+/** Devis traiteur : PDF joint et bouton pour l'accepter en ligne. */
+export function quoteMail(input: { to: string; establishmentName: string; clientName: string; number: string; title: string; date: string; guests: number; total: string; deposit: string | null; validUntil: string; acceptUrl: string; phone?: string | null; replyTo?: string | null; pdf: Buffer }): OutgoingMail {
+  const html = `<!doctype html><html lang="fr"><body style="margin:0;background:#f3f5f8;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#0f172a">
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td align="center" style="padding:24px 12px">
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:520px;background:#fff;border-radius:20px;overflow:hidden;box-shadow:0 6px 20px -8px rgba(15,23,42,.15)">
+<tr><td style="background:linear-gradient(135deg,#14aaa3,#0f6e6c);padding:28px 28px 24px;color:#fff">
+<div style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;opacity:.85">${esc(input.establishmentName)}</div>
+<div style="font-size:24px;font-weight:800;margin-top:6px">Votre devis ${esc(input.number)}</div></td></tr>
+<tr><td style="padding:24px 28px">
+<p style="margin:0 0 14px;font-size:15px;line-height:1.5">Ia ora na ${esc(input.clientName)},<br>voici notre devis pour <strong>${esc(input.title)}</strong>, le ${esc(input.date)}, pour ${input.guests} personne${input.guests > 1 ? "s" : ""}. Vous le trouverez en pièce jointe (PDF).</p>
+<table role="presentation" cellspacing="0" cellpadding="0" style="width:100%;background:#f1f4f8;border-radius:14px"><tr><td style="padding:16px 18px;font-size:13px;color:#64748b">Total TTC${input.deposit ? `<br><span style="font-size:11px">acompte à la commande : ${esc(input.deposit)}</span>` : ""}</td><td style="padding:16px 18px;text-align:right;font-size:22px;font-weight:800;color:#0f6e6c">${esc(input.total)}</td></tr></table>
+<p style="margin:22px 0;text-align:center"><a href="${esc(input.acceptUrl)}" style="display:inline-block;background:#0f6e6c;color:#fff;text-decoration:none;font-weight:700;padding:14px 26px;border-radius:12px">Voir et accepter le devis</a></p>
+<p style="margin:0;font-size:13px;color:#475569">Devis valable jusqu'au ${esc(input.validUntil)}.${input.phone ? ` Pour toute question : <strong>${esc(input.phone)}</strong>.` : ""}</p>
+<p style="margin:22px 0 0;font-size:14px">Māuruuru · ${esc(input.establishmentName)}</p></td></tr>
+<tr><td style="padding:14px 28px;background:#f8fafc;font-size:11px;color:#94a3b8;text-align:center">E-mail envoyé par ManaResto pour ${esc(input.establishmentName)}.</td></tr>
+</table></td></tr></table></body></html>`;
+  const text = `Votre devis ${input.number} — ${input.establishmentName}\n${input.title}, le ${input.date}, ${input.guests} personne(s).\nTotal TTC : ${input.total}${input.deposit ? ` (acompte à la commande : ${input.deposit})` : ""}.\nVoir et accepter le devis : ${input.acceptUrl}\nDevis valable jusqu'au ${input.validUntil}. Le devis est en pièce jointe.${input.phone ? `\nQuestions : ${input.phone}` : ""}`;
+  return { to: input.to, subject: `Devis ${input.number} — ${input.establishmentName}`, text, html, ...(input.replyTo ? { replyTo: input.replyTo } : {}), attachments: [{ filename: `devis-${input.number}.pdf`, content: input.pdf, contentType: "application/pdf" }] };
+}
+
 /** Campagne marketing : texte du restaurant, prénom du client, lien de désabonnement obligatoire. */
 export function campaignMail(input: { to: string; establishmentName: string; firstName?: string | null; subject: string; body: string; phone?: string | null; replyTo?: string | null; reviewUrl?: string | null; unsubscribeUrl: string }): OutgoingMail {
   const paragraphs = input.body.split(/\n{2,}/).map((p) => `<p style="margin:0 0 14px;font-size:15px;line-height:1.55">${esc(p).replace(/\n/g, "<br>")}</p>`).join("");

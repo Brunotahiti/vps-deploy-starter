@@ -7,6 +7,7 @@ import { ACTIVE_RESERVATION, isReservationTag, normalizeReservationSettings, pho
 import { isEmailConfigured, reservationMail, sendMail } from "@/server/email/mailer";
 import { createOrder, type Actor } from "./orders";
 import { findOrCreatePublicCustomer } from "./customers";
+import { privatizedAt } from "./catering";
 import type { Prisma, ReservationStatus } from "@/generated/prisma/client";
 
 /**
@@ -165,9 +166,12 @@ export async function createPublicReservation(establishmentId: string, organizat
   // Même service (moins de 4 h d'écart) : c'est un doublon, pas une seconde table
   if (mine.some((r) => Math.abs(r.startsAt.getTime() - startsAt.getTime()) < 4 * 3600_000)) throw new ApiError(409, "ALREADY_BOOKED", "Une réservation existe déjà à ce numéro pour ce service : contactez le restaurant pour la modifier");
   if (mine.length >= PUBLIC_MAX_PER_PHONE) throw new ApiError(409, "TOO_MANY_RESERVATIONS", `${PUBLIC_MAX_PER_PHONE} réservations à venir au plus par numéro de téléphone : contactez le restaurant`);
+  // Restaurant privatisé (événement traiteur confirmé) : pas de réservation en ligne sur ce créneau
+  const duration = (await reservationSettings(establishmentId)).duration;
+  if (await privatizedAt(establishmentId, startsAt, duration)) throw new ApiError(409, "PRIVATIZED", "Le restaurant est privatisé pour un événement à ce moment-là : choisissez un autre créneau ou appelez-nous");
   const row = await prisma.$transaction(async (tx) => {
     const customer = await findOrCreatePublicCustomer(tx, organizationId, { name: input.name, phone: input.phone, email: input.email });
-    return tx.reservation.create({ data: { establishmentId, customerId: customer.id, name: input.name, phone: input.phone, email: input.email ?? null, startsAt, partySize: input.partySize, notes: input.notes ?? null, allergies: input.allergies ?? null, status: "PENDING", source: "ONLINE", durationMinutes: (await reservationSettings(establishmentId)).duration }, include });
+    return tx.reservation.create({ data: { establishmentId, customerId: customer.id, name: input.name, phone: input.phone, email: input.email ?? null, startsAt, partySize: input.partySize, notes: input.notes ?? null, allergies: input.allergies ?? null, status: "PENDING", source: "ONLINE", durationMinutes: duration }, include });
   });
   publish("floor.updated", establishmentId, { reservationId: row.id, publicReservation: true });
   return row;

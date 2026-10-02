@@ -7,7 +7,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { LayoutGrid, ListOrdered, Wallet, Settings, Moon, Sun, LogOut, Wifi, WifiOff, RefreshCw, ChefHat, Download, X, ChevronRight, Clock, CalendarDays, ShoppingBag, ThermometerSnowflake, Gift } from "lucide-react";
+import { LayoutGrid, ListOrdered, Wallet, Settings, Moon, Sun, LogOut, Wifi, WifiOff, RefreshCw, ChefHat, Download, X, ChevronRight, Clock, CalendarDays, ShoppingBag, ThermometerSnowflake, Gift, PartyPopper } from "lucide-react";
 import { markLogoutPending, useSession } from "@/hooks/use-session";
 import { useRealtime } from "@/hooks/use-realtime";
 import { SupportBar } from "@/components/support-bar";
@@ -171,7 +171,7 @@ export function PosShell({ children }: { children: React.ReactNode }) {
             </div>
           </div>
           <nav className="flex-1 overflow-y-auto p-3">
-            {[...nav, ...(can("kds.use") ? [{ href: "/kds", label: "Cuisine", icon: ChefHat }] : []), ...(hasOption("hygiene") && (can("hygiene.record") || can("hygiene.manage")) ? [{ href: "/admin/hygiene", label: "Hygiène", icon: ThermometerSnowflake }] : []), ...(hasOption("marketing") && can("giftcards.sell") ? [{ href: "/admin/marketing", label: "Cartes cadeaux", icon: Gift }] : []), ...(can("reports.view") || can("catalog.manage") ? [{ href: "/admin", label: "Gestion", icon: Settings }] : [])].map((n, i) => (
+            {[...nav, ...(can("kds.use") ? [{ href: "/kds", label: "Cuisine", icon: ChefHat }] : []), ...(hasOption("hygiene") && (can("hygiene.record") || can("hygiene.manage")) ? [{ href: "/admin/hygiene", label: "Hygiène", icon: ThermometerSnowflake }] : []), ...(hasOption("marketing") && can("giftcards.sell") ? [{ href: "/admin/marketing", label: "Cartes cadeaux", icon: Gift }] : []), ...(hasOption("catering") && (can("catering.view") || can("catering.manage")) ? [{ href: "/admin/catering", label: "Événements", icon: PartyPopper }] : []), ...(can("reports.view") || can("catalog.manage") ? [{ href: "/admin", label: "Gestion", icon: Settings }] : [])].map((n, i) => (
               <Link key={n.href} href={n.href} style={{ transitionDelay: menu ? `${60 + i * 40}ms` : "0ms" }} className={`mb-1.5 flex h-14 items-center gap-3 rounded-2xl px-4 text-[15px] font-bold transition-all duration-300 ${menu ? "translate-x-0 opacity-100" : "-translate-x-6 opacity-0"} ${isActive(n.href) ? "bg-brand text-white shadow-glow" : "surface-2 text-[var(--text)]"}`}>
                 <span className={`flex h-9 w-9 items-center justify-center rounded-xl ${isActive(n.href) ? "bg-white/15" : "surface"}`}><n.icon className="h-5 w-5" /></span>{n.label}<ChevronRight className="ml-auto h-4 w-4 opacity-60" />
               </Link>

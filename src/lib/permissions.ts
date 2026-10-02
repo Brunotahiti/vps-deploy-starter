@@ -49,6 +49,9 @@ export const PERMISSIONS = {
   // Marketing (option)
   "giftcards.sell": { group: "Marketing", description: "Vendre une carte cadeau" },
   "marketing.manage": { group: "Marketing", description: "Gérer le marketing : campagnes, cartes cadeaux, avis clients" },
+  // Traiteur (option)
+  "catering.view": { group: "Traiteur", description: "Consulter le planning des événements et la fiche cuisine" },
+  "catering.manage": { group: "Traiteur", description: "Gérer les événements : devis, acomptes, factures" },
 } as const;
 
 export type PermissionKey = keyof typeof PERMISSIONS;
@@ -70,18 +73,18 @@ export const SYSTEM_ROLES: Record<string, { name: string; permissions: Permissio
   },
   kitchen: {
     name: "Chef en cuisine",
-    permissions: ["kds.use", "catalog.view", "catalog.manage", "catalog.availability", "stock.view", "stock.manage", "orders.view_history", "hygiene.record", "hygiene.manage"],
+    permissions: ["kds.use", "catalog.view", "catalog.manage", "catalog.availability", "stock.view", "stock.manage", "orders.view_history", "hygiene.record", "hygiene.manage", "catering.view"],
   },
   server: {
     name: "Équipe en salle",
-    permissions: ["pos.use", "pos.transfer_table", "catalog.view", "catalog.availability", "customers.manage", "hygiene.record", "accounts.charge"],
+    permissions: ["pos.use", "pos.transfer_table", "catalog.view", "catalog.availability", "customers.manage", "hygiene.record", "accounts.charge", "catering.view"],
   },
   cashier: {
     name: "Responsable caisse",
     permissions: [
       "pos.use", "pos.discount", "pos.void_item", "pos.cancel_order", "pos.refund", "pos.open_drawer", "pos.transfer_table",
       "cash.open", "cash.close", "cash.movement",
-      "catalog.view", "catalog.availability", "orders.view_history", "reports.view", "customers.manage", "accounts.charge", "giftcards.sell",
+      "catalog.view", "catalog.availability", "orders.view_history", "reports.view", "customers.manage", "accounts.charge", "giftcards.sell", "catering.view",
     ],
   },
   bartender: {

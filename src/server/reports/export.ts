@@ -207,7 +207,38 @@ export async function buildAccountingExport(establishmentId: string, fromDay: st
   }
   const giftSheet: Sheet = { name: "Cartes cadeaux vendues", head: ["Date", "Code", "Montant", "Encaissement", "Solde restant", "Statut"], rows: giftCards.map((g) => [formatDateTime(g.createdAt, timezone), g.code, g.initialAmount, g.saleMethod === "OFFERED" ? "Offerte" : METHOD[g.saleMethod] ?? g.saleMethod, g.balance, g.status === "CANCELLED" ? "Annulée" : "Active"]) };
 
+  // Traiteur & événements : facture finale (débit 411 client / crédit 707 HT par taux et 4457 TVA) ;
+  // acomptes, soldes et remboursements (débit caisse ou banque / crédit 411, et l'inverse pour un remboursement)
+  const range = { gte: startOfLocalDay(fromDay, timezone), lt: endOfLocalDay(toDay, timezone) };
+  const cateringInvoices = await prisma.cateringEvent.findMany({ where: { establishmentId, invoicedAt: range }, orderBy: { invoicedAt: "asc" }, select: { invoiceNumber: true, invoicedAt: true, clientName: true, clientCompany: true, title: true, invoice: true, totalTtc: true, totalTax: true } });
+  for (const ev of cateringInvoices) {
+    const day = dayFmt.format(ev.invoicedAt!);
+    const who = ev.clientCompany || ev.clientName;
+    entries.rows.push([day, "TR", "411000", `Facture ${ev.invoiceNumber} ${who}`, ev.totalTtc, 0]);
+    for (const t of ((ev.invoice as { taxes?: { rateBps: number; name: string; ht: number; tax: number }[] } | null)?.taxes ?? [])) {
+      entries.rows.push([day, "TR", `7070${String(Math.round(t.rateBps / 100)).padStart(2, "0")}`, `Traiteur HT ${t.name} — ${ev.invoiceNumber}`, 0, t.ht]);
+      if (t.tax) entries.rows.push([day, "TR", "445710", `TVA collectée ${t.name} — ${ev.invoiceNumber}`, 0, t.tax]);
+    }
+  }
+  const cateringPayments = await prisma.cateringPayment.findMany({ where: { establishmentId, receivedAt: range }, orderBy: { receivedAt: "asc" }, include: { event: { select: { title: true, clientName: true, clientCompany: true } } } });
+  const KIND: Record<string, string> = { DEPOSIT: "Acompte", BALANCE: "Solde", REFUND: "Remboursement" };
+  for (const p of cateringPayments) {
+    const day = dayFmt.format(p.receivedAt);
+    const [acc, label] = ACCOUNTS[p.method] ?? ["471000", p.method];
+    const who = p.event.clientCompany || p.event.clientName;
+    const text = `${KIND[p.kind] ?? p.kind} ${p.event.title} (${who})${p.reference ? ` ${p.reference}` : ""}`;
+    if (p.kind === "REFUND") { entries.rows.push([day, "TR", "411000", text, p.amount, 0]); entries.rows.push([day, "TR", acc, `${label} — ${text}`, 0, p.amount]); }
+    else { entries.rows.push([day, "TR", acc, `${label} — ${text}`, p.amount, 0]); entries.rows.push([day, "TR", "411000", text, 0, p.amount]); }
+  }
+  const cateringSheet: Sheet = {
+    name: "Traiteur", head: ["Date", "Pièce", "Événement", "Client", "Opération", "Moyen", "Montant"],
+    rows: [
+      ...cateringInvoices.map((ev) => ({ at: ev.invoicedAt!, row: [formatDateTime(ev.invoicedAt!, timezone), ev.invoiceNumber ?? "", ev.title, ev.clientCompany || ev.clientName, "Facture", "", ev.totalTtc] as (string | number)[] })),
+      ...cateringPayments.map((p) => ({ at: p.receivedAt, row: [formatDateTime(p.receivedAt, timezone), p.reference ?? "", p.event.title, p.event.clientCompany || p.event.clientName, KIND[p.kind] ?? p.kind, METHOD[p.method] ?? p.method, p.kind === "REFUND" ? -p.amount : p.amount] as (string | number)[] })),
+    ].sort((a, b) => a.at.getTime() - b.at.getTime()).map((x) => x.row),
+  };
+
   const period = `${fromDay} → ${toDay}`;
   const header: Sheet = { name: "Entête", head: ["Champ", "Valeur"], rows: [["Établissement", est.name], ["Raison sociale", est.legalName ?? ""], ["N° Tahiti", est.tahitiNumber ?? ""], ["Période", period], ["Devise", "XPF (F CFP), sans décimales"], ["Généré le", new Date().toISOString()]] };
-  return { title: `Export comptable ${period}`, sheets: [header, days, sales, receipts, refundSheet, ...(settlements.length ? [settlementSheet] : []), ...(giftCards.length ? [giftSheet] : []), entries] };
+  return { title: `Export comptable ${period}`, sheets: [header, days, sales, receipts, refundSheet, ...(settlements.length ? [settlementSheet] : []), ...(giftCards.length ? [giftSheet] : []), ...(cateringSheet.rows.length ? [cateringSheet] : []), entries] };
 }
