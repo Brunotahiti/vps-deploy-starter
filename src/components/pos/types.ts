@@ -22,7 +22,7 @@ export const TABLE_STATUS_COLOR: Record<FloorTable["status"], string> = {
   FREE: "#22c55e", OCCUPIED: "#f59e0b", ORDERING: "#f97316", SENT: "#3b82f6", BILL: "#a855f7", RESERVED: "#64748b", TO_CLEAN: "#ef4444",
 };
 export const PAYMENT_LABEL: Record<string, string> = {
-  CASH: "Espèces", CARD: "Carte bancaire", CHECK: "Chèque", TRANSFER: "Virement", MEAL_VOUCHER: "Ticket restaurant", COMPLIMENTARY: "Offert", OTHER: "Autre", ACCOUNT: "Sur compte",
+  CASH: "Espèces", CARD: "Carte bancaire", CHECK: "Chèque", TRANSFER: "Virement", MEAL_VOUCHER: "Ticket restaurant", COMPLIMENTARY: "Offert", OTHER: "Autre", ACCOUNT: "Sur compte", GIFT_CARD: "Carte cadeau",
 };
 export const ORDER_STATUS_LABEL: Record<string, string> = { OPEN: "En cours", SENT: "Envoyée", BILL_REQUESTED: "Addition", PAID: "Payée", CANCELLED: "Annulée" };
 export const ORDER_TYPE_LABEL: Record<string, string> = { DINE_IN: "Sur place", COUNTER: "Comptoir", TAKEAWAY: "À emporter", DELIVERY: "Livraison", ONLINE: "En ligne", KIOSK: "Borne" };

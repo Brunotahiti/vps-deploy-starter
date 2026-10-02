@@ -5,6 +5,7 @@ import { formatMoney } from "@/lib/money";
 import { formatDateTime } from "@/lib/dates";
 import { isEmailConfigured, receiptMail, sendMail } from "@/server/email/mailer";
 import { assertNotDemoEmail } from "./demo";
+import { reviewUrlFor } from "./marketing";
 import { renderReceiptPdfElegant } from "@/server/receipts/pdf-elegant";
 import type { Actor } from "./orders";
 
@@ -19,7 +20,7 @@ export async function emailReceipt(actor: Actor, orderId: string, to: string) {
   const pdf = await renderReceiptPdfElegant(actor.establishmentId, orderId);
   const mail = receiptMail({
     to, establishmentName: est.name, orderNumber: order.number, total: formatMoney(order.total, est.currency), dateLabel: formatDateTime(order.closedAt ?? order.openedAt, est.timezone), pdf,
-    isPaid: order.status === "PAID", phone: est.phone, address: [est.addressLine1, [est.postalCode, est.city].filter(Boolean).join(" ")].filter(Boolean).join(", ") || null,
+    isPaid: order.status === "PAID", phone: est.phone, reviewUrl: await reviewUrlFor(actor.establishmentId), address: [est.addressLine1, [est.postalCode, est.city].filter(Boolean).join(" ")].filter(Boolean).join(", ") || null,
   });
   let result: { id: string };
   try {

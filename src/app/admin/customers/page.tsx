@@ -3,9 +3,10 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api-client";
+import { useSession } from "@/hooks/use-session";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
-import { Field, Input, Textarea } from "@/components/ui/field";
+import { Field, Input, Textarea, Toggle } from "@/components/ui/field";
 import { Spinner, Badge } from "@/components/ui/misc";
 import { Money } from "@/components/money";
 import { PageHeader, Table, Tr, Td, useAction } from "@/components/admin/common";
@@ -13,11 +14,15 @@ import type { listCustomers, getCustomerCard } from "@/server/services/customers
 
 type Row = Awaited<ReturnType<typeof listCustomers>>[number];
 type Card = Awaited<ReturnType<typeof getCustomerCard>>;
-type Form = { id?: string; firstName: string; lastName: string; phone: string; email: string; notes: string; allergies: string };
+type Form = { id?: string; firstName: string; lastName: string; phone: string; email: string; notes: string; allergies: string; birthday: string; marketingConsent: boolean };
+/** Anniversaire saisi « JJ/MM » ↔ stocké « MM-JJ » */
+const toBirthday = (v: string) => { const m = v.trim().match(/^(\d{1,2})\s*[/.-]\s*(\d{1,2})$/); return m ? `${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}` : null; };
+const fromBirthday = (v: string | null | undefined) => (v ? `${v.slice(3, 5)}/${v.slice(0, 2)}` : "");
 
 /** Clients : fiche, historique, points de fidélité et ajustements. */
 export default function CustomersPage() {
   const act = useAction();
+  const { hasOption } = useSession();
   const [search, setSearch] = useState("");
   const q = useQuery({ queryKey: ["customers", search], queryFn: () => api.get<Row[]>(`/api/customers?search=${encodeURIComponent(search)}`) });
   const [edit, setEdit] = useState<Form | null>(null);
@@ -26,18 +31,18 @@ export default function CustomersPage() {
   const [adjust, setAdjust] = useState({ points: "", reason: "" });
   const save = async () => {
     if (!edit) return;
-    const body = { firstName: edit.firstName || null, lastName: edit.lastName || null, phone: edit.phone || null, email: edit.email || null, notes: edit.notes || null, allergies: edit.allergies || null };
+    const body = { firstName: edit.firstName || null, lastName: edit.lastName || null, phone: edit.phone || null, email: edit.email || null, notes: edit.notes || null, allergies: edit.allergies || null, ...(hasOption("marketing") ? { birthday: toBirthday(edit.birthday) ?? "", marketingConsent: edit.marketingConsent } : {}) };
     const r = await act(() => (edit.id ? api.patch(`/api/customers/${edit.id}`, body) : api.post("/api/customers", body)), { success: "Client enregistré", invalidate: [["customers"], ["customer"]] });
     if (r) setEdit(null);
   };
   const c = card.data;
   return (
     <div>
-      <PageHeader title="Clients & fidélité" subtitle="Fiches clients, visites, dépenses et points" action={<Button onClick={() => setEdit({ firstName: "", lastName: "", phone: "", email: "", notes: "", allergies: "" })}>Nouveau client</Button>} />
+      <PageHeader title="Clients & fidélité" subtitle="Fiches clients, visites, dépenses et points" action={<Button onClick={() => setEdit({ firstName: "", lastName: "", phone: "", email: "", notes: "", allergies: "", birthday: "", marketingConsent: false })}>Nouveau client</Button>} />
       <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Rechercher par nom, téléphone, email…" className="mb-3 w-80!" />
       {q.isLoading ? <div className="flex justify-center py-10"><Spinner /></div> : (
         <Table head={["Client", "Contact", "Visites", "Dépensé", "Points", "Réservations", ""]}>
-          {q.data?.map((r) => <Tr key={r.id} onClick={() => setSelId(r.id)}><Td className="font-semibold">{r.firstName} {r.lastName}{r.allergies ? <Badge color="orange">allergies</Badge> : null}</Td><Td className="text-xs">{[r.phone, r.email].filter(Boolean).join(" · ")}</Td><Td>{r.visitCount}</Td><Td className="font-semibold"><Money amount={r.totalSpent} /></Td><Td className="font-bold text-brand">{r.points}</Td><Td>{r._count.reservations}</Td><Td><button onClick={(e) => { e.stopPropagation(); setEdit({ id: r.id, firstName: r.firstName ?? "", lastName: r.lastName ?? "", phone: r.phone ?? "", email: r.email ?? "", notes: r.notes ?? "", allergies: r.allergies ?? "" }); }} className="text-xs font-semibold text-lagon-600">Modifier</button></Td></Tr>)}
+          {q.data?.map((r) => <Tr key={r.id} onClick={() => setSelId(r.id)}><Td className="font-semibold">{r.firstName} {r.lastName}{r.allergies ? <Badge color="orange">allergies</Badge> : null}</Td><Td className="text-xs">{[r.phone, r.email].filter(Boolean).join(" · ")}</Td><Td>{r.visitCount}</Td><Td className="font-semibold"><Money amount={r.totalSpent} /></Td><Td className="font-bold text-brand">{r.points}</Td><Td>{r._count.reservations}</Td><Td><button onClick={(e) => { e.stopPropagation(); setEdit({ id: r.id, firstName: r.firstName ?? "", lastName: r.lastName ?? "", phone: r.phone ?? "", email: r.email ?? "", notes: r.notes ?? "", allergies: r.allergies ?? "", birthday: fromBirthday(r.birthday), marketingConsent: r.marketingConsent }); }} className="text-xs font-semibold text-lagon-600">Modifier</button></Td></Tr>)}
           {q.data?.length === 0 ? <Tr><Td className="py-8 text-center text-muted">Aucun client</Td></Tr> : null}
         </Table>
       )}
@@ -46,6 +51,10 @@ export default function CustomersPage() {
           <Field label="Prénom"><Input value={edit.firstName} onChange={(e) => setEdit({ ...edit, firstName: e.target.value })} /></Field><Field label="Nom"><Input value={edit.lastName} onChange={(e) => setEdit({ ...edit, lastName: e.target.value })} /></Field>
           <Field label="Téléphone"><Input value={edit.phone} onChange={(e) => setEdit({ ...edit, phone: e.target.value })} /></Field><Field label="Email"><Input value={edit.email} onChange={(e) => setEdit({ ...edit, email: e.target.value })} /></Field>
           <Field label="Allergies" className="sm:col-span-2"><Input value={edit.allergies} onChange={(e) => setEdit({ ...edit, allergies: e.target.value })} /></Field>
+          {hasOption("marketing") ? <>
+            <Field label="Anniversaire (JJ/MM)" hint={edit.birthday && !toBirthday(edit.birthday) ? "Format attendu : 15/08" : undefined}><Input value={edit.birthday} onChange={(e) => setEdit({ ...edit, birthday: e.target.value })} placeholder="15/08" inputMode="numeric" aria-label="Anniversaire" /></Field>
+            <div className="flex items-end pb-2"><Toggle checked={edit.marketingConsent} onChange={(v) => setEdit({ ...edit, marketingConsent: v })} label="Accepte de recevoir nos offres par e-mail" /></div>
+          </> : null}
           <Field label="Notes" className="sm:col-span-2"><Textarea value={edit.notes} onChange={(e) => setEdit({ ...edit, notes: e.target.value })} /></Field>
         </div> : null}
       </Modal>

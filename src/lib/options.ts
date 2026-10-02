@@ -54,6 +54,12 @@ export const OPTIONS = {
     includes: ["Ardoise par client pro, avec plafond d'encours", "Encaissement « Sur compte » depuis la caisse", "Facture en PDF avec le N° Tahiti du client, numérotation continue", "Règlements, factures en retard et relances par e-mail"],
     permissions: ["accounts.charge", "accounts.manage"],
   },
+  marketing: {
+    label: "Marketing & cartes cadeaux",
+    tagline: "Faire revenir vos clients et en attirer de nouveaux",
+    includes: ["Cartes cadeaux et bons d'achat : vente à la caisse, utilisation en une ou plusieurs fois", "Campagnes par e-mail : anniversaires du mois, clients qui ne reviennent plus, nouveautés", "Seulement aux clients qui l'ont accepté, avec un lien de désabonnement", "Avis Google : lien sur les reçus et affiche avec QR code pour les tables"],
+    permissions: ["giftcards.sell", "marketing.manage"],
+  },
   advanced: {
     label: "Avancé",
     tagline: "Pour les établissements qui grandissent",

@@ -28,9 +28,14 @@ export async function listCustomers(organizationId: string, opts: { search?: str
   return rows.map((c) => ({ ...c, points: c.loyaltyAccounts.reduce((a, x) => a + x.points, 0) }));
 }
 
-export async function upsertCustomer(actor: Actor, input: { id?: string; firstName?: string | null; lastName?: string | null; phone?: string | null; email?: string | null; notes?: string | null; allergies?: string | null }) {
+export async function upsertCustomer(actor: Actor, input: { id?: string; firstName?: string | null; lastName?: string | null; phone?: string | null; email?: string | null; notes?: string | null; allergies?: string | null; birthday?: string | null; marketingConsent?: boolean }) {
   if (!input.firstName && !input.lastName && !input.phone && !input.email) throw new ApiError(400, "MISSING", "Indiquez au moins un nom, un téléphone ou un email");
-  const data = { firstName: input.firstName ?? null, lastName: input.lastName ?? null, phone: input.phone ?? null, email: input.email?.toLowerCase() ?? null, notes: input.notes ?? null, allergies: input.allergies ?? null };
+  const data = {
+    firstName: input.firstName ?? null, lastName: input.lastName ?? null, phone: input.phone ?? null, email: input.email?.toLowerCase() ?? null, notes: input.notes ?? null, allergies: input.allergies ?? null,
+    ...(input.birthday !== undefined ? { birthday: input.birthday || null } : {}),
+    // Accord pour les offres par e-mail : daté ; le redonner annule un désabonnement passé
+    ...(input.marketingConsent === true ? { marketingConsent: true, consentAt: new Date(), unsubscribedAt: null } : input.marketingConsent === false ? { marketingConsent: false } : {}),
+  };
   if (input.id) {
     const existing = await prisma.customer.findFirst({ where: { id: input.id, organizationId: actor.organizationId } });
     if (!existing) throw new ApiError(404, "NOT_FOUND", "Client introuvable");

@@ -40,7 +40,7 @@ export async function sendMail(mail: OutgoingMail): Promise<{ id: string }> {
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
 
 /** Corps HTML d'un e-mail de reçu, aux couleurs ManaResto, avec le PDF en pièce jointe. */
-export function receiptMail(input: { to: string; establishmentName: string; orderNumber: string; total: string; dateLabel: string; pdf: Buffer; isPaid: boolean; phone?: string | null; address?: string | null }): OutgoingMail {
+export function receiptMail(input: { to: string; establishmentName: string; orderNumber: string; total: string; dateLabel: string; pdf: Buffer; isPaid: boolean; phone?: string | null; address?: string | null; reviewUrl?: string | null }): OutgoingMail {
   const title = input.isPaid ? "Votre reçu" : "Votre addition";
   const html = `<!doctype html><html lang="fr"><body style="margin:0;background:#f3f5f8;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#0f172a">
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td align="center" style="padding:24px 12px">
@@ -53,10 +53,11 @@ export function receiptMail(input: { to: string; establishmentName: string; orde
 <p style="margin:0 0 14px;font-size:15px;line-height:1.5">Bonjour,<br>merci de votre visite chez <strong>${esc(input.establishmentName)}</strong>. Vous trouverez ${input.isPaid ? "votre reçu" : "votre addition"} en pièce jointe (PDF).</p>
 <table role="presentation" cellspacing="0" cellpadding="0" style="width:100%;background:#f1f4f8;border-radius:14px"><tr><td style="padding:16px 18px;font-size:13px;color:#64748b">Montant ${input.isPaid ? "réglé" : "à régler"}</td><td style="padding:16px 18px;text-align:right;font-size:22px;font-weight:800;color:#0f6e6c">${esc(input.total)}</td></tr></table>
 ${input.address || input.phone ? `<p style="margin:18px 0 0;font-size:12px;color:#64748b;line-height:1.5">${esc(input.establishmentName)}${input.address ? `<br>${esc(input.address)}` : ""}${input.phone ? `<br>Tél. ${esc(input.phone)}` : ""}</p>` : ""}
+${input.reviewUrl && input.isPaid ? `<p style="margin:18px 0 0;text-align:center"><a href="${esc(input.reviewUrl)}" style="display:inline-block;background:#f97c3c;color:#fff;font-weight:700;text-decoration:none;border-radius:12px;padding:10px 18px">⭐ Donnez-nous votre avis</a></p>` : ""}
 <p style="margin:22px 0 0;font-size:14px">À bientôt · <em>Māuruuru</em></p></td></tr>
 <tr><td style="padding:14px 28px;background:#f8fafc;font-size:11px;color:#94a3b8;text-align:center">Reçu envoyé par ManaResto pour ${esc(input.establishmentName)}. Ne pas répondre à cet e-mail automatique.</td></tr>
 </table></td></tr></table></body></html>`;
-  const text = `${title} — ${input.establishmentName}\nN° ${input.orderNumber} · ${input.dateLabel}\nMontant ${input.isPaid ? "réglé" : "à régler"} : ${input.total}\n\nLe document PDF est en pièce jointe. Merci de votre visite, māuruuru !`;
+  const text = `${title} — ${input.establishmentName}\nN° ${input.orderNumber} · ${input.dateLabel}\nMontant ${input.isPaid ? "réglé" : "à régler"} : ${input.total}\n\nLe document PDF est en pièce jointe. Merci de votre visite, māuruuru !${input.reviewUrl && input.isPaid ? `\nDonnez-nous votre avis : ${input.reviewUrl}` : ""}`;
   return { to: input.to, subject: `${title} ${input.orderNumber} — ${input.establishmentName}`, text, html, attachments: [{ filename: `recu-${input.orderNumber}.pdf`, content: input.pdf, contentType: "application/pdf" }] };
 }
 
@@ -219,4 +220,25 @@ export function invoiceReminderMail(input: { to: string; establishmentName: stri
 </table></td></tr></table></body></html>`;
   const text = `${title} — ${input.establishmentName}\nFacture ${input.number} du ${input.issued}, échéance le ${input.due}.\nReste à régler : ${input.remaining} (total ${input.total}).\nLa facture est en pièce jointe. Si le règlement est déjà parti, merci de ne pas tenir compte de ce message.${input.phone ? `\nQuestions : ${input.phone}` : ""}`;
   return { to: input.to, subject: `${title} ${input.number} — ${input.establishmentName}`, text, html, ...(input.replyTo ? { replyTo: input.replyTo } : {}), attachments: [{ filename: `facture-${input.number}.pdf`, content: input.pdf, contentType: "application/pdf" }] };
+}
+
+/** Campagne marketing : texte du restaurant, prénom du client, lien de désabonnement obligatoire. */
+export function campaignMail(input: { to: string; establishmentName: string; firstName?: string | null; subject: string; body: string; phone?: string | null; replyTo?: string | null; reviewUrl?: string | null; unsubscribeUrl: string }): OutgoingMail {
+  const paragraphs = input.body.split(/\n{2,}/).map((p) => `<p style="margin:0 0 14px;font-size:15px;line-height:1.55">${esc(p).replace(/\n/g, "<br>")}</p>`).join("");
+  const html = `<!doctype html><html lang="fr"><body style="margin:0;background:#f3f5f8;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#0f172a">
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td align="center" style="padding:24px 12px">
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:520px;background:#fff;border-radius:20px;overflow:hidden;box-shadow:0 6px 20px -8px rgba(15,23,42,.15)">
+<tr><td style="background:linear-gradient(135deg,#14aaa3,#0f6e6c);padding:26px 28px;color:#fff">
+<div style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;opacity:.85">${esc(input.establishmentName)}</div>
+<div style="font-size:22px;font-weight:800;margin-top:6px">${esc(input.subject)}</div></td></tr>
+<tr><td style="padding:24px 28px">
+<p style="margin:0 0 14px;font-size:15px">Ia ora na${input.firstName ? ` ${esc(input.firstName)}` : ""},</p>
+${paragraphs}
+${input.reviewUrl ? `<p style="margin:18px 0 0;font-size:13px;color:#475569">Vous avez aimé votre dernier repas ? <a href="${esc(input.reviewUrl)}" style="color:#0f6e6c;font-weight:700">Laissez-nous un avis</a></p>` : ""}
+${input.phone ? `<p style="margin:14px 0 0;font-size:13px;color:#475569">Réservations : <strong>${esc(input.phone)}</strong></p>` : ""}
+<p style="margin:22px 0 0;font-size:14px">Māuruuru · ${esc(input.establishmentName)}</p></td></tr>
+<tr><td style="padding:14px 28px;background:#f8fafc;font-size:11px;color:#94a3b8;text-align:center">Vous recevez cet e-mail car vous avez accepté de recevoir les offres de ${esc(input.establishmentName)}.<br><a href="${esc(input.unsubscribeUrl)}" style="color:#64748b">Se désabonner</a></td></tr>
+</table></td></tr></table></body></html>`;
+  const text = `${input.subject} — ${input.establishmentName}\n\nIa ora na${input.firstName ? ` ${input.firstName}` : ""},\n\n${input.body}\n\n${input.reviewUrl ? `Laissez-nous un avis : ${input.reviewUrl}\n` : ""}${input.phone ? `Réservations : ${input.phone}\n` : ""}\nSe désabonner : ${input.unsubscribeUrl}`;
+  return { to: input.to, subject: `${input.subject} — ${input.establishmentName}`, text, html, ...(input.replyTo ? { replyTo: input.replyTo } : {}) };
 }

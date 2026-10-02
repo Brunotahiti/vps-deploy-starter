@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { BarChart3, BookUser, Boxes, BrainCircuit, CheckCircle2, Clock, Globe2, Rocket, ShieldCheck, Sparkles, ThermometerSnowflake, UsersRound, Wallet } from "lucide-react";
+import { BarChart3, BookUser, Boxes, Megaphone, BrainCircuit, CheckCircle2, Clock, Globe2, Rocket, ShieldCheck, Sparkles, ThermometerSnowflake, UsersRound, Wallet } from "lucide-react";
 import { api } from "@/lib/api-client";
 import { PageHeader, useAction } from "@/components/admin/common";
 import { Button } from "@/components/ui/button";
@@ -20,6 +20,7 @@ const LOOK: Record<OptionKey, { icon: typeof Boxes; tile: string }> = {
   ai: { icon: BrainCircuit, tile: "from-fuchsia-500 to-purple-700" },
   hygiene: { icon: ThermometerSnowflake, tile: "from-teal-400 to-cyan-700" },
   accounts: { icon: BookUser, tile: "from-slate-500 to-slate-800" },
+  marketing: { icon: Megaphone, tile: "from-pink-500 to-rose-600" },
   advanced: { icon: Rocket, tile: "from-violet-500 to-fuchsia-600" },
 };
 const BASE = ["Caisse et encaissement (espèces, carte, addition partagée)", "Plan de salle ou vente au comptoir", "Réservations par téléphone, liste du jour et calendrier", "Écran cuisine et bons imprimés", "Tickets, clôture de caisse et rapports du jour"];

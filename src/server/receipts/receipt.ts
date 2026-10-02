@@ -6,7 +6,7 @@ import { formatDateTime } from "@/lib/dates";
 import { orderInclude } from "@/server/services/orders";
 import { EscPosBuilder, encodeEscPos, type PrintOp } from "@/server/hardware/escpos";
 
-const METHOD: Record<string, string> = { CASH: "Espèces", CARD: "Carte bancaire", CHECK: "Chèque", TRANSFER: "Virement", MEAL_VOUCHER: "Ticket restaurant", COMPLIMENTARY: "Offert", OTHER: "Autre", ACCOUNT: "Sur compte (facture à suivre)" };
+const METHOD: Record<string, string> = { CASH: "Espèces", CARD: "Carte bancaire", CHECK: "Chèque", TRANSFER: "Virement", MEAL_VOUCHER: "Ticket restaurant", COMPLIMENTARY: "Offert", OTHER: "Autre", ACCOUNT: "Sur compte (facture à suivre)", GIFT_CARD: "Carte cadeau" };
 
 export async function buildReceiptData(establishmentId: string, orderId: string) {
   const order = await prisma.order.findFirst({ where: { id: orderId, establishmentId }, include: orderInclude });

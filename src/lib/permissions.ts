@@ -46,6 +46,9 @@ export const PERMISSIONS = {
   // Comptes clients (option)
   "accounts.charge": { group: "Comptes clients", description: "Mettre une addition sur le compte d'un client pro" },
   "accounts.manage": { group: "Comptes clients", description: "Gérer les comptes clients : factures, règlements, relances" },
+  // Marketing (option)
+  "giftcards.sell": { group: "Marketing", description: "Vendre une carte cadeau" },
+  "marketing.manage": { group: "Marketing", description: "Gérer le marketing : campagnes, cartes cadeaux, avis clients" },
 } as const;
 
 export type PermissionKey = keyof typeof PERMISSIONS;
@@ -78,7 +81,7 @@ export const SYSTEM_ROLES: Record<string, { name: string; permissions: Permissio
     permissions: [
       "pos.use", "pos.discount", "pos.void_item", "pos.cancel_order", "pos.refund", "pos.open_drawer", "pos.transfer_table",
       "cash.open", "cash.close", "cash.movement",
-      "catalog.view", "catalog.availability", "orders.view_history", "reports.view", "customers.manage", "accounts.charge",
+      "catalog.view", "catalog.availability", "orders.view_history", "reports.view", "customers.manage", "accounts.charge", "giftcards.sell",
     ],
   },
   bartender: {
