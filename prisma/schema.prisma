@@ -121,6 +121,8 @@ model Establishment {
   customerAccounts    CustomerAccount[]
   accountInvoices     AccountInvoice[]
   accountSettlements  AccountSettlement[]
+  giftCards           GiftCard[]
+  marketingCampaigns  MarketingCampaign[]
   hygieneEquipment    HygieneEquipment[]
   temperatureReadings TemperatureReading[]
   cleaningTasks       CleaningTask[]
@@ -695,18 +697,22 @@ model MenuItem {
 // ---------------------------------------------------------------------------
 
 model Customer {
-  id             String   @id @default(uuid()) @db.Uuid
-  organizationId String   @map("organization_id") @db.Uuid
-  firstName      String?  @map("first_name")
-  lastName       String?  @map("last_name")
-  phone          String?
-  email          String?
-  notes          String?
-  allergies      String?
-  visitCount     Int      @default(0) @map("visit_count")
-  totalSpent     Int      @default(0) @map("total_spent")
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
+  id               String    @id @default(uuid()) @db.Uuid
+  organizationId   String    @map("organization_id") @db.Uuid
+  firstName        String?   @map("first_name")
+  lastName         String?   @map("last_name")
+  phone            String?
+  email            String?
+  notes            String?
+  allergies        String?
+  visitCount       Int       @default(0) @map("visit_count")
+  totalSpent       Int       @default(0) @map("total_spent")
+  birthday         String? // « MM-JJ » : campagne des anniversaires du mois
+  marketingConsent Boolean   @default(false) @map("marketing_consent") // accepte de recevoir nos offres par e-mail
+  consentAt        DateTime? @map("consent_at")
+  unsubscribedAt   DateTime? @map("unsubscribed_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
 
   organization    Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   orders          Order[]
@@ -1021,6 +1027,7 @@ enum PaymentMethod {
   COMPLIMENTARY
   OTHER
   ACCOUNT // « Sur compte » : à facturer au compte d'un client pro (option « accounts »)
+  GIFT_CARD // carte cadeau / bon d'achat (option « marketing »)
 }
 
 model PaymentMethodConfig {
@@ -1065,12 +1072,14 @@ model Payment {
   providerRef       String?       @map("provider_ref")
   customerAccountId String?       @map("customer_account_id") @db.Uuid // paiement « Sur compte »
   invoiceId         String?       @map("invoice_id") @db.Uuid // facture qui l'a repris
+  giftCardId        String?       @map("gift_card_id") @db.Uuid // carte cadeau débitée
   createdAt         DateTime      @default(now()) @map("created_at")
 
   establishment   Establishment    @relation(fields: [establishmentId], references: [id], onDelete: Cascade)
   order           Order            @relation(fields: [orderId], references: [id], onDelete: Cascade)
   customerAccount CustomerAccount? @relation(fields: [customerAccountId], references: [id], onDelete: NoAction)
   invoice         AccountInvoice?  @relation(fields: [invoiceId], references: [id], onDelete: NoAction)
+  giftCard        GiftCard?        @relation(fields: [giftCardId], references: [id], onDelete: NoAction)
   cashSession     CashSession?     @relation(fields: [cashSessionId], references: [id], onDelete: SetNull)
   receivedBy      User?            @relation("PaymentReceivedBy", fields: [receivedById], references: [id], onDelete: SetNull)
   refunds         Refund[]
@@ -1946,4 +1955,55 @@ model AccountSettlement {
   @@index([accountId, receivedAt])
   @@index([establishmentId, receivedAt])
   @@map("account_settlements")
+}
+
+// ─── Marketing & cartes cadeaux (option payante « marketing ») ──────────────────
+
+/// Carte cadeau / bon d'achat : vendue (encaissée) puis utilisée comme moyen de paiement, en une ou plusieurs fois.
+model GiftCard {
+  id              String    @id @default(uuid()) @db.Uuid
+  establishmentId String    @map("establishment_id") @db.Uuid
+  code            String    @unique // XXXX-XXXX, sans caractères ambigus
+  initialAmount   Int       @map("initial_amount")
+  balance         Int
+  buyerName       String?   @map("buyer_name")
+  recipientName   String?   @map("recipient_name")
+  message         String?
+  expiresAt       DateTime? @map("expires_at")
+  status          String    @default("ACTIVE") // ACTIVE, CANCELLED
+  saleMethod      String    @map("sale_method") // CASH, CARD, CHECK, TRANSFER, OFFERED
+  saleReference   String?   @map("sale_reference")
+  cashSessionId   String?   @map("cash_session_id") @db.Uuid
+  soldById        String?   @map("sold_by_id") @db.Uuid
+  createdAt       DateTime  @default(now()) @map("created_at")
+  cancelledAt     DateTime? @map("cancelled_at")
+  cancelReason    String?   @map("cancel_reason")
+
+  establishment Establishment @relation(fields: [establishmentId], references: [id], onDelete: Cascade)
+  payments      Payment[]
+
+  @@index([establishmentId, createdAt])
+  @@map("gift_cards")
+}
+
+/// Campagne d'e-mails aux clients qui l'ont accepté (segment : tous, inactifs, anniversaires du mois, nouveaux).
+model MarketingCampaign {
+  id              String    @id @default(uuid()) @db.Uuid
+  establishmentId String    @map("establishment_id") @db.Uuid
+  name            String
+  segment         String
+  subject         String
+  body            String
+  status          String    @default("SENDING") // SENDING, SENT
+  recipients      Int       @default(0)
+  sent            Int       @default(0)
+  failed          Int       @default(0)
+  createdById     String?   @map("created_by_id") @db.Uuid
+  createdAt       DateTime  @default(now()) @map("created_at")
+  finishedAt      DateTime? @map("finished_at")
+
+  establishment Establishment @relation(fields: [establishmentId], references: [id], onDelete: Cascade)
+
+  @@index([establishmentId, createdAt])
+  @@map("marketing_campaigns")
 }

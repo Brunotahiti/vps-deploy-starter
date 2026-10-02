@@ -5,7 +5,7 @@ import { formatMoney } from "@/lib/money";
 import { formatDateTime } from "@/lib/dates";
 import { escapeHtml as esc, printableHtml } from "@/server/html";
 
-const METHOD: Record<string, string> = { CASH: "Espèces", CARD: "Carte bancaire", CHECK: "Chèque", TRANSFER: "Virement", MEAL_VOUCHER: "Ticket restaurant", COMPLIMENTARY: "Offert", OTHER: "Autre", ACCOUNT: "Sur compte" };
+const METHOD: Record<string, string> = { CASH: "Espèces", CARD: "Carte bancaire", CHECK: "Chèque", TRANSFER: "Virement", MEAL_VOUCHER: "Ticket restaurant", COMPLIMENTARY: "Offert", OTHER: "Autre", ACCOUNT: "Sur compte", GIFT_CARD: "Carte cadeau" };
 const KIND: Record<string, string> = { OPENING: "Ouverture", SALE: "Vente", REFUND: "Remboursement", PAY_IN: "Entrée", PAY_OUT: "Sortie", DEPOSIT: "Dépôt", CORRECTION: "Correction", CLOSING: "Clôture" };
 
 /** Rapport de caisse X (session ouverte) / Z (session clôturée), imprimable. */

@@ -14,10 +14,10 @@ import { useSession } from "@/hooks/use-session";
 import { Banknote, BookUser, CreditCard, FileText, Landmark, Ticket, Gift, MoreHorizontal, Users, SplitSquareHorizontal, ListChecks, Calculator } from "lucide-react";
 import { PAYMENT_LABEL, type Order, type PosCatalog } from "./types";
 
-const ICONS: Record<string, React.ComponentType<{ className?: string }>> = { CASH: Banknote, CARD: CreditCard, CHECK: FileText, TRANSFER: Landmark, MEAL_VOUCHER: Ticket, COMPLIMENTARY: Gift, OTHER: MoreHorizontal, ACCOUNT: BookUser };
+const ICONS: Record<string, React.ComponentType<{ className?: string }>> = { CASH: Banknote, CARD: CreditCard, CHECK: FileText, TRANSFER: Landmark, MEAL_VOUCHER: Ticket, COMPLIMENTARY: Gift, OTHER: MoreHorizontal, ACCOUNT: BookUser, GIFT_CARD: Gift };
 
 type PosAccount = { id: string; name: string; contactName: string | null; balance: number; creditLimit: number | null; available: number | null };
-export type PaymentPayload = { method: string; amount: number; tendered?: number; reference?: string | null; splitLabel?: string | null; customerAccountId?: string | null };
+export type PaymentPayload = { method: string; amount: number; tendered?: number; reference?: string | null; splitLabel?: string | null; customerAccountId?: string | null; giftCardCode?: string | null };
 
 export function PaymentModal({ order, methods, open, onClose, onPay, onPaid }: { order: Order; methods: PosCatalog["paymentMethods"]; open: boolean; onClose: () => void; onPay: (payments: PaymentPayload[]) => Promise<void>; onPaid: (order: Order) => void }) {
   const { currency, hasOption, can } = useSession();
@@ -25,6 +25,21 @@ export function PaymentModal({ order, methods, open, onClose, onPay, onPaid }: {
   const accountsOn = hasOption("accounts") && (can("accounts.charge") || can("accounts.manage"));
   const accounts = useQuery({ queryKey: ["accounts", "pos"], queryFn: () => api.get<PosAccount[]>("/api/accounts/pos"), enabled: open && accountsOn, staleTime: 30_000 });
   const [accountId, setAccountId] = useState<string | null>(null);
+  // Carte cadeau (option Marketing) : code vérifié en ligne, montant plafonné au solde
+  const giftOn = hasOption("marketing");
+  const [giftCode, setGiftCode] = useState("");
+  const [gift, setGift] = useState<{ code: string; balance: number; expired: boolean; status: string } | null>(null);
+  const [giftErr, setGiftErr] = useState<string | null>(null);
+  const checkGift = async () => {
+    setGiftErr(null); setGift(null);
+    try {
+      const g = await api.get<{ code: string; balance: number; expired: boolean; status: string }>(`/api/gift-cards/lookup?code=${encodeURIComponent(giftCode)}`);
+      if (g.status !== "ACTIVE") setGiftErr(`Carte ${g.code} annulée`);
+      else if (g.expired) setGiftErr(`Carte ${g.code} expirée`);
+      else if (g.balance <= 0) setGiftErr(`Carte ${g.code} déjà entièrement utilisée`);
+      else { setGift(g); setAmountStr(String(Math.min(g.balance, remaining))); setLabel(`Carte ${g.code}`); }
+    } catch (e) { setGiftErr(e instanceof ApiClientError ? e.message : "Vérification impossible (connexion ?)"); }
+  };
   const [accountSearch, setAccountSearch] = useState("");
   const remaining = order.total - order.paidTotal;
   const [method, setMethod] = useState(methods[0]?.method ?? "CASH");
@@ -66,7 +81,8 @@ export function PaymentModal({ order, methods, open, onClose, onPay, onPaid }: {
     if (amount <= 0) return;
     setLoading(true);
     try {
-      await onPay([{ method, amount, tendered: method === "CASH" && tendered > 0 ? tendered : undefined, reference: reference || null, splitLabel: label, ...(method === "ACCOUNT" ? { customerAccountId: accountId } : {}) }]);
+      await onPay([{ method, amount, tendered: method === "CASH" && tendered > 0 ? tendered : undefined, reference: reference || null, splitLabel: label, ...(method === "ACCOUNT" ? { customerAccountId: accountId } : {}), ...(method === "GIFT_CARD" ? { giftCardCode: gift?.code ?? null } : {}) }]);
+      if (method === "GIFT_CARD") { setGift(null); setGiftCode(""); }
       setReference("");
     } finally {
       setLoading(false);
@@ -149,8 +165,19 @@ export function PaymentModal({ order, methods, open, onClose, onPay, onPaid }: {
                   <button key={m.id} onClick={() => setMethod(m.method)} className={`touch flex h-16 flex-col items-center justify-center rounded-xl text-sm font-bold ${method === m.method ? "bg-lagon-600 text-white" : "surface-2"}`}><I className="h-5 w-5" />{m.label || PAYMENT_LABEL[m.method]}</button>
                 );
               })}
+              {giftOn ? <button onClick={() => setMethod("GIFT_CARD")} data-testid="pay-gift" className={`touch flex h-16 flex-col items-center justify-center rounded-xl text-sm font-bold ${method === "GIFT_CARD" ? "bg-lagon-600 text-white" : "surface-2"}`}><Gift className="h-5 w-5" />Carte cadeau</button> : null}
               {accountsOn && accounts.data?.length ? <button onClick={() => setMethod("ACCOUNT")} data-testid="pay-account" className={`touch flex h-16 flex-col items-center justify-center rounded-xl text-sm font-bold ${method === "ACCOUNT" ? "bg-lagon-600 text-white" : "surface-2"}`}><BookUser className="h-5 w-5" />Sur compte</button> : null}
             </div>
+            {method === "GIFT_CARD" ? (
+              <div className="rounded-xl border border-line p-3" data-testid="gift-picker">
+                <div className="flex gap-2">
+                  <input value={giftCode} onChange={(e) => { setGiftCode(e.target.value.toUpperCase()); setGift(null); }} onKeyDown={(e) => e.key === "Enter" && giftCode.trim() && checkGift()} placeholder="Code de la carte (ex. ABCD-EFGH)" aria-label="Code de la carte cadeau" autoCapitalize="characters" className="h-11 min-w-0 flex-1 rounded-lg border border-line surface px-3 font-mono text-sm tracking-wider" />
+                  <Button variant="secondary" onClick={checkGift} disabled={!giftCode.trim()}>Vérifier</Button>
+                </div>
+                {gift ? <p className="mt-2 text-sm font-semibold text-green-700 dark:text-green-400" data-testid="gift-balance">Carte {gift.code} · solde <Money amount={gift.balance} /></p> : null}
+                {giftErr ? <p className="mt-2 text-sm font-semibold text-red-600">{giftErr}</p> : null}
+              </div>
+            ) : null}
             {method === "ACCOUNT" ? (
               <div className="rounded-xl border border-line p-3" data-testid="account-picker">
                 <input value={accountSearch} onChange={(e) => setAccountSearch(e.target.value)} placeholder="Rechercher un client pro…" aria-label="Rechercher un compte" className="mb-2 h-10 w-full rounded-lg border border-line surface px-3 text-sm" />
@@ -198,7 +225,7 @@ export function PaymentModal({ order, methods, open, onClose, onPay, onPaid }: {
           <div className="space-y-2">
             <NumPad value={method === "CASH" && tenderedStr !== "" ? tenderedStr : amountStr} onChange={(v) => (method === "CASH" && tenderedStr !== "" ? setTenderedStr(v) : setAmountStr(v))} />
             {method === "CASH" ? <button onClick={() => setTenderedStr(tenderedStr === "" ? String(amount) : "")} className="touch h-10 w-full rounded-lg border border-line text-xs font-semibold">{tenderedStr === "" ? "Saisir les espèces reçues" : "Revenir au montant"}</button> : null}
-            <Button size="xl" className="w-full" loading={loading} disabled={amount <= 0 || (method === "CASH" && tendered > 0 && tendered < amount) || (method === "ACCOUNT" && !accountId)} onClick={pay}>
+            <Button size="xl" className="w-full" loading={loading} disabled={amount <= 0 || (method === "CASH" && tendered > 0 && tendered < amount) || (method === "ACCOUNT" && !accountId) || (method === "GIFT_CARD" && (!gift || amount > gift.balance))} onClick={pay}>
               {method === "ACCOUNT" ? "Mettre sur compte" : "Encaisser"} <Money amount={amount} />
             </Button>
             {amount < remaining ? <p className="text-center text-xs text-muted">Il restera <Money amount={remaining - amount} /> à payer</p> : <p className="text-center text-xs text-lagon-600">La commande sera clôturée</p>}

@@ -188,7 +188,7 @@ export function OrderScreen({ orderId: orderIdProp }: { orderId: string }) {
   const pay = async (payments: PaymentPayload[]) => {
     const body = payments.map((p) => ({ ...p, id: crypto.randomUUID() }));
     await withPin(setPin, "pos.discount", async (managerPin) => {
-      const res = await api.post<{ order: Order }>(`/api/orders/${orderId}/payments`, { payments: body, managerPin }, { idempotencyKey: crypto.randomUUID(), queueIfOffline: !body.some((p) => p.method === "COMPLIMENTARY") });
+      const res = await api.post<{ order: Order }>(`/api/orders/${orderId}/payments`, { payments: body, managerPin }, { idempotencyKey: crypto.randomUUID(), queueIfOffline: !body.some((p) => p.method === "COMPLIMENTARY" || p.method === "GIFT_CARD") }); // carte cadeau : solde vérifié en ligne
       afterPayment(res.order);
     }).catch((e) => {
       onError(e);
@@ -197,7 +197,7 @@ export function OrderScreen({ orderId: orderIdProp }: { orderId: string }) {
       const cur = qc.getQueryData<Order>(["order", orderId]);
       if (!cur) return;
       const paid = cur.paidTotal + body.reduce((a, p) => a + p.amount, 0);
-      const next: Order = { ...cur, paidTotal: paid, tipTotal: cur.tipTotal, payments: [...cur.payments, ...body.map((p) => ({ id: p.id, establishmentId: cur.establishmentId, orderId, cashSessionId: null, receivedById: null, method: p.method as Order["payments"][number]["method"], status: "COMPLETED" as const, amount: p.amount, tipAmount: 0, tendered: p.tendered ?? null, changeGiven: p.tendered ? Math.max(0, p.tendered - p.amount - (0)) : 0, refundedAmount: 0, reference: p.reference ?? null, splitLabel: p.splitLabel ?? null, providerRef: null, customerAccountId: p.customerAccountId ?? null, invoiceId: null, createdAt: new Date(), refunds: [] }))], ...(paid >= cur.total ? { status: "PAID" as const, closedAt: new Date() } : {}) };
+      const next: Order = { ...cur, paidTotal: paid, tipTotal: cur.tipTotal, payments: [...cur.payments, ...body.map((p) => ({ id: p.id, establishmentId: cur.establishmentId, orderId, cashSessionId: null, receivedById: null, method: p.method as Order["payments"][number]["method"], status: "COMPLETED" as const, amount: p.amount, tipAmount: 0, tendered: p.tendered ?? null, changeGiven: p.tendered ? Math.max(0, p.tendered - p.amount - (0)) : 0, refundedAmount: 0, reference: p.reference ?? null, splitLabel: p.splitLabel ?? null, providerRef: null, customerAccountId: p.customerAccountId ?? null, invoiceId: null, giftCardId: null, createdAt: new Date(), refunds: [] }))], ...(paid >= cur.total ? { status: "PAID" as const, closedAt: new Date() } : {}) };
       setOrder(next);
       // Caisse tenue sur la tablette (espèces théoriques) et tiroir ouvert par l'agent local pour les espèces
       addSaleLocal(body.map((p) => ({ method: p.method, amount: p.amount })), cur.number, me?.user?.displayName || me?.user?.firstName || "").then(() => qc.invalidateQueries({ queryKey: ["cash"] })).catch(() => {});

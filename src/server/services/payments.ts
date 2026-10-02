@@ -7,6 +7,7 @@ import { closeOrderIfPaid, getOrder, lockOrder, recalcOrder, type Actor } from "
 import { findOpenSession } from "./cash";
 import { earnLoyalty } from "./customers";
 import { assertAccountCharge, assertAccountsOption } from "./accounts";
+import { assertMarketingOption, creditGiftCard, debitGiftCard, normalizeCode } from "./marketing";
 
 export type PaymentInput = {
   id?: string;
@@ -16,6 +17,7 @@ export type PaymentInput = {
   reference?: string | null;
   splitLabel?: string | null;
   customerAccountId?: string | null; // « Sur compte » : compte du client pro à débiter
+  giftCardCode?: string | null; // carte cadeau débitée
 };
 
 /** Enregistre un ou plusieurs paiements (multi-moyens) et clôture la commande si soldée. */
@@ -30,6 +32,7 @@ export async function addPayments(actor: Actor, orderId: string, inputs: Payment
     if (cfg && !cfg.isEnabled) throw new ApiError(400, "METHOD_DISABLED", `Moyen de paiement désactivé : ${cfg.label}`);
   }
   if (inputs.some((p) => p.method === "ACCOUNT") && !opts.offlineReplay) await assertAccountsOption(actor.organizationId);
+  if (inputs.some((p) => p.method === "GIFT_CARD")) await assertMarketingOption(actor.organizationId);
   let cashSession: Awaited<ReturnType<typeof findOpenSession>> | null = await findOpenSession(actor.establishmentId, actor.terminalId ?? null);
   // Espèces encaissées hors ligne : l'argent est déjà dans le tiroir, le paiement ne doit jamais être refusé au retour du réseau.
   // Sans session ouverte, il reste « à rattacher » et rejoint la prochaine session ouverte (voir attachOfflineCashPayments).
@@ -60,6 +63,9 @@ export async function addPayments(actor: Actor, orderId: string, inputs: Payment
     }
     // « Sur compte » : compte du bon établissement, ouvert, et plafond d'encours respecté (sous verrou du compte)
     for (const p of toCreate) if (p.method === "ACCOUNT") await assertAccountCharge(tx, actor, p.customerAccountId, p.amount, opts);
+    // Carte cadeau : verrouillée, active, valide, solde suffisant ; le solde est débité ici
+    const giftCards = new Map<PaymentInput, string>();
+    for (const p of toCreate) if (p.method === "GIFT_CARD") giftCards.set(p, (await debitGiftCard(tx, actor, p.giftCardCode, p.amount)).id);
     const out = [];
     for (const p of toCreate) {
       const tip = 0; // pas de pourboires en Polynésie : le champ reste à zéro
@@ -73,6 +79,7 @@ export async function addPayments(actor: Actor, orderId: string, inputs: Payment
           id: p.id, establishmentId: actor.establishmentId, orderId, cashSessionId: cashSession?.id ?? null, receivedById: actor.userId,
           method: p.method, amount: p.amount, tipAmount: tip, tendered: p.method === "CASH" ? (p.tendered ?? p.amount + tip) : null, changeGiven,
           reference: p.reference ?? null, splitLabel: p.splitLabel ?? null, customerAccountId: p.method === "ACCOUNT" ? p.customerAccountId ?? null : null,
+          giftCardId: giftCards.get(p) ?? null, ...(p.method === "GIFT_CARD" ? { reference: giftCards.has(p) ? normalizeCode(p.giftCardCode ?? "") : null } : {}),
         },
       });
       if (p.method === "CASH" && cashSession) {
@@ -118,6 +125,7 @@ export async function refundPayment(actor: Actor, paymentId: string, input: { am
     const after = await tx.payment.findUniqueOrThrow({ where: { id: paymentId }, select: { amount: true, refundedAmount: true } });
     await tx.payment.update({ where: { id: paymentId }, data: { status: after.refundedAmount >= after.amount ? "REFUNDED" : "PARTIALLY_REFUNDED" } });
     const refund = await tx.refund.create({ data: { paymentId, issuedById: actor.userId, amount: input.amount, reason: input.reason } });
+    if (payment.method === "GIFT_CARD" && payment.giftCardId) await creditGiftCard(tx, payment.giftCardId, input.amount); // le montant revient sur la carte
     if (cashSession) await tx.cashMovement.create({ data: { cashSessionId: cashSession.id, userId: actor.userId, paymentId, orderId: payment.orderId, kind: "REFUND", amount: -input.amount, reason: input.reason } });
     await recalcOrder(tx, payment.orderId);
     await audit({ ...actor, action: "payment.refund", entityType: "payment", entityId: paymentId, newValue: { refundId: refund.id, amount: input.amount, method: payment.method, orderNumber: payment.order.number }, reason: input.reason }, tx);

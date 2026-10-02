@@ -15,6 +15,7 @@ import { computeLine, computeOrderTotals } from "../src/lib/order-calc";
 import { addDays, localDay, startOfLocalDay } from "../src/lib/dates";
 import { hygieneDemo } from "./demo-hygiene";
 import { accountsDemo } from "./demo-accounts";
+import { marketingDemo } from "./demo-marketing";
 
 export const DEMO_SLUG = "demo-mana-beach";
 const SERVER_EMAILS = ["moana@manaresto.pf", "vaiana@manaresto.pf", "tamatoa@manaresto.pf", "poema@manaresto.pf", "heimana@manaresto.pf"];
@@ -556,6 +557,9 @@ export async function refreshDemo(prisma: PrismaClient, opts: { historyDays?: nu
     // Comptes clients pro : quelques consommations sur compte à facturer (une seule fois)
     const acc = await accountsDemo(prisma, ctx, today);
     if (acc) log(`→ Comptes clients : ${acc} consommation(s) sur compte`);
+
+    // Marketing : cartes cadeaux et clients inscrits aux offres (une seule fois)
+    if (await marketingDemo(prisma, ctx, today)) log("→ Marketing : cartes cadeaux et clients inscrits");
 
     // Activité trop ancienne
     const cutoff = startOfLocalDay(addDays(today, -KEEP_DAYS), ctx.tz);

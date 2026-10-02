@@ -92,9 +92,9 @@ export const kitchenItemReadySchema = z.object({ ready: z.boolean() });
 export const discountSchema = z.object({ amount: money.optional(), percentBps: bps.max(10000).optional(), reason: z.string().min(1).max(200), managerPin: pin.optional() });
 export const cancelSchema = z.object({ reason: z.string().min(1).max(200), managerPin: pin.optional() });
 export const transferSchema = z.object({ tableId: uuid });
-export const paymentMethod = z.enum(["CASH", "CARD", "CHECK", "TRANSFER", "MEAL_VOUCHER", "COMPLIMENTARY", "OTHER", "ACCOUNT"]);
+export const paymentMethod = z.enum(["CASH", "CARD", "CHECK", "TRANSFER", "MEAL_VOUCHER", "COMPLIMENTARY", "OTHER", "ACCOUNT", "GIFT_CARD"]);
 export const paymentsSchema = z.object({
-  payments: z.array(z.object({ id: uuid.optional(), method: paymentMethod, amount: z.number().int().min(1), tendered: money.optional(), reference: z.string().max(80).nullable().optional(), splitLabel: z.string().max(40).nullable().optional(), customerAccountId: uuid.nullable().optional() })).min(1).max(20),
+  payments: z.array(z.object({ id: uuid.optional(), method: paymentMethod, amount: z.number().int().min(1), tendered: money.optional(), reference: z.string().max(80).nullable().optional(), splitLabel: z.string().max(40).nullable().optional(), customerAccountId: uuid.nullable().optional(), giftCardCode: z.string().trim().max(20).nullable().optional() })).min(1).max(20),
   managerPin: pin.optional(),
 });
 export const refundSchema = z.object({ amount: z.number().int().min(1), reason: z.string().min(1).max(200), managerPin: pin.optional() });
@@ -152,7 +152,7 @@ export const reservationSettingsSchema = z.object({
   services: z.array(z.object({ key: z.enum(["lunch", "dinner"]), label: z.string().max(20).optional(), enabled: z.boolean(), from: hhmm, to: hhmm })).max(2).optional(),
   interval: z.number().int().optional(), duration: z.number().int().min(30).max(300).optional(), capacity: z.number().int().min(1).max(2000).nullable().optional(),
 });
-export const customerSchema = z.object({ firstName: z.string().max(80).nullable().optional(), lastName: z.string().max(80).nullable().optional(), phone: z.string().max(30).nullable().optional(), email: z.string().email().max(160).nullable().optional().or(z.literal("")), notes: z.string().max(1000).nullable().optional(), allergies: z.string().max(300).nullable().optional() });
+export const customerSchema = z.object({ firstName: z.string().max(80).nullable().optional(), lastName: z.string().max(80).nullable().optional(), phone: z.string().max(30).nullable().optional(), email: z.string().email().max(160).nullable().optional().or(z.literal("")), notes: z.string().max(1000).nullable().optional(), allergies: z.string().max(300).nullable().optional(), birthday: z.string().regex(/^(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/, "Anniversaire au format MM-JJ").nullable().optional().or(z.literal("")), marketingConsent: z.boolean().optional() });
 export const attachCustomerSchema = z.object({ customerId: uuid.nullable() });
 export const redeemSchema = z.object({ rewards: z.number().int().min(1).max(10).optional() });
 export const adjustPointsSchema = z.object({ points: z.number().int().min(-100000).max(100000), reason: z.string().min(1).max(200) });
@@ -232,3 +232,14 @@ export const customerAccountSchema = z.object({
 });
 export const invoiceCreateSchema = z.object({ upTo: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional() });
 export const settlementSchema = z.object({ amount: z.number().int().min(1).max(100_000_000), method: z.enum(["CASH", "CARD", "CHECK", "TRANSFER"]), reference: optText(80), note: optText(300) });
+
+// ─── Marketing & cartes cadeaux ───
+export const giftCardSaleSchema = z.object({
+  amount: z.number().int().min(100).max(10_000_000), method: z.enum(["CASH", "CARD", "CHECK", "TRANSFER", "OFFERED"]), reference: z.string().trim().max(80).nullable().optional(),
+  buyerName: z.string().trim().max(120).nullable().optional(), recipientName: z.string().trim().max(120).nullable().optional(), message: z.string().trim().max(300).nullable().optional(),
+  expiresOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+});
+export const giftCardCancelSchema = z.object({ reason: z.string().trim().min(1).max(200) });
+export const campaignSegment = z.enum(["ALL", "INACTIVE", "BIRTHDAY_MONTH", "NEW"]);
+export const campaignSchema = z.object({ name: z.string().trim().min(1).max(120), segment: campaignSegment, subject: z.string().trim().min(1).max(150), body: z.string().trim().min(1).max(5000) });
+export const reviewSettingsSchema = z.object({ reviewUrl: z.string().trim().url().max(500).refine((u) => u.startsWith("https://"), "Adresse https:// attendue").nullable().or(z.literal("")) });

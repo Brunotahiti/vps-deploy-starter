@@ -11,7 +11,7 @@ import { staffSummary } from "@/server/services/staff";
 export type ExportType = "period" | "products" | "orders" | "staff" | "accounting";
 export type ExportFormat = "csv" | "xlsx" | "pdf";
 
-const METHOD: Record<string, string> = { CASH: "Espèces", CARD: "Carte bancaire", CHECK: "Chèque", TRANSFER: "Virement", MEAL_VOUCHER: "Ticket restaurant", COMPLIMENTARY: "Offert", OTHER: "Autre", ACCOUNT: "Sur compte" };
+const METHOD: Record<string, string> = { CASH: "Espèces", CARD: "Carte bancaire", CHECK: "Chèque", TRANSFER: "Virement", MEAL_VOUCHER: "Ticket restaurant", COMPLIMENTARY: "Offert", OTHER: "Autre", ACCOUNT: "Sur compte", GIFT_CARD: "Carte cadeau" };
 const TYPE: Record<string, string> = { DINE_IN: "Sur place", COUNTER: "Comptoir", TAKEAWAY: "À emporter", DELIVERY: "Livraison", ONLINE: "En ligne", KIOSK: "Borne" };
 const STATUS: Record<string, string> = { PAID: "Payée", CANCELLED: "Annulée" };
 
@@ -131,7 +131,7 @@ export async function toPdf(sheets: Sheet[], title: string, establishmentName: s
  *  - Remboursements à leur date réelle : 709 (HT) et 4457 (TVA reprise) au débit, compte d'encaissement au crédit.
  *  Chaque journée est équilibrée (écart d'arrondi éventuel en 658/758).
  */
-const ACCOUNTS: Record<string, [string, string]> = { CASH: ["530000", "Caisse"], CARD: ["512000", "Banque (CB)"], CHECK: ["512100", "Banque (chèques)"], TRANSFER: ["512200", "Banque (virements)"], MEAL_VOUCHER: ["467000", "Titres-restaurant"], COMPLIMENTARY: ["658000", "Offerts"], OTHER: ["471000", "Compte d'attente"], ACCOUNT: ["411000", "Clients (comptes pro)"] };
+const ACCOUNTS: Record<string, [string, string]> = { CASH: ["530000", "Caisse"], CARD: ["512000", "Banque (CB)"], CHECK: ["512100", "Banque (chèques)"], TRANSFER: ["512200", "Banque (virements)"], MEAL_VOUCHER: ["467000", "Titres-restaurant"], COMPLIMENTARY: ["658000", "Offerts"], OTHER: ["471000", "Compte d'attente"], ACCOUNT: ["411000", "Clients (comptes pro)"], GIFT_CARD: ["419100", "Cartes cadeaux (avances clients)"] };
 
 export async function buildAccountingExport(establishmentId: string, fromDay: string, toDay: string, timezone: string): Promise<{ title: string; sheets: Sheet[] }> {
   const est = await prisma.establishment.findUniqueOrThrow({ where: { id: establishmentId }, select: { name: true, legalName: true, tahitiNumber: true } });
@@ -197,7 +197,17 @@ export async function buildAccountingExport(establishmentId: string, fromDay: st
   }
   const settlementSheet: Sheet = { name: "Règlements clients", head: ["Date", "Client", "Moyen", "Référence", "Montant"], rows: settlements.map((r) => [formatDateTime(r.receivedAt, timezone), r.account.name, METHOD[r.method] ?? r.method, r.reference ?? "", r.amount]) };
 
+  // Cartes cadeaux vendues (option Marketing) : l'argent reçu est une avance du client (419), la vente se fait à l'utilisation
+  const giftCards = await prisma.giftCard.findMany({ where: { establishmentId, createdAt: { gte: startOfLocalDay(fromDay, timezone), lt: endOfLocalDay(toDay, timezone) } }, orderBy: { createdAt: "asc" } });
+  for (const g of giftCards) {
+    const day = dayFmt.format(g.createdAt);
+    const [acc, label] = g.saleMethod === "OFFERED" ? ["623000", "Cartes cadeaux offertes"] : ACCOUNTS[g.saleMethod] ?? ["471000", g.saleMethod];
+    entries.rows.push([day, "CC", acc, `${label} — carte cadeau ${g.code}`, g.initialAmount, 0]);
+    entries.rows.push([day, "CC", "419100", `Carte cadeau ${g.code}`, 0, g.initialAmount]);
+  }
+  const giftSheet: Sheet = { name: "Cartes cadeaux vendues", head: ["Date", "Code", "Montant", "Encaissement", "Solde restant", "Statut"], rows: giftCards.map((g) => [formatDateTime(g.createdAt, timezone), g.code, g.initialAmount, g.saleMethod === "OFFERED" ? "Offerte" : METHOD[g.saleMethod] ?? g.saleMethod, g.balance, g.status === "CANCELLED" ? "Annulée" : "Active"]) };
+
   const period = `${fromDay} → ${toDay}`;
   const header: Sheet = { name: "Entête", head: ["Champ", "Valeur"], rows: [["Établissement", est.name], ["Raison sociale", est.legalName ?? ""], ["N° Tahiti", est.tahitiNumber ?? ""], ["Période", period], ["Devise", "XPF (F CFP), sans décimales"], ["Généré le", new Date().toISOString()]] };
-  return { title: `Export comptable ${period}`, sheets: [header, days, sales, receipts, refundSheet, ...(settlements.length ? [settlementSheet] : []), entries] };
+  return { title: `Export comptable ${period}`, sheets: [header, days, sales, receipts, refundSheet, ...(settlements.length ? [settlementSheet] : []), ...(giftCards.length ? [giftSheet] : []), entries] };
 }
