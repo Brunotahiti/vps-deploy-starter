@@ -22,6 +22,15 @@ describe("client API : déballage de l'enveloppe { data }", () => {
     await expect(api.get("/x")).rejects.toMatchObject({ status: 404, code: "NOT_FOUND" });
     await expect(api.get("/x")).rejects.toBeInstanceOf(ApiClientError);
   });
+  it("serveur en redémarrage (502 / 404 du proxy, page HTML, texte de statut vide en HTTP/2) : message lisible, jamais vide", async () => {
+    const html = (status: number) => vi.fn(async () => new Response("<html>Bad Gateway</html>", { status, statusText: "", headers: { "Content-Type": "text/html" } }));
+    vi.stubGlobal("fetch", html(502));
+    await expect(api.patch("/api/reservations/1", { tableId: "t" })).rejects.toMatchObject({ status: 502, code: "HTTP_502", message: expect.stringContaining("réessayez") });
+    vi.stubGlobal("fetch", html(404));
+    await expect(api.patch("/api/reservations/1", {})).rejects.toMatchObject({ message: expect.stringContaining("réessayez") });
+    vi.stubGlobal("fetch", reply(500, { error: { code: "X", message: "" } }));
+    await expect(api.get("/x")).rejects.toMatchObject({ message: "Erreur inattendue (500) : réessayez" });
+  });
 });
 
 import { safeNext } from "@/lib/safe-next";

@@ -8,6 +8,8 @@ const Ctx = createContext<{ toast: (message: string, kind?: Toast["kind"]) => vo
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = useState<Toast[]>([]);
   const toast = useCallback((message: string, kind: Toast["kind"] = "info") => {
+    // Jamais de notification vide (une pastille de couleur sans texte n'explique rien)
+    if (!message.trim()) message = kind === "error" ? "Une erreur est survenue : réessayez" : "C'est fait";
     const id = Date.now() + Math.random();
     setItems((s) => [...s, { id, message, kind }]);
     setTimeout(() => setItems((s) => s.filter((t) => t.id !== id)), kind === "error" ? 5000 : 2800);
