@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { BrainCircuit, LayoutDashboard, UtensilsCrossed, Map, Receipt, Wallet, Users, Settings, ScrollText, Building2, Moon, Sun, LogOut, X, Boxes, CalendarDays, Heart, QrCode, BarChart3, Clock, Plug, Network, TrendingUp, ShieldCheck, Printer, ChevronDown, Store, BookOpen, UsersRound, SlidersHorizontal, Globe, ExternalLink, type LucideIcon, Sparkles } from "lucide-react";
+import { BrainCircuit, LayoutDashboard, UtensilsCrossed, Map, Receipt, Wallet, Users, Settings, ScrollText, Building2, Moon, Sun, LogOut, X, Boxes, CalendarDays, Heart, QrCode, BarChart3, Clock, Plug, Network, TrendingUp, ShieldCheck, Printer, ChevronDown, Store, BookOpen, UsersRound, SlidersHorizontal, Globe, ExternalLink, type LucideIcon, Sparkles, BookUser } from "lucide-react";
 import { markLogoutPending, useSession } from "@/hooks/use-session";
 import { useRealtime } from "@/hooks/use-realtime";
 import { useTheme } from "@/hooks/use-theme";
@@ -54,6 +54,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
       { href: "/admin/floor", label: "Plan de salle", icon: Map, show: can("floor.manage") && businessType !== "snack" },
       { href: "/pos/reservations", label: "Réservations", icon: CalendarDays, show: can("pos.use") && businessType !== "snack" },
       { href: "/admin/customers", label: "Clients & fidélité", icon: Heart, show: can("customers.manage") },
+      { href: "/admin/accounts", label: "Comptes clients pro", icon: BookUser, show: hasOption("accounts") && can("accounts.manage"), match: "/admin/accounts" },
       { href: "/admin/digital", label: "QR & commande en ligne", icon: QrCode, show: can("settings.manage") && hasOption("digital") },
       { href: me?.publicSitePath ?? "", label: "Voir mon site en ligne", icon: Globe, show: !!me?.publicSitePath, external: true },
     ] },

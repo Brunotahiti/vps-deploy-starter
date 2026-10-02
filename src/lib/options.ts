@@ -42,6 +42,12 @@ export const OPTIONS = {
     includes: ["Prévisions de fréquentation à 14 jours, façon Bison Futé (vert, orange, rouge, noir)", "Conseils de la semaine : équipe, mise en place, jours calmes à remplir", "Analyse qualité du restaurant inspirée de la norme ISO 9001, avec un plan d'actions", "Commande d'achats proposée selon votre consommation et les prévisions"],
     permissions: [],
   },
+  accounts: {
+    label: "Comptes clients & factures pro",
+    tagline: "Faire crédit aux entreprises et aux habitués, en toute clarté",
+    includes: ["Ardoise par client pro, avec plafond d'encours", "Encaissement « Sur compte » depuis la caisse", "Facture en PDF avec le N° Tahiti du client, numérotation continue", "Règlements, factures en retard et relances par e-mail"],
+    permissions: ["accounts.charge", "accounts.manage"],
+  },
   advanced: {
     label: "Avancé",
     tagline: "Pour les établissements qui grandissent",

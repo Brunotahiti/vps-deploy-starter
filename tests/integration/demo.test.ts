@@ -61,6 +61,9 @@ describe("Démo vivante", () => {
     expect(await prisma.reservation.count({ where: { establishmentId: T.est.id, startsAt: { gt: new Date() } } })).toBeGreaterThan(0);
     expect(await prisma.shift.count({ where: { establishmentId: T.est.id, startsAt: { gt: new Date(Date.now() + 86400000) } } })).toBeGreaterThan(0);
 
+    // Comptes clients pro : comptes fictifs et consommations sur compte à facturer
+    expect((await prisma.organization.findUniqueOrThrow({ where: { id: T.org.id } })).options).toContain("accounts");
+    expect(await prisma.customerAccount.count({ where: { establishmentId: T.est.id } })).toBe(3);
     const before = await totals();
     await refreshDemo(db, { historyDays: 3 });
     expect(await totals()).toEqual(before);

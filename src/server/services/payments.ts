@@ -6,6 +6,7 @@ import type { PaymentMethod } from "@/generated/prisma/client";
 import { closeOrderIfPaid, getOrder, lockOrder, recalcOrder, type Actor } from "./orders";
 import { findOpenSession } from "./cash";
 import { earnLoyalty } from "./customers";
+import { assertAccountCharge, assertAccountsOption } from "./accounts";
 
 export type PaymentInput = {
   id?: string;
@@ -14,6 +15,7 @@ export type PaymentInput = {
   tendered?: number;    // espèces reçues (≥ amount)
   reference?: string | null;
   splitLabel?: string | null;
+  customerAccountId?: string | null; // « Sur compte » : compte du client pro à débiter
 };
 
 /** Enregistre un ou plusieurs paiements (multi-moyens) et clôture la commande si soldée. */
@@ -27,6 +29,7 @@ export async function addPayments(actor: Actor, orderId: string, inputs: Payment
     const cfg = methods.find((m) => m.method === p.method);
     if (cfg && !cfg.isEnabled) throw new ApiError(400, "METHOD_DISABLED", `Moyen de paiement désactivé : ${cfg.label}`);
   }
+  if (inputs.some((p) => p.method === "ACCOUNT") && !opts.offlineReplay) await assertAccountsOption(actor.organizationId);
   let cashSession: Awaited<ReturnType<typeof findOpenSession>> | null = await findOpenSession(actor.establishmentId, actor.terminalId ?? null);
   // Espèces encaissées hors ligne : l'argent est déjà dans le tiroir, le paiement ne doit jamais être refusé au retour du réseau.
   // Sans session ouverte, il reste « à rattacher » et rejoint la prochaine session ouverte (voir attachOfflineCashPayments).
@@ -55,6 +58,8 @@ export async function addPayments(actor: Actor, orderId: string, inputs: Payment
         cashSession = null; // clôturée pendant la coupure : rattachée à la prochaine session
       }
     }
+    // « Sur compte » : compte du bon établissement, ouvert, et plafond d'encours respecté (sous verrou du compte)
+    for (const p of toCreate) if (p.method === "ACCOUNT") await assertAccountCharge(tx, actor, p.customerAccountId, p.amount, opts);
     const out = [];
     for (const p of toCreate) {
       const tip = 0; // pas de pourboires en Polynésie : le champ reste à zéro
@@ -67,7 +72,7 @@ export async function addPayments(actor: Actor, orderId: string, inputs: Payment
         data: {
           id: p.id, establishmentId: actor.establishmentId, orderId, cashSessionId: cashSession?.id ?? null, receivedById: actor.userId,
           method: p.method, amount: p.amount, tipAmount: tip, tendered: p.method === "CASH" ? (p.tendered ?? p.amount + tip) : null, changeGiven,
-          reference: p.reference ?? null, splitLabel: p.splitLabel ?? null,
+          reference: p.reference ?? null, splitLabel: p.splitLabel ?? null, customerAccountId: p.method === "ACCOUNT" ? p.customerAccountId ?? null : null,
         },
       });
       if (p.method === "CASH" && cashSession) {

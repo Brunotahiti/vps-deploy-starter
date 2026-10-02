@@ -92,9 +92,9 @@ export const kitchenItemReadySchema = z.object({ ready: z.boolean() });
 export const discountSchema = z.object({ amount: money.optional(), percentBps: bps.max(10000).optional(), reason: z.string().min(1).max(200), managerPin: pin.optional() });
 export const cancelSchema = z.object({ reason: z.string().min(1).max(200), managerPin: pin.optional() });
 export const transferSchema = z.object({ tableId: uuid });
-export const paymentMethod = z.enum(["CASH", "CARD", "CHECK", "TRANSFER", "MEAL_VOUCHER", "COMPLIMENTARY", "OTHER"]);
+export const paymentMethod = z.enum(["CASH", "CARD", "CHECK", "TRANSFER", "MEAL_VOUCHER", "COMPLIMENTARY", "OTHER", "ACCOUNT"]);
 export const paymentsSchema = z.object({
-  payments: z.array(z.object({ id: uuid.optional(), method: paymentMethod, amount: z.number().int().min(1), tendered: money.optional(), reference: z.string().max(80).nullable().optional(), splitLabel: z.string().max(40).nullable().optional() })).min(1).max(20),
+  payments: z.array(z.object({ id: uuid.optional(), method: paymentMethod, amount: z.number().int().min(1), tendered: money.optional(), reference: z.string().max(80).nullable().optional(), splitLabel: z.string().max(40).nullable().optional(), customerAccountId: uuid.nullable().optional() })).min(1).max(20),
   managerPin: pin.optional(),
 });
 export const refundSchema = z.object({ amount: z.number().int().min(1), reason: z.string().min(1).max(200), managerPin: pin.optional() });
@@ -206,3 +206,13 @@ export const demoRequestSchema = z.object({
   website: z.string().max(200).optional(), // pot de miel anti-spam : un robot le remplit, un humain ne le voit pas
   startedAt: z.number().optional(), // horodatage d'ouverture du formulaire (anti-robot)
 });
+
+// ─── Comptes clients & factures pro ───
+const optText = (n: number) => z.string().trim().max(n).nullable().optional();
+export const customerAccountSchema = z.object({
+  name: z.string().trim().min(1).max(120), tahitiNumber: optText(20), contactName: optText(120), email: z.string().trim().email().max(160).nullable().optional().or(z.literal("")),
+  phone: optText(40), address: optText(300), creditLimit: z.number().int().min(0).max(100_000_000).nullable().optional(), paymentTermsDays: z.number().int().min(0).max(120).optional(),
+  notes: optText(1000), isActive: z.boolean().optional(),
+});
+export const invoiceCreateSchema = z.object({ upTo: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional() });
+export const settlementSchema = z.object({ amount: z.number().int().min(1).max(100_000_000), method: z.enum(["CASH", "CARD", "CHECK", "TRANSFER"]), reference: optText(80), note: optText(300) });

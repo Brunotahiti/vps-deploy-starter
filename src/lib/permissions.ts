@@ -40,6 +40,9 @@ export const PERMISSIONS = {
   "customers.manage": { group: "Clients", description: "Gérer clients, fidélité, réservations" },
   // Personnel
   "staff.manage": { group: "Personnel", description: "Gérer personnel et pointages" },
+  // Comptes clients (option)
+  "accounts.charge": { group: "Comptes clients", description: "Mettre une addition sur le compte d'un client pro" },
+  "accounts.manage": { group: "Comptes clients", description: "Gérer les comptes clients : factures, règlements, relances" },
 } as const;
 
 export type PermissionKey = keyof typeof PERMISSIONS;
@@ -65,14 +68,14 @@ export const SYSTEM_ROLES: Record<string, { name: string; permissions: Permissio
   },
   server: {
     name: "Équipe en salle",
-    permissions: ["pos.use", "pos.transfer_table", "catalog.view", "catalog.availability", "customers.manage"],
+    permissions: ["pos.use", "pos.transfer_table", "catalog.view", "catalog.availability", "customers.manage", "accounts.charge"],
   },
   cashier: {
     name: "Responsable caisse",
     permissions: [
       "pos.use", "pos.discount", "pos.void_item", "pos.cancel_order", "pos.refund", "pos.open_drawer", "pos.transfer_table",
       "cash.open", "cash.close", "cash.movement",
-      "catalog.view", "catalog.availability", "orders.view_history", "reports.view", "customers.manage",
+      "catalog.view", "catalog.availability", "orders.view_history", "reports.view", "customers.manage", "accounts.charge",
     ],
   },
   bartender: {

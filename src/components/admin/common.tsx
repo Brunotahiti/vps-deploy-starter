@@ -29,6 +29,7 @@ export function useAction() {
 
 /** Aide sur place : chaque page de la gestion expliquée en une phrase (bouton « ? » à côté du titre). */
 const HELP: [string, string][] = [
+  ["/admin/accounts", "Les clients à qui vous faites crédit (entreprises, administrations, habitués) : à la caisse, « Sur compte » met l'addition sur leur compte ; ici vous facturez, enregistrez leurs règlements et relancez les retards."],
   ["/admin/orders", "Toutes les commandes, en cours et passées. Ouvrez-en une pour voir son détail, réimprimer le ticket ou la rembourser."],
   ["/admin/cash", "Les sessions de caisse : ouverture, entrées et sorties d'espèces, clôture et écart. Le rapport Z s'imprime d'ici."],
   ["/admin/stats", "Vos ventes en graphiques : par jour, par heure, par produit et par serveur."],

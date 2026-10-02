@@ -13,6 +13,7 @@ import crypto from "node:crypto";
 import type { OrderType, PaymentMethod, Prisma, PrismaClient } from "../src/generated/prisma/client";
 import { computeLine, computeOrderTotals } from "../src/lib/order-calc";
 import { addDays, localDay, startOfLocalDay } from "../src/lib/dates";
+import { accountsDemo } from "./demo-accounts";
 
 export const DEMO_SLUG = "demo-mana-beach";
 const SERVER_EMAILS = ["moana@manaresto.pf", "vaiana@manaresto.pf", "tamatoa@manaresto.pf", "poema@manaresto.pf", "heimana@manaresto.pf"];
@@ -546,6 +547,10 @@ export async function refreshDemo(prisma: PrismaClient, opts: { historyDays?: nu
     const nowMs = Date.now();
     await prisma.reservation.updateMany({ where: { establishmentId: ctx.estId, startsAt: { gte: todayStart, lt: new Date(nowMs - 90 * 60000) }, status: { in: ["PENDING", "CONFIRMED"] } }, data: { status: "COMPLETED" } });
     await prisma.reservation.updateMany({ where: { establishmentId: ctx.estId, startsAt: { gte: new Date(nowMs - 90 * 60000), lte: new Date(nowMs) }, status: { in: ["PENDING", "CONFIRMED"] } }, data: { status: "SEATED" } });
+
+    // Comptes clients pro : quelques consommations sur compte à facturer (une seule fois)
+    const acc = await accountsDemo(prisma, ctx, today);
+    if (acc) log(`→ Comptes clients : ${acc} consommation(s) sur compte`);
 
     // Activité trop ancienne
     const cutoff = startOfLocalDay(addDays(today, -KEEP_DAYS), ctx.tz);

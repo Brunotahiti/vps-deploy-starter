@@ -97,7 +97,7 @@ async function main() {
   }
   console.log("→ Création de l'entreprise de démonstration…");
   // Restaurant exemple : toutes les options ouvertes, pour tout montrer
-  const org = await prisma.organization.create({ data: { name: "Mana Beach SARL", slug: "demo-mana-beach", plan: "TRIAL", trialEndsAt: new Date(Date.now() + 12 * 86_400_000), options: ["stock", "digital", "team", "stats", "continuity", "ai", "advanced"] } });
+  const org = await prisma.organization.create({ data: { name: "Mana Beach SARL", slug: "demo-mana-beach", plan: "TRIAL", trialEndsAt: new Date(Date.now() + 12 * 86_400_000), options: ["stock", "digital", "team", "stats", "continuity", "ai", "accounts", "advanced"] } });
   await ensureSystemRoles(org.id);
   const roles = Object.fromEntries((await prisma.role.findMany({ where: { organizationId: org.id } })).map((r) => [r.key, r.id]));
 

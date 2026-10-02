@@ -11,15 +11,21 @@ import { Money } from "@/components/money";
 import { formatMoney } from "@/lib/money";
 import { splitByItems, splitBySeat, splitEqually } from "@/lib/split";
 import { useSession } from "@/hooks/use-session";
-import { Banknote, CreditCard, FileText, Landmark, Ticket, Gift, MoreHorizontal, Users, SplitSquareHorizontal, ListChecks, Calculator } from "lucide-react";
+import { Banknote, BookUser, CreditCard, FileText, Landmark, Ticket, Gift, MoreHorizontal, Users, SplitSquareHorizontal, ListChecks, Calculator } from "lucide-react";
 import { PAYMENT_LABEL, type Order, type PosCatalog } from "./types";
 
-const ICONS: Record<string, React.ComponentType<{ className?: string }>> = { CASH: Banknote, CARD: CreditCard, CHECK: FileText, TRANSFER: Landmark, MEAL_VOUCHER: Ticket, COMPLIMENTARY: Gift, OTHER: MoreHorizontal };
+const ICONS: Record<string, React.ComponentType<{ className?: string }>> = { CASH: Banknote, CARD: CreditCard, CHECK: FileText, TRANSFER: Landmark, MEAL_VOUCHER: Ticket, COMPLIMENTARY: Gift, OTHER: MoreHorizontal, ACCOUNT: BookUser };
 
-export type PaymentPayload = { method: string; amount: number; tendered?: number; reference?: string | null; splitLabel?: string | null };
+type PosAccount = { id: string; name: string; contactName: string | null; balance: number; creditLimit: number | null; available: number | null };
+export type PaymentPayload = { method: string; amount: number; tendered?: number; reference?: string | null; splitLabel?: string | null; customerAccountId?: string | null };
 
 export function PaymentModal({ order, methods, open, onClose, onPay, onPaid }: { order: Order; methods: PosCatalog["paymentMethods"]; open: boolean; onClose: () => void; onPay: (payments: PaymentPayload[]) => Promise<void>; onPaid: (order: Order) => void }) {
-  const { currency } = useSession();
+  const { currency, hasOption, can } = useSession();
+  // « Sur compte » (option Comptes clients) : addition mise sur le compte d'un client pro, facturée ensuite
+  const accountsOn = hasOption("accounts") && (can("accounts.charge") || can("accounts.manage"));
+  const accounts = useQuery({ queryKey: ["accounts", "pos"], queryFn: () => api.get<PosAccount[]>("/api/accounts/pos"), enabled: open && accountsOn, staleTime: 30_000 });
+  const [accountId, setAccountId] = useState<string | null>(null);
+  const [accountSearch, setAccountSearch] = useState("");
   const remaining = order.total - order.paidTotal;
   const [method, setMethod] = useState(methods[0]?.method ?? "CASH");
   const [mode, setMode] = useState<"pay" | "split">("pay");
@@ -60,7 +66,7 @@ export function PaymentModal({ order, methods, open, onClose, onPay, onPaid }: {
     if (amount <= 0) return;
     setLoading(true);
     try {
-      await onPay([{ method, amount, tendered: method === "CASH" && tendered > 0 ? tendered : undefined, reference: reference || null, splitLabel: label }]);
+      await onPay([{ method, amount, tendered: method === "CASH" && tendered > 0 ? tendered : undefined, reference: reference || null, splitLabel: label, ...(method === "ACCOUNT" ? { customerAccountId: accountId } : {}) }]);
       setReference("");
     } finally {
       setLoading(false);
@@ -143,7 +149,24 @@ export function PaymentModal({ order, methods, open, onClose, onPay, onPaid }: {
                   <button key={m.id} onClick={() => setMethod(m.method)} className={`touch flex h-16 flex-col items-center justify-center rounded-xl text-sm font-bold ${method === m.method ? "bg-lagon-600 text-white" : "surface-2"}`}><I className="h-5 w-5" />{m.label || PAYMENT_LABEL[m.method]}</button>
                 );
               })}
+              {accountsOn && accounts.data?.length ? <button onClick={() => setMethod("ACCOUNT")} data-testid="pay-account" className={`touch flex h-16 flex-col items-center justify-center rounded-xl text-sm font-bold ${method === "ACCOUNT" ? "bg-lagon-600 text-white" : "surface-2"}`}><BookUser className="h-5 w-5" />Sur compte</button> : null}
             </div>
+            {method === "ACCOUNT" ? (
+              <div className="rounded-xl border border-line p-3" data-testid="account-picker">
+                <input value={accountSearch} onChange={(e) => setAccountSearch(e.target.value)} placeholder="Rechercher un client pro…" aria-label="Rechercher un compte" className="mb-2 h-10 w-full rounded-lg border border-line surface px-3 text-sm" />
+                <div className="max-h-48 space-y-1 overflow-y-auto">
+                  {(accounts.data ?? []).filter((a) => !accountSearch.trim() || `${a.name} ${a.contactName ?? ""}`.toLowerCase().includes(accountSearch.trim().toLowerCase())).map((a) => {
+                    const short = a.available !== null && a.available < amount;
+                    return (
+                      <button key={a.id} onClick={() => setAccountId(a.id)} aria-pressed={accountId === a.id} className={`touch flex w-full items-center justify-between gap-2 rounded-lg border px-3 py-2 text-left text-sm ${accountId === a.id ? "border-lagon-500 bg-lagon-500/10" : "border-line"}`}>
+                        <span className="min-w-0"><b className="block truncate">{a.name}</b><span className="text-xs text-muted">Encours <Money amount={a.balance} />{a.creditLimit !== null ? <> · plafond <Money amount={a.creditLimit} /></> : null}</span></span>
+                        {a.available !== null ? <span className={`shrink-0 text-xs font-bold ${short ? "text-red-600" : "text-green-700 dark:text-green-400"}`}>{short ? "Plafond dépassé" : <>Dispo <Money amount={a.available} /></>}</span> : <span className="shrink-0 text-xs text-muted">Sans plafond</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : null}
             <div className="rounded-xl surface-2 p-3">
               <div className="flex items-baseline justify-between"><span className="text-xs uppercase text-muted">Montant {label ? `· ${label}` : ""}</span><span className="text-2xl font-bold"><Money amount={amount} /></span></div>
               <div className="mt-2 flex flex-wrap gap-2">
@@ -175,8 +198,8 @@ export function PaymentModal({ order, methods, open, onClose, onPay, onPaid }: {
           <div className="space-y-2">
             <NumPad value={method === "CASH" && tenderedStr !== "" ? tenderedStr : amountStr} onChange={(v) => (method === "CASH" && tenderedStr !== "" ? setTenderedStr(v) : setAmountStr(v))} />
             {method === "CASH" ? <button onClick={() => setTenderedStr(tenderedStr === "" ? String(amount) : "")} className="touch h-10 w-full rounded-lg border border-line text-xs font-semibold">{tenderedStr === "" ? "Saisir les espèces reçues" : "Revenir au montant"}</button> : null}
-            <Button size="xl" className="w-full" loading={loading} disabled={amount <= 0 || (method === "CASH" && tendered > 0 && tendered < amount)} onClick={pay}>
-              Encaisser <Money amount={amount} />
+            <Button size="xl" className="w-full" loading={loading} disabled={amount <= 0 || (method === "CASH" && tendered > 0 && tendered < amount) || (method === "ACCOUNT" && !accountId)} onClick={pay}>
+              {method === "ACCOUNT" ? "Mettre sur compte" : "Encaisser"} <Money amount={amount} />
             </Button>
             {amount < remaining ? <p className="text-center text-xs text-muted">Il restera <Money amount={remaining - amount} /> à payer</p> : <p className="text-center text-xs text-lagon-600">La commande sera clôturée</p>}
           </div>
