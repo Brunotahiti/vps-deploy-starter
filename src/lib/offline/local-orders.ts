@@ -85,7 +85,7 @@ export function buildLocalOrder(input: { id: string; type: Order["type"]; tableI
   const now = new Date();
   return {
     id: input.id, establishmentId: input.establishmentId, number: "HORS-LIGNE", type: input.type, status: "OPEN", tableId: input.tableId, serverId: input.serverId, terminalId: null,
-    customerId: null, publicToken: null, channelMeta: null, acceptedAt: null, customerName: null, covers: input.covers, subtotal: 0, discountTotal: 0, discountReason: null, taxTotal: 0, total: 0, tipTotal: 0, paidTotal: 0, notes: null,
+    customerId: null, publicToken: null, channelMeta: null, acceptedAt: null, customerName: null, customerPhone: null, pickupAt: null, readyAt: null, pickedUpAt: null, covers: input.covers, subtotal: 0, discountTotal: 0, discountReason: null, taxTotal: 0, total: 0, tipTotal: 0, paidTotal: 0, notes: null,
     cancelReason: null, version: 0, openedAt: now, billRequestedAt: null, closedAt: null, createdAt: now, updatedAt: now,
     table: input.tableId ? { id: input.tableId, name: input.tableName ?? "", roomId: "", seats: input.covers } : null,
     server: { id: input.serverId, firstName: input.serverName, lastName: "", displayName: input.serverName },

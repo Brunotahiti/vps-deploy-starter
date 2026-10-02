@@ -86,6 +86,28 @@ ${input.address ? `<p style="margin:12px 0 0;font-size:12px;color:#64748b">${esc
   return { to: input.to, subject: `${title} · ${input.establishmentName} · ${input.dateLabel} ${input.timeLabel}`, text, html };
 }
 
+/** Commande à emporter prête : le client vient la chercher (ou le livreur part). */
+export function readyMail(input: { to: string; establishmentName: string; name: string; call: string; delivery: boolean; phone?: string | null; trackUrl?: string | null }): OutgoingMail {
+  const title = input.delivery ? "Votre commande part en livraison" : "Votre commande est prête !";
+  const lead = input.delivery ? "votre commande est prête et part chez vous." : "votre commande vous attend au comptoir. Présentez ce numéro :";
+  const html = `<!doctype html><html lang="fr"><body style="margin:0;background:#f3f5f8;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#0f172a">
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td align="center" style="padding:24px 12px">
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:520px;background:#fff;border-radius:20px;overflow:hidden;box-shadow:0 6px 20px -8px rgba(15,23,42,.15)">
+<tr><td style="background:linear-gradient(135deg,#14aaa3,#0f6e6c);padding:28px 28px 24px;color:#fff">
+<div style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;opacity:.85">${esc(input.establishmentName)}</div>
+<div style="font-size:24px;font-weight:800;margin-top:6px">${title}</div></td></tr>
+<tr><td style="padding:24px 28px">
+<p style="margin:0 0 16px;font-size:15px;line-height:1.5">Bonjour ${esc(input.name)},<br>${lead}</p>
+<div style="margin:0 auto 8px;width:140px;border-radius:18px;background:#f1f4f8;padding:14px 0;text-align:center"><div style="font-size:12px;color:#64748b">Commande n°</div><div style="font-size:44px;font-weight:800;color:#0f6e6c">${esc(input.call)}</div></div>
+${input.trackUrl ? `<p style="margin:18px 0 0;text-align:center"><a href="${esc(input.trackUrl)}" style="color:#0f6e6c;font-weight:700">Suivre ma commande</a></p>` : ""}
+${input.phone ? `<p style="margin:18px 0 0;font-size:13px;color:#475569">Une question ? Appelez-nous au <strong>${esc(input.phone)}</strong>.</p>` : ""}
+<p style="margin:22px 0 0;font-size:14px">À tout de suite · <em>Māuruuru</em></p></td></tr>
+<tr><td style="padding:14px 28px;background:#f8fafc;font-size:11px;color:#94a3b8;text-align:center">E-mail envoyé par ManaResto pour ${esc(input.establishmentName)}. Ne pas répondre à cet e-mail automatique.</td></tr>
+</table></td></tr></table></body></html>`;
+  const text = `${title} — ${input.establishmentName}\nBonjour ${input.name}, ${lead}\nCommande n° ${input.call}\n${input.trackUrl ? `Suivi : ${input.trackUrl}\n` : ""}Māuruuru !`;
+  return { to: input.to, subject: `${title} · n° ${input.call} · ${input.establishmentName}`, text, html };
+}
+
 /** E-mail d'invitation à rejoindre l'équipe : bouton vers la page de création du mot de passe. */
 export function invitationMail(input: { to: string; firstName: string; organizationName: string; establishments: string[]; inviterName: string; url: string; expiresDays: number }): OutgoingMail {
   const where = input.establishments.length ? input.establishments.join(", ") : input.organizationName;
