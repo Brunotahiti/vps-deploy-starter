@@ -6,6 +6,7 @@ import { randomUUID } from "node:crypto";
 import type { RoomKind, TableShape, TableState } from "@/generated/prisma/client";
 import { floorService } from "./service-tracking";
 import { mealStage } from "@/lib/meal-stage";
+import { endOfLocalDay, localDay } from "@/lib/dates";
 
 type Actor = { organizationId: string; establishmentId: string; userId: string };
 
@@ -89,6 +90,14 @@ export async function getFloorStatus(establishmentId: string) {
   // readyCount : plats marqués PRÊT par la cuisine et pas encore servis (Phase 3) ; meal : où en est le repas (suite en cours)
   const byTable = new Map(openOrders.map(({ items, courses, ...o }) => [o.tableId!, { ...o, items: undefined, readyCount: items.filter((i) => i.status === "READY" && !i.parentItemId).length, meal: mealStage(courses, items) }]));
   const service = await floorService(establishmentId); // Phase 9 : prochaine action par table
+  // Prochaine réservation de chaque table d'ici la fin du jour : affichée sur la table, « réservée » dans l'heure qui précède
+  const { timezone } = await prisma.establishment.findUniqueOrThrow({ where: { id: establishmentId }, select: { timezone: true } });
+  const upcoming = await prisma.reservation.findMany({
+    where: { establishmentId, tableId: { not: null }, status: { in: ["PENDING", "CONFIRMED", "ARRIVED"] }, startsAt: { gte: new Date(Date.now() - 45 * 60_000), lt: endOfLocalDay(localDay(new Date(), timezone), timezone) } },
+    orderBy: { startsAt: "asc" }, select: { id: true, tableId: true, name: true, partySize: true, startsAt: true, status: true },
+  });
+  const nextByTable = new Map<string, (typeof upcoming)[number]>();
+  for (const r of upcoming) if (!nextByTable.has(r.tableId!)) nextByTable.set(r.tableId!, r);
   return {
     rooms: rooms.map((room) => ({
       ...room,
@@ -98,10 +107,11 @@ export async function getFloorStatus(establishmentId: string) {
         if (order) {
           status = order.status === "BILL_REQUESTED" ? "BILL" : order.status === "SENT" ? "SENT" : order._count.items > 0 ? "ORDERING" : "OCCUPIED";
         } else if (t.state === "RESERVED") status = "RESERVED";
+        else if (nextByTable.get(t.id) && (nextByTable.get(t.id)!.status === "ARRIVED" || nextByTable.get(t.id)!.startsAt.getTime() - Date.now() < 60 * 60_000)) status = "RESERVED";
         else if (t.state === "TO_CLEAN") status = "TO_CLEAN";
         const srv = order?.server;
         const serverInitials = srv ? (srv.displayName?.trim() ? srv.displayName.trim().slice(0, 2) : `${srv.firstName.slice(0, 1)}${srv.lastName.slice(0, 1)}`).toUpperCase() : null;
-        return { ...t, status, order, serverInitials, serverColor: srv?.color ?? null, service: service.get(t.id) ?? null };
+        return { ...t, status, order, serverInitials, serverColor: srv?.color ?? null, service: service.get(t.id) ?? null, reservation: nextByTable.get(t.id) ?? null };
       }),
     })),
   };

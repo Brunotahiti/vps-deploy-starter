@@ -6,7 +6,7 @@ import { VersionBadge } from "@/components/version-badge";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { LayoutGrid, ListOrdered, Wallet, Settings, Moon, Sun, LogOut, Wifi, WifiOff, RefreshCw, ChefHat, Download, Menu, X, ChevronRight, Clock, CalendarDays } from "lucide-react";
 import { markLogoutPending, useSession } from "@/hooks/use-session";
 import { useRealtime } from "@/hooks/use-realtime";
@@ -37,6 +37,8 @@ export function PosShell({ children }: { children: React.ReactNode }) {
   // Phase 9 : rappels de service (« À faire maintenant »)
   const reminders = useServiceReminders(posAllowed);
   useOfflineSnapshot(posAllowed); // copie de travail pour les coupures d'internet
+  // Réservations du jour sur l'onglet : toujours en vue, en orange s'il y a des demandes à confirmer
+  const resaToday = useQuery({ queryKey: ["reservations-summary", "today"], queryFn: () => api.get<{ count: number; pending: number }[]>("/api/reservations/summary?days=1"), enabled: posAllowed && businessType !== "snack", refetchInterval: 60_000 });
   const [todo, setTodoState] = useState(false);
   const setTodo = (open: boolean) => { setTodoState(open); if (open) qc.invalidateQueries({ queryKey: ["service"] }); };
   const dueCount = reminders.data?.due.length ?? 0;
@@ -70,11 +72,12 @@ export function PosShell({ children }: { children: React.ReactNode }) {
   };
 
   // Réservations (option Digital) et pointage (option Équipe) : seulement si débloqués ; un snack vend au comptoir
-  const nav = [
+  const today = resaToday.data?.[0];
+  const nav: { href: string; label: string; icon: typeof LayoutGrid; badge?: { count: number; alert: boolean } }[] = [
     { href: "/pos", label: businessType === "snack" ? "Comptoir" : "Salle", icon: LayoutGrid },
     { href: "/pos/orders", label: "Commandes", icon: ListOrdered },
     { href: "/pos/cash", label: "Caisse", icon: Wallet },
-    ...(hasOption("digital") ? [{ href: "/pos/reservations", label: "Réservations", icon: CalendarDays }] : []),
+    ...(businessType !== "snack" ? [{ href: "/pos/reservations", label: "Réservations", icon: CalendarDays, badge: today?.count ? { count: today.count, alert: today.pending > 0 } : undefined }] : []),
     ...(hasOption("team") ? [{ href: "/pos/clock", label: "Pointage", icon: Clock }] : []),
   ];
   // Suivi de service coupé dans les réglages (conseillé pour un snack ou un bar) : pas de bouton « À faire »
@@ -94,8 +97,9 @@ export function PosShell({ children }: { children: React.ReactNode }) {
         <button type="button" onClick={() => setMenu(true)} aria-label="Menu ManaResto" title="Menu" className="touch mr-1 flex items-center gap-2 rounded-xl text-left transition active:scale-95"><span className="flex flex-col items-center gap-0.5"><Logo size={32} withText={false} /><span className="text-[10px] font-extrabold leading-none text-muted" aria-hidden>Menu</span></span><span className="hidden flex-col leading-tight md:flex"><span className="flex items-center gap-1.5 text-base font-extrabold tracking-tight"><span>Mana<span className="text-brand">Resto</span></span><VersionBadge /></span><span className="truncate text-[11px] font-medium text-muted">{me?.establishment?.name}</span></span></button>
         <nav className="ml-auto hidden items-center gap-1 sm:flex">
           {nav.map((n) => (
-            <Link key={n.href} href={n.href} className={`touch flex h-10 items-center gap-2 rounded-xl px-3 text-sm font-semibold transition sm:px-3.5 ${isActive(n.href) ? "bg-brand text-white shadow-glow" : "text-muted hover:surface-2 hover:text-[var(--text)]"}`}>
-              <n.icon className="h-4 w-4" /><span className="hidden lg:inline">{n.label}</span>
+            <Link key={n.href} href={n.href} title={n.label} className={`touch relative flex h-10 items-center gap-2 rounded-xl px-3 text-sm font-semibold transition sm:px-3.5 ${isActive(n.href) ? "bg-brand text-white shadow-glow" : "text-muted hover:surface-2 hover:text-[var(--text)]"}`}>
+              <n.icon className="h-4 w-4" /><span className={n.badge ? "hidden md:inline" : "hidden lg:inline"}>{n.label}</span>
+              {n.badge ? <span data-testid="nav-reservations-badge" title={`${n.badge.count} réservation${n.badge.count > 1 ? "s" : ""} aujourd'hui`} className={`flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-extrabold ${n.badge.alert ? "bg-amber-500 text-white" : isActive(n.href) ? "bg-white/25 text-white" : "bg-lagon-500/15 text-brand"}`}>{n.badge.count}</span> : null}
             </Link>
           ))}
           {serviceOn ? <TodoButton count={dueCount} late={lateAny} onClick={() => setTodo(true)} /> : null}

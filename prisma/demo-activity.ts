@@ -318,12 +318,21 @@ async function reservationsDay(prisma: PrismaClient, ctx: DemoCtx, day: string, 
   const dow = new Date(`${day}T12:00:00Z`).getUTCDay();
   const count = dow === 5 || dow === 6 ? r.between(5, 9) : r.between(2, 5);
   const data: Prisma.ReservationCreateManyInput[] = [];
+  const usedTables = new Set<number>();
   for (let i = 0; i < count; i++) {
     const dinner = dow !== 0 && r.chance(0.6);
     const c = ctx.customers.length && r.chance(0.6) ? ctx.customers[r.between(0, ctx.customers.length - 1)] : null;
     const status = day < today ? (r.chance(0.08) ? "NO_SHOW" : r.chance(0.06) ? "CANCELLED" : "COMPLETED") : r.chance(0.75) ? "CONFIRMED" : "PENDING";
     const party = r.chance(0.12) ? r.between(8, 14) : r.between(2, 6);
-    data.push({ establishmentId: ctx.estId, customerId: c?.id ?? null, name: c?.name ?? r.pick(RES_NAMES), phone: c?.phone ?? null, startsAt: new Date(dayStart.getTime() + ((dinner ? r.between(18, 20) : r.between(11, 13)) * 60 + r.pick([0, 15, 30, 45])) * 60000), partySize: party, status, allergies: r.chance(0.12) ? r.pick(["Gluten", "Fruits de mer", "Arachides", "Lactose"]) : null, notes: party >= 8 ? "Grande table, prévoir l'installation" : r.chance(0.15) ? r.pick(["Près de la mer si possible", "Chaise bébé", "Gâteau apporté par le client"]) : null });
+    const name = c?.name ?? r.pick(RES_NAMES);
+    // Tables déjà attribuées aux réservations confirmées à venir (une table par réservation et par jour)
+    let tableId: string | null = null;
+    if (day >= today && status === "CONFIRMED" && r.chance(0.75)) {
+      const t = r.between(0, ctx.tables.length - 1);
+      if (!usedTables.has(t)) { usedTables.add(t); tableId = ctx.tables[t].id; }
+    }
+    const tags = [/Anniversaire/.test(name) ? "birthday" : null, /affaires/.test(name) ? "business" : null, r.chance(0.15) ? r.pick(["terrace", "quiet", "baby"]) : null].filter((x): x is string => !!x);
+    data.push({ establishmentId: ctx.estId, customerId: c?.id ?? null, name, tableId, tags, source: status === "PENDING" ? "ONLINE" : r.chance(0.85) ? "PHONE" : "WALK_IN", phone: c?.phone ?? null, startsAt: new Date(dayStart.getTime() + ((dinner ? r.between(18, 20) : r.between(11, 13)) * 60 + r.pick([0, 15, 30, 45])) * 60000), partySize: party, status, allergies: r.chance(0.12) ? r.pick(["Gluten", "Fruits de mer", "Arachides", "Lactose"]) : null, notes: party >= 8 ? "Grande table, prévoir l'installation" : r.chance(0.15) ? r.pick(["Près de la mer si possible", "Chaise bébé", "Gâteau apporté par le client"]) : null });
   }
   await prisma.reservation.createMany({ data });
 }

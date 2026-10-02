@@ -50,7 +50,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
     ] },
     { key: "clients", label: "Salle & clients", icon: Heart, items: [
       { href: "/admin/floor", label: "Plan de salle", icon: Map, show: can("floor.manage") && businessType !== "snack" },
-      { href: "/pos/reservations", label: "Réservations", icon: CalendarDays, show: can("pos.use") && hasOption("digital") },
+      { href: "/pos/reservations", label: "Réservations", icon: CalendarDays, show: can("pos.use") && businessType !== "snack" },
       { href: "/admin/customers", label: "Clients & fidélité", icon: Heart, show: can("customers.manage") },
       { href: "/admin/digital", label: "QR & commande en ligne", icon: QrCode, show: can("settings.manage") && hasOption("digital") },
       { href: me?.publicSitePath ?? "", label: "Voir mon site en ligne", icon: Globe, show: !!me?.publicSitePath, external: true },
