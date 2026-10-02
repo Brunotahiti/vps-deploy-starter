@@ -5,6 +5,8 @@ import { ApiError } from "@/server/errors";
 import { rateLimit, clientIp } from "@/server/rate-limit";
 import { audit } from "@/server/audit";
 import type { Actor } from "@/server/services/orders";
+import { createSession, TERMINAL_COOKIE } from "@/server/auth/session";
+import { sha256 } from "@/server/auth/password";
 
 /**
  * Boîtiers locaux (mini-PC de secours) : chaque boîtier reçoit une clé `mrbox_…` (affichée une seule fois,
@@ -57,4 +59,20 @@ export function requireBoxSecret(req: NextRequest) {
   if (!isBoxMode()) throw new ApiError(404, "NOT_FOUND", "Introuvable");
   const a = Buffer.from(secret), b = Buffer.from(given);
   if (secret.length < 24 || a.length !== b.length || !timingSafeEqual(a, b)) throw new ApiError(401, "UNAUTHORIZED", "Secret du boîtier invalide");
+}
+
+/**
+ * Connexion faite sur le boîtier pendant une coupure (PIN, mot de passe) : au retour d'internet, le boîtier demande
+ * une session du cloud pour la même personne, sans jamais garder le PIN ni le mot de passe. Seulement pour un compte
+ * actif rattaché à l'établissement du boîtier.
+ */
+export async function openBoxSession(req: NextRequest, box: { id: string; establishmentId: string }, userId: string) {
+  const est = await prisma.establishment.findUniqueOrThrow({ where: { id: box.establishmentId }, select: { organizationId: true } });
+  const user = await prisma.user.findFirst({ where: { id: userId, organizationId: est.organizationId, isActive: true, OR: [{ isOwner: true }, { memberships: { some: { establishmentId: box.establishmentId } } }] }, select: { id: true } });
+  if (!user) throw new ApiError(404, "NOT_FOUND", "Compte introuvable pour ce boîtier");
+  const deviceKey = req.cookies.get(TERMINAL_COOKIE)?.value;
+  const terminal = deviceKey ? await prisma.terminal.findFirst({ where: { deviceKeyHash: sha256(deviceKey), establishmentId: box.establishmentId, isActive: true }, select: { id: true } }) : null;
+  const { token, session } = await createSession({ userId, establishmentId: box.establishmentId, terminalId: terminal?.id ?? null, ip: clientIp(req), userAgent: req.headers.get("user-agent") });
+  await audit({ organizationId: est.organizationId, establishmentId: box.establishmentId, userId, action: "box.session", entityType: "local_box", entityId: box.id, newValue: { sessionId: session.id } });
+  return { token, maxAge: Math.max(0, Math.floor((session.expiresAt.getTime() - Date.now()) / 1000)) };
 }

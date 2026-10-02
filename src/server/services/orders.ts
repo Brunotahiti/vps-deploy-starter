@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { prisma, type Tx } from "@/server/db";
 import { ApiError } from "@/server/errors";
 import { audit } from "@/server/audit";
@@ -338,8 +339,17 @@ export async function removeItem(actor: Actor, orderId: string, itemId: string, 
 }
 
 // ---------------------------------------------------------------- Services / envoi cuisine
+/**
+ * Id d'un bon cuisine déduit de ses articles (un article n'est envoyé qu'une fois) : le boîtier de secours et le
+ * cloud créent le même bon pour le même envoi, et une action de la cuisine faite pendant une coupure se rejoue.
+ */
+export function kitchenTicketId(itemIds: string[]) {
+  const h = createHash("sha256").update([...itemIds].sort().join(",")).digest("hex");
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-5${h.slice(13, 16)}-${((parseInt(h[16], 16) & 3) | 8).toString(16)}${h.slice(17, 20)}-${h.slice(20, 32)}`;
+}
+
 /** Envoie en cuisine les articles en attente d'un service (ou de toute la commande). Crée un ticket par poste. */
-export async function sendCourse(actor: Actor, orderId: string, opts: { courseId?: string | null; all?: boolean; itemIds?: string[] }) {
+export async function sendCourse(actor: Actor, orderId: string, opts: { courseId?: string | null; all?: boolean; itemIds?: string[]; print?: boolean }) {
   const order = await getOrder(actor.establishmentId, orderId);
   assertOpen(order);
   const now = new Date();
@@ -362,7 +372,7 @@ export async function sendCourse(actor: Actor, orderId: string, opts: { courseId
     for (const [key, items] of groups) {
       const [courseId, stationId] = key.split("|");
       const ticket = await tx.kitchenTicket.create({
-        data: { orderId, courseId: courseId === "none" ? null : courseId, stationId: stationId === "none" ? null : stationId, isUrgent: items.some((i) => i.isUrgent) },
+        data: { id: kitchenTicketId(items.map((i) => i.id)), orderId, courseId: courseId === "none" ? null : courseId, stationId: stationId === "none" ? null : stationId, isUrgent: items.some((i) => i.isUrgent) },
       });
       await tx.orderItem.updateMany({ where: { id: { in: items.map((i) => i.id) }, status: "PENDING" }, data: { status: "SENT", sentAt: now, kitchenTicketId: ticket.id } });
       createdTicketIds.push(ticket.id);
@@ -379,7 +389,8 @@ export async function sendCourse(actor: Actor, orderId: string, opts: { courseId
   publish("order.updated", actor.establishmentId, { orderId, tableId: order.tableId });
   publish("kitchen.updated", actor.establishmentId, { orderId });
   publish("table.updated", actor.establishmentId, { tableId: order.tableId });
-  autoPrintKitchenTickets(actor.establishmentId, createdTicketIds).catch(() => {}); // Phase 7 : imprimantes cuisine réseau
+  // Phase 7 : imprimantes cuisine réseau (pas au rejeu d'un envoi fait pendant une coupure : le bon est déjà sorti sur place)
+  if (opts.print !== false) autoPrintKitchenTickets(actor.establishmentId, createdTicketIds).catch(() => {});
   return getOrder(actor.establishmentId, orderId);
 }
 

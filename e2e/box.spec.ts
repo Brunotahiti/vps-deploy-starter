@@ -11,14 +11,15 @@ test("ajouter un boîtier de secours : la clé télécharge la copie du restaura
   await page.goto("/admin/hardware");
   const section = page.getByTestId("local-boxes");
   await section.getByRole("button", { name: "Ajouter un boîtier" }).click();
-  await page.getByRole("dialog").getByRole("textbox").fill("Boîtier e2e");
+  const name = `Boîtier e2e ${Date.now()}`; // nom unique : indépendant des boîtiers laissés par d'autres tests
+  await page.getByRole("dialog").getByRole("textbox").fill(name);
   await page.getByRole("button", { name: "Créer la clé du boîtier" }).click();
   const key = (await page.getByTestId("box-key").textContent())!.trim();
   expect(key).toMatch(/^mrbox_/);
   await page.screenshot({ path: test.info().outputPath("cle-boitier.png") });
   await page.getByRole("button", { name: "J'ai copié la clé" }).click();
 
-  const card = section.getByTestId("box-card").filter({ hasText: "Boîtier e2e" });
+  const card = section.getByTestId("box-card").filter({ hasText: name });
   await expect(card).toContainText("Pas encore installé");
 
   const snap = await request.get("/api/box/snapshot", { headers: { authorization: `Bearer ${key}`, "x-box-lan-ip": "192.168.1.30", "x-box-version": "1.0.0" } });
