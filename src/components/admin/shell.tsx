@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { LayoutDashboard, UtensilsCrossed, Map, Receipt, Wallet, Users, Settings, ScrollText, Building2, Moon, Sun, LogOut, Menu, X, Boxes, CalendarDays, Heart, QrCode, BarChart3, Clock, Plug, Network, TrendingUp, ShieldCheck, Printer, ChevronDown, Store, BookOpen, UsersRound, SlidersHorizontal, Globe, ExternalLink, type LucideIcon, Sparkles } from "lucide-react";
+import { BrainCircuit, LayoutDashboard, UtensilsCrossed, Map, Receipt, Wallet, Users, Settings, ScrollText, Building2, Moon, Sun, LogOut, Menu, X, Boxes, CalendarDays, Heart, QrCode, BarChart3, Clock, Plug, Network, TrendingUp, ShieldCheck, Printer, ChevronDown, Store, BookOpen, UsersRound, SlidersHorizontal, Globe, ExternalLink, type LucideIcon, Sparkles } from "lucide-react";
 import { markLogoutPending, useSession } from "@/hooks/use-session";
 import { useRealtime } from "@/hooks/use-realtime";
 import { useTheme } from "@/hooks/use-theme";
@@ -91,6 +91,8 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
       ) : <p className="mx-4 mb-2 truncate text-sm font-semibold text-muted">{me?.establishment?.name}</p>}
       <nav className="flex-1 overflow-y-auto px-2" aria-label="Menu">
         {can("reports.view") ? link({ href: "/admin", label: "Tableau de bord", icon: LayoutDashboard }) : null}
+        {/* Assistant IA (option) : prévisions, analyse qualité, commande proposée */}
+        {hasOption("ai") && can("reports.view") ? link({ href: "/admin/ai", label: "Assistant IA", icon: BrainCircuit }) : null}
         {/* Options payantes : ce qui est actif et ce qu'on peut débloquer */}
         {can("settings.manage") ? link({ href: "/admin/options", label: "Options", icon: Sparkles }) : null}
         {groups.map((g) => {

@@ -1666,3 +1666,21 @@ model PlatformSecret {
 
   @@map("platform_secrets")
 }
+
+/// Analyses de l'Assistant IA (qualité, semaine à venir), gardées pour l'historique et pour ne pas les payer deux fois
+model AiReport {
+  id              String   @id @default(uuid()) @db.Uuid
+  organizationId  String   @map("organization_id") @db.Uuid
+  establishmentId String   @map("establishment_id") @db.Uuid
+  kind            String // quality, week
+  periodFrom      DateTime @map("period_from")
+  periodTo        DateTime @map("period_to")
+  data            Json
+  model           String
+  createdById     String?  @map("created_by_id") @db.Uuid
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@index([establishmentId, kind, createdAt])
+  @@map("ai_reports")
+}
+

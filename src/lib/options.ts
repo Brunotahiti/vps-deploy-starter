@@ -36,6 +36,12 @@ export const OPTIONS = {
     includes: ["Mode hors ligne des tablettes : commandes, encaissements et tickets sans internet", "Connexion des employés par PIN sans internet", "Boîtier de secours sur place pour les longues coupures", "Tout se resynchronise au retour du réseau"],
     permissions: [],
   },
+  ai: {
+    label: "Assistant IA",
+    tagline: "Prévoir la demande et améliorer le restaurant",
+    includes: ["Prévisions de fréquentation à 14 jours, façon Bison Futé (vert, orange, rouge, noir)", "Conseils de la semaine : équipe, mise en place, jours calmes à remplir", "Analyse qualité du restaurant inspirée de la norme ISO 9001, avec un plan d'actions", "Commande d'achats proposée selon votre consommation et les prévisions"],
+    permissions: [],
+  },
   advanced: {
     label: "Avancé",
     tagline: "Pour les établissements qui grandissent",

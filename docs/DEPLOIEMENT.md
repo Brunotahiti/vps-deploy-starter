@@ -79,6 +79,19 @@ SMTP_FROM="ManaResto <contact@manaresto.com>"
 
 Les réponses des restaurateurs arrivent sur `contact@manaresto.com` (en-tête « Répondre à »). La boîte de réception elle-même reste celle de votre hébergeur de messagerie (enregistrements MX inchangés). L'état apparaît dans *Administration → Paramètres → Reçus par e-mail* et en haut de la console plateforme.
 
+## Assistant IA (Claude)
+
+L'option **Assistant IA** propose les prévisions de fréquentation (façon Bison Futé), la commande d'achats proposée, les **conseils de la semaine** et l'**analyse qualité inspirée de l'ISO 9001**. Les prévisions et la commande sont calculées par le programme ; les conseils et l'analyse qualité sont rédigés par **Claude** (Anthropic), à partir des seuls chiffres du restaurant.
+
+1. Créer un compte sur [console.anthropic.com](https://console.anthropic.com), ajouter un moyen de paiement (facturation à l'usage : quelques centimes par analyse) et créer une **clé API**.
+2. Sur le VPS, ajouter dans `/opt/manaresto/.env` puis redéployer :
+
+```
+ANTHROPIC_API_KEY=sk-ant-...
+```
+
+Limites : 3 analyses qualité et 5 demandes de conseils par jour et par établissement. Les analyses sont gardées (table `ai_reports`) et restent consultables sans nouvel appel.
+
 ## Console plateforme (/platform)
 
 Vue d'ensemble de tous les restaurants inscrits, réservée à l'équipe ManaResto : revenu mensuel, inscriptions, essais en cours et expirés, abonnés, restaurants actifs, parcours inscription → abonnement, dernières connexions, demandes de démonstration du site. Pour chaque restaurant : propriétaire, statut, fin d'essai ou de période, temps d'utilisation sur 7 et 30 jours, dernier e-mail, page publique, et les actions **Prendre la main** (ouvrir l'application comme le restaurateur, bandeau violet pour revenir), **E-mail**, **Bloquer / Débloquer** et **Statut** (prolonger l'essai, activer l'abonnement 12 mois, suspendre).
