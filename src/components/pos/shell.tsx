@@ -61,6 +61,18 @@ export function PosShell({ children }: { children: React.ReactNode }) {
 
   if (pathname === "/pos/login") return <>{children}</>;
   if (me?.user && !can("pos.use")) return <div className="flex h-dvh items-center justify-center p-6 text-center text-sm text-muted">Ce compte n&apos;a pas accès à la caisse. Redirection…</div>;
+  // Portail « Commande » sur téléphone : plein écran, sans l'en-tête de la caisse
+  if (pathname.startsWith("/pos/m")) {
+    return (
+      <div className="flex h-dvh flex-col">
+        <SupportBar />
+        <DemoVisitBar />
+        {!online ? <div role="alert" className="shrink-0 bg-red-600 px-4 py-2 text-center text-sm font-semibold text-white">Connexion perdue : reconnectez le téléphone au Wi-Fi du restaurant pour envoyer les commandes.</div> : null}
+        <main className="relative min-h-0 flex-1 overflow-y-auto">{children}</main>
+        <PortalButtons />
+      </div>
+    );
+  }
 
   const logout = async () => {
     // Terminal du restaurant : les opérations en attente sont signées au nom de qui les a saisies, rien ne bloque le changement

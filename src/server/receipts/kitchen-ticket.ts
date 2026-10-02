@@ -1,4 +1,5 @@
 import { prisma } from "@/server/db";
+import { ApiError } from "@/server/errors";
 import { getKitchenTicket } from "@/server/services/kitchen";
 import { formatTime } from "@/lib/dates";
 import { EscPosBuilder, encodeEscPos, type PrintOp } from "@/server/hardware/escpos";
@@ -52,3 +53,22 @@ export async function renderKitchenTicketDoc(establishmentId: string, ticketId: 
   b.feed(3).cut();
   return b.ops();
 }
+
+/** Bon de modification ou d'annulation d'un plat déjà envoyé (l'ancienne version reste sur le premier bon). */
+export async function renderKitchenChangeDoc(establishmentId: string, changeId: string, cols = 42): Promise<PrintOp[]> {
+  const c = await prisma.kitchenChange.findFirst({ where: { id: changeId, establishmentId } });
+  if (!c) throw new ApiError(404, "NOT_FOUND", "Modification introuvable");
+  const est = await prisma.establishment.findUniqueOrThrow({ where: { id: establishmentId }, select: { timezone: true } });
+  const b = new EscPosBuilder(cols).align("center").bold(true).size(2, 2);
+  b.line(c.kind === "CANCEL" ? "ANNULATION" : c.urgent ? "MODIF. URGENTE" : "MODIFICATION");
+  b.size(2, 1).line(c.tableName ? `TABLE ${c.tableName}` : `n° ${c.orderNumber}`).size(1, 1).bold(false).align("left").separator("=");
+  b.bold(true).size(1, 2).line(`${c.quantity} x ${c.itemName}`).size(1, 1).bold(false);
+  for (const r of c.removed) b.line(`   SANS ${r}`);
+  for (const a of c.added) b.line(`   + ${a}`);
+  if (c.note) b.line(`   << ${c.note} >>`);
+  if (c.reason) b.line(`Motif : ${c.reason}`);
+  b.separator("=").line(`${c.requestedByName ? `Serveur : ${c.requestedByName} · ` : ""}${formatTime(c.createdAt, est.timezone)}`);
+  b.feed(3).cut();
+  return b.ops();
+}
+

@@ -848,6 +848,7 @@ model Order {
   items            OrderItem[]
   courses          Course[]
   kitchenTickets   KitchenTicket[]
+  kitchenChanges   KitchenChange[]
   payments         Payment[]
   cashMovements    CashMovement[]
 
@@ -1682,5 +1683,42 @@ model AiReport {
 
   @@index([establishmentId, kind, createdAt])
   @@map("ai_reports")
+}
+
+/**
+ * Modification ou annulation d'un plat déjà envoyé en cuisine : la cuisine la reçoit comme telle (jamais une
+ * nouvelle commande), la voit (« vue »), puis l'applique ; la salle suit chaque étape. L'ancienne version reste
+ * dans l'historique.
+ */
+model KitchenChange {
+  id              String    @id @default(uuid()) @db.Uuid
+  establishmentId String    @map("establishment_id") @db.Uuid
+  orderId         String    @map("order_id") @db.Uuid
+  orderItemId     String?   @map("order_item_id") @db.Uuid
+  ticketId        String?   @map("ticket_id") @db.Uuid
+  stationId       String?   @map("station_id") @db.Uuid
+  kind            String // MODIFY, CANCEL
+  urgent          Boolean   @default(false) // le plat était déjà en préparation ou prêt
+  stage           String // où en était le plat : NEW, ACCEPTED, PREPARING, READY, SERVED
+  itemName        String    @map("item_name")
+  quantity        Int       @default(1)
+  tableName       String?   @map("table_name")
+  orderNumber     String    @map("order_number")
+  removed         String[]  @default([])
+  added           String[]  @default([])
+  note            String?
+  reason          String?
+  status          String    @default("REQUESTED") // REQUESTED, SEEN, APPLIED
+  requestedById   String?   @map("requested_by_id") @db.Uuid
+  requestedByName String?   @map("requested_by_name")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  seenAt          DateTime? @map("seen_at")
+  appliedAt       DateTime? @map("applied_at")
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([establishmentId, status])
+  @@index([orderId])
+  @@map("kitchen_changes")
 }
 

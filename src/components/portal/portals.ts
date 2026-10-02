@@ -1,7 +1,7 @@
 import type { ComponentType } from "react";
-import { BellRing, ChefHat, ConciergeBell, Flame, Layers, LayoutGrid, ListChecks, Printer, Receipt, Timer, Wallet, type LucideProps } from "lucide-react";
+import { BellRing, ChefHat, ConciergeBell, Flame, Layers, LayoutGrid, ListChecks, PencilLine, Printer, Receipt, Smartphone, Timer, Wallet, type LucideProps } from "lucide-react";
 
-export type PortalMode = "salle" | "caisse" | "cuisine";
+export type PortalMode = "salle" | "commande" | "caisse" | "cuisine";
 
 type Icon = ComponentType<LucideProps>;
 type PortalConfig = {
@@ -24,7 +24,7 @@ type PortalConfig = {
   tab: string;
 };
 
-/** Les trois portails du personnel : même gestuelle, une couleur et un écran d'arrivée par équipe. */
+/** Les portails du personnel : même gestuelle, une couleur et un écran d'arrivée par équipe. */
 export const PORTALS: Record<PortalMode, PortalConfig> = {
   salle: {
     label: "Salle", path: "/salle", next: "/pos", permission: "pos.use", icon: ConciergeBell,
@@ -37,6 +37,18 @@ export const PORTALS: Record<PortalMode, PortalConfig> = {
     ],
     accentText: "text-lagon-300", glow: "bg-lagon-400/25", tile: "from-lagon-400 to-lagon-600 shadow-[0_10px_30px_-10px_rgb(20_170_163/0.8)]",
     button: "from-lagon-500 to-lagon-600 shadow-[0_14px_34px_-12px_rgb(20_170_163/0.9)]", dot: "bg-lagon-300 shadow-[0_0_14px_rgb(55_200_191/0.7)]", tab: "bg-lagon-500",
+  },
+  commande: {
+    label: "Commande", path: "/commande", next: "/pos/m", permission: "pos.use", icon: Smartphone,
+    title: "Prendre les commandes", submit: "Prendre les commandes", terminalKind: "Caisse",
+    greeting: (h) => (h < 10 ? "Belle mise en place" : h < 15 ? "Bon service du midi" : h < 18 ? "Bel après-midi en salle" : "Bon service du soir"),
+    features: [
+      { icon: Smartphone, tone: "text-sky-300", text: "La carte dans la poche : on commande à la table, en quelques gestes" },
+      { icon: BellRing, tone: "text-emerald-300", text: "Prévenu dès qu'un plat est prêt en cuisine" },
+      { icon: PencilLine, tone: "text-amber-300", text: "Modifications et annulations transmises à la cuisine, avec leur suivi" },
+    ],
+    accentText: "text-sky-300", glow: "bg-sky-400/25", tile: "from-sky-400 to-blue-600 shadow-[0_10px_30px_-10px_rgb(56_189_248/0.8)]",
+    button: "from-sky-500 to-blue-600 shadow-[0_14px_34px_-12px_rgb(56_189_248/0.9)]", dot: "bg-sky-300 shadow-[0_0_14px_rgb(125_211_252/0.7)]", tab: "bg-sky-500",
   },
   caisse: {
     label: "Caisse", path: "/pos/login", next: "/pos/orders", permission: "pos.use", icon: Wallet,
@@ -68,7 +80,7 @@ const PORTAL_KEY = "mr-portal";
 
 /** Dernier portail choisi sur cet appareil (la tablette du serveur revient sur « Salle » après déconnexion). */
 export function rememberedPortal(): PortalMode | null {
-  try { const v = localStorage.getItem(PORTAL_KEY); return v === "salle" || v === "caisse" || v === "cuisine" ? v : null; } catch { return null; }
+  try { const v = localStorage.getItem(PORTAL_KEY); return v === "salle" || v === "commande" || v === "caisse" || v === "cuisine" ? v : null; } catch { return null; }
 }
 export function rememberPortal(mode: PortalMode) {
   try { localStorage.setItem(PORTAL_KEY, mode); } catch { /* stockage indisponible */ }
