@@ -12,6 +12,7 @@ import { Spinner } from "@/components/ui/misc";
 import { useToast } from "@/components/ui/toast";
 import { Money } from "@/components/money";
 import { formatElapsed } from "@/lib/dates";
+import { celebrate } from "@/lib/celebrate";
 import { useSession } from "@/hooks/use-session";
 import { usePosCatalog } from "./use-catalog";
 import { ProductModal, type ProductChoice } from "./product-modal";
@@ -181,7 +182,7 @@ export function OrderScreen({ orderId: orderIdProp }: { orderId: string }) {
   /** Après un encaissement réussi (saisi en caisse ou débité par le TPE). */
   const afterPayment = (paid: Order) => {
     setOrder(paid);
-    if (paid.status === "PAID") { setPayOpen(false); toast("Commande soldée ✓", "success"); qc.invalidateQueries({ queryKey: ["floor"] }); qc.invalidateQueries({ queryKey: ["cash"] }); markOfflineOrderClosed(orderId).catch(() => {}); setReceipt({ afterPayment: true }); }
+    if (paid.status === "PAID") { setPayOpen(false); celebrate({ count: 45 }); toast("Commande soldée ✓", "success"); qc.invalidateQueries({ queryKey: ["floor"] }); qc.invalidateQueries({ queryKey: ["cash"] }); markOfflineOrderClosed(orderId).catch(() => {}); setReceipt({ afterPayment: true }); }
     else toast("Paiement enregistré", "success");
   };
   const pay = async (payments: PaymentPayload[]) => {
@@ -319,7 +320,13 @@ export function OrderScreen({ orderId: orderIdProp }: { orderId: string }) {
                   </div>
                 );
               })}
-          {products.length === 0 && categoryId !== FORMULES ? <p className="col-span-full py-10 text-center text-sm text-muted">Aucun produit</p> : null}
+          {products.length === 0 && categoryId !== FORMULES ? (
+            <div className="col-span-full flex flex-col items-center gap-2 py-10 text-center">
+              <span className="text-4xl" aria-hidden>{search.trim() ? "🔎" : "🍽️"}</span>
+              <p className="text-sm font-bold">{search.trim() ? `Aucun produit pour « ${search.trim()} »` : "Aucun produit ici pour l'instant"}</p>
+              {!search.trim() && can("catalog.manage") ? <Button size="sm" variant="secondary" onClick={() => router.push("/admin/catalog/products")}>Ajouter des produits à la carte</Button> : null}
+            </div>
+          ) : null}
         </div>
       </section>
 
