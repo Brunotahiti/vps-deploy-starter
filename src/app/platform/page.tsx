@@ -17,6 +17,7 @@ import { Badge, Spinner } from "@/components/ui/misc";
 import { formatDate, formatDateTime } from "@/lib/dates";
 import { EMAIL_KIND_LABEL, STATUS_LABEL, formatMinutes, relativeDays, type AccountStatus } from "@/lib/platform";
 import type { PlatformRow, platformOrgDetail, platformOverview } from "@/server/services/platform";
+import { OptionsPanel, OrgOptions } from "@/components/platform/options-panel";
 
 type Overview = Awaited<ReturnType<typeof platformOverview>>;
 type Detail = Awaited<ReturnType<typeof platformOrgDetail>>;
@@ -155,6 +156,9 @@ export default function PlatformPage() {
           <>
             {data.email.keyKind === "API" ? <div className="card flex items-start gap-3 border-red-300 p-4 text-sm"><AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-red-500" /><p><b>La clé Brevo du serveur est une clé API (xkeysib-…), pas une clé SMTP.</b> Aucun e-mail ne peut partir. Dans Brevo → SMTP &amp; API → onglet SMTP, générez une clé SMTP (xsmtpsib-…) et remplacez SMTP_PASS dans le fichier .env du serveur.</p></div> : null}
             {!data.emailConfigured ? <div className="card flex items-start gap-3 border-orange-300 p-4 text-sm"><AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-orange-500" /><p><b>Envoi d&apos;e-mails non configuré.</b> Les e-mails de bienvenue, de fin d&apos;essai et vos messages ne partent pas. Renseignez les variables SMTP (relais Brevo) dans le fichier .env du serveur puis redéployez.</p></div> : null}
+
+            {/* Options payantes : demandes à traiter et prix */}
+            <OptionsPanel onOpen={setDetailId} />
 
             {/* Indicateurs */}
             <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
@@ -354,6 +358,7 @@ function OrgDetail({ id, row, mine, onClose, ...a }: RowActions & { id: string |
             {d.status === "ACTIVE" && d.periodEndsAt ? <span className="text-sm text-muted">· engagement jusqu&apos;au {formatDate(d.periodEndsAt, TZ)}</span> : null}
           </div>
           {row ? <ActionButtons r={row} mine={mine} {...a} /> : null}
+          <OrgOptions id={d.id} options={d.options} requests={d.optionRequests} />
 
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <Mini icon={<TrendingUp className="h-4 w-4" />} label="Commandes 30 j" value={d.counts.orders30} hint={`${d.counts.ordersTotal} au total${d.counts.lastOrderAt ? ` · dernière ${relativeDays(d.counts.lastOrderAt)}` : ""}`} />

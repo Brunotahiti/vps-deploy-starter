@@ -7,8 +7,9 @@ import { upsertRoom, upsertTable } from "@/server/services/floor";
 import type { Actor } from "@/server/services/orders";
 
 /** Crée une entreprise complète (établissement, propriétaire, serveur, catalogue minimal, salle). */
-export async function makeTenant(slug: string) {
-  const org = await prisma.organization.create({ data: { name: `Org ${slug}`, slug } });
+/** Entreprise de test avec toutes les options (`options: []` pour le programme de base seul). */
+export async function makeTenant(slug: string, opts: { options?: string[] } = {}) {
+  const org = await prisma.organization.create({ data: { name: `Org ${slug}`, slug, options: opts.options ?? ["stock", "digital", "team", "advanced"] } });
   await ensureSystemRoles(org.id);
   const est = await prisma.establishment.create({ data: { organizationId: org.id, name: `Resto ${slug}`, slug } });
   await createEstablishmentDefaults(est.id);

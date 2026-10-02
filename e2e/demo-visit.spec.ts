@@ -13,12 +13,10 @@ test("session en live : restaurant exemple puis retour à son restaurant", async
   expect(res.ok()).toBeTruthy();
 
   await page.goto("/admin");
-  // Menu Salle & clients : lien vers son propre site public, dans un nouvel onglet
+  // Programme de base : pas de site public (option Digital), donc pas de lien « Voir mon site en ligne »
   await page.getByRole("button", { name: "Salle & clients" }).first().click();
-  const site = page.getByRole("link", { name: /Voir mon site en ligne/ }).first();
-  await expect(site).toHaveAttribute("href", /^\/site\/[a-z0-9-]+\/[a-z0-9-]+$/);
-  await expect(site).toHaveAttribute("target", "_blank");
-  expect((await page.request.get((await site.getAttribute("href"))!)).ok()).toBe(true);
+  await expect(page.getByRole("link", { name: /Plan de salle/ }).first()).toBeVisible();
+  await expect(page.getByRole("link", { name: /Voir mon site en ligne/ })).toHaveCount(0);
   const card = page.getByTestId("live-demo-card");
   await expect(card).toBeVisible();
   await card.getByRole("button", { name: "Voir une session en live" }).click();

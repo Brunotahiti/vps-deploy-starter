@@ -28,7 +28,7 @@ export function PosShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const qc = useQueryClient();
-  const { me, can } = useSession();
+  const { me, can, hasOption, businessType } = useSession();
   const { toggle } = useTheme();
   const { online, pending, syncing, flush } = useOffline();
   const connected = useRealtime(!!me?.user);
@@ -69,13 +69,16 @@ export function PosShell({ children }: { children: React.ReactNode }) {
     window.location.replace(me?.terminal ? "/pos/login" : "/login"); // rechargement complet : état propre, même sans réseau
   };
 
+  // Réservations (option Digital) et pointage (option Équipe) : seulement si débloqués ; un snack vend au comptoir
   const nav = [
-    { href: "/pos", label: "Salle", icon: LayoutGrid },
+    { href: "/pos", label: businessType === "snack" ? "Comptoir" : "Salle", icon: LayoutGrid },
     { href: "/pos/orders", label: "Commandes", icon: ListOrdered },
     { href: "/pos/cash", label: "Caisse", icon: Wallet },
-    { href: "/pos/reservations", label: "Réservations", icon: CalendarDays },
-    { href: "/pos/clock", label: "Pointage", icon: Clock },
+    ...(hasOption("digital") ? [{ href: "/pos/reservations", label: "Réservations", icon: CalendarDays }] : []),
+    ...(hasOption("team") ? [{ href: "/pos/clock", label: "Pointage", icon: Clock }] : []),
   ];
+  // Suivi de service coupé dans les réglages (conseillé pour un snack ou un bar) : pas de bouton « À faire »
+  const serviceOn = ((me?.establishment?.settings as { service?: { enabled?: boolean } } | null | undefined)?.service?.enabled) !== false;
   const isActive = (href: string) => (href === "/pos" ? pathname === "/pos" || pathname.startsWith("/pos/order/") : pathname.startsWith(href));
 
   return (
@@ -86,21 +89,21 @@ export function PosShell({ children }: { children: React.ReactNode }) {
       <TodoPanel open={todo} onClose={() => setTodo(false)} data={reminders.data} />
       <header className="no-print glass flex h-14 shrink-0 items-center gap-1.5 border-b px-2 sm:h-16 sm:gap-2 sm:px-4">
         {/* Téléphone : le menu s'ouvre à gauche, comme dans l'administration */}
-        <button onClick={() => setMenu(true)} className="touch flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand text-white shadow-glow active:scale-95 sm:hidden" aria-label="Ouvrir le menu"><Menu className="h-5 w-5" /></button>
+        <button onClick={() => setMenu(true)} className="touch flex h-12 w-12 shrink-0 flex-col items-center justify-center gap-0.5 rounded-xl bg-brand text-white shadow-glow active:scale-95 sm:hidden" aria-label="Ouvrir le menu"><Menu className="h-5 w-5" /><span className="text-[10px] font-extrabold leading-none" aria-hidden>Menu</span></button>
         {/* Le logo ouvre le menu, sur tous les écrans */}
-        <button type="button" onClick={() => setMenu(true)} aria-label="Menu ManaResto" title="Menu" className="touch mr-1 flex items-center gap-2 rounded-xl text-left transition active:scale-95"><Logo size={32} withText={false} /><span className="hidden flex-col leading-tight md:flex"><span className="flex items-center gap-1.5 text-base font-extrabold tracking-tight"><span>Mana<span className="text-brand">Resto</span></span><VersionBadge /></span><span className="truncate text-[11px] font-medium text-muted">{me?.establishment?.name}</span></span></button>
+        <button type="button" onClick={() => setMenu(true)} aria-label="Menu ManaResto" title="Menu" className="touch mr-1 flex items-center gap-2 rounded-xl text-left transition active:scale-95"><span className="flex flex-col items-center gap-0.5"><Logo size={32} withText={false} /><span className="text-[10px] font-extrabold leading-none text-muted" aria-hidden>Menu</span></span><span className="hidden flex-col leading-tight md:flex"><span className="flex items-center gap-1.5 text-base font-extrabold tracking-tight"><span>Mana<span className="text-brand">Resto</span></span><VersionBadge /></span><span className="truncate text-[11px] font-medium text-muted">{me?.establishment?.name}</span></span></button>
         <nav className="ml-auto hidden items-center gap-1 sm:flex">
           {nav.map((n) => (
             <Link key={n.href} href={n.href} className={`touch flex h-10 items-center gap-2 rounded-xl px-3 text-sm font-semibold transition sm:px-3.5 ${isActive(n.href) ? "bg-brand text-white shadow-glow" : "text-muted hover:surface-2 hover:text-[var(--text)]"}`}>
               <n.icon className="h-4 w-4" /><span className="hidden lg:inline">{n.label}</span>
             </Link>
           ))}
-          <TodoButton count={dueCount} late={lateAny} onClick={() => setTodo(true)} />
+          {serviceOn ? <TodoButton count={dueCount} late={lateAny} onClick={() => setTodo(true)} /> : null}
         </nav>
         {/* Téléphone : nom de l'écran, état réseau, bouton menu */}
         <span className="ml-1 truncate text-base font-extrabold sm:hidden">{pathname.startsWith("/pos/order/") ? "Commande" : (nav.find((n) => isActive(n.href))?.label ?? "")}</span>
         <div className="ml-auto flex items-center gap-1.5 sm:hidden">
-          <TodoButton count={dueCount} late={lateAny} onClick={() => setTodo(true)} compact />
+          {serviceOn ? <TodoButton count={dueCount} late={lateAny} onClick={() => setTodo(true)} compact /> : null}
           <button onClick={() => (pending > 0 ? flush() : undefined)} className={`touch flex h-9 w-9 items-center justify-center rounded-full ${!online ? "bg-red-500/15 text-red-600" : pending > 0 ? "bg-orange-500/15 text-orange-600" : connected ? "bg-green-500/10 text-green-600" : "surface-2 text-muted"}`} aria-label={online ? "En ligne" : "Hors ligne"}>
             {online ? <Wifi className="h-4 w-4" /> : <WifiOff className="h-4 w-4" />}{pending > 0 ? <span className="absolute -mt-6 ml-6 flex h-4 min-w-4 items-center justify-center rounded-full bg-orange-500 px-1 text-[10px] font-extrabold text-white">{pending}</span> : null}
           </button>

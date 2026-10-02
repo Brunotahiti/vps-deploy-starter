@@ -58,7 +58,7 @@ export async function siteMenu(establishmentId: string) {
 
 /** Site public du restaurant : coordonnées, horaires, réglages du site, canaux ouverts (commande en ligne, réservation) et menu. */
 export async function restaurantSite(orgSlug: string, estSlug: string) {
-  const est = await prisma.establishment.findFirst({ where: { slug: estSlug, isActive: true, organization: { slug: orgSlug, blockedAt: null } }, select: { ...estPublic, addressLine2: true, postalCode: true } });
+  const est = await prisma.establishment.findFirst({ where: { slug: estSlug, isActive: true, organization: { slug: orgSlug, blockedAt: null, options: { has: "digital" } } }, select: { ...estPublic, addressLine2: true, postalCode: true } });
   if (!est) throw new ApiError(404, "NOT_FOUND", "Établissement introuvable");
   const [site, digital] = await Promise.all([siteSettings(est.id), digitalSettings(est.id)]);
   if (!site.enabled) throw new ApiError(404, "SITE_DISABLED", "Ce restaurant n'a pas activé son site");
@@ -84,13 +84,13 @@ export async function publicCatalog(establishmentId: string) {
 }
 
 export async function resolveTable(qrToken: string) {
-  const table = await prisma.table.findFirst({ where: { qrToken, isActive: true, establishment: { isActive: true, organization: { blockedAt: null } } }, include: { room: { select: { name: true } }, establishment: { select: estPublic } } });
+  const table = await prisma.table.findFirst({ where: { qrToken, isActive: true, establishment: { isActive: true, organization: { blockedAt: null, options: { has: "digital" } } } }, include: { room: { select: { name: true } }, establishment: { select: estPublic } } });
   if (!table) throw new ApiError(404, "NOT_FOUND", "QR code inconnu");
   return table;
 }
 
 export async function resolveEstablishment(orgSlug: string, estSlug: string) {
-  const est = await prisma.establishment.findFirst({ where: { slug: estSlug, isActive: true, organization: { slug: orgSlug, blockedAt: null } }, select: estPublic });
+  const est = await prisma.establishment.findFirst({ where: { slug: estSlug, isActive: true, organization: { slug: orgSlug, blockedAt: null, options: { has: "digital" } } }, select: estPublic });
   if (!est) throw new ApiError(404, "NOT_FOUND", "Établissement introuvable");
   return est;
 }
@@ -250,7 +250,14 @@ export async function rejectOnlineOrder(actor: Actor, orderId: string, reason: s
 }
 
 /** Borne : commande sur place ou à emporter, numéro d'appel, paiement en caisse. */
+/** Canaux clients (QR, commande en ligne, borne, site, réservations) : option « Digital » débloquée */
+export async function assertDigitalOption(establishmentId: string) {
+  const ok = await prisma.establishment.count({ where: { id: establishmentId, organization: { options: { has: "digital" } } } });
+  if (!ok) throw new ApiError(403, "OPTION_REQUIRED", "La borne fait partie de l'option « Digital »");
+}
+
 export async function createKioskOrder(establishmentId: string, terminalId: string, input: { id: string; mode: "DINE_IN" | "TAKEAWAY"; name?: string | null; lines: PublicLine[]; lang?: string }) {
+  await assertDigitalOption(establishmentId);
   const settings = await digitalSettings(establishmentId);
   if (!settings.kiosk.enabled) throw new ApiError(403, "MODE_OFF", "La borne n'est pas activée");
   if (input.lines.length === 0) throw new ApiError(400, "EMPTY", "Panier vide");

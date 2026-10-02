@@ -12,6 +12,7 @@ import { SubscriptionCard } from "@/components/admin/subscription";
 import { ServiceSettingsCard } from "@/components/admin/service-settings";
 import { PAYMENT_LABEL } from "@/components/pos/types";
 import type { Establishment, PaymentMethodConfig, Terminal, KitchenStation } from "@/generated/prisma/client";
+import { BUSINESS_TYPES, type BusinessType } from "@/lib/options";
 
 type Est = Establishment & { paymentMethods: PaymentMethodConfig[]; terminals: Terminal[] };
 const DAYS: [string, string][] = [["mon", "Lundi"], ["tue", "Mardi"], ["wed", "Mercredi"], ["thu", "Jeudi"], ["fri", "Vendredi"], ["sat", "Samedi"], ["sun", "Dimanche"]];
@@ -34,7 +35,7 @@ function SettingsForm({ initial }: { initial: Est }) {
   const e = initial;
   const initSettings = (e.settings ?? {}) as { courses?: string[]; markTablesToClean?: boolean };
   const initHours = (e.openingHours ?? {}) as Record<string, string[]>;
-  const [f, setF] = useState<Record<string, string>>({ name: e.name, legalName: e.legalName ?? "", tahitiNumber: e.tahitiNumber ?? "", addressLine1: e.addressLine1 ?? "", city: e.city ?? "", postalCode: e.postalCode ?? "", island: e.island ?? "", phone: e.phone ?? "", email: e.email ?? "", currency: e.currency, timezone: e.timezone });
+  const [f, setF] = useState<Record<string, string>>({ businessType: (e as { businessType?: string }).businessType ?? "restaurant", name: e.name, legalName: e.legalName ?? "", tahitiNumber: e.tahitiNumber ?? "", addressLine1: e.addressLine1 ?? "", city: e.city ?? "", postalCode: e.postalCode ?? "", island: e.island ?? "", phone: e.phone ?? "", email: e.email ?? "", currency: e.currency, timezone: e.timezone });
   const [courses, setCourses] = useState((initSettings.courses ?? ["APÉRITIFS", "ENTRÉES", "PLATS", "DESSERTS"]).join(", "));
   const [toClean, setToClean] = useState(!!initSettings.markTablesToClean);
   const [hours, setHours] = useState<Record<string, string>>(Object.fromEntries(DAYS.map(([k]) => [k, (initHours[k] ?? []).join(", ")])));
@@ -53,6 +54,7 @@ function SettingsForm({ initial }: { initial: Est }) {
       <div className="grid gap-4 lg:grid-cols-2">
         <Card title="Établissement">
           <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="Type d'activité" className="sm:col-span-2" hint={BUSINESS_TYPES[(f.businessType ?? "restaurant") as BusinessType]?.hint}><Select {...s("businessType")}>{(Object.keys(BUSINESS_TYPES) as BusinessType[]).map((k) => <option key={k} value={k}>{BUSINESS_TYPES[k].label}</option>)}</Select></Field>
             <Field label="Nom commercial"><Input {...s("name")} /></Field><Field label="Raison sociale"><Input {...s("legalName")} /></Field>
             <Field label="N° Tahiti"><Input {...s("tahitiNumber")} placeholder="A12345" /></Field><Field label="Téléphone"><Input {...s("phone")} /></Field>
             <Field label="Adresse" className="sm:col-span-2"><Input {...s("addressLine1")} /></Field>

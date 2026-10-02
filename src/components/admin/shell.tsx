@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { LayoutDashboard, UtensilsCrossed, Map, Receipt, Wallet, Users, Settings, ScrollText, Building2, Moon, Sun, LogOut, Menu, X, Boxes, CalendarDays, Heart, QrCode, BarChart3, Clock, Plug, Network, TrendingUp, ShieldCheck, Printer, ChevronDown, Store, BookOpen, UsersRound, SlidersHorizontal, Globe, ExternalLink, type LucideIcon } from "lucide-react";
+import { LayoutDashboard, UtensilsCrossed, Map, Receipt, Wallet, Users, Settings, ScrollText, Building2, Moon, Sun, LogOut, Menu, X, Boxes, CalendarDays, Heart, QrCode, BarChart3, Clock, Plug, Network, TrendingUp, ShieldCheck, Printer, ChevronDown, Store, BookOpen, UsersRound, SlidersHorizontal, Globe, ExternalLink, type LucideIcon, Sparkles } from "lucide-react";
 import { markLogoutPending, useSession } from "@/hooks/use-session";
 import { useRealtime } from "@/hooks/use-realtime";
 import { useTheme } from "@/hooks/use-theme";
@@ -27,7 +27,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const qc = useQueryClient();
-  const { me, can, isLoading } = useSession();
+  const { me, can, hasOption, businessType, isLoading } = useSession();
   const { toggle } = useTheme();
   const [open, setOpen] = useState(false);
   // undefined : la rubrique de la page ouverte est dépliée ; sinon la rubrique choisie (null : toutes repliées)
@@ -49,10 +49,10 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
       { href: "/admin/stock", label: "Stocks & achats", icon: Boxes, show: can("stock.view"), match: "/admin/stock" },
     ] },
     { key: "clients", label: "Salle & clients", icon: Heart, items: [
-      { href: "/admin/floor", label: "Plan de salle", icon: Map, show: can("floor.manage") },
-      { href: "/pos/reservations", label: "Réservations", icon: CalendarDays, show: can("pos.use") },
+      { href: "/admin/floor", label: "Plan de salle", icon: Map, show: can("floor.manage") && businessType !== "snack" },
+      { href: "/pos/reservations", label: "Réservations", icon: CalendarDays, show: can("pos.use") && hasOption("digital") },
       { href: "/admin/customers", label: "Clients & fidélité", icon: Heart, show: can("customers.manage") },
-      { href: "/admin/digital", label: "QR & commande en ligne", icon: QrCode, show: can("settings.manage") },
+      { href: "/admin/digital", label: "QR & commande en ligne", icon: QrCode, show: can("settings.manage") && hasOption("digital") },
       { href: me?.publicSitePath ?? "", label: "Voir mon site en ligne", icon: Globe, show: !!me?.publicSitePath, external: true },
     ] },
     { key: "equipe", label: "Équipe", icon: UsersRound, items: [
@@ -62,8 +62,8 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
     { key: "reglages", label: "Réglages", icon: SlidersHorizontal, items: [
       { href: "/admin/settings", label: "Paramètres", icon: Settings, show: can("settings.manage") },
       { href: "/admin/hardware", label: "Imprimantes & tiroir", icon: Printer, show: can("settings.manage") },
-      { href: "/admin/integrations", label: "Intégrations", icon: Plug, show: can("settings.manage") },
-      { href: "/admin/establishments", label: "Établissements", icon: Building2, show: can("establishments.manage") || (me?.establishments?.length ?? 0) > 1 },
+      { href: "/admin/integrations", label: "Intégrations", icon: Plug, show: can("settings.manage") && hasOption("advanced") },
+      { href: "/admin/establishments", label: "Établissements", icon: Building2, show: hasOption("advanced") && (can("establishments.manage") || (me?.establishments?.length ?? 0) > 1) },
       { href: "/admin/organization", label: "Multi-sites", icon: Network, show: can("reports.view_global") },
       { href: "/admin/audit", label: "Journal d'audit", icon: ScrollText, show: can("audit.view") },
     ] },
@@ -91,6 +91,8 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
       ) : <p className="mx-4 mb-2 truncate text-sm font-semibold text-muted">{me?.establishment?.name}</p>}
       <nav className="flex-1 overflow-y-auto px-2" aria-label="Menu">
         {can("reports.view") ? link({ href: "/admin", label: "Tableau de bord", icon: LayoutDashboard }) : null}
+        {/* Options payantes : ce qui est actif et ce qu'on peut débloquer */}
+        {can("settings.manage") ? link({ href: "/admin/options", label: "Options", icon: Sparkles }) : null}
         {groups.map((g) => {
           const expanded = isOpen(g.key);
           const holdsActive = activeGroup === g.key;
@@ -126,7 +128,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
       <div className="flex min-w-0 flex-1 flex-col">
         <SupportBar />
         <DemoVisitBar />
-        <header className="glass flex h-14 shrink-0 items-center gap-3 border-b px-4 lg:hidden"><button className="touch flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand text-white shadow-glow active:scale-95" aria-label="Ouvrir le menu" onClick={() => setOpen(true)}><Menu className="h-5 w-5" /></button><Logo size={28} /><VersionBadge /></header>
+        <header className="glass flex h-16 shrink-0 items-center gap-3 border-b px-4 lg:hidden"><button className="touch flex h-12 w-12 shrink-0 flex-col items-center justify-center gap-0.5 rounded-xl bg-brand text-white shadow-glow active:scale-95" aria-label="Ouvrir le menu" onClick={() => setOpen(true)}><Menu className="h-5 w-5" /><span className="text-[10px] font-extrabold leading-none" aria-hidden>Menu</span></button><Logo size={28} /><VersionBadge /></header>
         <main className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden p-4 lg:p-8"><InstallBanner className="mb-3 lg:hidden" /><SubscriptionBanner />{children}</main>
         {/* Les quatre portails, toujours visibles sous la page */}
         <PortalButtons />

@@ -8,10 +8,12 @@ import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/field";
 import { Logo, BrandPanel, BrandHeaderMobile } from "@/components/brand";
 import { OFFER } from "@/lib/plan";
+import { BUSINESS_TYPES, type BusinessType } from "@/lib/options";
 
 export default function SignupPage() {
   const router = useRouter();
   const [form, setForm] = useState({ organizationName: "", establishmentName: "", firstName: "", lastName: "", email: "", password: "" });
+  const [businessType, setBusinessType] = useState<BusinessType>("restaurant");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) => setForm((f) => ({ ...f, [k]: e.target.value }));
@@ -21,7 +23,7 @@ export default function SignupPage() {
     setLoading(true);
     setError(null);
     try {
-      await api.post("/api/auth/signup", form);
+      await api.post("/api/auth/signup", { ...form, businessType });
       router.replace("/onboarding");
     } catch (err) {
       setError(err instanceof ApiClientError ? err.message : "Inscription impossible");
@@ -41,6 +43,20 @@ export default function SignupPage() {
         <h1 className="text-3xl font-extrabold tracking-tight">Créer votre espace ManaResto</h1>
         <p className="text-sm text-muted">Entreprise, premier établissement et compte propriétaire. Vous pourrez ajouter d&apos;autres restaurants ensuite.</p>
         <p className="rounded-xl bg-lagon-500/12 px-3 py-2 text-sm font-semibold text-lagon-800 dark:text-lagon-200">{OFFER.trialDays} jours d&apos;essai gratuits, sans carte bancaire · ensuite {OFFER.monthly.toLocaleString("fr-FR")} F CFP par mois, engagement {OFFER.commitmentMonths} mois, {OFFER.commission} % de commission sur vos ventes.</p>
+        {/* Type d'activité : l'écran et les réglages s'adaptent (modifiable ensuite dans les Paramètres) */}
+        <fieldset>
+          <legend className="mb-2 text-sm font-bold">Votre activité</legend>
+          <div className="grid gap-2 sm:grid-cols-3" role="radiogroup">
+            {(Object.keys(BUSINESS_TYPES) as BusinessType[]).map((k) => (
+              <button key={k} type="button" role="radio" aria-checked={businessType === k} onClick={() => setBusinessType(k)}
+                className={`rounded-2xl border p-3 text-left transition ${businessType === k ? "border-lagon-500 bg-lagon-500/8 ring-1 ring-lagon-500" : "border-line hover:surface-2"}`}>
+                <span className="block text-2xl" aria-hidden>{k === "snack" ? "🌮" : k === "restaurant" ? "🍽️" : "🍹"}</span>
+                <span className="mt-1 block text-sm font-extrabold">{BUSINESS_TYPES[k].label}</span>
+                <span className="mt-0.5 block text-xs text-muted">{BUSINESS_TYPES[k].hint}</span>
+              </button>
+            ))}
+          </div>
+        </fieldset>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Entreprise" className="sm:col-span-2"><Input required value={form.organizationName} onChange={set("organizationName")} placeholder="Ma société SARL" /></Field>
           <Field label="Nom du restaurant" className="sm:col-span-2"><Input required value={form.establishmentName} onChange={set("establishmentName")} placeholder="Le Mana Beach" /></Field>

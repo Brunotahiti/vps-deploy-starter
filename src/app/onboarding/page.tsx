@@ -27,10 +27,16 @@ function Wizard({ est }: { est: NonNullable<NonNullable<ReturnType<typeof useSes
   const router = useRouter();
   const qc = useQueryClient();
   const act = useAction();
-  const [step, setStep] = useState(Math.min(est.onboardingStep, STEPS.length - 1));
+  // Snack, roulotte : pas de salles ni de tables à créer
+  const isSnack = (est as { businessType?: string }).businessType === "snack";
+  const order = STEPS.map((_, i) => i).filter((i) => !(isSnack && (i === 6 || i === 7)));
+  const visible = (i: number) => order.find((o) => o >= i) ?? order[order.length - 1];
+  const [step, setStep] = useState(visible(Math.min(est.onboardingStep, STEPS.length - 1)));
+  const pos = order.indexOf(step);
+  const nextStep = order[pos + 1] ?? STEPS.length - 1;
   const [f, setF] = useState<Record<string, string>>({ name: est.name, addressLine1: est.addressLine1 ?? "", city: est.city ?? "", postalCode: est.postalCode ?? "", phone: est.phone ?? "", tahitiNumber: est.tahitiNumber ?? "" });
 
-  const patch = async (body: Record<string, unknown>, next = step + 1) => {
+  const patch = async (body: Record<string, unknown>, next = nextStep) => {
     const r = await act(() => api.patch(`/api/establishments/${est.id}`, { ...body, onboardingStep: next }), { invalidate: [["me"]] });
     if (r) { await refetch(); setStep(next); }
   };
@@ -52,7 +58,7 @@ function Wizard({ est }: { est: NonNullable<NonNullable<ReturnType<typeof useSes
     10: <div className="space-y-2"><p className="text-sm text-muted">Les tickets s&apos;impriment depuis le navigateur (HTML/PDF), ou sur une imprimante thermique connectée avec son tiroir-caisse. Configurez aussi les postes de destination des produits.</p><div className="flex flex-wrap gap-2">{link("/admin/hardware", "Imprimantes & tiroir")}{link("/admin/settings", "Paramètres → Postes")}</div></div>,
     11: <div className="space-y-2"><p className="text-sm text-muted">Postes cuisine (CUISINE, BAR, PIZZA…) et seuils d&apos;alerte. L&apos;écran cuisine (/kds) affiche les tickets par poste avec les alertes de temps ; les tickets sont générés à chaque envoi.</p>{link("/admin/settings", "Paramètres → Postes cuisine")}</div>,
     12: <div className="space-y-2"><p className="text-sm text-muted">Espèces, carte, chèque, virement, ticket restaurant, offert et autre sont disponibles.</p>{link("/admin/settings", "Paramètres → Caisse")}</div>,
-    13: <div className="space-y-2"><p className="text-sm text-muted">Ouvrez la caisse, créez une commande sur une table, envoyez-la en cuisine et encaissez-la.</p>{link("/pos", "Ouvrir la caisse")}</div>,
+    13: <div className="space-y-2"><p className="text-sm text-muted">{isSnack ? "Ouvrez la caisse, faites une vente au comptoir, envoyez-la en cuisine et encaissez-la." : "Ouvrez la caisse, créez une commande sur une table, envoyez-la en cuisine et encaissez-la."}</p>{link("/pos", "Ouvrir la caisse")}</div>,
     14: <p className="text-sm text-muted">Tout est prêt. Vous pourrez revenir sur chaque réglage depuis l&apos;administration.</p>,
   };
   const bodyFor = (i: number): Record<string, unknown> => (i === 1 ? { name: f.name } : i === 2 ? { addressLine1: f.addressLine1 || null, city: f.city || null, postalCode: f.postalCode || null, phone: f.phone || null } : i === 3 ? { tahitiNumber: f.tahitiNumber || null } : {});
@@ -60,13 +66,13 @@ function Wizard({ est }: { est: NonNullable<NonNullable<ReturnType<typeof useSes
   return (
     <main className="mx-auto max-w-3xl p-4 sm:p-8">
       <div className="mb-6 flex items-center justify-between"><Logo /><button onClick={finish} className="text-sm text-muted hover:underline">Passer l&apos;assistant</button></div>
-      <ol className="mb-6 grid grid-cols-5 gap-1 sm:grid-cols-8 lg:grid-cols-15">{STEPS.map((l, i) => <li key={l} className={`flex h-8 items-center justify-center rounded-lg text-xs font-bold ${i < step ? "bg-lagon-600 text-white" : i === step ? "bg-corail-500 text-white" : "surface-2 text-muted"}`} title={l}>{i < step ? <Check className="h-4 w-4" /> : i + 1}</li>)}</ol>
+      <ol className="mb-6 grid grid-cols-5 gap-1 sm:grid-cols-8 lg:grid-cols-15">{order.map((i) => STEPS[i]).map((l, j) => <li key={l} className={`flex h-8 items-center justify-center rounded-lg text-xs font-bold ${j < pos ? "bg-lagon-600 text-white" : j === pos ? "bg-corail-500 text-white" : "surface-2 text-muted"}`} title={l}>{j < pos ? <Check className="h-4 w-4" /> : j + 1}</li>)}</ol>
       <div className="surface rounded-2xl border p-6">
-        <p className="text-xs font-bold uppercase tracking-wide text-muted">Étape {step + 1} / {STEPS.length}</p>
+        <p className="text-xs font-bold uppercase tracking-wide text-muted">Étape {pos + 1} / {order.length}</p>
         <h1 className="mb-4 text-2xl font-extrabold">{STEPS[step]}</h1>
         {content[step]}
         <div className="mt-6 flex justify-between">
-          <Button variant="ghost" disabled={step === 0} onClick={() => setStep(step - 1)}>Précédent</Button>
+          <Button variant="ghost" disabled={pos <= 0} onClick={() => setStep(order[pos - 1] ?? 0)}>Précédent</Button>
           {step < STEPS.length - 1 ? <Button onClick={() => patch(bodyFor(step))}>Continuer</Button> : <Button variant="accent" size="lg" onClick={finish}>Mettre en production</Button>}
         </div>
       </div>

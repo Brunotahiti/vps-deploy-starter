@@ -1,7 +1,8 @@
 import { cache } from "react";
 import { prisma } from "@/server/db";
 import { ApiError } from "@/server/errors";
-import { hasPermission, POS_SCOPE_PERMISSIONS, type PermissionKey } from "@/lib/permissions";
+import { ALL_PERMISSIONS, hasPermission, POS_SCOPE_PERMISSIONS, type PermissionKey } from "@/lib/permissions";
+import { lockedPermissions, OPTIONS, type OptionKey } from "@/lib/options";
 import { headers } from "next/headers";
 import { findSessionByToken, getSessionToken, getTerminalFromCookie } from "./session";
 import { findOfflinePass } from "@/server/services/offline-pass";
@@ -17,6 +18,8 @@ export type AuthContext = {
   permissions: Set<string>;
   terminal: Terminal | null;
   impersonatorId: string | null;
+  /** Options payantes débloquées par l'entreprise (voir src/lib/options.ts) */
+  options: string[];
 };
 
 /** En-tête des opérations faites hors ligne : laissez-passer de l'employé qui les a saisies (voir offline-pass.ts). */
@@ -75,6 +78,13 @@ async function buildContext(session: { id: string; userId: string; establishment
   } else if (current) {
     for (const p of current.role.permissions) permissions.add(p.permissionKey);
   }
+  // Options non débloquées : leurs droits sont retirés à tous, propriétaire compris
+  const options = (await prisma.organization.findUnique({ where: { id: user.organizationId }, select: { options: true } }))?.options ?? [];
+  const locked = lockedPermissions(options);
+  if (locked.size) {
+    if (permissions.delete("*")) for (const p of ALL_PERMISSIONS) permissions.add(p);
+    for (const p of locked) permissions.delete(p);
+  }
   // Session « caisse » : droits de caisse seulement, dans son établissement seulement
   if (posOnly) {
     const granted = new Set(permissions);
@@ -107,6 +117,7 @@ async function buildContext(session: { id: string; userId: string; establishment
     permissions,
     terminal: terminal && establishment && terminal.establishmentId === establishment.id ? terminal : null,
     impersonatorId: session.impersonatorId,
+    options,
   };
 }
 
@@ -137,4 +148,9 @@ export async function requirePermission(...keys: PermissionKey[]) {
 
 export function can(ctx: Pick<AuthContext, "permissions">, key: PermissionKey) {
   return hasPermission(ctx.permissions, key);
+}
+
+/** Fonction d'une option payante : refusée tant qu'elle n'est pas débloquée (Gestion → Options). */
+export function requireOption(ctx: Pick<AuthContext, "options">, key: OptionKey) {
+  if (!ctx.options.includes(key)) throw new ApiError(403, "OPTION_REQUIRED", `Option « ${OPTIONS[key].label} » à débloquer dans Gestion → Options`, { option: key });
 }

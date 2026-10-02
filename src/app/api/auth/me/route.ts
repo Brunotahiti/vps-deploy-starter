@@ -22,7 +22,8 @@ export const GET = route(async () => {
   return ok({
     subscription: subscriptionInfo(org),
     isDemo,
-    publicSitePath: establishment ? `/site/${org.slug}/${establishment.slug}` : null, // page publique du restaurant
+    publicSitePath: establishment && ctx.options.includes("digital") ? `/site/${org.slug}/${establishment.slug}` : null, // page publique du restaurant (option Digital)
+    options: ctx.options,
     demoVisit: back ? { returnTo: { firstName: back.session.user.firstName, establishmentName: backEst?.name ?? null } } : null,
     user: { id: user.id, email: user.email, firstName: user.firstName, lastName: user.lastName, displayName: user.displayName, color: user.color, isOwner: user.isOwner, hasPin: !!user.pinHash },
     organizationId: ctx.organizationId,

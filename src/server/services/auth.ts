@@ -10,6 +10,7 @@ import { assertEmailAllowed } from "@/server/auth/guards";
 import { audit } from "@/server/audit";
 import { slugify } from "@/lib/slug";
 import { OFFER } from "@/lib/plan";
+import { businessTypeSettings, type BusinessType } from "@/lib/options";
 import { ensureSystemRoles } from "./roles";
 import { createEstablishmentDefaults } from "./establishments";
 import { sendSignupAlert, sendWelcomeEmail } from "./platform-emails";
@@ -113,6 +114,7 @@ export async function signup(input: {
   password: string;
   firstName: string;
   lastName: string;
+  businessType?: BusinessType;
 }) {
   const email = input.email.toLowerCase();
   assertEmailAllowed(email); // adresses des administrateurs de la plateforme : réservées
@@ -130,8 +132,9 @@ export async function signup(input: {
       data: { organizationId: org.id, email, passwordHash, firstName: input.firstName, lastName: input.lastName, isOwner: true },
     });
     await ensureSystemRoles(org.id, tx);
+    const businessType = input.businessType ?? "restaurant";
     const est = await tx.establishment.create({
-      data: { organizationId: org.id, name: input.establishmentName, slug: slugify(input.establishmentName) },
+      data: { organizationId: org.id, name: input.establishmentName, slug: slugify(input.establishmentName), businessType, settings: businessTypeSettings(businessType) as object },
     });
     await createEstablishmentDefaults(est.id, tx);
     return { org, owner, est };
