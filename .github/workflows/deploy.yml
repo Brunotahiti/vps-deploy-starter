@@ -146,6 +146,11 @@ jobs:
             LOCK=""; CRON_LOCK=""; if command -v flock >/dev/null 2>&1; then LOCK="flock -w 900 /tmp/manaresto-demo.lock"; CRON_LOCK="flock -n /tmp/manaresto-demo.lock"; fi
             echo "Migrations et démarrage…"
             $LOCK docker compose up -d
+            # Démo vivante rafraîchie une fois l'application en ligne (elle ne retarde plus la remise en service)
+            if [ "${SEED_DEMO:-}" = "true" ]; then
+              echo "Rafraîchissement de la démo…"
+              $LOCK docker compose run --rm --no-deps -T migrate pnpm tsx prisma/seed.ts || echo "::warning::Rafraîchissement de la démo en échec (l'application reste en ligne)"
+            fi
             (docker compose exec -T site nginx -s reload >/dev/null 2>&1 || true)
             # Tâches planifiées de ManaResto (seules ses lignes de la crontab sont réécrites) :
             # sauvegarde quotidienne à 3 h heure de Tahiti, et démo vivante rafraîchie chaque heure si SEED_DEMO=true
