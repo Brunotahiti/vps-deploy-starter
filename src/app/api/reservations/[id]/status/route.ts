@@ -7,5 +7,5 @@ import { setReservationStatus } from "@/server/services/reservations";
 export const POST = route<{ id: string }>(async (req, { params }) => {
   const ctx = await requirePermission("pos.use");
   const body = await parseBody(req, reservationStatusSchema);
-  return ok(await setReservationStatus(actorFrom(ctx), params.id, body.status, body.tableId));
+  return ok(await setReservationStatus(actorFrom(ctx), params.id, body.status, body.tableId, body.notify));
 });

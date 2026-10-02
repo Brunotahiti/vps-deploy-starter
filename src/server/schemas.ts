@@ -137,8 +137,19 @@ export const onlineOrderSchema = z.object({ id: uuid, mode: z.enum(["PICKUP", "D
 export const kioskOrderSchema = z.object({ id: uuid, mode: z.enum(["DINE_IN", "TAKEAWAY"]), name: z.string().max(40).nullable().optional(), lines: z.array(publicLineSchema).min(1).max(60), lang: z.enum(["fr", "en", "ty"]).optional() });
 // « website » : champ piège invisible pour un humain ; seuls les robots le remplissent
 export const publicReservationSchema = z.object({ website: z.string().max(200).optional(), name: z.string().min(2).max(80), phone: z.string().min(6).max(30).refine((v) => v.replace(/\D/g, "").length >= 6, "Numéro de téléphone invalide"), email: z.string().email().max(160).nullable().optional().or(z.literal("")), startsAt: z.string().datetime({ offset: true }), partySize: z.number().int().min(1).max(50), notes: z.string().max(300).nullable().optional(), allergies: z.string().max(200).nullable().optional() });
-export const reservationSchema = z.object({ name: z.string().min(1).max(80), phone: z.string().max(30).nullable().optional(), email: z.string().max(160).nullable().optional(), startsAt: z.string().datetime({ offset: true }), partySize: z.number().int().min(1).max(50), tableId: uuid.nullable().optional(), notes: z.string().max(300).nullable().optional(), allergies: z.string().max(200).nullable().optional(), status: z.enum(["PENDING", "CONFIRMED", "ARRIVED", "SEATED", "COMPLETED", "CANCELLED", "NO_SHOW"]).optional(), customerId: uuid.nullable().optional() });
-export const reservationStatusSchema = z.object({ status: z.enum(["PENDING", "CONFIRMED", "ARRIVED", "SEATED", "COMPLETED", "CANCELLED", "NO_SHOW"]), tableId: uuid.nullable().optional() });
+export const reservationSchema = z.object({
+  name: z.string().trim().min(1).max(80), phone: z.string().max(30).nullable().optional(), email: z.string().email().max(160).nullable().optional().or(z.literal("").transform(() => null)),
+  startsAt: z.string().datetime({ offset: true }), partySize: z.number().int().min(1).max(50), tableId: uuid.nullable().optional(),
+  notes: z.string().max(300).nullable().optional(), allergies: z.string().max(200).nullable().optional(),
+  status: z.enum(["PENDING", "CONFIRMED", "ARRIVED", "SEATED", "COMPLETED", "CANCELLED", "NO_SHOW"]).optional(), customerId: uuid.nullable().optional(),
+  durationMinutes: z.number().int().min(15).max(360).optional(), source: z.enum(["PHONE", "WALK_IN", "ONLINE", "OTHER"]).optional(), tags: z.array(z.string().max(30)).max(10).optional(), notify: z.boolean().optional(),
+});
+export const reservationStatusSchema = z.object({ status: z.enum(["PENDING", "CONFIRMED", "ARRIVED", "SEATED", "COMPLETED", "CANCELLED", "NO_SHOW"]), tableId: uuid.nullable().optional(), notify: z.boolean().optional() });
+const hhmm = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);
+export const reservationSettingsSchema = z.object({
+  services: z.array(z.object({ key: z.enum(["lunch", "dinner"]), label: z.string().max(20).optional(), enabled: z.boolean(), from: hhmm, to: hhmm })).max(2).optional(),
+  interval: z.number().int().optional(), duration: z.number().int().min(30).max(300).optional(), capacity: z.number().int().min(1).max(2000).nullable().optional(),
+});
 export const customerSchema = z.object({ firstName: z.string().max(80).nullable().optional(), lastName: z.string().max(80).nullable().optional(), phone: z.string().max(30).nullable().optional(), email: z.string().email().max(160).nullable().optional().or(z.literal("")), notes: z.string().max(1000).nullable().optional(), allergies: z.string().max(300).nullable().optional() });
 export const attachCustomerSchema = z.object({ customerId: uuid.nullable() });
 export const redeemSchema = z.object({ rewards: z.number().int().min(1).max(10).optional() });

@@ -17,7 +17,7 @@ const LOOK: Record<OptionKey, { icon: typeof Boxes; tile: string }> = {
   team: { icon: UsersRound, tile: "from-amber-400 to-orange-600" },
   advanced: { icon: Rocket, tile: "from-violet-500 to-fuchsia-600" },
 };
-const BASE = ["Caisse et encaissement (espèces, carte, addition partagée)", "Plan de salle ou vente au comptoir", "Écran cuisine et bons imprimés", "Tickets, clôture de caisse et rapports du jour", "Fonctionne même sans internet"];
+const BASE = ["Caisse et encaissement (espèces, carte, addition partagée)", "Plan de salle ou vente au comptoir", "Réservations par téléphone, liste du jour et calendrier", "Écran cuisine et bons imprimés", "Tickets, clôture de caisse et rapports du jour", "Fonctionne même sans internet"];
 const price = (n: number) => `${n.toLocaleString("fr-FR").replace(/ /g, " ")} F CFP / mois`;
 
 /** Programme de base + options payantes : ce qui est actif, ce qu'on peut débloquer (demande à l'équipe ManaResto). */

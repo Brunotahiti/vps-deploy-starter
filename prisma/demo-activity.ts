@@ -318,12 +318,21 @@ async function reservationsDay(prisma: PrismaClient, ctx: DemoCtx, day: string, 
   const dow = new Date(`${day}T12:00:00Z`).getUTCDay();
   const count = dow === 5 || dow === 6 ? r.between(5, 9) : r.between(2, 5);
   const data: Prisma.ReservationCreateManyInput[] = [];
+  const usedTables = new Set<number>();
   for (let i = 0; i < count; i++) {
     const dinner = dow !== 0 && r.chance(0.6);
     const c = ctx.customers.length && r.chance(0.6) ? ctx.customers[r.between(0, ctx.customers.length - 1)] : null;
     const status = day < today ? (r.chance(0.08) ? "NO_SHOW" : r.chance(0.06) ? "CANCELLED" : "COMPLETED") : r.chance(0.75) ? "CONFIRMED" : "PENDING";
     const party = r.chance(0.12) ? r.between(8, 14) : r.between(2, 6);
-    data.push({ establishmentId: ctx.estId, customerId: c?.id ?? null, name: c?.name ?? r.pick(RES_NAMES), phone: c?.phone ?? null, startsAt: new Date(dayStart.getTime() + ((dinner ? r.between(18, 20) : r.between(11, 13)) * 60 + r.pick([0, 15, 30, 45])) * 60000), partySize: party, status, allergies: r.chance(0.12) ? r.pick(["Gluten", "Fruits de mer", "Arachides", "Lactose"]) : null, notes: party >= 8 ? "Grande table, prévoir l'installation" : r.chance(0.15) ? r.pick(["Près de la mer si possible", "Chaise bébé", "Gâteau apporté par le client"]) : null });
+    const name = c?.name ?? r.pick(RES_NAMES);
+    // Tables déjà attribuées aux réservations confirmées à venir (une table par réservation et par jour)
+    let tableId: string | null = null;
+    if (day >= today && status === "CONFIRMED" && r.chance(0.75)) {
+      const t = r.between(0, ctx.tables.length - 1);
+      if (!usedTables.has(t)) { usedTables.add(t); tableId = ctx.tables[t].id; }
+    }
+    const tags = [/Anniversaire/.test(name) ? "birthday" : null, /affaires/.test(name) ? "business" : null, r.chance(0.15) ? r.pick(["terrace", "quiet", "baby"]) : null].filter((x): x is string => !!x);
+    data.push({ establishmentId: ctx.estId, customerId: c?.id ?? null, name, tableId, tags, source: status === "PENDING" ? "ONLINE" : r.chance(0.85) ? "PHONE" : "WALK_IN", phone: c?.phone ?? null, startsAt: new Date(dayStart.getTime() + ((dinner ? r.between(18, 20) : r.between(11, 13)) * 60 + r.pick([0, 15, 30, 45])) * 60000), partySize: party, status, allergies: r.chance(0.12) ? r.pick(["Gluten", "Fruits de mer", "Arachides", "Lactose"]) : null, notes: party >= 8 ? "Grande table, prévoir l'installation" : r.chance(0.15) ? r.pick(["Près de la mer si possible", "Chaise bébé", "Gâteau apporté par le client"]) : null });
   }
   await prisma.reservation.createMany({ data });
 }
@@ -356,8 +365,11 @@ async function deleteOrders(prisma: PrismaClient, where: Prisma.OrderWhereInput)
 }
 
 /** Une table en cours : articles, tickets cuisine selon l'avancement, statut des articles. */
+/** Il y a « minutes » minutes, mais jamais avant minuit du jour (sinon la commande compterait pour la veille) */
+const agoToday = (ctx: DemoCtx, day: string, minutes: number) => new Date(Math.max(startOfLocalDay(day, ctx.tz).getTime() + 60000, Date.now() - minutes * 60000));
+
 async function writeLiveTable(prisma: PrismaClient, ctx: DemoCtx, day: string, seq: number, tableIdx: number, minutesAgo: number, r: Rng, usedNumbers: Set<string>) {
-  const openAt = new Date(Date.now() - minutesAgo * 60000);
+  const openAt = agoToday(ctx, day, minutesAgo);
   const covers = r.between(2, 5);
   let n = number(day, seq);
   for (let k = seq; usedNumbers.has(n); k += 1000) n = number(day, FIRST_FREE_NUMBER + k);
@@ -399,7 +411,7 @@ async function writePendingChannel(prisma: PrismaClient, ctx: DemoCtx, day: stri
   for (let k = seq; usedNumbers.has(n); k += 1000) n = number(day, FIRST_FREE_NUMBER + k);
   usedNumbers.add(n);
   const minutesAgo = r.between(3, 9);
-  const openAt = new Date(Date.now() - minutesAgo * 60000);
+  const openAt = agoToday(ctx, day, minutesAgo);
   const c = type !== "KIOSK" && ctx.customers.length ? ctx.customers[r.between(0, ctx.customers.length - 1)] : null;
   const items = chooseItems(ctx, r, r.between(1, 2), false);
   const o = await prisma.order.create({ data: { establishmentId: ctx.estId, number: n, type, serverId: ctx.ownerId, covers: 1, customerId: c?.id ?? null, customerName: c?.name ?? (meta.name as string) ?? null, status: accepted ? "SENT" : "OPEN", publicToken: crypto.randomUUID(), channelMeta: { ...meta, demo: true, phone: c?.phone ?? meta.phone ?? null, awaitingAcceptance: !accepted } as Prisma.InputJsonValue, acceptedAt: accepted ? new Date(openAt.getTime() + 60000) : null, openedAt: openAt, createdAt: openAt, courses: { create: [{ name: "COMMANDE", sortOrder: 0, status: accepted ? "SENT" : "PENDING" }] } }, include: { courses: true } });
@@ -425,7 +437,8 @@ async function refreshToday(prisma: PrismaClient, ctx: DemoCtx, today: string) {
   // Caisse du jour : celle déjà ouverte (par la démo ou un visiteur), sinon ouverte à 10 h 30
   let session = await prisma.cashSession.findFirst({ where: { establishmentId: ctx.estId, status: "OPEN" }, orderBy: { openedAt: "desc" } });
   if (!session) {
-    const openedAt = new Date(Math.min(sessionBounds(ctx, today).openedAt.getTime(), Date.now() - 30 * 60000));
+    // Jamais avant minuit : une caisse ouverte la veille serait clôturée au rafraîchissement suivant
+    const openedAt = new Date(Math.max(dayStart.getTime(), Math.min(sessionBounds(ctx, today).openedAt.getTime(), Date.now() - 30 * 60000)));
     session = await prisma.cashSession.create({ data: { establishmentId: ctx.estId, openedById: ctx.managerId, status: "OPEN", openingFloat: 30000, openedAt } });
     await prisma.cashMovement.create({ data: { cashSessionId: session.id, userId: ctx.managerId, kind: "OPENING", amount: 30000, reason: "Fond de caisse", createdAt: openedAt } });
   }
@@ -440,7 +453,8 @@ async function refreshToday(prisma: PrismaClient, ctx: DemoCtx, today: string) {
     // Encaissées dans l'heure écoulée, mais toujours aujourd'hui (juste après minuit : réparties depuis minuit)
     const ideal = now - (20 + i * 9) * 60000;
     const closeAt = new Date(ideal >= dayStart.getTime() ? ideal : dayStart.getTime() + Math.floor(((now - dayStart.getTime()) * (6 - i)) / 7));
-    return { ...o, openAt: new Date(closeAt.getTime() - 50 * 60000), closeAt };
+    // Ouvertes aujourd'hui aussi : sinon le rafraîchissement suivant ne les retrouverait pas et les doublerait
+    return { ...o, openAt: new Date(Math.max(dayStart.getTime(), closeAt.getTime() - 50 * 60000)), closeAt };
   });
   for (const o of done) await writeClosedOrder(prisma, ctx, today, o, session.id, { audit: false, ticket: true, usedNumbers: used });
 

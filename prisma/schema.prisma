@@ -760,6 +760,10 @@ model Reservation {
   status          ReservationStatus @default(PENDING)
   notes           String?
   allergies       String?
+  durationMinutes Int               @default(90) @map("duration_minutes")
+  source          String            @default("PHONE") // PHONE, WALK_IN, ONLINE, OTHER
+  tags            String[]          @default([])
+  createdByName   String?           @map("created_by_name") // prénom de la personne qui a pris la réservation
   createdAt       DateTime          @default(now()) @map("created_at")
   updatedAt       DateTime          @updatedAt @map("updated_at")
 

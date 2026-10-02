@@ -167,7 +167,8 @@ describe("Phase 6 — fidélité et réservations", () => {
     const t3 = await upsertTable(T.managerActor, { roomId: T.room.id, name: "T03", seats: 4 });
     await expect(setReservationStatus(T.actor, pub.id, "SEATED", t3.id)).rejects.toMatchObject({ code: "BAD_TRANSITION" });
     await setReservationStatus(T.actor, pub.id, "CONFIRMED", t3.id);
-    expect((await prisma.table.findUniqueOrThrow({ where: { id: t3.id } })).state).toBe("RESERVED");
+    // Réservée dans 2 h : la table reste libre d'ici là (le plan de salle affiche la réservation à venir)
+    expect((await prisma.table.findUniqueOrThrow({ where: { id: t3.id } })).state).toBe("FREE");
     const seated = await setReservationStatus(T.actor, pub.id, "SEATED");
     expect(seated.orderId).not.toBeNull();
     const order = await getOrder(T.est.id, seated.orderId!);
