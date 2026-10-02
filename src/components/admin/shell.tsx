@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { LayoutDashboard, UtensilsCrossed, Map, Receipt, Wallet, Users, Settings, ScrollText, Building2, Moon, Sun, LogOut, Menu, X, Boxes, CalendarDays, Heart, QrCode, BarChart3, Clock, Plug, Network, TrendingUp, ShieldCheck, Printer, ChevronDown, Store, BookOpen, UsersRound, SlidersHorizontal, Globe, ExternalLink, type LucideIcon, Sparkles } from "lucide-react";
+import { BrainCircuit, LayoutDashboard, UtensilsCrossed, Map, Receipt, Wallet, Users, Settings, ScrollText, Building2, Moon, Sun, LogOut, Menu, X, Boxes, CalendarDays, Heart, QrCode, BarChart3, Clock, Plug, Network, TrendingUp, ShieldCheck, Printer, ChevronDown, Store, BookOpen, UsersRound, SlidersHorizontal, Globe, ExternalLink, type LucideIcon, Sparkles } from "lucide-react";
 import { markLogoutPending, useSession } from "@/hooks/use-session";
 import { useRealtime } from "@/hooks/use-realtime";
 import { useTheme } from "@/hooks/use-theme";
@@ -41,8 +41,8 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
     { key: "ventes", label: "Ventes", icon: Store, items: [
       { href: "/admin/orders", label: "Commandes", icon: Receipt, show: can("orders.view_history") },
       { href: "/admin/cash", label: "Caisse", icon: Wallet, show: can("reports.view") },
-      { href: "/admin/stats", label: "Statistiques", icon: TrendingUp, show: can("reports.view") },
-      { href: "/admin/reports", label: "Rapports & exports", icon: BarChart3, show: can("reports.view") },
+      { href: "/admin/stats", label: "Statistiques", icon: TrendingUp, show: can("reports.view") && hasOption("stats") },
+      { href: "/admin/reports", label: "Rapports & exports", icon: BarChart3, show: can("reports.view") && hasOption("stats") },
     ] },
     { key: "carte", label: "Carte & stocks", icon: BookOpen, items: [
       { href: "/admin/catalog/products", label: "Catalogue", icon: UtensilsCrossed, show: can("catalog.view"), match: "/admin/catalog" },
@@ -50,7 +50,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
     ] },
     { key: "clients", label: "Salle & clients", icon: Heart, items: [
       { href: "/admin/floor", label: "Plan de salle", icon: Map, show: can("floor.manage") && businessType !== "snack" },
-      { href: "/pos/reservations", label: "Réservations", icon: CalendarDays, show: can("pos.use") && hasOption("digital") },
+      { href: "/pos/reservations", label: "Réservations", icon: CalendarDays, show: can("pos.use") && businessType !== "snack" },
       { href: "/admin/customers", label: "Clients & fidélité", icon: Heart, show: can("customers.manage") },
       { href: "/admin/digital", label: "QR & commande en ligne", icon: QrCode, show: can("settings.manage") && hasOption("digital") },
       { href: me?.publicSitePath ?? "", label: "Voir mon site en ligne", icon: Globe, show: !!me?.publicSitePath, external: true },
@@ -91,6 +91,8 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
       ) : <p className="mx-4 mb-2 truncate text-sm font-semibold text-muted">{me?.establishment?.name}</p>}
       <nav className="flex-1 overflow-y-auto px-2" aria-label="Menu">
         {can("reports.view") ? link({ href: "/admin", label: "Tableau de bord", icon: LayoutDashboard }) : null}
+        {/* Assistant IA (option) : prévisions, analyse qualité, commande proposée */}
+        {hasOption("ai") && can("reports.view") ? link({ href: "/admin/ai", label: "Assistant IA", icon: BrainCircuit }) : null}
         {/* Options payantes : ce qui est actif et ce qu'on peut débloquer */}
         {can("settings.manage") ? link({ href: "/admin/options", label: "Options", icon: Sparkles }) : null}
         {groups.map((g) => {

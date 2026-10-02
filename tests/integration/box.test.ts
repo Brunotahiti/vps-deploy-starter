@@ -99,6 +99,12 @@ describe("boîtier de secours : copie du restaurant", () => {
     await expect(requireBox(req("mrbox_inconnue"))).rejects.toMatchObject({ status: 401 });
     await expect.poll(async () => (await prisma.localBox.findUniqueOrThrow({ where: { id: box.id } })).lanIp).toBe("192.168.1.20");
 
+    // Sans l'option Continuité de service, le boîtier est en pause
+    const before = (await prisma.organization.findUniqueOrThrow({ where: { id: T.org.id } })).options;
+    await prisma.organization.update({ where: { id: T.org.id }, data: { options: before.filter((o) => o !== "continuity") } });
+    await expect(requireBox(req(box.key))).rejects.toMatchObject({ status: 403, code: "OPTION_REQUIRED" });
+    await prisma.organization.update({ where: { id: T.org.id }, data: { options: before } });
+
     await revokeBox(T.managerActor, box.id);
     await expect(requireBox(req(box.key))).rejects.toMatchObject({ status: 401 });
     await expect(revokeBox(U.managerActor, box.id)).rejects.toMatchObject({ status: 404 });

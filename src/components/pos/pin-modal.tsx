@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Modal } from "@/components/ui/modal";
 import { NumPad } from "@/components/ui/numpad";
 import { ApiClientError } from "@/lib/api-client";
-import { localCan, withOfflineAuth } from "@/lib/offline/auth-state";
+import { localCan, offlineAllowed, withOfflineAuth } from "@/lib/offline/auth-state";
 import { unlockWithPin } from "@/lib/offline/passes";
 import { PERMISSIONS, type PermissionKey } from "@/lib/permissions";
 
@@ -52,7 +52,7 @@ export function withPin(setRequest: (r: PinRequest) => void, permission: Permiss
   return run().catch((e) => {
     // Déjà mise en file d'attente par l'appel lui-même : ne jamais la mettre en file une seconde fois
     if (isQueued(e)) throw e;
-    if (e instanceof ApiClientError && e.isNetwork) {
+    if (e instanceof ApiClientError && e.isNetwork && offlineAllowed()) {
       if (localCan(permission)) return withOfflineAuth({ forceQueue: true }, () => run());
       return new Promise((resolve, reject) => setRequest({
         permission,

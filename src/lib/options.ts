@@ -15,7 +15,7 @@ export const OPTIONS = {
   digital: {
     label: "Digital",
     tagline: "Vos clients commandent et réservent seuls",
-    includes: ["QR code à table : menu et commande depuis le téléphone", "Commande en ligne à emporter ou en livraison, 0 % de commission", "Borne de commande", "Site du restaurant, fidélité et réservations"],
+    includes: ["QR code à table : menu et commande depuis le téléphone", "Commande en ligne à emporter ou en livraison, 0 % de commission", "Borne de commande", "Site du restaurant, réservation en ligne et fidélité", "Réservations avancées : planning des tables, client reconnu au téléphone, confirmation par e-mail"],
     permissions: ["customers.manage"],
   },
   team: {
@@ -24,10 +24,28 @@ export const OPTIONS = {
     includes: ["Fiches du personnel et plannings", "Pointage des arrivées et départs", "Heures travaillées et coût de la main d'œuvre"],
     permissions: ["staff.manage"],
   },
+  stats: {
+    label: "Statistiques & rapports",
+    tagline: "Comprendre vos ventes et exporter vos chiffres",
+    includes: ["Statistiques : ventes par jour, par heure, par produit et par serveur", "Rapports sur la période de votre choix", "Exports tableur et exports comptables"],
+    permissions: [],
+  },
+  continuity: {
+    label: "Continuité de service",
+    tagline: "La caisse continue quand internet coupe",
+    includes: ["Mode hors ligne des tablettes : commandes, encaissements et tickets sans internet", "Connexion des employés par PIN sans internet", "Boîtier de secours sur place pour les longues coupures", "Tout se resynchronise au retour du réseau"],
+    permissions: [],
+  },
+  ai: {
+    label: "Assistant IA",
+    tagline: "Prévoir la demande et améliorer le restaurant",
+    includes: ["Prévisions de fréquentation à 14 jours, façon Bison Futé (vert, orange, rouge, noir)", "Conseils de la semaine : équipe, mise en place, jours calmes à remplir", "Analyse qualité du restaurant inspirée de la norme ISO 9001, avec un plan d'actions", "Commande d'achats proposée selon votre consommation et les prévisions"],
+    permissions: [],
+  },
   advanced: {
     label: "Avancé",
     tagline: "Pour les établissements qui grandissent",
-    includes: ["Plusieurs établissements et chiffre d'affaires global", "Boîtier de secours pour les coupures d'internet", "Exports comptables, journal d'audit, rôles sur mesure", "API et intégrations (webhooks)"],
+    includes: ["Plusieurs établissements et chiffre d'affaires global", "Journal d'audit et rôles sur mesure", "API et intégrations (webhooks)"],
     permissions: ["establishments.manage", "reports.view_global", "audit.view"],
   },
 } as const satisfies Record<string, { label: string; tagline: string; includes: readonly string[]; permissions: readonly PermissionKey[] }>;

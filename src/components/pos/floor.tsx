@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ShoppingBag, Store, Users, Sparkles, BellRing, Hand } from "lucide-react";
+import { ShoppingBag, Store, Users, Sparkles, BellRing, Hand, CalendarClock } from "lucide-react";
 import { KIND_SHORT, KIND_COLOR } from "./service-todo";
 import { MealSteps, StepDot } from "./meal-steps";
 import { COURSE_STATE_LABEL, courseLabel } from "@/lib/meal-stage";
@@ -16,11 +16,13 @@ import { TableTop } from "@/components/floor/table-shape";
 import { Spinner, Empty } from "@/components/ui/misc";
 import { useToast } from "@/components/ui/toast";
 import { Money } from "@/components/money";
-import { formatElapsed } from "@/lib/dates";
+import { formatElapsed, formatTime, localDay } from "@/lib/dates";
+import Link from "next/link";
 import { useSession } from "@/hooks/use-session";
 import { TABLE_STATUS_COLOR, TABLE_STATUS_LABEL, type FloorStatus, type FloorTable, type Order } from "./types";
 import { addFloorOverride, applyFloorOverrides, buildLocalOrder, DEFAULT_COURSE_NAMES, getFloorOverrides, listOfflineCreatedOrders, saveLocalOrder } from "@/lib/offline/local-orders";
 import { useOffline } from "@/lib/offline/provider";
+import { offlineAllowed } from "@/lib/offline/auth-state";
 
 export function useFloor() {
   const { me } = useSession();
@@ -48,7 +50,8 @@ export function FloorPlan() {
   const router = useRouter();
   const qc = useQueryClient();
   const { toast } = useToast();
-  const { can, me } = useSession();
+  const { can, me, timezone, businessType } = useSession();
+  const resaLabel = (r: NonNullable<FloorTable["reservation"]>) => `${formatTime(r.startsAt, timezone)} · ${r.name.split(" ")[0]} (${r.partySize})`;
   const { online, pending } = useOffline();
   const floor = useFloor();
   const localOrders = useQuery({ queryKey: ["offline-orders", pending], queryFn: listOfflineCreatedOrders, staleTime: 0 });
@@ -74,7 +77,7 @@ export function FloorPlan() {
     const courses = courseNames.map((name) => ({ id: crypto.randomUUID(), name }));
     const body = { id, ...input, courses, openedAt: new Date().toISOString() };
     try {
-      const order = await (online ? api.post<Order>("/api/orders", body, { idempotencyKey: id, queueIfOffline: true }) : Promise.reject(new ApiClientError(0, "QUEUED", "offline")));
+      const order = await (online || !offlineAllowed() ? api.post<Order>("/api/orders", body, { idempotencyKey: id, queueIfOffline: true }) : Promise.reject(new ApiClientError(0, "QUEUED", "offline")));
       await saveLocalOrder(order);
       qc.invalidateQueries({ queryKey: ["floor"] });
       router.push(`/pos/order/${order.id}`);
@@ -130,6 +133,7 @@ export function FloorPlan() {
           ))}
         </div>
         <span className="hidden text-sm text-muted md:inline"><Users className="mr-1 inline h-4 w-4" />{occupied} table{occupied > 1 ? "s" : ""} occupée{occupied > 1 ? "s" : ""}</span>
+        {businessType !== "snack" ? <TodayReservations /> : null}
         <div className="ml-auto flex gap-2">
           <Button variant="secondary" size="md" className="sm:h-14 sm:px-6 sm:text-base sm:rounded-2xl" loading={busy} onClick={() => openOrder({ type: "COUNTER" })}><Store className="h-5 w-5" /> Comptoir</Button>
           <Button variant="accent" size="md" className="sm:h-14 sm:px-6 sm:text-base sm:rounded-2xl" loading={busy} onClick={() => openOrder({ type: "TAKEAWAY" })}><ShoppingBag className="h-5 w-5" /> À emporter</Button>
@@ -148,6 +152,7 @@ export function FloorPlan() {
                 ) : (
                   <span className="mt-1 text-xs font-medium text-muted">{t.status === "FREE" ? `${t.seats} places · libre` : TABLE_STATUS_LABEL[t.status]}</span>
                 )}
+                {!t.order && t.reservation ? <span data-testid="table-reservation" className="mt-1 inline-flex items-center gap-1 self-start rounded-full bg-amber-500/15 px-2 py-0.5 text-[11px] font-bold text-amber-700 dark:text-amber-300"><CalendarClock className="h-3 w-3" />{resaLabel(t.reservation)}</span> : null}
               </button>
             );
           })}
@@ -187,7 +192,7 @@ export function FloorPlan() {
                     {t.serverInitials && !t.callRequestedAt ? <span className="absolute -left-1.5 -top-1.5 flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-extrabold text-white shadow-lift ring-2 ring-[var(--surface)]" style={{ background: t.serverColor ?? "#334155" }} title="Serveur responsable">{t.serverInitials}</span> : null}
                     {t.service ? <span className={`absolute -bottom-2.5 left-1/2 flex -translate-x-1/2 items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-extrabold shadow-lift ${t.service.late ? "bg-red-600 text-white pulse-soft" : "text-white"}`} style={t.service.late ? undefined : { background: KIND_COLOR[t.service.kind] }} title={t.service.label}>{KIND_SHORT[t.service.kind]}{t.service.count > 1 ? ` +${t.service.count - 1}` : ""}{t.service.waitingMin ? ` · ${t.service.waitingMin} min` : ""}</span> : null}
                   </>
-                ) : null}
+                ) : t.reservation ? <span data-testid="table-reservation" className="absolute -bottom-2.5 left-1/2 flex -translate-x-1/2 items-center gap-1 whitespace-nowrap rounded-full bg-amber-500 px-2 py-0.5 text-[10px] font-extrabold text-white shadow-lift" title="Prochaine réservation"><CalendarClock className="h-3 w-3" />{resaLabel(t.reservation)}</span> : null}
               </button>
             );
           })}
@@ -216,5 +221,23 @@ export function FloorPlan() {
         </div>
       </Modal>
     </div>
+  );
+}
+
+/** Réservations du jour, en vue sur le plan de salle : nombre, couverts et prochaine arrivée ; un appui ouvre les réservations. */
+function TodayReservations() {
+  const { timezone } = useSession();
+  const day = localDay(new Date(), timezone);
+  const q = useQuery({ queryKey: ["reservations", day], queryFn: () => api.get<{ id: string; name: string; partySize: number; startsAt: string; status: string; table: { name: string } | null }[]>(`/api/reservations?day=${day}`), refetchInterval: 60_000 });
+  const list = (q.data ?? []).filter((r) => ["PENDING", "CONFIRMED", "ARRIVED"].includes(r.status));
+  const next = list.find((r) => new Date(r.startsAt).getTime() > q.dataUpdatedAt - 30 * 60_000); // heure du dernier rafraîchissement (chaque minute)
+  const pending = list.filter((r) => r.status === "PENDING").length;
+  return (
+    <Link href="/pos/reservations" data-testid="floor-reservations" className={`touch flex h-11 min-w-0 items-center gap-2 rounded-full px-4 text-sm font-bold transition ${pending ? "bg-amber-500/15 text-amber-800 dark:text-amber-200" : "card hover:surface-2"}`}>
+      <CalendarClock className="h-4 w-4 shrink-0 text-lagon-600" />
+      <span className="shrink-0">{list.length ? `${list.length} réservation${list.length > 1 ? "s" : ""}` : "Réservations"}</span>
+      {next ? <span className="truncate font-semibold text-muted">· prochaine {formatTime(next.startsAt, timezone)} {next.name.split(" ")[0]} ({next.partySize}){next.table ? ` · ${next.table.name}` : ""}</span> : list.length ? null : <span className="hidden font-semibold text-muted sm:inline">· aucune aujourd&apos;hui</span>}
+      {pending ? <span className="shrink-0 rounded-full bg-amber-500 px-2 text-[11px] font-extrabold text-white">{pending} à confirmer</span> : null}
+    </Link>
   );
 }

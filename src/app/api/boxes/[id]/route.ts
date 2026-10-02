@@ -8,7 +8,7 @@ export const DELETE = route<{ id: string }>(async (_req, { params }) => {
   const ctx = await requirePermission("settings.manage");
   await assertNotDemoAccount(ctx.organizationId);
   assertOwner(ctx);
-  requireOption(ctx, "advanced");
+  requireOption(ctx, "continuity");
   await revokeBox(actorFrom(ctx), params.id);
   return ok({ revoked: true });
 });

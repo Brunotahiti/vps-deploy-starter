@@ -5,7 +5,7 @@ process.env.PW_EXPERIMENTAL_SERVICE_WORKER_NETWORK_EVENTS ??= "1";
 
 /**
  * Tests E2E ManaResto. Cible un serveur déjà démarré (E2E_BASE_URL, défaut http://localhost:3100)
- * avec la base de démonstration (pnpm db:seed), lancé avec DEMO_UNLOCKED=1 : les tests créent utilisateurs,
+ * avec la base de démonstration (pnpm db:seed), lancé avec DEMO_UNLOCKED=1 et AI_TRANSPORT=fake (Assistant IA sans clé) : les tests créent utilisateurs,
  * clés d'API et boîtiers sur le compte de démonstration, verrouillé en production.
  */
 export default defineConfig({

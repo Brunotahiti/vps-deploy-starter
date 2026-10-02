@@ -60,6 +60,32 @@ ${input.address || input.phone ? `<p style="margin:18px 0 0;font-size:12px;color
   return { to: input.to, subject: `${title} ${input.orderNumber} — ${input.establishmentName}`, text, html, attachments: [{ filename: `recu-${input.orderNumber}.pdf`, content: input.pdf, contentType: "application/pdf" }] };
 }
 
+/** Confirmation, modification ou annulation d'une réservation, envoyée au client au nom du restaurant. */
+export function reservationMail(input: { to: string; kind: "confirmed" | "updated" | "cancelled"; establishmentName: string; name: string; partySize: number; dateLabel: string; timeLabel: string; phone?: string | null; address?: string | null }): OutgoingMail {
+  const title = input.kind === "cancelled" ? "Réservation annulée" : input.kind === "updated" ? "Réservation modifiée" : "Réservation confirmée";
+  const lead = input.kind === "cancelled" ? "votre réservation est annulée." : input.kind === "updated" ? "votre réservation a été modifiée. La voici à jour :" : "votre table est réservée. Nous avons hâte de vous accueillir.";
+  const people = `${input.partySize} personne${input.partySize > 1 ? "s" : ""}`;
+  const html = `<!doctype html><html lang="fr"><body style="margin:0;background:#f3f5f8;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#0f172a">
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td align="center" style="padding:24px 12px">
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:520px;background:#fff;border-radius:20px;overflow:hidden;box-shadow:0 6px 20px -8px rgba(15,23,42,.15)">
+<tr><td style="background:linear-gradient(135deg,#14aaa3,#0f6e6c);padding:28px 28px 24px;color:#fff">
+<div style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;opacity:.85">${esc(input.establishmentName)}</div>
+<div style="font-size:24px;font-weight:800;margin-top:6px">${title}</div></td></tr>
+<tr><td style="padding:24px 28px">
+<p style="margin:0 0 16px;font-size:15px;line-height:1.5">Bonjour ${esc(input.name)},<br>${lead}</p>
+<table role="presentation" cellspacing="0" cellpadding="0" style="width:100%;background:#f1f4f8;border-radius:14px${input.kind === "cancelled" ? ";opacity:.6;text-decoration:line-through" : ""}"><tr>
+<td style="padding:16px 18px"><div style="font-size:12px;color:#64748b">Date</div><div style="font-size:16px;font-weight:800;text-transform:capitalize">${esc(input.dateLabel)}</div></td>
+<td style="padding:16px 18px"><div style="font-size:12px;color:#64748b">Heure</div><div style="font-size:16px;font-weight:800">${esc(input.timeLabel)}</div></td>
+<td style="padding:16px 18px"><div style="font-size:12px;color:#64748b">Table pour</div><div style="font-size:16px;font-weight:800">${people}</div></td></tr></table>
+<p style="margin:18px 0 0;font-size:13px;color:#475569;line-height:1.5">${input.kind === "cancelled" ? "Pour réserver à une autre date" : "Un empêchement ou un changement"} : ${input.phone ? `appelez-nous au <strong>${esc(input.phone)}</strong>.` : "contactez directement le restaurant."}</p>
+${input.address ? `<p style="margin:12px 0 0;font-size:12px;color:#64748b">${esc(input.establishmentName)} · ${esc(input.address)}</p>` : ""}
+<p style="margin:22px 0 0;font-size:14px">À bientôt · <em>Māuruuru</em></p></td></tr>
+<tr><td style="padding:14px 28px;background:#f8fafc;font-size:11px;color:#94a3b8;text-align:center">E-mail envoyé par ManaResto pour ${esc(input.establishmentName)}. Ne pas répondre à cet e-mail automatique.</td></tr>
+</table></td></tr></table></body></html>`;
+  const text = `${title} — ${input.establishmentName}\nBonjour ${input.name}, ${lead}\n${input.dateLabel} à ${input.timeLabel} · ${people}\n${input.phone ? `Un changement ? Appelez-nous au ${input.phone}.` : ""}\nMāuruuru !`;
+  return { to: input.to, subject: `${title} · ${input.establishmentName} · ${input.dateLabel} ${input.timeLabel}`, text, html };
+}
+
 /** E-mail d'invitation à rejoindre l'équipe : bouton vers la page de création du mot de passe. */
 export function invitationMail(input: { to: string; firstName: string; organizationName: string; establishments: string[]; inviterName: string; url: string; expiresDays: number }): OutgoingMail {
   const where = input.establishments.length ? input.establishments.join(", ") : input.organizationName;
