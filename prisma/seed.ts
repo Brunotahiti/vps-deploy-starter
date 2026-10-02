@@ -275,4 +275,9 @@ async function main() {
   console.log(`✓ Démo créée : ${counter} commandes. Connexion : demo@manaresto.pf / demo1234 (PIN 1234)`);
 }
 
-main().catch((e) => { console.error(e); process.exit(1); }).finally(() => prisma.$disconnect());
+// Sortie explicite : le rafraîchissement utilise aussi le client de l'application (src/server/db), dont les connexions
+// restent ouvertes 5 minutes ; sans cela le processus (déploiement, tâche horaire) attendrait 5 minutes pour rien
+main()
+  .then(() => prisma.$disconnect())
+  .then(() => process.exit(0))
+  .catch((e) => { console.error(e); process.exit(1); });
