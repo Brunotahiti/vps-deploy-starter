@@ -112,7 +112,7 @@ test("un serveur ne peut pas ouvrir les rapports ni l'administration", async ({ 
 test("le back-office affiche le tableau de bord et le catalogue", async ({ page }) => {
   await login(page, "demo@manaresto.pf");
   await page.goto("/admin");
-  await expect(page.getByRole("heading", { name: "Tableau de bord" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /^(Bonjour|Bonsoir)/ })).toBeVisible();
   await expect(page.getByText("Chiffre d'affaires par heure")).toBeVisible();
   await expect(page.getByRole("heading", { name: "14 derniers jours" })).toBeVisible();
   await expect(page.getByText("commande", { exact: false }).first()).toBeVisible();

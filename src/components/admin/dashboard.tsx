@@ -11,6 +11,7 @@ import { Spinner } from "@/components/ui/misc";
 import { Money } from "@/components/money";
 import { PageHeader } from "./common";
 import { LiveDemoCard } from "@/components/demo-visit";
+import { DayGoal, GettingStarted, greeting } from "./fun";
 import { ChartCard, ColumnChart, LineChart, HBars, StackedBar, Ranking, Stat, Delta, Meter, Sparkline, compact } from "./charts";
 import type { DailySummary } from "@/components/pos/types";
 import { PAYMENT_LABEL } from "@/components/pos/types";
@@ -37,6 +38,8 @@ export function Dashboard() {
   const allowed = can("reports.view");
   const daily = useQuery({ queryKey: ["reports", "daily", day], queryFn: () => api.get<DailySummary>(`/api/reports/daily?day=${day}`), refetchInterval: 60_000, enabled: allowed, placeholderData: (prev) => prev });
   const range = useQuery({ queryKey: ["reports", "range", day], queryFn: () => api.get<RangeDay[]>(`/api/reports/range?from=${addDays(day, -13)}&to=${day}`), enabled: allowed, placeholderData: (prev) => prev });
+  // Objectif du jour : les 4 semaines précédentes (moyenne des mêmes jours de la semaine)
+  const month = useQuery({ queryKey: ["reports", "range", "goal", day], queryFn: () => api.get<RangeDay[]>(`/api/reports/range?from=${addDays(day, -28)}&to=${addDays(day, -1)}`), enabled: allowed && day === today });
   const overview = useQuery({ queryKey: ["reports", "overview", day], queryFn: () => api.get<Overview>(`/api/reports/overview?day=${day}`), enabled: can("reports.view_global") && (me?.establishments?.length ?? 0) > 1 });
   const staff = useQuery({ queryKey: ["staff", "summary", day], queryFn: () => api.get<StaffSummary>(`/api/staff/summary?from=${day}&to=${day}`), enabled: allowed && can("staff.manage") });
   const d = daily.data;
@@ -53,11 +56,13 @@ export function Dashboard() {
     </div>
   );
 
-  if (!allowed) return <div><PageHeader title="Tableau de bord" subtitle={me?.establishment?.name} /><p className="card p-6 text-sm text-muted">Ce compte n&apos;a pas accès aux rapports. Utilisez le menu pour rejoindre les écrans qui vous sont ouverts.</p></div>;
+  const hello = greeting(me?.user?.firstName, timezone);
+  if (!allowed) return <div><PageHeader title={hello.title} subtitle={me?.establishment?.name} /><p className="card p-6 text-sm text-muted">Ce compte n&apos;a pas accès aux rapports. Utilisez le menu pour rejoindre les écrans qui vous sont ouverts.</p></div>;
   return (
     <div>
-      <PageHeader title="Tableau de bord" subtitle={me?.establishment?.name} action={dateNav} />
+      <PageHeader title={hello.title} subtitle={`${me?.establishment?.name ?? ""} · ${hello.mood}`} action={dateNav} />
       <LiveDemoCard />
+      {me?.establishment ? <GettingStarted establishmentId={me.establishment.id} /> : null}
       {daily.isLoading || !d ? <div className="flex justify-center py-20"><Spinner /></div> : (
         <div className={`space-y-4 transition-opacity duration-300 ${stale ? "opacity-60" : ""}`}>
           {/* ---- Chiffre phare + en direct */}
@@ -72,6 +77,7 @@ export function Dashboard() {
                   <Delta value={d.previous ? pct(d.revenue, d.previous.revenue) : null} light />
                   <span className="text-white/85">HT {formatMoney(d.revenueHt, currency)} · TVA {formatMoney(d.tax, currency)}</span>
                 </div>
+                {isToday && month.data ? <DayGoal day={day} revenue={d.revenue} history={month.data} currency={currency} /> : null}
                 <div className="mt-5">
                   <p className="mb-1 flex items-center justify-between text-[11px] font-semibold text-white/75"><span>14 derniers jours</span><span>{days.length ? `max ${compact(Math.max(...days.map((x) => x.revenue)), currency)}` : ""}</span></p>
                   <Sparkline data={days.map((x) => x.revenue)} color="#ffffff" height={48} />
