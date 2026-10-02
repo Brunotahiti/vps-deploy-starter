@@ -348,6 +348,25 @@ export async function getPosCatalog(establishmentId: string) {
   };
 }
 
+/**
+ * TVA de plusieurs produits d'un coup (une catégorie, une sélection, ou toute la carte). Les commandes déjà
+ * passées gardent leur taux : seules les prochaines ventes prennent le nouveau.
+ */
+export async function setProductsTaxRate(actor: Actor, input: { taxRateId: string | null; productIds?: string[]; categoryId?: string | null; all?: boolean }) {
+  if (input.taxRateId && !(await prisma.taxRate.findFirst({ where: { id: input.taxRateId, establishmentId: actor.establishmentId } }))) throw new ApiError(400, "BAD_TAX_RATE", "Taux de TVA invalide");
+  if (!input.all && !input.categoryId && !input.productIds?.length) throw new ApiError(400, "NO_TARGET", "Choisissez des produits ou une catégorie");
+  const where = {
+    establishmentId: actor.establishmentId, isActive: true,
+    ...(input.productIds?.length ? { id: { in: input.productIds } } : {}),
+    ...(input.categoryId ? { categoryId: input.categoryId } : {}),
+  };
+  const before = await prisma.product.findMany({ where, select: { id: true, name: true, taxRateId: true } });
+  const { count } = await prisma.product.updateMany({ where, data: { taxRateId: input.taxRateId } });
+  await audit({ ...actor, action: "product.tax_rate.bulk", entityType: "product", entityId: null, oldValue: { products: before.map((p) => ({ name: p.name, taxRateId: p.taxRateId })) }, newValue: { taxRateId: input.taxRateId, count } });
+  publish("catalog.updated", actor.establishmentId, {});
+  return { updated: count };
+}
+
 // ---------------------------------------------------------------- Import CSV
 export type ImportRow = { category: string; name: string; description?: string; priceTtc: number; taxRateBps?: number | null; costPrice?: number; sku?: string; isAvailable?: boolean };
 

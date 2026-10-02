@@ -5,6 +5,7 @@ import { api } from "@/lib/api-client";
 import { useSession } from "@/hooks/use-session";
 import { formatBps } from "@/lib/money";
 import { Button } from "@/components/ui/button";
+import { useToast } from "@/components/ui/toast";
 import { Modal } from "@/components/ui/modal";
 import { Field, Input, Select, Textarea, Toggle } from "@/components/ui/field";
 import { Spinner, Badge } from "@/components/ui/misc";
@@ -24,6 +25,8 @@ const DAYS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
 export default function ProductsPage() {
   const { can } = useSession();
   const act = useAction();
+  const { toast } = useToast();
+  const toastTax = (n: number) => toast(`TVA modifiée sur ${n} produit${n > 1 ? "s" : ""} : les prochaines ventes prennent le nouveau taux`, "success");
   const products = useList<Product[]>(["products"], "/api/products?all=1");
   const categories = useList<Awaited<ReturnType<typeof listCategories>>>(["categories"], "/api/categories");
   const taxRates = useList<TaxRate[]>(["tax-rates"], "/api/tax-rates");
@@ -34,8 +37,16 @@ export default function ProductsPage() {
   const [noPhoto, setNoPhoto] = useState(false);
   const [edit, setEdit] = useState<{ id?: string; form: Form } | null>(null);
   const [saving, setSaving] = useState(false);
-
+  const [bulkTax, setBulkTax] = useState<{ scope: "shown" | "all"; taxRateId: string } | null>(null);
   const list = useMemo(() => (products.data ?? []).filter((p) => (!cat || p.categoryId === cat) && (!noPhoto || !p.imageUrl) && (!search || p.name.toLowerCase().includes(search.toLowerCase()) || p.sku?.toLowerCase().includes(search.toLowerCase()))), [products.data, cat, search, noPhoto]);
+  const setTax = (p: Product, taxRateId: string) => act(() => api.patch(`/api/products/${p.id}`, { taxRateId: taxRateId || null }), { success: `TVA de « ${p.name} » modifiée`, invalidate: [["products"], ["pos-catalog"]] });
+  const applyBulkTax = async () => {
+    if (!bulkTax) return;
+    const body = bulkTax.scope === "all" ? { all: true, taxRateId: bulkTax.taxRateId || null } : { productIds: list.map((p) => p.id), taxRateId: bulkTax.taxRateId || null };
+    const r = await act(() => api.post<{ updated: number }>("/api/products/tax-rate", body), { invalidate: [["products"], ["pos-catalog"]] });
+    if (r) { setBulkTax(null); toastTax(r.updated); }
+  };
+
   const missingPhotos = (products.data ?? []).filter((p) => p.isActive && !p.imageUrl).length;
   const setPhoto = (p: Product, url: string) => act(() => api.patch(`/api/products/${p.id}`, { imageUrl: url }), { success: `Photo de « ${p.name} » enregistrée`, invalidate: [["products"], ["pos-catalog"]] });
   const openNew = () => setEdit({ form: { ...empty, taxRateId: taxRates.data?.find((t) => t.isDefault)?.id ?? "", categoryId: cat } });
@@ -55,7 +66,7 @@ export default function ProductsPage() {
 
   return (
     <div>
-      <PageHeader title="Catalogue" subtitle="Produits, prix TTC, TVA, coût matière, options, disponibilité" action={can("catalog.manage") ? <Button onClick={openNew}>Nouveau produit</Button> : null} />
+      <PageHeader title="Catalogue" subtitle="Produits, prix TTC, TVA, coût matière, options, disponibilité" action={can("catalog.manage") ? <div className="flex flex-wrap gap-2"><Button variant="secondary" onClick={() => setBulkTax({ scope: "shown", taxRateId: taxRates.data?.find((t) => t.isDefault)?.id ?? "" })}>% Changer la TVA</Button><Button onClick={openNew}>Nouveau produit</Button></div> : null} />
       <CatalogTabs />
       <div className="mb-3 flex flex-wrap gap-2"><Input placeholder="Rechercher…" value={search} onChange={(e) => setSearch(e.target.value)} className="max-w-xs" /><Select value={cat} onChange={(e) => setCat(e.target.value)} className="max-w-xs"><option value="">Toutes catégories</option>{categories.data?.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</Select>{missingPhotos > 0 || noPhoto ? <button type="button" onClick={() => setNoPhoto(!noPhoto)} aria-pressed={noPhoto} className={`touch inline-flex h-11 items-center gap-2 rounded-xl px-3 text-sm font-semibold ${noPhoto ? "bg-brand text-white" : "surface-2"}`}>Sans photo<span className={`rounded-full px-2 text-xs font-bold ${noPhoto ? "bg-white/20" : "bg-orange-500/15 text-orange-600"}`}>{missingPhotos}</span></button> : null}</div>
       {can("catalog.manage") && (products.data?.length ?? 0) > 0 ? <p className="mb-3 text-xs text-muted">Astuce : touchez la vignette d&apos;un plat pour le prendre en photo ou choisir une image. Elle apparaît aussitôt en caisse, sur le menu QR et sur la commande en ligne.</p> : null}
@@ -69,7 +80,7 @@ export default function ProductsPage() {
                   {can("catalog.manage") ? <QuickPhoto value={p.imageUrl} label={p.imageUrl ? `Changer la photo de ${p.name}` : `Ajouter une photo à ${p.name}`} onUploaded={(url) => setPhoto(p, url)} /> : p.imageUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element -- vignette du catalogue
                     <img src={p.imageUrl} alt="" className="h-10 w-14 shrink-0 rounded-lg object-cover" />
-                  ) : <span className="h-10 w-14 shrink-0 rounded-lg surface-2" />}<span><span className="font-semibold">{p.name}</span>{!p.isActive ? <Badge color="gray">archivé</Badge> : null}<span className="block text-xs text-muted">{p.sku ?? ""}</span></span></span></Td><Td><span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: p.category?.color }} /> {p.category?.name ?? "—"}</Td><Td className="font-semibold"><Money amount={p.priceTtc} /></Td><Td>{p.taxRate ? formatBps(p.taxRate.rateBps) : "—"}</Td><Td><Money amount={p.costPrice} /></Td>
+                  ) : <span className="h-10 w-14 shrink-0 rounded-lg surface-2" />}<span><span className="font-semibold">{p.name}</span>{!p.isActive ? <Badge color="gray">archivé</Badge> : null}<span className="block text-xs text-muted">{p.sku ?? ""}</span></span></span></Td><Td><span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: p.category?.color }} /> {p.category?.name ?? "—"}</Td><Td className="font-semibold"><Money amount={p.priceTtc} /></Td><Td>{can("catalog.manage") ? <select aria-label={`TVA de ${p.name}`} value={p.taxRateId ?? ""} onClick={(e) => e.stopPropagation()} onChange={(e) => setTax(p, e.target.value)} className="rounded-lg border border-line surface px-1.5 py-1 text-sm font-semibold"><option value="">0 %</option>{taxRates.data?.map((t) => <option key={t.id} value={t.id}>{formatBps(t.rateBps)}</option>)}</select> : p.taxRate ? formatBps(p.taxRate.rateBps) : "—"}</Td><Td><Money amount={p.costPrice} /></Td>
                 <Td><span className={m < 60 ? "text-orange-500" : "text-green-600"}>{m} %</span><span className="block text-[10px] text-muted">ratio matière {100 - m} %</span></Td><Td>{p.kitchenStation?.name ?? "—"}</Td><Td>{p.modifierGroups.length || "—"}</Td>
                 <Td><button onClick={(e) => { e.stopPropagation(); act(() => api.post(`/api/products/${p.id}/availability`, { isAvailable: !p.isAvailable }), { invalidate: [["products"], ["pos-catalog"]] }); }} className={`touch rounded-md px-2 py-0.5 text-xs font-bold ${p.isAvailable ? "bg-green-500/15 text-green-600" : "bg-red-500/15 text-red-600"}`}>{p.isAvailable ? "Disponible" : "Rupture"}</button></Td>
                 <Td>{can("catalog.manage") ? <button onClick={(e) => { e.stopPropagation(); if (confirm(`Supprimer / archiver « ${p.name} » ?`)) act(() => api.delete(`/api/products/${p.id}`), { success: "Produit supprimé", invalidate: [["products"], ["pos-catalog"]] }); }} className="text-xs font-semibold text-red-600">Supprimer</button> : null}</Td>
@@ -78,6 +89,16 @@ export default function ProductsPage() {
           })}
         </Table>
       )}
+      <Modal open={!!bulkTax} onClose={() => setBulkTax(null)} title="Changer la TVA" size="sm" footer={<Button className="w-full" onClick={applyBulkTax}>Appliquer à {bulkTax?.scope === "all" ? "toute la carte" : `${list.length} produit${list.length > 1 ? "s" : ""}`}</Button>}>
+        {bulkTax ? <div className="space-y-3" data-testid="bulk-tax">
+          <div className="grid gap-2">
+            <button onClick={() => setBulkTax({ ...bulkTax, scope: "shown" })} aria-pressed={bulkTax.scope === "shown"} className={`touch rounded-2xl border p-3 text-left ${bulkTax.scope === "shown" ? "border-lagon-500 bg-lagon-500/10" : "border-line"}`}><b>Les produits affichés ({list.length})</b><span className="block text-xs text-muted">{cat ? `Catégorie « ${categories.data?.find((c) => c.id === cat)?.name ?? ""} »` : "Filtrez d'abord par catégorie ou par recherche pour cibler"}</span></button>
+            <button onClick={() => setBulkTax({ ...bulkTax, scope: "all" })} aria-pressed={bulkTax.scope === "all"} className={`touch rounded-2xl border p-3 text-left ${bulkTax.scope === "all" ? "border-lagon-500 bg-lagon-500/10" : "border-line"}`}><b>Toute la carte</b><span className="block text-xs text-muted">{(products.data ?? []).filter((p) => p.isActive).length} produits</span></button>
+          </div>
+          <Field label="Nouveau taux"><Select aria-label="Nouveau taux" value={bulkTax.taxRateId} onChange={(e) => setBulkTax({ ...bulkTax, taxRateId: e.target.value })}><option value="">Aucune (0 %)</option>{taxRates.data?.map((t) => <option key={t.id} value={t.id}>{t.name} — {formatBps(t.rateBps)}</option>)}</Select></Field>
+          <p className="text-xs text-muted">Les commandes déjà passées gardent leur taux ; les prochaines ventes prennent le nouveau. Le prix TTC ne change pas.</p>
+        </div> : null}
+      </Modal>
       <Modal open={!!edit} onClose={() => setEdit(null)} title={edit?.id ? "Modifier le produit" : "Nouveau produit"} size="xl" footer={<div className="flex justify-end gap-2"><Button variant="ghost" onClick={() => setEdit(null)}>Annuler</Button><Button loading={saving} disabled={!f?.name || f.priceTtc === ""} onClick={save}>Enregistrer</Button></div>}>
         {f ? (
           <div className="grid gap-4 md:grid-cols-2">
@@ -86,7 +107,7 @@ export default function ProductsPage() {
             <Field label="Catégorie"><Select value={f.categoryId} onChange={(e) => set({ categoryId: e.target.value })}><option value="">—</option>{categories.data?.map((c) => <option key={c.id} value={c.id}>{c.parentId ? "  ↳ " : ""}{c.name}</option>)}</Select></Field>
             <Field label="Poste cuisine / imprimante"><Select value={f.kitchenStationId} onChange={(e) => set({ kitchenStationId: e.target.value })}><option value="">—</option>{stations.data?.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</Select></Field>
             <Field label="Prix TTC"><Input type="number" min={0} value={f.priceTtc} onChange={(e) => set({ priceTtc: e.target.value })} /></Field>
-            <Field label="TVA"><Select value={f.taxRateId} onChange={(e) => set({ taxRateId: e.target.value })}><option value="">Aucune (0 %)</option>{taxRates.data?.map((t) => <option key={t.id} value={t.id}>{t.name} — {formatBps(t.rateBps)}</option>)}</Select></Field>
+            <Field label="TVA" hint="Les taux se règlent dans Carte → TVA"><Select value={f.taxRateId} onChange={(e) => set({ taxRateId: e.target.value })}><option value="">Aucune (0 %)</option>{taxRates.data?.map((t) => <option key={t.id} value={t.id}>{t.name} — {formatBps(t.rateBps)}</option>)}</Select></Field>
             <Field label="Coût matière" hint={margin !== null ? `Marge brute ${margin} % · ratio matière ${Math.round((100 - margin) * 10) / 10} %` : undefined}><Input type="number" min={0} value={f.costPrice} onChange={(e) => set({ costPrice: e.target.value })} /></Field>
             <Field label="Couleur (hex, facultatif)"><Input value={f.color} onChange={(e) => set({ color: e.target.value })} placeholder="#F97316" /></Field>
             <Field label="Référence / SKU"><Input value={f.sku} onChange={(e) => set({ sku: e.target.value })} /></Field>
