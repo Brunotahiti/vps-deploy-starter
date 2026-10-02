@@ -143,6 +143,19 @@ bash scripts/plan.sh <slug-entreprise> TRIAL 30      # nouvel essai de 30 jours
 
 Le slug figure dans l'URL des pages publiques de l'entreprise (`/commander/<slug>/…`) et dans la table `organizations`.
 
+## Boîtier de secours (mini-PC du restaurant)
+
+Le boîtier prend le relais des tablettes quand internet coupe (voir `tools/box-gateway/README.md`). Côté serveur, une seule chose à régler pour l'adresse HTTPS des boîtiers (indispensable pour la connexion par PIN hors ligne et l'installation de l'application sur les tablettes) :
+
+1. Chez Cloudflare (zone `manaresto.com`) : créer un jeton API avec le droit **Zone → DNS → Modifier** limité à cette zone, et noter l'identifiant de zone (page d'accueil de la zone, colonne de droite).
+2. Dans le `.env` du VPS : `BOX_DNS_ZONE=box.manaresto.com`, `CLOUDFLARE_ZONE_ID=…`, `CLOUDFLARE_API_TOKEN=…`, `ACME_EMAIL=contact@manaresto.com`, puis redéployer.
+
+Chaque boîtier reçoit alors l'adresse `<8 caractères>.box.manaresto.com`, qui pointe vers son adresse sur le réseau du restaurant, avec un certificat Let's Encrypt (défi DNS : rien à ouvrir chez le restaurateur). Le compte Let's Encrypt est créé une fois et gardé en base (`platform_secrets`).
+
+Installation chez un restaurateur : Admin → Imprimantes & tiroir → **Boîtier de secours → Ajouter un boîtier**, puis la commande affichée sur le mini-PC (Ubuntu ou Debian, Intel/AMD, branché par câble sur la box). Le boîtier télécharge la version de l'application depuis le serveur (`/api/box/release`, avec sa clé) et se met à jour tout seul après chaque déploiement.
+
+Certaines box internet bloquent les noms qui pointent vers une adresse locale (« protection contre le DNS rebinding ») : si les tablettes ne trouvent pas l'adresse du boîtier, autoriser `box.manaresto.com` dans les réglages DNS de la box.
+
 ## Sécurité en production
 
 - Changer le mot de passe du compte propriétaire de démo, ou créer votre entreprise via `/signup` et ne pas charger la démo.

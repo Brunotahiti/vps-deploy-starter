@@ -19,6 +19,8 @@ export async function createSession(opts: {
   userAgent?: string | null;
   impersonatorId?: string | null; // console plateforme : « prendre la main »
   ttlMs?: number;
+  scope?: "pos" | null; // session limitée à la caisse de son établissement
+  boxId?: string | null;
 }) {
   const token = randomToken(32);
   const session = await prisma.session.create({
@@ -30,6 +32,8 @@ export async function createSession(opts: {
       ip: opts.ip ?? null,
       userAgent: opts.userAgent?.slice(0, 255) ?? null,
       impersonatorId: opts.impersonatorId ?? null,
+      scope: opts.scope ?? null,
+      boxId: opts.boxId ?? null,
       expiresAt: new Date(Date.now() + (opts.ttlMs ?? ttlMs())),
     },
   });

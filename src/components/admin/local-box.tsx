@@ -22,14 +22,25 @@ function ago(date: string | Date, now: number) {
   return `il y a ${Math.round(s / 86400)} j`;
 }
 
+/** Ligne à copier (clé, commande) */
+function CopyLine({ value, testId, label }: { value: string; testId: string; label: string }) {
+  const { toast } = useToast();
+  return (
+    <div className="flex items-stretch gap-2">
+      <code className="min-w-0 flex-1 break-all rounded-xl surface-2 px-3 py-2.5 text-xs" data-testid={testId}>{value}</code>
+      <Button variant="secondary" onClick={() => navigator.clipboard?.writeText(value).then(() => toast(label, "success"), () => toast("Copie impossible : sélectionnez le texte", "error"))}><Copy className="h-4 w-4" />Copier</Button>
+    </div>
+  );
+}
+
 /** Boîtier de secours : mini-PC du restaurant qui garde une copie à jour et prend le relais quand internet coupe. */
 export function LocalBoxes({ now }: { now: number }) {
   const act = useAction();
-  const { toast } = useToast();
   const q = useQuery({ queryKey: ["boxes"], queryFn: () => api.get<Box[]>("/api/boxes"), refetchInterval: 30_000 });
   const [name, setName] = useState<string | null>(null);
   const [created, setCreated] = useState<{ name: string; key: string } | null>(null);
   const boxes = q.data ?? [];
+  const installCommand = `curl -fsSL ${typeof window === "undefined" ? "" : window.location.origin}/box/install.sh -o install.sh && sudo sh install.sh`;
 
   const create = async () => {
     const r = await act(() => api.post<Box & { key: string }>("/api/boxes", { name }), { invalidate: [["boxes"]] });
@@ -63,6 +74,7 @@ export function LocalBoxes({ now }: { now: number }) {
                       : online ? <span className="inline-flex items-center gap-1 text-green-600"><Wifi className="h-3.5 w-3.5" />Copie à jour · {ago(b.lastSeenAt, now)}</span>
                       : <span className="inline-flex items-center gap-1 text-red-600"><WifiOff className="h-3.5 w-3.5" />Injoignable · vu {ago(b.lastSeenAt, now)}</span>}
                   </p>
+                  {b.hostname && b.lanIp ? <p className="mt-1 text-xs">Sur les tablettes : <a href={`https://${b.hostname}`} target="_blank" rel="noreferrer" className="font-bold text-lagon-700 hover:underline dark:text-lagon-300" data-testid="box-hostname">https://{b.hostname}</a></p> : null}
                   {b.lanIp || b.version ? <p className="mt-0.5 text-xs text-muted">{b.lanIp ? `Adresse locale ${b.lanIp}` : ""}{b.lanIp && b.version ? " · " : ""}{b.version ? `version ${b.version}` : ""}</p> : null}
                 </div>
                 <Button size="sm" variant="ghost" className="text-red-600" onClick={() => confirm(`Retirer « ${b.name} » ? Sa clé cessera aussitôt de fonctionner.`) && act(() => api.delete(`/api/boxes/${b.id}`), { success: "Boîtier retiré", invalidate: [["boxes"]] })}><Trash2 className="h-4 w-4" />Retirer</Button>
@@ -83,9 +95,15 @@ export function LocalBoxes({ now }: { now: number }) {
         {created ? (
           <div className="space-y-4 text-sm">
             <p>Saisissez cette clé lors de l&apos;installation du boîtier. <strong>Elle n&apos;est affichée qu&apos;une fois</strong> : en cas de perte, retirez le boîtier et créez-en un nouveau.</p>
-            <div className="flex items-stretch gap-2">
-              <code className="min-w-0 flex-1 break-all rounded-xl surface-2 px-3 py-2.5 text-xs" data-testid="box-key">{created.key}</code>
-              <Button variant="secondary" onClick={() => navigator.clipboard?.writeText(created.key).then(() => toast("Clé copiée", "success"), () => toast("Copie impossible : sélectionnez la clé", "error"))}><Copy className="h-4 w-4" />Copier</Button>
+            <CopyLine value={created.key} testId="box-key" label="Clé copiée" />
+            <div className="rounded-2xl border border-line p-3">
+              <p className="font-bold">Installation sur le mini-PC</p>
+              <ol className="mt-1.5 list-decimal space-y-1.5 pl-5 text-muted">
+                <li>Un mini-PC Intel ou AMD sous Ubuntu ou Debian, branché par câble sur la box du restaurant, toujours allumé.</li>
+                <li>Dans son terminal, lancez la commande ci-dessous, puis collez la clé quand elle est demandée :</li>
+              </ol>
+              <div className="mt-2"><CopyLine value={installCommand} testId="box-install" label="Commande copiée" /></div>
+              <p className="mt-2 text-xs text-muted">À la fin, le boîtier affiche l&apos;adresse à ouvrir sur chaque tablette (elle apparaît aussi ici). Les tablettes s&apos;installent depuis cette adresse.</p>
             </div>
           </div>
         ) : null}

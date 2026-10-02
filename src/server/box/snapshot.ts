@@ -11,24 +11,36 @@
  * est renvoyé au cloud au retour d'internet, qui reste la référence.
  */
 import type { PrismaClient } from "@/generated/prisma/client";
+import { BUILD_ID } from "@/lib/build";
 
 /** $1 = établissement, $2 = entreprise. Ordre = ordre d'insertion (clés étrangères). */
 const ORDERS = `(establishment_id = $1 AND (status IN ('OPEN','SENT','BILL_REQUESTED') OR opened_at > now() - interval '36 hours'))`;
 const ORDER_IDS = `SELECT id FROM orders WHERE ${ORDERS}`;
+const MEMBERS = `SELECT user_id FROM user_establishments WHERE establishment_id = $1`;
 /**
- * `keep` : colonnes de lien vidées quand la ligne visée n'est pas copiée (ex. mouvement de caisse d'une
- * session ouverte depuis plusieurs jours qui renvoie à une commande plus ancienne) : le montant reste juste.
+ * `set` : colonnes réécrites à l'export (expression SQL sur la ligne `t`).
+ * - Liens vers une ligne non copiée vidés (ex. mouvement de caisse d'une vente ancienne) : le montant reste juste.
+ * - Données d'authentification réduites au strict nécessaire : seuls les membres de l'établissement (et le PIN du
+ *   propriétaire) peuvent se connecter sur le boîtier ; jamais le mot de passe du propriétaire ni une invitation.
  */
-export const BOX_TABLES: { table: string; where: string; keep?: Record<string, string> }[] = [
+export const BOX_TABLES: { table: string; where: string; set?: Record<string, string> }[] = [
   { table: "organizations", where: "id = $2" },
-  { table: "establishments", where: "organization_id = $2" },
+  { table: "establishments", where: "id = $1" },
   { table: "permissions", where: "true" },
   { table: "roles", where: "organization_id = $2" },
   { table: "role_permissions", where: "role_id IN (SELECT id FROM roles WHERE organization_id = $2)" },
-  { table: "users", where: "organization_id = $2" },
-  { table: "user_establishments", where: "user_id IN (SELECT id FROM users WHERE organization_id = $2)" },
+  {
+    table: "users", where: "organization_id = $2",
+    set: {
+      password_hash: `CASE WHEN NOT t.is_owner AND t.id IN (${MEMBERS}) THEN t.password_hash ELSE '!' END`,
+      pin_hash: `CASE WHEN t.is_owner OR t.id IN (${MEMBERS}) THEN t.pin_hash END`,
+      email: `CASE WHEN t.is_owner OR t.id IN (${MEMBERS}) THEN t.email ELSE t.id || '@absent.invalid' END`,
+      invite_token: "NULL", invite_expires_at: "NULL",
+    },
+  },
+  { table: "user_establishments", where: "establishment_id = $1" },
   { table: "terminals", where: "establishment_id = $1" },
-  { table: "sessions", where: "expires_at > now() AND user_id IN (SELECT id FROM users WHERE organization_id = $2)" },
+  { table: "sessions", where: `expires_at > now() AND impersonator_id IS NULL AND (establishment_id = $1 OR (establishment_id IS NULL AND user_id IN (SELECT id FROM users WHERE organization_id = $2 AND is_owner)))` },
   { table: "offline_passes", where: "establishment_id = $1 AND revoked_at IS NULL AND expires_at > now()" },
   { table: "rooms", where: "establishment_id = $1" },
   { table: "tables", where: "establishment_id = $1" },
@@ -48,23 +60,27 @@ export const BOX_TABLES: { table: string; where: string; keep?: Record<string, s
   { table: "recipes", where: "product_id IN (SELECT id FROM products WHERE establishment_id = $1)" },
   { table: "payment_method_configs", where: "establishment_id = $1" },
   { table: "order_counters", where: "establishment_id = $1" },
-  { table: "customers", where: "organization_id = $2" },
+  // Clients de l'entreprise : seulement ceux de cet établissement (fidélité, commandes et réservations en cours)
+  { table: "customers", where: `organization_id = $2 AND (id IN (SELECT customer_id FROM loyalty_accounts WHERE establishment_id = $1) OR id IN (SELECT customer_id FROM orders WHERE ${ORDERS}) OR id IN (SELECT customer_id FROM reservations WHERE establishment_id = $1 AND starts_at > now() - interval '1 day'))` },
   { table: "loyalty_accounts", where: "establishment_id = $1" },
   { table: "employees", where: "establishment_id = $1" },
   { table: "shifts", where: "establishment_id = $1 AND starts_at > now() - interval '2 days'" },
   { table: "time_entries", where: "establishment_id = $1 AND at > now() - interval '2 days'" },
   { table: "reservations", where: "establishment_id = $1 AND starts_at > now() - interval '1 day'" },
-  { table: "cash_sessions", where: `establishment_id = $1 AND (status = 'OPEN' OR opened_at > now() - interval '2 days' OR id IN (SELECT cash_session_id FROM payments WHERE order_id IN (SELECT id FROM orders WHERE ${ORDERS})))` },
+  { table: "cash_sessions", where: `establishment_id = $1 AND (status = 'OPEN' OR opened_at > now() - interval '2 days' OR id IN (SELECT cash_session_id FROM payments WHERE order_id IN (${ORDER_IDS})))` },
   { table: "orders", where: ORDERS },
-  { table: "courses", where: `order_id IN (SELECT id FROM orders WHERE ${ORDERS})` },
-  { table: "kitchen_tickets", where: `order_id IN (SELECT id FROM orders WHERE ${ORDERS})` },
-  { table: "order_items", where: `order_id IN (SELECT id FROM orders WHERE ${ORDERS})` },
-  { table: "order_item_modifiers", where: `order_item_id IN (SELECT i.id FROM order_items i WHERE i.order_id IN (SELECT id FROM orders WHERE ${ORDERS}))` },
-  { table: "payments", where: `order_id IN (SELECT id FROM orders WHERE ${ORDERS})` },
-  { table: "refunds", where: `payment_id IN (SELECT p.id FROM payments p WHERE p.order_id IN (SELECT id FROM orders WHERE ${ORDERS}))` },
-  { table: "cash_movements", where: `cash_session_id IN (SELECT id FROM cash_sessions WHERE establishment_id = $1 AND (status = 'OPEN' OR opened_at > now() - interval '2 days'))`, keep: { payment_id: `SELECT id FROM payments WHERE order_id IN (${ORDER_IDS})`, order_id: ORDER_IDS } },
-  { table: "table_service_steps", where: `order_id IN (SELECT id FROM orders WHERE ${ORDERS})` },
-  { table: "service_reminders", where: `order_id IN (SELECT id FROM orders WHERE ${ORDERS})` },
+  { table: "courses", where: `order_id IN (${ORDER_IDS})` },
+  { table: "kitchen_tickets", where: `order_id IN (${ORDER_IDS})` },
+  { table: "order_items", where: `order_id IN (${ORDER_IDS})` },
+  { table: "order_item_modifiers", where: `order_item_id IN (SELECT i.id FROM order_items i WHERE i.order_id IN (${ORDER_IDS}))` },
+  { table: "payments", where: `order_id IN (${ORDER_IDS})` },
+  { table: "refunds", where: `payment_id IN (SELECT p.id FROM payments p WHERE p.order_id IN (${ORDER_IDS}))` },
+  {
+    table: "cash_movements", where: `cash_session_id IN (SELECT id FROM cash_sessions WHERE establishment_id = $1 AND (status = 'OPEN' OR opened_at > now() - interval '2 days'))`,
+    set: { payment_id: `CASE WHEN t.payment_id IN (SELECT id FROM payments WHERE order_id IN (${ORDER_IDS})) THEN t.payment_id END`, order_id: `CASE WHEN t.order_id IN (${ORDER_IDS}) THEN t.order_id END` },
+  },
+  { table: "table_service_steps", where: `order_id IN (${ORDER_IDS})` },
+  { table: "service_reminders", where: `order_id IN (${ORDER_IDS})` },
 ];
 
 export type BoxSnapshot = {
@@ -72,6 +88,8 @@ export type BoxSnapshot = {
   /** Dernière migration appliquée : le boîtier refuse une copie d'un schéma différent du sien (mise à jour nécessaire) */
   schema: string;
   generatedAt: string;
+  /** Version de l'application du cloud : le boîtier se met à jour quand elle change */
+  release?: string;
   establishmentId: string;
   organizationId: string;
   tables: Record<string, unknown[]>;
@@ -94,14 +112,14 @@ export async function exportSnapshot(db: PrismaClient, establishmentId: string):
   await db.$transaction(async (tx) => {
     // Une seule vue cohérente de la base pour toutes les tables
     await tx.$executeRawUnsafe(`SET TRANSACTION ISOLATION LEVEL REPEATABLE READ`);
-    for (const { table, where, keep } of BOX_TABLES) {
-      const row = keep ? `to_jsonb(t) || jsonb_build_object(${Object.entries(keep).map(([col, ids]) => `'${col}', CASE WHEN t.${col} IN (${ids}) THEN t.${col} END`).join(", ")})` : "to_jsonb(t)";
+    for (const { table, where, set } of BOX_TABLES) {
+      const row = set ? `to_jsonb(t) || jsonb_build_object(${Object.entries(set).map(([col, expr]) => `'${col}', ${expr}`).join(", ")})` : "to_jsonb(t)";
       // Paramètres typés même quand la table ne s'en sert pas (sinon PostgreSQL refuse la requête)
       const rows = await tx.$queryRawUnsafe<{ rows: unknown[] }[]>(`SELECT coalesce(jsonb_agg(${row}), '[]'::jsonb) AS rows FROM ${ident(table)} t, (SELECT $1::uuid AS est, $2::uuid AS org) _p WHERE ${where}`, establishmentId, est.organizationId);
       tables[table] = rows[0]?.rows ?? [];
     }
   }, { timeout: 60_000 });
-  return { format: 1, schema: await schemaVersion(db), generatedAt: new Date().toISOString(), establishmentId, organizationId: est.organizationId, tables };
+  return { format: 1, schema: await schemaVersion(db), generatedAt: new Date().toISOString(), release: BUILD_ID, establishmentId, organizationId: est.organizationId, tables };
 }
 
 /**

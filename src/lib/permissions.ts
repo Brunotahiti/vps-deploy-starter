@@ -45,6 +45,12 @@ export const PERMISSIONS = {
 export type PermissionKey = keyof typeof PERMISSIONS;
 export const ALL_PERMISSIONS = Object.keys(PERMISSIONS) as PermissionKey[];
 
+/** Session « caisse » (ouverte par un boîtier de secours) : jamais plus que ces droits, même pour le propriétaire. */
+export const POS_SCOPE_PERMISSIONS: PermissionKey[] = [
+  "pos.use", "pos.discount", "pos.void_item", "pos.cancel_order", "pos.refund", "pos.open_drawer", "pos.price_override", "pos.transfer_table",
+  "cash.open", "cash.close", "cash.movement", "catalog.view", "catalog.availability", "kds.use", "customers.manage", "orders.view_history",
+];
+
 export const SYSTEM_ROLES: Record<string, { name: string; permissions: PermissionKey[] | "*" }> = {
   owner: { name: "Propriétaire", permissions: "*" },
   manager: {

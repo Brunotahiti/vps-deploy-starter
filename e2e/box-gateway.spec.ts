@@ -44,8 +44,8 @@ async function waitFor(url: string, ms = 60_000) {
   throw new Error(`${url} injoignable`);
 }
 
-async function loginDemo(request: APIRequestContext, base: string) {
-  const r = await request.post(`${base}/api/auth/login`, { data: { email: "demo@manaresto.pf", password: "demo1234" } });
+async function loginDemo(request: APIRequestContext, base: string, email = "demo@manaresto.pf") {
+  const r = await request.post(`${base}/api/auth/login`, { data: { email, password: "demo1234" } });
   expect(r.status()).toBe(200);
 }
 
@@ -100,6 +100,13 @@ test("coupure d'internet : le boîtier prend le relais, puis tout repart au clou
   await page.waitForURL(/\/(pos|admin)/);
   expect((await page.request.get(`${BOX}/api/auth/me`)).headers()["x-box-mode"]).toBe("relay");
 
+  // Deuxième tablette : enregistrée comme terminal de l'établissement (par le boîtier, en ligne), puis déconnectée
+  const ctx2 = await browser.newContext();
+  const tab2 = ctx2.request;
+  await loginDemo(tab2, BOX);
+  expect((await tab2.post(`${BOX}/api/auth/terminal/register`, { data: { name: "Tablette bar e2e", kind: "POS" } })).status()).toBe(201);
+  await tab2.post(`${BOX}/api/auth/logout`);
+
   // Copie du restaurant dans le boîtier, faite après la connexion (la session de la tablette y est)
   const loggedAt = new Date().toISOString();
   await expect.poll(async () => { const s = await status(); return s.lastSyncError ?? (s.lastSync && s.lastSync > loggedAt ? "copie faite" : "en attente"); }, { timeout: 20_000 }).toBe("copie faite");
@@ -133,10 +140,10 @@ test("coupure d'internet : le boîtier prend le relais, puis tout repart au clou
   const paid = await page.request.post(`${BOX}/api/orders/${order.id}/payments`, { data: { payments: [{ method: "CARD", amount: local.total }] } });
   expect(paid.status()).toBe(200);
 
-  // Une deuxième tablette se connecte pendant la coupure (session du boîtier) et ouvre une commande
-  const ctx2 = await browser.newContext();
-  const tab2 = ctx2.request;
-  await loginDemo(tab2, BOX);
+  // La deuxième tablette se connecte pendant la coupure (la manager, session du boîtier) et ouvre une commande.
+  // Le mot de passe du propriétaire n'est jamais copié sur le boîtier.
+  expect((await tab2.post(`${BOX}/api/auth/login`, { data: { email: "demo@manaresto.pf", password: "demo1234" } })).status()).toBe(401);
+  await loginDemo(tab2, BOX, "manager@manaresto.pf");
   const order2 = (await (await tab2.post(`${BOX}/api/orders`, { data: { type: "TAKEAWAY", customerName: "Moana" } })).json()).data;
   expect((await status()).pending).toBeGreaterThanOrEqual(6);
   expect(fs.readFileSync(path.join(dataDir, "outbox.jsonl"), "utf8")).not.toContain("demo1234");
@@ -154,7 +161,7 @@ test("coupure d'internet : le boîtier prend le relais, puis tout repart au clou
   expect(co.total).toBe(local.total);
   expect(co.items.map((i) => [i.id, i.kitchenTicketId])).toEqual(local.items.map((i) => [i.id, i.kitchenTicketId]));
 
-  // La deuxième tablette continue avec une session du cloud, sans se reconnecter
+  // La deuxième tablette continue avec une session « caisse » du cloud, sans se reconnecter
   const again = await tab2.get(`${BOX}/api/orders/${order2.id}`);
   expect(again.status()).toBe(200);
   expect(again.headers()["x-box-mode"]).toBe("relay");
