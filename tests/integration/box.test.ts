@@ -10,7 +10,9 @@ import { addItem, createOrder } from "@/server/services/orders";
 import { addPayments } from "@/server/services/payments";
 import { openSession } from "@/server/services/cash";
 import { exportSnapshot, importSnapshot, BOX_TABLES } from "@/server/box/snapshot";
-import { createBox, requireBox, requireBoxSecret, revokeBox } from "@/server/box/boxes";
+import { createBox, openBoxSession, requireBox, requireBoxSecret, revokeBox } from "@/server/box/boxes";
+import { sha256 } from "@/server/auth/password";
+import { kitchenTicketId } from "@/server/services/orders";
 
 let T: Awaited<ReturnType<typeof makeTenant>>;
 let U: Awaited<ReturnType<typeof makeTenant>>;
@@ -85,6 +87,25 @@ describe("boîtier de secours : copie du restaurant", () => {
     await revokeBox(T.managerActor, box.id);
     await expect(requireBox(req(box.key))).rejects.toMatchObject({ status: 401 });
     await expect(revokeBox(U.managerActor, box.id)).rejects.toMatchObject({ status: 404 });
+  });
+
+  it("connexion faite sur le boîtier pendant la coupure : session du cloud pour la même personne, sur son terminal", async () => {
+    const box = await createBox(T.managerActor, { name: "Boîtier salle" });
+    const terminal = await prisma.terminal.create({ data: { establishmentId: T.est.id, name: "Tablette", kind: "POS", deviceKeyHash: sha256("tablette-box") } });
+    const req = new NextRequest("http://localhost/api/box/sessions", { method: "POST", headers: { authorization: `Bearer ${box.key}`, cookie: "mr_terminal=tablette-box" } });
+    const s = await openBoxSession(req, await requireBox(req), T.server.id);
+    const row = await prisma.session.findUniqueOrThrow({ where: { tokenHash: sha256(s.token) } });
+    expect(row).toMatchObject({ userId: T.server.id, establishmentId: T.est.id, terminalId: terminal.id });
+    expect(s.maxAge).toBeGreaterThan(3600);
+    // Jamais pour un compte d'un autre restaurant
+    await expect(openBoxSession(req, await requireBox(req), U.server.id)).rejects.toMatchObject({ status: 404 });
+  });
+
+  it("même envoi en cuisine, même bon : l'id ne dépend que des articles envoyés", () => {
+    const a = "6f1c1d0e-8a51-4c51-9b8e-0e5b8e8f1a01", b = "6f1c1d0e-8a51-4c51-9b8e-0e5b8e8f1a02";
+    expect(kitchenTicketId([a, b])).toBe(kitchenTicketId([b, a]));
+    expect(kitchenTicketId([a])).not.toBe(kitchenTicketId([a, b]));
+    expect(kitchenTicketId([a])).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
   });
 
   it("le remplacement de la base n'existe que sur un boîtier, avec son secret", () => {
