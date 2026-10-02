@@ -10,21 +10,12 @@ import { Spinner, Badge } from "@/components/ui/misc";
 import { PageHeader, Table, Tr, Td, useAction, useList } from "@/components/admin/common";
 import type { listUsers } from "@/server/services/users";
 import type { listRoles } from "@/server/services/roles";
+import { ProfileBadge, ProfilePicker, ProfilesGuide } from "@/components/admin/profile-picker";
 
 type U = Awaited<ReturnType<typeof listUsers>>[number];
 type R = Awaited<ReturnType<typeof listRoles>>[number];
 type Perm = { key: string; group: string; description: string };
 type Form = { id?: string; email: string; password: string; currentPassword?: string; firstName: string; lastName: string; displayName: string; color: string; pin: string; isActive: boolean; memberships: { establishmentId: string; roleId: string }[] };
-
-/** Profils simples : ce que chacun peut faire, en une phrase */
-const PROFILE_HINT: Record<string, string> = {
-  manager: "gère tout l'établissement",
-  cashier: "encaisse, ouvre et clôture la caisse",
-  server: "prend les commandes et encaisse",
-  bartender: "bar : commandes, boissons et caisse",
-  kitchen: "écran cuisine",
-  accountant: "rapports et exports, sans la caisse",
-};
 
 export default function UsersPage() {
   const { me, hasOption } = useSession();
@@ -40,8 +31,12 @@ export default function UsersPage() {
   const [invite, setInvite] = useState<{ email: string; firstName: string; lastName: string; memberships: { establishmentId: string; roleId: string }[] } | null>(null);
   const [sent, setSent] = useState<{ email: string; inviteUrl: string; emailSent: boolean } | null>(null);
   const [inviting, setInviting] = useState(false);
+  const [guide, setGuide] = useState(true);
   const ests = me?.establishments ?? [];
   const assignable = roles.data?.filter((r) => r.key !== "owner") ?? [];
+  // Le profil Admin (tous les droits) ne se donne que par le propriétaire ou un autre admin
+  const canGiveAdmin = !!me?.user?.isOwner || me?.roleKey === "admin";
+  const defaultRole = assignable.find((r) => r.key === "server")?.id ?? "";
 
   const save = async () => {
     if (!edit) return;
@@ -70,14 +65,16 @@ export default function UsersPage() {
 
   return (
     <div>
-      <PageHeader title={customRoles ? "Utilisateurs & rôles" : "Accès & PIN"} subtitle={customRoles ? "Comptes du personnel, PIN de caisse, rôles et permissions granulaires" : "Un compte et un PIN par personne, avec un profil : Responsable, Serveur, Cuisine…"} action={tab === "users" || !customRoles ? <div className="flex flex-wrap gap-2"><Button variant="secondary" disabled={!roles.data || !me} onClick={() => setInvite({ email: "", firstName: "", lastName: "", memberships: me?.establishment ? [{ establishmentId: me.establishment.id, roleId: assignable.find((r) => r.key === "server")?.id ?? "" }] : [] })}>Inviter par e-mail</Button><Button disabled={!roles.data || !me} onClick={() => setEdit({ email: "", password: "", firstName: "", lastName: "", displayName: "", color: "#0EA5A4", pin: "", isActive: true, memberships: me?.establishment ? [{ establishmentId: me.establishment.id, roleId: assignable.find((r) => r.key === "server")?.id ?? "" }] : [] })}>Nouvel utilisateur</Button></div> : <Button onClick={() => setRoleEdit({ name: "", permissions: [], isSystem: false })}>Nouveau rôle</Button>} />
+      <PageHeader title={customRoles ? "Utilisateurs & rôles" : "Accès & PIN"} subtitle={customRoles ? "Comptes du personnel, PIN de caisse, profils et permissions détaillées" : "Un compte et un PIN par personne, avec un profil : Admin, Gérant, Chef en cuisine, Équipe en salle"} action={tab === "users" || !customRoles ? <div className="flex flex-wrap gap-2"><Button variant="secondary" disabled={!roles.data || !me} onClick={() => setInvite({ email: "", firstName: "", lastName: "", memberships: me?.establishment ? [{ establishmentId: me.establishment.id, roleId: defaultRole }] : [] })}>Inviter par e-mail</Button><Button disabled={!roles.data || !me} onClick={() => setEdit({ email: "", password: "", firstName: "", lastName: "", displayName: "", color: "#0EA5A4", pin: "", isActive: true, memberships: me?.establishment ? [{ establishmentId: me.establishment.id, roleId: defaultRole }] : [] })}>Nouvel utilisateur</Button></div> : <Button onClick={() => setRoleEdit({ name: "", permissions: [], isSystem: false })}>Nouveau rôle</Button>} />
       {customRoles ? <div className="mb-4 flex gap-1 border-b border-line">{(["users", "roles"] as const).map((t) => <button key={t} onClick={() => setTab(t)} className={`border-b-2 px-3 py-2 text-sm font-semibold ${tab === t ? "border-lagon-500 text-lagon-600" : "border-transparent text-muted"}`}>{t === "users" ? "Utilisateurs" : "Rôles & permissions"}</button>)}</div> : null}
+      {(tab === "users" || !customRoles) && guide ? <ProfilesGuide onClose={() => setGuide(false)} /> : null}
+      {(tab === "users" || !customRoles) && !guide ? <button onClick={() => setGuide(true)} className="mb-3 text-xs font-semibold text-lagon-600">Qui peut faire quoi ?</button> : null}
       {tab === "users" || !customRoles ? (users.isLoading ? <div className="flex justify-center py-10"><Spinner /></div> : (
-        <Table head={["Nom", "Email", "Rôle(s)", "PIN", "Statut", "Dernière connexion", ""]}>
+        <Table head={["Nom", "Email", "Profil", "PIN", "Statut", "Dernière connexion", ""]}>
           {users.data?.map((u) => (
             <Tr key={u.id}>
               <Td><span className="mr-2 inline-flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold text-white" style={{ background: u.color ?? "#0ea5a4" }}>{u.firstName.slice(0, 1)}</span><span className="font-semibold">{u.firstName} {u.lastName}</span>{u.displayName ? <span className="text-muted"> ({u.displayName})</span> : null}</Td><Td>{u.email}</Td>
-              <Td>{u.isOwner ? <Badge color="purple">Propriétaire</Badge> : u.memberships.map((m) => <span key={m.establishmentId} className="mr-1 inline-block rounded-md surface-2 px-1.5 py-0.5 text-xs">{m.role.name}{ests.length > 1 ? ` · ${m.establishment.name}` : ""}</span>)}</Td>
+              <Td>{u.isOwner ? <Badge color="purple">👑 Admin · propriétaire</Badge> : u.memberships.map((m) => <ProfileBadge key={m.establishmentId} roleKey={m.role.key} name={m.role.name} suffix={ests.length > 1 ? ` · ${m.establishment.name}` : undefined} />)}</Td>
               <Td>{u.hasPin ? <Badge color="green">défini</Badge> : <Badge color="orange">aucun</Badge>}</Td><Td>{!u.isActive ? <Badge color="red">désactivé</Badge> : u.invitePending ? <span className="inline-flex flex-wrap items-center gap-1.5"><Badge color={u.inviteExpired ? "red" : "orange"}>{u.inviteExpired ? "invitation expirée" : "invitation en attente"}</Badge><button onClick={() => resend(u)} className="text-xs font-semibold text-lagon-600">Renvoyer</button></span> : "Actif"}</Td><Td className="text-xs text-muted">{u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleString("fr-FR") : "—"}</Td>
               <Td><button onClick={() => setEdit({ id: u.id, email: u.email, password: "", firstName: u.firstName, lastName: u.lastName, displayName: u.displayName ?? "", color: u.color ?? "", pin: "", isActive: u.isActive, memberships: u.memberships.map((m) => ({ establishmentId: m.establishmentId, roleId: m.roleId })) })} className="text-xs font-semibold text-lagon-600">Modifier</button></Td>
             </Tr>
@@ -99,12 +96,14 @@ export default function UsersPage() {
             <Field label="Adresse e-mail"><Input type="email" value={invite.email} onChange={(e) => setInvite({ ...invite, email: e.target.value })} placeholder="prenom@exemple.pf" autoComplete="off" /></Field>
             <div className="grid gap-3 sm:grid-cols-2"><Field label="Prénom"><Input value={invite.firstName} onChange={(e) => setInvite({ ...invite, firstName: e.target.value })} /></Field><Field label="Nom"><Input value={invite.lastName} onChange={(e) => setInvite({ ...invite, lastName: e.target.value })} /></Field></div>
             <div>
-              <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted">Rôle par établissement</p>
+              <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted">Profil</p>
               {invite.memberships.map((m, i) => (
-                <div key={i} className="mb-2 grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
-                  <Select value={m.establishmentId} onChange={(e) => setInvite({ ...invite, memberships: invite.memberships.map((x, j) => (j === i ? { ...x, establishmentId: e.target.value } : x)) })}>{ests.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}</Select>
-                  <Select value={m.roleId} onChange={(e) => setInvite({ ...invite, memberships: invite.memberships.map((x, j) => (j === i ? { ...x, roleId: e.target.value } : x)) })}><option value="">Rôle…</option>{assignable.map((r) => <option key={r.id} value={r.id}>{r.name}{PROFILE_HINT[r.key] ? ` — ${PROFILE_HINT[r.key]}` : ""}</option>)}</Select>
-                  <button onClick={() => setInvite({ ...invite, memberships: invite.memberships.filter((_, j) => j !== i) })} className="text-xs font-semibold text-red-600">Retirer</button>
+                <div key={i} className="mb-3 space-y-2 rounded-2xl border border-line p-3">
+                  <div className="flex items-center gap-2">
+                    {ests.length > 1 ? <Select value={m.establishmentId} onChange={(e) => setInvite({ ...invite, memberships: invite.memberships.map((x, j) => (j === i ? { ...x, establishmentId: e.target.value } : x)) })} className="flex-1">{ests.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}</Select> : <span className="flex-1 text-sm font-semibold">{ests.find((e) => e.id === m.establishmentId)?.name}</span>}
+                    {invite.memberships.length > 1 ? <button onClick={() => setInvite({ ...invite, memberships: invite.memberships.filter((_, j) => j !== i) })} className="text-xs font-semibold text-red-600">Retirer</button> : null}
+                  </div>
+                  <ProfilePicker roles={assignable} value={m.roleId} canGiveAdmin={canGiveAdmin} onChange={(roleId) => setInvite({ ...invite, memberships: invite.memberships.map((x, j) => (j === i ? { ...x, roleId } : x)) })} />
                 </div>
               ))}
               {ests.length > invite.memberships.length ? <button onClick={() => setInvite({ ...invite, memberships: [...invite.memberships, { establishmentId: ests.find((e) => !invite.memberships.some((m) => m.establishmentId === e.id))?.id ?? ests[0].id, roleId: "" }] })} className="text-xs font-semibold text-lagon-600">+ Ajouter un établissement</button> : null}
@@ -127,8 +126,8 @@ export default function UsersPage() {
           <Field label={edit.id ? "Nouveau mot de passe (laisser vide)" : "Mot de passe (8 car. min.)"}><Input type="password" value={edit.password} onChange={(e) => setEdit({ ...edit, password: e.target.value })} /></Field>{edit.id && edit.id === me?.user?.id && edit.password ? <Field label="Mot de passe actuel"><Input type="password" autoComplete="current-password" value={edit.currentPassword ?? ""} onChange={(e) => setEdit({ ...edit, currentPassword: e.target.value })} /></Field> : null}<Field label={edit.id ? "Nouveau PIN (laisser vide)" : "PIN caisse (4 à 6 chiffres)"}><Input inputMode="numeric" value={edit.pin} onChange={(e) => setEdit({ ...edit, pin: e.target.value.replace(/\D/g, "").slice(0, 6) })} /></Field>
           <Field label="Couleur"><Input type="color" value={edit.color || "#0ea5a4"} onChange={(e) => setEdit({ ...edit, color: e.target.value })} className="h-11 p-1" /></Field>
           <div className="flex items-end"><Toggle checked={edit.isActive} onChange={(v) => setEdit({ ...edit, isActive: v })} label="Compte actif" /></div>
-          <div className="sm:col-span-2"><p className="mb-1 text-xs font-semibold uppercase text-muted">Accès par établissement</p>
-            {ests.map((e) => { const m = edit.memberships.find((x) => x.establishmentId === e.id); return <div key={e.id} className="mb-1 flex items-center gap-2"><Toggle checked={!!m} onChange={(v) => setEdit({ ...edit, memberships: v ? [...edit.memberships, { establishmentId: e.id, roleId: assignable[0]?.id ?? "" }] : edit.memberships.filter((x) => x.establishmentId !== e.id) })} /><span className="w-40 truncate text-sm font-semibold">{e.name}</span>{m ? <Select value={m.roleId} onChange={(ev) => setEdit({ ...edit, memberships: edit.memberships.map((x) => (x.establishmentId === e.id ? { ...x, roleId: ev.target.value } : x)) })} className="flex-1"><option value="">Choisir un rôle</option>{assignable.map((r) => <option key={r.id} value={r.id}>{r.name}{PROFILE_HINT[r.key] ? ` — ${PROFILE_HINT[r.key]}` : ""}</option>)}</Select> : null}</div>; })}
+          <div className="sm:col-span-2"><p className="mb-1 text-xs font-semibold uppercase text-muted">Profil par établissement</p>
+            {ests.map((e) => { const m = edit.memberships.find((x) => x.establishmentId === e.id); return <div key={e.id} className="mb-2 rounded-2xl border border-line p-3"><div className="flex items-center gap-2"><Toggle checked={!!m} onChange={(v) => setEdit({ ...edit, memberships: v ? [...edit.memberships, { establishmentId: e.id, roleId: defaultRole }] : edit.memberships.filter((x) => x.establishmentId !== e.id) })} /><span className="min-w-0 flex-1 truncate text-sm font-semibold">{e.name}</span></div>{m ? <div className="mt-2"><ProfilePicker roles={assignable} value={m.roleId} canGiveAdmin={canGiveAdmin} onChange={(roleId) => setEdit({ ...edit, memberships: edit.memberships.map((x) => (x.establishmentId === e.id ? { ...x, roleId } : x)) })} /></div> : null}</div>; })}
           </div>
         </div> : null}
       </Modal>
