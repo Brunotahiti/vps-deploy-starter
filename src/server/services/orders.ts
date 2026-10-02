@@ -7,7 +7,8 @@ import { computeLine, computeOrderTotals } from "@/lib/order-calc";
 import { applyBps } from "@/lib/money";
 import { localDay } from "@/lib/dates";
 import { consumeForItems } from "./stock";
-import { autoPrintKitchenTickets } from "@/server/hardware/printers";
+import { autoPrintKitchenChange, autoPrintKitchenTickets } from "@/server/hardware/printers";
+import { recordCancellation } from "./kitchen-changes";
 import { startTracking, onCoursesSent, onServed, onBillRequested, onOrderClosed, onTicketNotReady } from "./service-tracking";
 import type { CourseStatus, OrderType, Prisma } from "@/generated/prisma/client";
 
@@ -88,7 +89,7 @@ export async function lockOrder(tx: Tx, orderId: string) {
   await tx.$queryRaw`SELECT id FROM orders WHERE id = ${orderId}::uuid FOR UPDATE`;
 }
 
-function assertOpen(order: { status: string }) {
+export function assertOpen(order: { status: string }) {
   if (!OPEN_STATUSES.includes(order.status as (typeof OPEN_STATUSES)[number])) {
     throw new ApiError(409, "ORDER_CLOSED", "Cette commande est clôturée");
   }
@@ -179,7 +180,7 @@ export type AddItemInput = {
 
 type ModifierSnapshot = { modifierId: string; groupName: string; name: string; priceDelta: number; quantity: number };
 
-async function resolveModifiers(tx: Tx, productId: string, selections: { modifierId: string; quantity?: number }[]): Promise<ModifierSnapshot[]> {
+export async function resolveModifiers(tx: Tx, productId: string, selections: { modifierId: string; quantity?: number }[]): Promise<ModifierSnapshot[]> {
   const groups = await tx.productModifierGroup.findMany({ where: { productId }, include: { modifierGroup: { include: { modifiers: true } } } });
   const result: ModifierSnapshot[] = [];
   for (const { modifierGroup: g } of groups) {
@@ -308,6 +309,7 @@ export async function removeItem(actor: Actor, orderId: string, itemId: string, 
   if (!item) throw new ApiError(404, "NOT_FOUND", "Article introuvable");
   const wasSent = item.status !== "PENDING";
   let closedNow = false;
+  let cancelChangeId: string | null = null;
   await prisma.$transaction(async (tx) => {
     await lockOrder(tx, orderId);
     const current = await tx.orderItem.findUnique({ where: { id: itemId }, select: { status: true } });
@@ -315,6 +317,8 @@ export async function removeItem(actor: Actor, orderId: string, itemId: string, 
     if ((current.status !== "PENDING") !== wasSent) throw new ApiError(409, "ITEM_CHANGED", "L'article vient d'être envoyé en cuisine : recommencez");
     const targets = [item.id, ...order.items.filter((i) => i.parentItemId === item.id).map((i) => i.id)];
     if (wasSent) {
+      // La cuisine reçoit l'annulation comme telle (« ANNULATION — TABLE 12 »), urgente si le plat était en cours
+      cancelChangeId = await recordCancellation(tx, actor, order, item, reason ?? null);
       await tx.orderItem.updateMany({ where: { id: { in: targets } }, data: { status: "VOIDED", voidedAt: new Date(), voidReason: reason ?? null, lineTotal: 0, taxAmount: 0 } });
       await consumeForItems(tx, actor.establishmentId, order.items.filter((i) => targets.includes(i.id) && i.status !== "VOIDED"), 1, orderId, actor.userId);
       // Ticket cuisine sans plus aucun article à préparer → annulé (l'écran cuisine le retire)
@@ -335,6 +339,7 @@ export async function removeItem(actor: Actor, orderId: string, itemId: string, 
   if (closedNow) { publish("order.closed", actor.establishmentId, { orderId, tableId: order.tableId }); publish("table.updated", actor.establishmentId, { tableId: order.tableId }); }
   publish("order.updated", actor.establishmentId, { orderId, tableId: order.tableId });
   if (wasSent) publish("kitchen.updated", actor.establishmentId, { orderId });
+  if (cancelChangeId) autoPrintKitchenChange(actor.establishmentId, cancelChangeId).catch(() => {});
   return getOrder(actor.establishmentId, orderId);
 }
 

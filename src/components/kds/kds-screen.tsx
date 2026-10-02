@@ -16,7 +16,7 @@ import { Spinner } from "@/components/ui/misc";
 import { Logo } from "@/components/brand";
 import { PortalButtons } from "@/components/portal/portal-buttons";
 import { ORDER_TYPE_LABEL } from "@/components/pos/types";
-import { TICKET_STATUS_LABEL, type KitchenSummary, type KitchenTicket } from "./types";
+import { TICKET_STATUS_LABEL, type KitchenChange, type KitchenSummary, type KitchenTicket } from "./types";
 
 type View = "active" | "ready" | "done";
 const ALL = "__all__";
@@ -69,6 +69,21 @@ export function KdsScreen() {
     queryFn: () => api.get<KitchenTicket[]>(`/api/kitchen/tickets?${stationId !== ALL ? `stationId=${stationId}&` : ""}${view === "done" ? "includeDone=1" : ""}`),
     enabled, refetchInterval: 10_000,
   });
+
+  // Modifications et annulations envoyées par la salle (circuit demandée → vue → appliquée)
+  const changes = useQuery({ queryKey: ["kitchen", "changes", stationId], queryFn: () => api.get<KitchenChange[]>(`/api/kitchen/changes${stationId !== ALL ? `?stationId=${stationId}` : ""}`), enabled, refetchInterval: 10_000 });
+  const pendingChanges = (changes.data ?? []).filter((c) => c.status === "REQUESTED").length;
+  const lastPending = useRef<number | null>(null);
+  useEffect(() => {
+    if (lastPending.current !== null && pendingChanges > lastPending.current) { if (sound) beep(); try { navigator.vibrate?.([200, 100, 200]); } catch {} }
+    lastPending.current = pendingChanges;
+  }, [pendingChanges, sound]);
+  const setChange = useMutation({
+    mutationFn: ({ id, status }: { id: string; status: "SEEN" | "APPLIED" }) => api.post(`/api/kitchen/changes/${id}`, { status }),
+    onError: (e) => toast(e instanceof ApiClientError ? e.message : "Erreur", "error"),
+    onSettled: () => qc.invalidateQueries({ queryKey: ["kitchen"] }),
+  });
+  const changedItems = useMemo(() => new Set((changes.data ?? []).filter((c) => c.kind === "MODIFY" && c.status !== "APPLIED").map((c) => c.orderItemId)), [changes.data]);
 
   // Bip + vibration à l'arrivée de nouveaux tickets (compteur global, indépendant du filtre)
   const totalNew = summary.data?.all.counts.NEW;
@@ -159,6 +174,11 @@ export function KdsScreen() {
       </header>
 
       <main className="min-h-0 flex-1 overflow-y-auto p-2 sm:p-3">
+        {changes.data?.length ? (
+          <section className="mb-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3" data-testid="kitchen-changes" aria-label="Messages de la salle">
+            {changes.data.map((c) => <ChangeCard key={c.id} change={c} onStatus={(status) => setChange.mutate({ id: c.id, status })} />)}
+          </section>
+        ) : null}
         {tickets.isLoading ? <div className="flex justify-center py-20"><Spinner /></div> : null}
         {!tickets.isLoading && list.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
@@ -169,7 +189,7 @@ export function KdsScreen() {
           </div>
         ) : null}
         <div className="grid auto-rows-min grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
-          {list.map((t) => <TicketCard key={t.id} ticket={t} now={now} onStatus={(status) => setStatus.mutate({ id: t.id, status })} onItem={(itemId, ready) => setItem.mutate({ id: t.id, itemId, ready })} busy={setStatus.isPending && setStatus.variables?.id === t.id} />)}
+          {list.map((t) => <TicketCard key={t.id} ticket={t} now={now} changedItems={changedItems} onStatus={(status) => setStatus.mutate({ id: t.id, status })} onItem={(itemId, ready) => setItem.mutate({ id: t.id, itemId, ready })} busy={setStatus.isPending && setStatus.variables?.id === t.id} />)}
         </div>
       </main>
       <PortalButtons />
@@ -177,7 +197,7 @@ export function KdsScreen() {
   );
 }
 
-function TicketCard({ ticket: t, now, onStatus, onItem, busy }: { ticket: KitchenTicket; now: number; onStatus: (s: KitchenTicket["status"]) => void; onItem: (itemId: string, ready: boolean) => void; busy: boolean }) {
+function TicketCard({ ticket: t, now, onStatus, onItem, busy, changedItems }: { ticket: KitchenTicket; now: number; onStatus: (s: KitchenTicket["status"]) => void; onItem: (itemId: string, ready: boolean) => void; busy: boolean; changedItems?: Set<string | null> }) {
   const elapsedMs = now - new Date(t.createdAt).getTime();
   const warn = (t.station?.warnAfterSec ?? 600) * 1000, alert = (t.station?.alertAfterSec ?? 900) * 1000;
   const closed = t.status === "DONE" || t.status === "CANCELLED";
@@ -220,6 +240,7 @@ function TicketCard({ ticket: t, now, onStatus, onItem, busy }: { ticket: Kitche
                   {i.modifiers.length ? <span className="block text-sm font-semibold text-lagon-700 dark:text-lagon-300">{i.modifiers.map((m) => m.name).join(" · ")}</span> : null}
                   {i.notes ? <span className="block text-sm font-semibold italic text-corail-500">« {i.notes} »</span> : null}
                   {voided ? <span className="block text-[11px] font-bold uppercase text-red-600">Annulé</span> : null}
+                  {!voided && changedItems?.has(i.id) ? <span className="mt-0.5 inline-block rounded bg-red-600 px-1.5 text-[11px] font-extrabold uppercase text-white">Modifié · voir le message</span> : null}
                 </span>
                 {i.seatNumber ? <span className="rounded-md surface-2 px-1.5 py-0.5 text-[11px] font-bold text-muted">C{i.seatNumber}</span> : null}
               </button>
@@ -236,3 +257,34 @@ function TicketCard({ ticket: t, now, onStatus, onItem, busy }: { ticket: Kitche
     </article>
   );
 }
+
+/** Message de la salle : « 🔴 MODIFICATION — TABLE 12 », « 🚨 MODIFICATION URGENTE », « 🔴 ANNULATION » ; Vu puis Appliquée. */
+function ChangeCard({ change: c, onStatus }: { change: KitchenChange; onStatus: (s: "SEEN" | "APPLIED") => void }) {
+  const cancel = c.kind === "CANCEL";
+  const done = c.status === "APPLIED";
+  const title = cancel ? "🔴 ANNULATION" : c.urgent ? "🚨 MODIFICATION URGENTE" : "🔴 MODIFICATION";
+  const time = new Date(c.createdAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+  return (
+    <div data-testid="kitchen-change" data-kind={c.kind} className={`overflow-hidden rounded-2xl border-2 shadow-lift ${done ? "border-line opacity-60" : cancel || c.urgent ? "border-red-600" : "border-amber-500"} surface`}>
+      <div className={`flex items-center justify-between px-3 py-2 text-white ${done ? "bg-slate-500" : cancel || c.urgent ? "bg-red-600" : "bg-amber-500"} ${!done && c.status === "REQUESTED" ? "pulse-soft" : ""}`}>
+        <span className="text-sm font-extrabold tracking-wide">{title} — {c.tableName ? `TABLE ${c.tableName}` : `n° ${c.orderNumber.split("-").pop()}`}</span>
+        <span className="text-xs font-bold opacity-90">{time}</span>
+      </div>
+      <div className="px-3 py-2">
+        <p className={`text-lg font-extrabold ${cancel ? "line-through decoration-red-600 decoration-2" : ""}`}>{c.quantity} × {c.itemName}</p>
+        {c.removed.map((r) => <p key={`-${r}`} className="font-bold text-red-600">❌ Sans {r}</p>)}
+        {c.added.map((a) => <p key={`+${a}`} className="font-bold text-green-700 dark:text-green-400">➕ {a}</p>)}
+        {c.note ? <p className="font-semibold italic text-corail-500">« {c.note} »</p> : null}
+        {c.reason ? <p className="text-sm">Motif : {c.reason}</p> : null}
+        {c.urgent ? <p className="mt-1 text-xs font-bold text-red-600">Le plat était {c.stage === "READY" ? "déjà prêt" : "en préparation"}</p> : null}
+        <p className="mt-1 text-xs text-muted">{c.requestedByName ? `Serveur : ${c.requestedByName}` : ""}</p>
+      </div>
+      <div className="flex gap-2 border-t border-line p-2">
+        {c.status === "REQUESTED" ? <button onClick={() => onStatus("SEEN")} className="touch h-12 flex-1 rounded-xl bg-nuit-900 text-base font-extrabold text-white dark:bg-white dark:text-nuit-900">👀 Vu{cancel ? ", c'est annulé" : ""}</button> : null}
+        {c.status === "SEEN" && !cancel ? <button onClick={() => onStatus("APPLIED")} className="touch h-12 flex-1 rounded-xl bg-green-600 text-base font-extrabold text-white">✅ Modification appliquée</button> : null}
+        {done ? <p className="flex h-10 flex-1 items-center justify-center text-sm font-bold text-muted">{cancel ? "Annulation prise en compte" : "Modification appliquée"}</p> : null}
+      </div>
+    </div>
+  );
+}
+
