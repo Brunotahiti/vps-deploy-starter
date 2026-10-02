@@ -125,7 +125,8 @@ jobs:
 
       - name: Rebuild & restart on VPS
         run: |
-          ssh "$VPS_USER@$VPS_HOST" "VPS_PATH='${VPS_PATH%/}' BUILD_ID='$(echo "$GITHUB_SHA" | cut -c1-12)' bash -s" <<'EOF'
+          # Connexion entretenue : les migrations et la démo peuvent durer plusieurs minutes sans rien afficher
+          ssh -o ServerAliveInterval=30 -o ServerAliveCountMax=20 "$VPS_USER@$VPS_HOST" "VPS_PATH='${VPS_PATH%/}' BUILD_ID='$(echo "$GITHUB_SHA" | cut -c1-12)' bash -s" <<'EOF'
             set -e
             cd "$VPS_PATH"
             # Constater, ne jamais modifier : le réseau et le Traefik du serveur doivent exister (voir scripts/vps-bootstrap.sh)
@@ -141,12 +142,15 @@ jobs:
               if docker image inspect "$img:latest" >/dev/null 2>&1; then docker tag "$img:latest" "$img:previous"; fi
             done
             docker compose build migrate app
-            docker compose up -d
+            # Le rafraîchissement horaire de la démo et le déploiement ne tournent jamais en même temps (même verrou)
+            LOCK=""; CRON_LOCK=""; if command -v flock >/dev/null 2>&1; then LOCK="flock -w 900 /tmp/manaresto-demo.lock"; CRON_LOCK="flock -n /tmp/manaresto-demo.lock"; fi
+            echo "Migrations et démarrage…"
+            $LOCK docker compose up -d
             (docker compose exec -T site nginx -s reload >/dev/null 2>&1 || true)
             # Tâches planifiées de ManaResto (seules ses lignes de la crontab sont réécrites) :
             # sauvegarde quotidienne à 3 h heure de Tahiti, et démo vivante rafraîchie chaque heure si SEED_DEMO=true
             CRON_BACKUP="0 13 * * * $VPS_PATH/scripts/db-backup.sh >> /var/log/manaresto-backup.log 2>&1"
-            CRON_DEMO="17 * * * * cd $VPS_PATH && docker compose run --rm --no-deps -T migrate pnpm tsx prisma/seed.ts >> /var/log/manaresto-demo.log 2>&1"
+            CRON_DEMO="17 * * * * cd $VPS_PATH && $CRON_LOCK docker compose run --rm --no-deps -T migrate pnpm tsx prisma/seed.ts >> /var/log/manaresto-demo.log 2>&1"
             (crontab -l 2>/dev/null | grep -v "$VPS_PATH/scripts/db-backup.sh" | grep -v "manaresto-demo.log"; echo "$CRON_BACKUP"; if [ "${SEED_DEMO:-}" = "true" ]; then echo "$CRON_DEMO"; fi) | crontab -
             docker image prune -f
             # Cache de construction : l'application est construite sur le serveur, il grossit à chaque déploiement
@@ -171,7 +175,7 @@ jobs:
         if: failure() && steps.health.outcome == 'failure'
         run: |
           echo "::warning::La nouvelle version ne répond pas : remise en service de la précédente"
-          ssh "$VPS_USER@$VPS_HOST" "VPS_PATH='${VPS_PATH%/}' bash -s" <<'EOF'
+          ssh -o ServerAliveInterval=30 -o ServerAliveCountMax=20 "$VPS_USER@$VPS_HOST" "VPS_PATH='${VPS_PATH%/}' bash -s" <<'EOF'
             set -e
             cd "$VPS_PATH"
             if [ -f .env ]; then set -a && . ./.env && set +a; fi

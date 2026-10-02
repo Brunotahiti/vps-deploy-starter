@@ -65,7 +65,7 @@ if ! ssh -i "$KEY" -o BatchMode=yes -o ConnectTimeout=8 "$TARGET" true 2>/dev/nu
   echo "→ Copie de la clé SSH sur le VPS (mot de passe root demandé une fois)…"
   ssh-copy-id -i "$KEY.pub" "$TARGET"
 fi
-SSH="ssh -i $KEY -o StrictHostKeyChecking=accept-new $TARGET"
+SSH="ssh -i $KEY -o StrictHostKeyChecking=accept-new -o ServerAliveInterval=30 -o ServerAliveCountMax=20 $TARGET"
 
 # 2. Vérification des prérequis du VPS (Docker et Traefik existants — jamais modifiés)
 $SSH "mkdir -p $VPS_PATH"
@@ -120,7 +120,7 @@ $SSH "cd $VPS_PATH && set -a && . ./.env && set +a && export BUILD_ID=$BUILD_ID 
 
 # 5. Sauvegarde quotidienne à 3 h, heure de Tahiti (13 h UTC : le serveur est en UTC) — uniquement la ligne ManaResto de la crontab
 # Démo vivante : rafraîchie chaque heure (activité du jour, journées manquantes) quand SEED_DEMO=true
-$SSH "chmod +x $VPS_PATH/scripts/db-backup.sh; cd $VPS_PATH && set -a && . ./.env && set +a; (crontab -l 2>/dev/null | grep -v '$VPS_PATH/scripts/db-backup.sh' | grep -v 'manaresto-demo.log'; echo '0 13 * * * $VPS_PATH/scripts/db-backup.sh >> /var/log/manaresto-backup.log 2>&1'; if [ \"\${SEED_DEMO:-}\" = true ]; then echo '17 * * * * cd $VPS_PATH && docker compose run --rm --no-deps -T migrate pnpm tsx prisma/seed.ts >> /var/log/manaresto-demo.log 2>&1'; fi) | crontab -"
+$SSH "chmod +x $VPS_PATH/scripts/db-backup.sh; cd $VPS_PATH && set -a && . ./.env && set +a; (crontab -l 2>/dev/null | grep -v '$VPS_PATH/scripts/db-backup.sh' | grep -v 'manaresto-demo.log'; echo '0 13 * * * $VPS_PATH/scripts/db-backup.sh >> /var/log/manaresto-backup.log 2>&1'; if [ \"\${SEED_DEMO:-}\" = true ]; then echo '17 * * * * cd $VPS_PATH && flock -n /tmp/manaresto-demo.lock docker compose run --rm --no-deps -T migrate pnpm tsx prisma/seed.ts >> /var/log/manaresto-demo.log 2>&1'; fi) | crontab -"
 
 # 6. Vérification
 echo "→ Vérification…"
