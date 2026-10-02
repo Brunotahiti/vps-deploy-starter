@@ -3,10 +3,10 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { CalendarDays, ChevronLeft, ChevronRight, List, Phone, Search, Settings2, GanttChart, Users, Clock3, Inbox } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight, List, Phone, Search, Settings2, GanttChart, Users, Clock3, Inbox, PartyPopper } from "lucide-react";
 import { api } from "@/lib/api-client";
 import { useSession } from "@/hooks/use-session";
-import { addDays, localDay } from "@/lib/dates";
+import { addDays, formatTime, localDay } from "@/lib/dates";
 import { DEFAULT_RESERVATION_SETTINGS, RESERVATION_SOURCES, RESERVATION_TAGS, serviceOfTime, type ReservationSettings, type ReservationSource } from "@/lib/reservations";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
@@ -46,6 +46,8 @@ export function ReservationsScreen() {
   // Assistant IA : couleur de la journée prévue (façon Bison Futé) sur le bandeau de la semaine
   const forecastQ = useQuery({ queryKey: ["ai", "forecast", week], queryFn: () => api.get<{ days: { day: string; level: ForecastLevel; closed: boolean; expected: { clients: number } }[] }>(`/api/ai/forecast?from=${week}&days=7`), enabled: hasOption("ai"), staleTime: 300_000 });
   const summary = useQuery({ queryKey: ["reservations-summary", week], queryFn: () => api.get<DaySummary[]>(`/api/reservations/summary?from=${week}&days=7`), refetchInterval: 60_000 });
+  // Traiteur : événements confirmés du jour (privatisation : réservations en ligne fermées sur ce créneau)
+  const eventsQ = useQuery({ queryKey: ["catering-day", day], queryFn: () => api.get<{ id: string; title: string; startsAt: string; endsAt: string; guests: number; privatize: boolean; location: string | null }[]>(`/api/catering/day?day=${day}`), enabled: hasOption("catering"), staleTime: 60_000 });
   const settingsQ = useQuery({ queryKey: ["reservation-settings"], queryFn: () => api.get<ReservationSettings>("/api/reservations/settings"), staleTime: 300_000 });
   const settings = settingsQ.data ?? DEFAULT_RESERVATION_SETTINGS;
   const floor = useFloor();
@@ -114,6 +116,18 @@ export function ReservationsScreen() {
         </div>
         <button onClick={() => setDay(addDays(day, 7))} className="touch flex w-9 shrink-0 items-center justify-center rounded-xl surface-2" aria-label="Semaine suivante"><ChevronRight className="h-5 w-5" /></button>
       </div>
+
+      {eventsQ.data?.length ? (
+        <div className="mb-4 space-y-2" data-testid="day-events">
+          {eventsQ.data.map((ev) => (
+            <div key={ev.id} className={`flex items-center gap-3 rounded-2xl px-4 py-3 text-sm ${ev.privatize ? "bg-violet-500/10 text-violet-900 dark:text-violet-200" : "surface-2"}`}>
+              <PartyPopper className="h-5 w-5 shrink-0" />
+              <p className="min-w-0 flex-1"><span className="font-bold">{ev.title}</span> · {formatTime(ev.startsAt, timezone)} – {formatTime(ev.endsAt, timezone)} · {ev.guests} pers.{ev.location ? ` · ${ev.location}` : ""}</p>
+              {ev.privatize ? <span className="shrink-0 rounded-full bg-violet-600 px-2.5 py-1 text-xs font-bold text-white">Privatisé</span> : null}
+            </div>
+          ))}
+        </div>
+      ) : null}
 
       {/* Chiffres du jour */}
       <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-4">

@@ -66,6 +66,12 @@ export const OPTIONS = {
     includes: ["Menu affiché sur une télévision ou une tablette, sans connexion d'un employé", "Mis à jour tout seul : prix, plats épuisés, nouveautés", "Plat du jour ou happy hour mis en avant, catégories au choix, défilement automatique", "Plusieurs écrans : comptoir, terrasse, vitrine"],
     permissions: [],
   },
+  catering: {
+    label: "Traiteur & événements",
+    tagline: "Devis, acomptes et factures pour vos buffets, mariages et privatisations",
+    includes: ["Devis en PDF pour buffets, mariages, privatisations et repas d'entreprise", "Devis accepté en ligne par le client, acompte à la commande", "Facture finale, acomptes déduits", "Planning des événements, fiche cuisine, réservations en ligne fermées pendant une privatisation"],
+    permissions: ["catering.view", "catering.manage"],
+  },
   advanced: {
     label: "Avancé",
     tagline: "Pour les établissements qui grandissent",

@@ -250,3 +250,25 @@ export const screenSchema = z.object({
   rotateSeconds: z.number().int().min(5).max(120).optional(), theme: z.enum(["lagoon", "night", "light"]).optional(), headline: z.string().trim().max(40).nullable().optional(),
   headlineText: z.string().trim().max(160).nullable().optional(), headlinePrice: z.number().int().min(0).max(10_000_000).nullable().optional(), isActive: z.boolean().optional(),
 });
+
+// ─── Traiteur & événements ───
+const eventLine = z.object({
+  label: z.string().trim().min(1).max(200), quantity: z.number().min(0.5).max(10_000).refine((q) => Number.isInteger(q * 2), "Quantité entière ou demie"),
+  unitPrice: z.number().int().min(0).max(10_000_000), taxRateBps: z.number().int().min(0).max(5000), taxRateName: z.string().trim().max(40).nullable().optional().transform((v) => v ?? null),
+});
+const eventFields = {
+  title: z.string().trim().min(1).max(120), kind: z.enum(["BUFFET", "WEDDING", "PRIVATE", "CORPORATE", "OTHER"]),
+  startsAt: z.string().datetime({ offset: true }), endsAt: z.string().datetime({ offset: true }), guests: z.number().int().min(1).max(5000),
+  location: optText(200), privatize: z.boolean().optional(),
+  clientName: z.string().trim().min(1).max(120), clientCompany: optText(120), clientTahitiNumber: optText(20), clientEmail: z.string().trim().email().max(160).nullable().optional().or(z.literal("")),
+  clientPhone: optText(40), clientAddress: optText(300),
+  lines: z.array(eventLine).max(200).optional(), depositAmount: z.number().int().min(0).max(100_000_000).optional(),
+  quoteNotes: optText(3000), kitchenNotes: optText(3000), internalNotes: optText(3000),
+};
+export const eventCreateSchema = z.object(eventFields);
+export const eventUpdateSchema = z.object(eventFields).partial();
+export const quoteSendSchema = z.object({ email: z.boolean(), validityDays: z.number().int().min(1).max(180).optional() });
+export const eventPaymentSchema = z.object({ amount: z.number().int().min(1).max(100_000_000), method: z.enum(["CASH", "CARD", "CHECK", "TRANSFER"]), reference: optText(80), refund: z.boolean().optional() });
+export const eventInvoiceSchema = z.object({ dueDays: z.number().int().min(0).max(120).optional() });
+export const eventCancelSchema = z.object({ reason: z.string().trim().min(1).max(300) });
+export const quoteAcceptSchema = z.object({ name: z.string().trim().min(2).max(120), agree: z.literal(true) });

@@ -67,6 +67,9 @@ describe("Démo vivante", () => {
     // Marketing : cartes cadeaux et clients inscrits aux offres
     expect(await prisma.giftCard.count({ where: { establishmentId: T.est.id } })).toBe(3);
     expect(await prisma.screen.count({ where: { establishmentId: T.est.id } })).toBe(2);
+    // Traiteur : un buffet facturé et soldé, un devis envoyé, un mariage confirmé avec acompte
+    expect((await prisma.cateringEvent.findMany({ where: { establishmentId: T.est.id }, orderBy: { startsAt: "asc" } })).map((e) => e.status)).toEqual(["INVOICED", "SENT", "ACCEPTED"]);
+    expect(await prisma.cateringPayment.count({ where: { establishmentId: T.est.id } })).toBe(3);
     // Hygiène : option ouverte, relevés et nettoyages des jours passés, traçabilité en cours
     expect((await prisma.organization.findUniqueOrThrow({ where: { id: T.org.id } })).options).toContain("hygiene");
     expect(await prisma.temperatureReading.count({ where: { establishmentId: T.est.id, takenAt: { lt: todayStart } } })).toBeGreaterThan(50);
@@ -80,6 +83,7 @@ describe("Démo vivante", () => {
     await refreshDemo(db, { historyDays: 3 });
     expect(await totals()).toEqual(before);
     expect(await hygiene()).toEqual(hygieneBefore);
+    expect(await prisma.cateringEvent.count({ where: { establishmentId: T.est.id } })).toBe(3);
   });
 
   it("garde les commandes des visiteurs et nettoie celles restées ouvertes au changement de jour", async () => {
