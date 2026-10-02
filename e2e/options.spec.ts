@@ -27,6 +27,7 @@ test("snack : programme de base épuré, demande d'option, activation par la con
   await expect(menu.getByRole("link", { name: "Options" })).toBeVisible();
   // Une rubrique ouverte à la fois : chacune est vérifiée à son tour
   const groups: [string, string[], string[]][] = [
+    ["Ventes", ["Commandes", "Caisse"], ["Statistiques", "Rapports & exports"]],
     ["Carte & stocks", ["Catalogue"], ["Stocks & achats"]],
     ["Équipe", ["Accès & PIN"], ["Personnel & planning"]],
     ["Réglages", ["Paramètres", "Imprimantes & tiroir"], ["Intégrations", "Établissements", "Multi-sites", "Journal d'audit"]],
@@ -41,10 +42,17 @@ test("snack : programme de base épuré, demande d'option, activation par la con
   // Le serveur refuse aussi ces fonctions
   expect((await page.request.get("/api/stock/ingredients")).status()).toBe(403);
   expect((await page.request.get("/api/digital/settings")).status()).toBe(403);
+  expect((await page.request.get("/api/stats?from=2026-01-01&to=2026-01-31")).status()).toBe(403);
+  expect((await page.request.get("/api/reports/export?type=period&format=csv&from=2026-01-01&to=2026-01-31")).status()).toBe(403);
   // Portail « Comptoir » pour un snack, pas de bouton « À faire »
   await expect(page.getByTestId("portal-dock").getByRole("link", { name: "Comptoir" })).toBeVisible();
   await page.goto("/pos");
   await expect(page.getByRole("button", { name: /À faire/ })).toHaveCount(0);
+  // Sans l'option Continuité de service : une coupure d'internet est annoncée, rien n'est mis en file
+  await page.context().setOffline(true);
+  await expect(page.getByTestId("offline-locked")).toContainText("Continuité de service");
+  await page.context().setOffline(false);
+  await expect(page.getByTestId("offline-locked")).toHaveCount(0);
 
   // Aide sur place
   await page.goto("/admin/options");

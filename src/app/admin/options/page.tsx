@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { Boxes, CheckCircle2, Clock, Globe2, Rocket, Sparkles, UsersRound, Wallet } from "lucide-react";
+import { BarChart3, Boxes, CheckCircle2, Clock, Globe2, Rocket, ShieldCheck, Sparkles, UsersRound, Wallet } from "lucide-react";
 import { api } from "@/lib/api-client";
 import { PageHeader, useAction } from "@/components/admin/common";
 import { Button } from "@/components/ui/button";
@@ -15,9 +15,11 @@ const LOOK: Record<OptionKey, { icon: typeof Boxes; tile: string }> = {
   stock: { icon: Boxes, tile: "from-emerald-400 to-emerald-600" },
   digital: { icon: Globe2, tile: "from-sky-400 to-indigo-600" },
   team: { icon: UsersRound, tile: "from-amber-400 to-orange-600" },
+  stats: { icon: BarChart3, tile: "from-cyan-400 to-blue-600" },
+  continuity: { icon: ShieldCheck, tile: "from-rose-400 to-red-600" },
   advanced: { icon: Rocket, tile: "from-violet-500 to-fuchsia-600" },
 };
-const BASE = ["Caisse et encaissement (espèces, carte, addition partagée)", "Plan de salle ou vente au comptoir", "Réservations par téléphone, liste du jour et calendrier", "Écran cuisine et bons imprimés", "Tickets, clôture de caisse et rapports du jour", "Fonctionne même sans internet"];
+const BASE = ["Caisse et encaissement (espèces, carte, addition partagée)", "Plan de salle ou vente au comptoir", "Réservations par téléphone, liste du jour et calendrier", "Écran cuisine et bons imprimés", "Tickets, clôture de caisse et rapports du jour"];
 const price = (n: number) => `${n.toLocaleString("fr-FR").replace(/ /g, " ")} F CFP / mois`;
 
 /** Programme de base + options payantes : ce qui est actif, ce qu'on peut débloquer (demande à l'équipe ManaResto). */

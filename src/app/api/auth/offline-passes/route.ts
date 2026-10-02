@@ -12,11 +12,13 @@ import { publicEstablishment } from "@/server/services/establishments";
 export const GET = route(async () => {
   const terminal = await getTerminalFromCookie();
   if (!terminal) throw new ApiError(400, "NO_TERMINAL", "Cet appareil n'est pas enregistré comme terminal");
-  const establishment = await prisma.establishment.findUniqueOrThrow({ where: { id: terminal.establishmentId } });
+  const establishment = await prisma.establishment.findUniqueOrThrow({ where: { id: terminal.establishmentId }, include: { organization: { select: { options: true } } } });
+  // Connexion sans internet : option Continuité de service
+  if (!establishment.organization.options.includes("continuity")) throw new ApiError(403, "OPTION_REQUIRED", "Option « Continuité de service » à débloquer dans Gestion → Options");
   const issued = await issueOfflinePasses(terminal);
   return ok({
     ...issued,
-    establishment: publicEstablishment(establishment),
+    establishment: publicEstablishment((({ organization: _o, ...e }) => { void _o; return e; })(establishment)),
     terminal: { id: terminal.id, name: terminal.name, kind: terminal.kind, establishmentId: terminal.establishmentId, establishmentName: terminal.establishmentName },
   });
 });

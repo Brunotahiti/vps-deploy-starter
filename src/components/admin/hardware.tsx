@@ -190,7 +190,7 @@ export function HardwareSettings() {
       </div>
 
       {/* Boîtier de secours : option Avancé */}
-      {hasOption("advanced") ? <LocalBoxes now={now} /> : null}
+      {hasOption("continuity") ? <LocalBoxes now={now} /> : null}
 
       <Modal open={!!form} onClose={() => setForm(null)} title={form?.id ? "Modifier l'imprimante" : "Ajouter une imprimante"} size="lg" footer={<Button className="w-full" disabled={!form?.name} onClick={save}>Enregistrer</Button>}>
         {form ? (

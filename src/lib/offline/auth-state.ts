@@ -25,6 +25,22 @@ let active: ActivePass | null = null;
 let knownPermissions: string[] = [];
 let scoped: { managerPass?: string; forceQueue?: boolean } | null = null;
 
+/**
+ * Mode hors ligne (option « Continuité de service ») : sans elle, une opération sans réseau échoue au lieu
+ * d'être mise en file. Gardé sur l'appareil pour s'appliquer aussi au démarrage sans internet.
+ */
+const OFFLINE_KEY = "manaresto:offline-allowed";
+let offlineFlag: boolean | null = null;
+export function offlineAllowed(): boolean {
+  if (offlineFlag === null) { try { offlineFlag = typeof localStorage === "undefined" || localStorage.getItem(OFFLINE_KEY) !== "0"; } catch { offlineFlag = true; } }
+  return offlineFlag;
+}
+export function setOfflineAllowed(allowed: boolean) {
+  offlineFlag = allowed;
+  try { localStorage.setItem(OFFLINE_KEY, allowed ? "1" : "0"); } catch { /* stockage indisponible : réglage en mémoire */ }
+}
+export const OFFLINE_OPTION_MESSAGE = "Pas de connexion internet. Avec l'option « Continuité de service », la caisse continue sans internet.";
+
 export const getActivePass = () => active;
 export const setActivePassState = (p: ActivePass | null) => { active = p; };
 export const setKnownPermissions = (perms: string[]) => { knownPermissions = perms; };

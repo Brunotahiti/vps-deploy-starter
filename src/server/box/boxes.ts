@@ -52,9 +52,10 @@ export async function requireBox(req: NextRequest) {
   const ip = clientIp(req);
   await rateLimit(`box-ip:${ip}`, 60);
   if (!key.startsWith("mrbox_")) throw new ApiError(401, "UNAUTHORIZED", "Clé du boîtier manquante");
-  const row = await prisma.localBox.findUnique({ where: { tokenHash: hash(key) }, include: { establishment: { select: { isActive: true, organization: { select: { blockedAt: true } } } } } });
+  const row = await prisma.localBox.findUnique({ where: { tokenHash: hash(key) }, include: { establishment: { select: { isActive: true, organization: { select: { blockedAt: true, options: true } } } } } });
   if (!row || row.revokedAt || !row.establishment.isActive) throw new ApiError(401, "UNAUTHORIZED", "Clé du boîtier invalide ou révoquée");
   if (row.establishment.organization.blockedAt) throw new ApiError(403, "ACCOUNT_BLOCKED", "Compte suspendu");
+  if (!row.establishment.organization.options.includes("continuity")) throw new ApiError(403, "OPTION_REQUIRED", "Option « Continuité de service » non active : le boîtier est en pause");
   const lanIp = req.headers.get("x-box-lan-ip")?.slice(0, 64) || undefined;
   const version = req.headers.get("x-box-version")?.slice(0, 64) || undefined;
   prisma.localBox.update({ where: { id: row.id }, data: { lastSeenAt: new Date(), lastIp: ip, lanIp, version } }).catch(() => {});

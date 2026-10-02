@@ -24,10 +24,11 @@ export function warmOfflinePages(delayMs = 4000) {
  * tablette reste consultable et modifiable hors ligne). Rien n'est écrasé tant que des saisies hors ligne
  * attendent d'être transmises.
  */
-export function useOfflineSnapshot(enabled = true) {
+/** Copie de travail pour les coupures (option Continuité de service ; `offline` faux : seule la carte est chargée). */
+export function useOfflineSnapshot(enabled = true, offline = true) {
   usePosCatalog(enabled);
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled || !offline) return;
     const cancelWarm = warmOfflinePages();
     let live = true;
     const refresh = async () => {
@@ -42,5 +43,5 @@ export function useOfflineSnapshot(enabled = true) {
     const first = window.setTimeout(refresh, 3000); // après le premier affichage
     const t = window.setInterval(refresh, 60_000);
     return () => { live = false; cancelWarm(); window.clearTimeout(first); window.clearInterval(t); };
-  }, [enabled]);
+  }, [enabled, offline]);
 }

@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { api, ApiClientError } from "@/lib/api-client";
-import { getActivePass, setKnownPermissions } from "@/lib/offline/auth-state";
+import { getActivePass, setKnownPermissions, setOfflineAllowed } from "@/lib/offline/auth-state";
 import { getStoredPasses, loadActivePass, offlineMe, setActivePass } from "@/lib/offline/passes";
 import { cacheGet, cacheSet } from "@/lib/offline/db";
 import type { Establishment } from "@/generated/prisma/client";
@@ -70,6 +70,7 @@ async function loadMe(): Promise<Me> {
     const current = getActivePass();
     if (current && current.userId !== me.user?.id) await setActivePass(null); // une autre personne s'est connectée
     setKnownPermissions(me.permissions ?? []);
+    if (me.user && me.options) setOfflineAllowed(me.options.includes("continuity"));
     cacheSet(ME, me.user ? me : null).catch(() => {}); // pour démarrer sans internet (effacé au changement d'utilisateur)
     return me;
   } catch (e) {
