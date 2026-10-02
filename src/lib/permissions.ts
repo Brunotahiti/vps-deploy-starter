@@ -40,6 +40,9 @@ export const PERMISSIONS = {
   "customers.manage": { group: "Clients", description: "Gérer clients, fidélité, réservations" },
   // Personnel
   "staff.manage": { group: "Personnel", description: "Gérer personnel et pointages" },
+  // Hygiène (option)
+  "hygiene.record": { group: "Hygiène", description: "Enregistrer relevés de température, nettoyages et traçabilité" },
+  "hygiene.manage": { group: "Hygiène", description: "Gérer le plan d'hygiène (équipements, nettoyage) et consulter le registre" },
 } as const;
 
 export type PermissionKey = keyof typeof PERMISSIONS;
@@ -61,11 +64,11 @@ export const SYSTEM_ROLES: Record<string, { name: string; permissions: Permissio
   },
   kitchen: {
     name: "Chef en cuisine",
-    permissions: ["kds.use", "catalog.view", "catalog.manage", "catalog.availability", "stock.view", "stock.manage", "orders.view_history"],
+    permissions: ["kds.use", "catalog.view", "catalog.manage", "catalog.availability", "stock.view", "stock.manage", "orders.view_history", "hygiene.record", "hygiene.manage"],
   },
   server: {
     name: "Équipe en salle",
-    permissions: ["pos.use", "pos.transfer_table", "catalog.view", "catalog.availability", "customers.manage"],
+    permissions: ["pos.use", "pos.transfer_table", "catalog.view", "catalog.availability", "customers.manage", "hygiene.record"],
   },
   cashier: {
     name: "Responsable caisse",
