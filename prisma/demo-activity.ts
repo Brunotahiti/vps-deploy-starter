@@ -14,6 +14,7 @@ import type { OrderType, PaymentMethod, Prisma, PrismaClient } from "../src/gene
 import { computeLine, computeOrderTotals } from "../src/lib/order-calc";
 import { addDays, localDay, startOfLocalDay } from "../src/lib/dates";
 import { hygieneDemo } from "./demo-hygiene";
+import { accountsDemo } from "./demo-accounts";
 
 export const DEMO_SLUG = "demo-mana-beach";
 const SERVER_EMAILS = ["moana@manaresto.pf", "vaiana@manaresto.pf", "tamatoa@manaresto.pf", "poema@manaresto.pf", "heimana@manaresto.pf"];
@@ -551,6 +552,10 @@ export async function refreshDemo(prisma: PrismaClient, opts: { historyDays?: nu
     // Hygiène & HACCP : relevés, nettoyages et traçabilité jusqu'à l'heure actuelle
     const hyg = await hygieneDemo(prisma, ctx, today);
     if (hyg.readings || hyg.cleaning) log(`→ Hygiène : ${hyg.readings} relevé(s), ${hyg.cleaning} nettoyage(s)`);
+
+    // Comptes clients pro : quelques consommations sur compte à facturer (une seule fois)
+    const acc = await accountsDemo(prisma, ctx, today);
+    if (acc) log(`→ Comptes clients : ${acc} consommation(s) sur compte`);
 
     // Activité trop ancienne
     const cutoff = startOfLocalDay(addDays(today, -KEEP_DAYS), ctx.tz);

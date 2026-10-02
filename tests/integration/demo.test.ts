@@ -61,6 +61,9 @@ describe("Démo vivante", () => {
     expect(await prisma.reservation.count({ where: { establishmentId: T.est.id, startsAt: { gt: new Date() } } })).toBeGreaterThan(0);
     expect(await prisma.shift.count({ where: { establishmentId: T.est.id, startsAt: { gt: new Date(Date.now() + 86400000) } } })).toBeGreaterThan(0);
 
+    // Comptes clients pro : comptes fictifs et consommations sur compte à facturer
+    expect((await prisma.organization.findUniqueOrThrow({ where: { id: T.org.id } })).options).toContain("accounts");
+    expect(await prisma.customerAccount.count({ where: { establishmentId: T.est.id } })).toBe(3);
     // Hygiène : option ouverte, relevés et nettoyages des jours passés, traçabilité en cours
     expect((await prisma.organization.findUniqueOrThrow({ where: { id: T.org.id } })).options).toContain("hygiene");
     expect(await prisma.temperatureReading.count({ where: { establishmentId: T.est.id, takenAt: { lt: todayStart } } })).toBeGreaterThan(50);

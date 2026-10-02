@@ -48,6 +48,12 @@ export const OPTIONS = {
     includes: ["Relevés de température des frigos et congélateurs, avec alerte hors limites", "Plan de nettoyage à cocher par l'équipe", "Traçabilité : réceptions, lots, préparations et dates limites (DLC)", "Étiquettes de préparation et registre prêt pour un contrôle sanitaire"],
     permissions: ["hygiene.record", "hygiene.manage"],
   },
+  accounts: {
+    label: "Comptes clients & factures pro",
+    tagline: "Faire crédit aux entreprises et aux habitués, en toute clarté",
+    includes: ["Ardoise par client pro, avec plafond d'encours", "Encaissement « Sur compte » depuis la caisse", "Facture en PDF avec le N° Tahiti du client, numérotation continue", "Règlements, factures en retard et relances par e-mail"],
+    permissions: ["accounts.charge", "accounts.manage"],
+  },
   advanced: {
     label: "Avancé",
     tagline: "Pour les établissements qui grandissent",

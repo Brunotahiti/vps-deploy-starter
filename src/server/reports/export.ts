@@ -11,7 +11,7 @@ import { staffSummary } from "@/server/services/staff";
 export type ExportType = "period" | "products" | "orders" | "staff" | "accounting";
 export type ExportFormat = "csv" | "xlsx" | "pdf";
 
-const METHOD: Record<string, string> = { CASH: "Espèces", CARD: "Carte bancaire", CHECK: "Chèque", TRANSFER: "Virement", MEAL_VOUCHER: "Ticket restaurant", COMPLIMENTARY: "Offert", OTHER: "Autre" };
+const METHOD: Record<string, string> = { CASH: "Espèces", CARD: "Carte bancaire", CHECK: "Chèque", TRANSFER: "Virement", MEAL_VOUCHER: "Ticket restaurant", COMPLIMENTARY: "Offert", OTHER: "Autre", ACCOUNT: "Sur compte" };
 const TYPE: Record<string, string> = { DINE_IN: "Sur place", COUNTER: "Comptoir", TAKEAWAY: "À emporter", DELIVERY: "Livraison", ONLINE: "En ligne", KIOSK: "Borne" };
 const STATUS: Record<string, string> = { PAID: "Payée", CANCELLED: "Annulée" };
 
@@ -131,7 +131,7 @@ export async function toPdf(sheets: Sheet[], title: string, establishmentName: s
  *  - Remboursements à leur date réelle : 709 (HT) et 4457 (TVA reprise) au débit, compte d'encaissement au crédit.
  *  Chaque journée est équilibrée (écart d'arrondi éventuel en 658/758).
  */
-const ACCOUNTS: Record<string, [string, string]> = { CASH: ["530000", "Caisse"], CARD: ["512000", "Banque (CB)"], CHECK: ["512100", "Banque (chèques)"], TRANSFER: ["512200", "Banque (virements)"], MEAL_VOUCHER: ["467000", "Titres-restaurant"], COMPLIMENTARY: ["658000", "Offerts"], OTHER: ["471000", "Compte d'attente"] };
+const ACCOUNTS: Record<string, [string, string]> = { CASH: ["530000", "Caisse"], CARD: ["512000", "Banque (CB)"], CHECK: ["512100", "Banque (chèques)"], TRANSFER: ["512200", "Banque (virements)"], MEAL_VOUCHER: ["467000", "Titres-restaurant"], COMPLIMENTARY: ["658000", "Offerts"], OTHER: ["471000", "Compte d'attente"], ACCOUNT: ["411000", "Clients (comptes pro)"] };
 
 export async function buildAccountingExport(establishmentId: string, fromDay: string, toDay: string, timezone: string): Promise<{ title: string; sheets: Sheet[] }> {
   const est = await prisma.establishment.findUniqueOrThrow({ where: { id: establishmentId }, select: { name: true, legalName: true, tahitiNumber: true } });
@@ -187,7 +187,17 @@ export async function buildAccountingExport(establishmentId: string, fromDay: st
       entries.rows.push([day, "VT", acc, `${label} — remboursement ${r.number}`, 0, r.ttc]);
     }
   }
+  // Règlements des comptes clients pro (option Comptes clients) : débit banque ou caisse / crédit 411 clients
+  const settlements = await prisma.accountSettlement.findMany({ where: { establishmentId, receivedAt: { gte: startOfLocalDay(fromDay, timezone), lt: endOfLocalDay(toDay, timezone) } }, orderBy: { receivedAt: "asc" }, include: { account: { select: { name: true } } } });
+  for (const r of settlements) {
+    const day = dayFmt.format(r.receivedAt);
+    const [acc, label] = ACCOUNTS[r.method] ?? ["471000", r.method];
+    entries.rows.push([day, "RG", acc, `${label} — règlement ${r.account.name}${r.reference ? ` (${r.reference})` : ""}`, r.amount, 0]);
+    entries.rows.push([day, "RG", "411000", `Règlement ${r.account.name}`, 0, r.amount]);
+  }
+  const settlementSheet: Sheet = { name: "Règlements clients", head: ["Date", "Client", "Moyen", "Référence", "Montant"], rows: settlements.map((r) => [formatDateTime(r.receivedAt, timezone), r.account.name, METHOD[r.method] ?? r.method, r.reference ?? "", r.amount]) };
+
   const period = `${fromDay} → ${toDay}`;
   const header: Sheet = { name: "Entête", head: ["Champ", "Valeur"], rows: [["Établissement", est.name], ["Raison sociale", est.legalName ?? ""], ["N° Tahiti", est.tahitiNumber ?? ""], ["Période", period], ["Devise", "XPF (F CFP), sans décimales"], ["Généré le", new Date().toISOString()]] };
-  return { title: `Export comptable ${period}`, sheets: [header, days, sales, receipts, refundSheet, entries] };
+  return { title: `Export comptable ${period}`, sheets: [header, days, sales, receipts, refundSheet, ...(settlements.length ? [settlementSheet] : []), entries] };
 }

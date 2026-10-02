@@ -197,3 +197,26 @@ export function signupAlertMail(input: { to: string; organizationName: string; e
   const text = `Nouvelle inscription ManaResto\n\n${rows.map(([k, v]) => `${k} : ${v}`).join("\n")}\n\nConsole : ${input.consoleUrl}`;
   return { to: input.to, subject: `Nouveau compte ManaResto — ${input.establishmentName} (${input.ownerName})`, text, html, replyTo: input.email };
 }
+
+/** Relance d'une facture de compte client pro, avec la facture en PDF. */
+export function invoiceReminderMail(input: { to: string; establishmentName: string; number: string; issued: string; due: string; total: string; remaining: string; overdue: boolean; phone?: string | null; replyTo?: string | null; pdf: Buffer }): OutgoingMail {
+  const title = input.overdue ? "Facture en attente de règlement" : "Rappel : facture à régler";
+  const lead = input.overdue
+    ? `sauf erreur de notre part, la facture <strong>${esc(input.number)}</strong> du ${esc(input.issued)}, arrivée à échéance le ${esc(input.due)}, n'est pas encore réglée.`
+    : `voici un rappel de la facture <strong>${esc(input.number)}</strong> du ${esc(input.issued)}, à régler avant le ${esc(input.due)}.`;
+  const html = `<!doctype html><html lang="fr"><body style="margin:0;background:#f3f5f8;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#0f172a">
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td align="center" style="padding:24px 12px">
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:520px;background:#fff;border-radius:20px;overflow:hidden;box-shadow:0 6px 20px -8px rgba(15,23,42,.15)">
+<tr><td style="background:linear-gradient(135deg,#14aaa3,#0f6e6c);padding:28px 28px 24px;color:#fff">
+<div style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;opacity:.85">${esc(input.establishmentName)}</div>
+<div style="font-size:24px;font-weight:800;margin-top:6px">${title}</div></td></tr>
+<tr><td style="padding:24px 28px">
+<p style="margin:0 0 14px;font-size:15px;line-height:1.5">Bonjour,<br>${lead} Vous la trouverez en pièce jointe (PDF).</p>
+<table role="presentation" cellspacing="0" cellpadding="0" style="width:100%;background:#f1f4f8;border-radius:14px"><tr><td style="padding:16px 18px;font-size:13px;color:#64748b">Reste à régler<br><span style="font-size:11px">sur un total de ${esc(input.total)}</span></td><td style="padding:16px 18px;text-align:right;font-size:22px;font-weight:800;color:#0f6e6c">${esc(input.remaining)}</td></tr></table>
+<p style="margin:18px 0 0;font-size:14px;line-height:1.5">Si le règlement est déjà parti, merci de ne pas tenir compte de ce message.${input.phone ? ` Pour toute question : <strong>${esc(input.phone)}</strong>.` : ""}</p>
+<p style="margin:22px 0 0;font-size:14px">Māuruuru · ${esc(input.establishmentName)}</p></td></tr>
+<tr><td style="padding:14px 28px;background:#f8fafc;font-size:11px;color:#94a3b8;text-align:center">E-mail envoyé par ManaResto pour ${esc(input.establishmentName)}.</td></tr>
+</table></td></tr></table></body></html>`;
+  const text = `${title} — ${input.establishmentName}\nFacture ${input.number} du ${input.issued}, échéance le ${input.due}.\nReste à régler : ${input.remaining} (total ${input.total}).\nLa facture est en pièce jointe. Si le règlement est déjà parti, merci de ne pas tenir compte de ce message.${input.phone ? `\nQuestions : ${input.phone}` : ""}`;
+  return { to: input.to, subject: `${title} ${input.number} — ${input.establishmentName}`, text, html, ...(input.replyTo ? { replyTo: input.replyTo } : {}), attachments: [{ filename: `facture-${input.number}.pdf`, content: input.pdf, contentType: "application/pdf" }] };
+}

@@ -20,7 +20,7 @@ export type LocalOrder = {
   items: Item[]; payments: Pay[]; courses: { id: string; name: string }[];
 };
 
-const METHOD: Record<string, string> = { CASH: "Especes", CARD: "Carte bancaire", CHECK: "Cheque", TRANSFER: "Virement", MEAL_VOUCHER: "Ticket restaurant", COMPLIMENTARY: "Offert", OTHER: "Autre" };
+const METHOD: Record<string, string> = { CASH: "Especes", CARD: "Carte bancaire", CHECK: "Cheque", TRANSFER: "Virement", MEAL_VOUCHER: "Ticket restaurant", COMPLIMENTARY: "Offert", OTHER: "Autre", ACCOUNT: "Sur compte" };
 const TYPE: Record<string, string> = { DINE_IN: "Sur place", COUNTER: "Comptoir", TAKEAWAY: "A emporter", DELIVERY: "Livraison", ONLINE: "En ligne", KIOSK: "Borne" };
 export const colsFor = (paperWidthMm: number) => (paperWidthMm <= 58 ? 32 : 42);
 // Numéro provisoire d'une commande créée hors ligne : « HORS-LIGNE »
