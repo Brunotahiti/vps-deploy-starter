@@ -108,8 +108,6 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
       </nav>
       <div className="border-t border-line p-2">
         <InstallAppButton variant="secondary" className="mb-2 h-10 w-full justify-start" label="Installer l'application" compact />
-        {/* Téléphone et tablette : les portails sont déjà dans la barre du bas */}
-        <div className="hidden lg:block"><PortalButtons onNavigate={() => setOpen(false)} /></div>
         <div className="mt-2 flex items-center gap-2 px-1">
           <span className="flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold text-white" style={{ background: me?.user?.color ?? "#0ea5a4" }}>{(me?.user?.firstName ?? "?").slice(0, 1)}</span>
           <span className="min-w-0 flex-1 truncate text-sm font-semibold">{me?.user?.firstName} {me?.user?.lastName}<span className="block text-xs font-normal text-muted">{me?.roleKey}</span></span>
@@ -130,8 +128,8 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
         <DemoVisitBar />
         <header className="glass flex h-14 shrink-0 items-center gap-3 border-b px-4 lg:hidden"><button className="touch flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand text-white shadow-glow active:scale-95" aria-label="Ouvrir le menu" onClick={() => setOpen(true)}><Menu className="h-5 w-5" /></button><Logo size={28} /><VersionBadge /></header>
         <main className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden p-4 lg:p-8"><InstallBanner className="mb-3 lg:hidden" /><SubscriptionBanner />{children}</main>
-        {/* Téléphone / tablette : les portails Salle, Caisse et Cuisine, toujours à portée de pouce */}
-        <PortalButtons variant="dock" className="lg:hidden" />
+        {/* Les quatre portails, toujours visibles sous la page */}
+        <PortalButtons />
       </div>
     </div>
   );
