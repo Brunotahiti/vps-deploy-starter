@@ -18,6 +18,8 @@ import { BookingModal, type BookingPrefill } from "./booking-modal";
 import { Planning } from "./planning";
 import { ReservationSettingsModal } from "./settings-modal";
 import { DatePicker } from "./date-picker";
+import { LEVEL_LOOK } from "@/components/ai/levels";
+import type { ForecastLevel } from "@/server/services/forecast";
 import { STATUS, counts, dayNumber, hhmmOf, longDay, shortWeekday, type DaySummary, type Resa } from "./shared";
 
 const mondayOf = (day: string) => addDays(day, -((new Date(`${day}T12:00:00Z`).getUTCDay() + 6) % 7));
@@ -41,6 +43,8 @@ export function ReservationsScreen() {
 
   const q = useQuery({ queryKey: ["reservations", day], queryFn: () => api.get<Resa[]>(`/api/reservations?day=${day}`), refetchInterval: 30_000 });
   const week = mondayOf(day);
+  // Assistant IA : couleur de la journée prévue (façon Bison Futé) sur le bandeau de la semaine
+  const forecastQ = useQuery({ queryKey: ["ai", "forecast", week], queryFn: () => api.get<{ days: { day: string; level: ForecastLevel; closed: boolean; expected: { clients: number } }[] }>(`/api/ai/forecast?from=${week}&days=7`), enabled: hasOption("ai"), staleTime: 300_000 });
   const summary = useQuery({ queryKey: ["reservations-summary", week], queryFn: () => api.get<DaySummary[]>(`/api/reservations/summary?from=${week}&days=7`), refetchInterval: 60_000 });
   const settingsQ = useQuery({ queryKey: ["reservation-settings"], queryFn: () => api.get<ReservationSettings>("/api/reservations/settings"), staleTime: 300_000 });
   const settings = settingsQ.data ?? DEFAULT_RESERVATION_SETTINGS;
@@ -94,6 +98,7 @@ export function ReservationsScreen() {
         <div className="grid min-w-0 flex-1 grid-cols-7 gap-1.5" data-testid="week-strip">
           {Array.from({ length: 7 }, (_, i) => addDays(week, i)).map((d) => {
             const s = summary.data?.find((x) => x.day === d);
+            const fc = d >= today ? forecastQ.data?.days.find((x) => x.day === d && !x.closed) : undefined;
             const sel = d === day;
             return (
               <button key={d} onClick={() => setDay(d)} aria-pressed={sel} className={`touch relative flex flex-col items-center rounded-2xl px-1 py-2 transition ${sel ? "bg-brand text-white shadow-glow" : "card hover:surface-2"} ${d < today && !sel ? "opacity-60" : ""}`}>
@@ -102,6 +107,7 @@ export function ReservationsScreen() {
                 <span className={`text-[10px] font-semibold ${sel ? "opacity-90" : "text-muted"}`}>{s?.covers ? `${s.covers} cvts` : "—"}</span>
                 <span className={`mt-1 h-1 w-3/4 overflow-hidden rounded-full ${sel ? "bg-white/30" : "surface-3"}`}><span className={`block h-full rounded-full ${sel ? "bg-white" : "bg-lagon-500"}`} style={{ width: `${Math.min(100, ((s?.covers ?? 0) / maxCovers) * 100)}%` }} /></span>
                 {s?.pending ? <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-amber-500 ring-2 ring-[var(--surface)]" title={`${s.pending} à confirmer`} /> : null}
+                {fc ? <span data-testid="forecast-chip" className={`absolute left-1.5 top-1.5 h-2.5 w-2.5 rounded-full ring-2 ring-[var(--surface)] ${LEVEL_LOOK[fc.level].band}`} title={`Prévision : ${LEVEL_LOOK[fc.level].label} (≈ ${fc.expected.clients} clients)`} /> : null}
               </button>
             );
           })}
