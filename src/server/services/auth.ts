@@ -36,7 +36,7 @@ export async function loginWithPassword(email: string, password: string, establi
   await release();
   await releaseIp();
   assertNotBlocked(user.organization.blockedAt);
-  const { token } = await createSession({ userId: user.id, establishmentId: establishmentId ?? null, ...meta });
+  const { token } = await createSession({ userId: user.id, establishmentId: establishmentId ?? null, ...meta, via: "password" });
   await setSessionCookie(token);
   return user;
 }
@@ -70,7 +70,7 @@ export async function loginWithPin(establishmentId: string, pin: string, termina
   await release();
   await rememberOfflineKey(matched.id, establishmentId, pin).catch(() => {}); // connexion par PIN possible hors ligne
   const meta = await requestMeta();
-  const { token } = await createSession({ userId: matched.id, establishmentId, terminalId, ...meta });
+  const { token } = await createSession({ userId: matched.id, establishmentId, terminalId, ...meta, via: "pin" });
   await setSessionCookie(token);
   return matched;
 }
@@ -145,7 +145,7 @@ export async function signup(input: {
   // Alerte à l'équipe ManaResto (PLATFORM_NOTIFY_EMAILS ou contact@manaresto.com)
   void sendSignupAlert(result.org.id).catch((e) => console.error("[inscription] alerte non envoyée", e));
   const meta = await requestMeta();
-  const { token } = await createSession({ userId: result.owner.id, establishmentId: result.est.id, ...meta });
+  const { token } = await createSession({ userId: result.owner.id, establishmentId: result.est.id, ...meta, via: "signup" });
   await setSessionCookie(token);
   return result;
 }

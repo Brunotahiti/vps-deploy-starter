@@ -88,7 +88,7 @@ export async function openBoxSession(req: NextRequest, box: { id: string; establ
   const terminal = deviceKey ? await prisma.terminal.findFirst({ where: { deviceKeyHash: sha256(deviceKey), establishmentId: box.establishmentId, isActive: true }, select: { id: true } }) : null;
   if (!terminal) throw new ApiError(403, "NO_TERMINAL", "Connexion reprise seulement depuis une tablette enregistrée de l'établissement");
   // Session « caisse » de 12 h dans l'établissement du boîtier, même pour le propriétaire ; supprimée si le boîtier est retiré
-  const { token, session } = await createSession({ userId, establishmentId: box.establishmentId, terminalId: terminal.id, ip: clientIp(req), userAgent: req.headers.get("user-agent"), ttlMs: 12 * 3600_000, scope: "pos", boxId: box.id });
+  const { token, session } = await createSession({ userId, establishmentId: box.establishmentId, terminalId: terminal.id, ip: clientIp(req), userAgent: req.headers.get("user-agent"), ttlMs: 12 * 3600_000, scope: "pos", boxId: box.id, via: "box" });
   await audit({ organizationId: est.organizationId, establishmentId: box.establishmentId, userId, action: "box.session", entityType: "local_box", entityId: box.id, newValue: { sessionId: session.id } });
   return { token, maxAge: Math.max(0, Math.floor((session.expiresAt.getTime() - Date.now()) / 1000)) };
 }

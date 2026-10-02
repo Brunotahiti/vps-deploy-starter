@@ -28,8 +28,20 @@
   $$("[data-admin]").forEach(function (a) { a.href = app + "/platform"; });
   $$("[data-year]").forEach(function (el) { el.textContent = String(new Date().getFullYear()); });
 
-  // Suivi d'événements (sans cookie) : poussés dans window.dataLayer si un outil est branché
-  function track(name, data) { try { window.dataLayer = window.dataLayer || []; window.dataLayer.push(Object.assign({ event: name }, data || {})); } catch { /* sans importance */ } }
+  // Mesure d'audience anonyme, sans cookie : pages vues et clics envoyés à ManaResto (/api/t, relayé à l'application)
+  function beacon(payload) {
+    if (location.protocol === "file:") return;
+    try {
+      var body = JSON.stringify(payload);
+      if (navigator.sendBeacon) navigator.sendBeacon("/api/t", new Blob([body], { type: "text/plain" }));
+      else fetch("/api/t", { method: "POST", body: body, keepalive: true, headers: { "Content-Type": "text/plain" } });
+    } catch { /* sans importance */ }
+  }
+  var qs = new URLSearchParams(location.search);
+  beacon({ type: "view", path: location.pathname, referrer: document.referrer, utmSource: qs.get("utm_source"), utmCampaign: qs.get("utm_campaign") });
+
+  // Suivi d'événements (sans cookie) : poussés dans window.dataLayer si un outil est branché, et comptés dans la console ManaResto
+  function track(name, data) { beacon({ type: "click", name: name, path: location.pathname }); try { window.dataLayer = window.dataLayer || []; window.dataLayer.push(Object.assign({ event: name }, data || {})); } catch { /* sans importance */ } }
   $$("[data-track]").forEach(function (el) { el.addEventListener("click", function () { track(el.getAttribute("data-track"), { label: (el.textContent || "").trim().slice(0, 60) }); }); });
 
   // Menu mobile

@@ -49,6 +49,8 @@
       var url = app + "/demo";
       document.getElementById("go").href = url;
       try { window.dataLayer = window.dataLayer || []; window.dataLayer.push({ event: "demo_link" }); } catch (e) { /* sans importance */ }
+      // Mesure d'audience anonyme (sans cookie), envoyée avant de partir vers l'application
+      try { if (navigator.sendBeacon) navigator.sendBeacon("/api/t", new Blob([JSON.stringify({ type: "view", path: "/demo", referrer: document.referrer })], { type: "text/plain" })); } catch (e) { /* sans importance */ }
       location.replace(url);
     })();
   </script>

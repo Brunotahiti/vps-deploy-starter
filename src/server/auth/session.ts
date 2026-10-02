@@ -3,6 +3,7 @@ import { prisma } from "@/server/db";
 import { randomToken, sha256 } from "./password";
 import { resolveClientIp } from "@/server/net/client-ip";
 import { parseAdminEmails } from "@/lib/platform";
+import { recordAppEvent, type LoginMethod } from "@/server/services/site-traffic";
 
 export const SESSION_COOKIE = "mr_session";
 export const TERMINAL_COOKIE = "mr_terminal";
@@ -22,6 +23,8 @@ export async function createSession(opts: {
   ttlMs?: number;
   scope?: "pos" | null; // session limitée à la caisse de son établissement
   boxId?: string | null;
+  /** Statistiques de fréquentation : mode de connexion (inscription et démo comptées à part). */
+  via?: LoginMethod | "signup" | "demo";
 }) {
   const token = randomToken(32);
   const session = await prisma.session.create({
@@ -40,6 +43,10 @@ export async function createSession(opts: {
   });
   // Une prise en main par le support ne compte pas comme une connexion du restaurateur
   if (!opts.impersonatorId) await prisma.user.update({ where: { id: opts.userId }, data: { lastLoginAt: new Date() } });
+  if (opts.via && !opts.impersonatorId) {
+    const kind = opts.via === "signup" || opts.via === "demo" ? opts.via : "login";
+    await recordAppEvent(kind, { userId: opts.userId, method: kind === "login" ? opts.via : null, ua: opts.userAgent });
+  }
   return { session, token };
 }
 

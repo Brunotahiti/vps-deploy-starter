@@ -1722,3 +1722,23 @@ model KitchenChange {
   @@map("kitchen_changes")
 }
 
+/// Fréquentation : pages vues du site vitrine (mesure anonyme sans cookie), connexions, inscriptions et visites de la démo.
+/// Aucune adresse IP n'est conservée : `visitor` est une empreinte tronquée qui change chaque jour.
+model SiteEvent {
+  id             String   @id @default(uuid()) @db.Uuid
+  at             DateTime @default(now())
+  kind           String // view | click | login | signup | demo
+  method         String? // connexion : password | pin | invite | offline | box ; clic : signup | login | demo | contact…
+  path           String?
+  referrer       String? // domaine d'origine
+  device         String? // mobile | tablet | desktop
+  visitor        String?
+  utmSource      String?  @map("utm_source")
+  utmCampaign    String?  @map("utm_campaign")
+  organizationId String?  @map("organization_id") @db.Uuid
+  userId         String?  @map("user_id") @db.Uuid
+
+  @@index([kind, at])
+  @@index([at])
+  @@map("site_events")
+}

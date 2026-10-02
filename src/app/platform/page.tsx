@@ -18,6 +18,7 @@ import { formatDate, formatDateTime } from "@/lib/dates";
 import { EMAIL_KIND_LABEL, STATUS_LABEL, formatMinutes, relativeDays, type AccountStatus } from "@/lib/platform";
 import type { PlatformRow, platformOrgDetail, platformOverview } from "@/server/services/platform";
 import { OptionsPanel, OrgOptions } from "@/components/platform/options-panel";
+import { TrafficPanel } from "@/components/platform/traffic";
 
 type Overview = Awaited<ReturnType<typeof platformOverview>>;
 type Detail = Awaited<ReturnType<typeof platformOrgDetail>>;
@@ -184,6 +185,9 @@ export default function PlatformPage() {
                 <Funnel rows={(data.rows ?? []).filter((r) => !r.isDemo)} />
               </ChartCard>
             </section>
+
+            {/* Fréquentation du site et connexions */}
+            <TrafficPanel />
 
             {/* Restaurants */}
             <section className="card overflow-hidden">
