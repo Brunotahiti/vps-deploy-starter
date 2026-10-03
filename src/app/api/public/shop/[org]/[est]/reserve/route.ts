@@ -13,6 +13,6 @@ export const POST = route<{ org: string; est: string }>(async (req, { params }) 
   if (website) return ok({ id: crypto.randomUUID(), status: "PENDING", startsAt: body.startsAt, partySize: body.partySize, name: body.name });
   // Afflux anormal de demandes sur un même restaurant (toutes adresses confondues)
   await rateLimit(`public-reserve-est:${est.id}`, 60, 60 * 60_000);
-  const r = await createPublicReservation(est.id, est.organizationId, { ...body, email: body.email || null });
+  const r = await createPublicReservation(est.id, est.organizationId, body);
   return ok({ id: r.id, status: r.status, startsAt: r.startsAt, partySize: r.partySize, name: r.name });
 });

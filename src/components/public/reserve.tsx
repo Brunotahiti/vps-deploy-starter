@@ -22,9 +22,11 @@ export function ReserveScreen({ org, est }: { org: string; est: string }) {
   const [sending, setSending] = useState(false);
   if (q.isLoading) return <div className="flex h-dvh items-center justify-center"><Spinner /></div>;
   if (!q.data) return <main className="p-8 text-center text-muted">Établissement introuvable.</main>;
+  const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(f.email.trim());
+  const emailBad = f.email.trim().length > 3 && !emailOk;
   const submit = async () => {
     setSending(true);
-    try { await api.post(`/api/public/shop/${org}/${est}/reserve`, { name: f.name, phone: f.phone, email: f.email || null, startsAt: zonedInputToDate(`${f.date}T${f.time}`, q.data.establishment.timezone ?? "Pacific/Tahiti").toISOString(), partySize: Number(f.partySize), notes: f.notes || null, allergies: f.allergies || null, ...(f.website ? { website: f.website } : {}) }); setDone(true); }
+    try { await api.post(`/api/public/shop/${org}/${est}/reserve`, { name: f.name, phone: f.phone, email: f.email.trim(), startsAt: zonedInputToDate(`${f.date}T${f.time}`, q.data.establishment.timezone ?? "Pacific/Tahiti").toISOString(), partySize: Number(f.partySize), notes: f.notes || null, allergies: f.allergies || null, ...(f.website ? { website: f.website } : {}) }); setDone(true); }
     catch (e) { toast(e instanceof ApiClientError ? e.message : "Erreur", "error"); }
     finally { setSending(false); }
   };
@@ -34,16 +36,16 @@ export function ReserveScreen({ org, est }: { org: string; est: string }) {
       {done ? <div className="card p-8 text-center"><CheckCircle2 className="mx-auto h-12 w-12 text-green-600" /><p className="mt-3 font-bold">{t("booked")}</p></div> : (
         <div className="card space-y-3 p-5">
           <h1 className="text-xl font-extrabold">{t("reserve")}</h1>
-          <div className="grid grid-cols-2 gap-3"><Field label={t("date")}><Input type="date" value={f.date} min={localDay(new Date())} onChange={(e) => setF({ ...f, date: e.target.value })} /></Field><Field label={t("time")}><Input type="time" value={f.time} onChange={(e) => setF({ ...f, time: e.target.value })} /></Field></div>
+          <div className="grid grid-cols-2 gap-3 [&>*]:min-w-0"><Field label={t("date")}><Input type="date" className="min-w-0 appearance-none" value={f.date} min={localDay(new Date())} onChange={(e) => setF({ ...f, date: e.target.value })} /></Field><Field label={t("time")}><Input type="time" className="min-w-0 appearance-none" value={f.time} onChange={(e) => setF({ ...f, time: e.target.value })} /></Field></div>
           <Field label={t("partySize")}><div className="grid grid-cols-6 gap-2">{[1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 15, 20].map((n) => <button key={n} type="button" onClick={() => setF({ ...f, partySize: String(n) })} className={`touch h-11 rounded-lg text-sm font-bold ${f.partySize === String(n) ? "bg-brand text-white" : "surface-2"}`}>{n}</button>)}</div></Field>
           <Field label={t("name")}><Input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} autoComplete="name" /></Field>
           <Field label={t("phone")}><Input type="tel" value={f.phone} onChange={(e) => setF({ ...f, phone: e.target.value })} autoComplete="tel" /></Field>
-          <Field label={t("email")}><Input type="email" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} /></Field>
+          <Field label={t("reserveEmail")} hint={emailBad ? t("reserveEmailInvalid") : t("reserveEmailHint")}><Input type="email" inputMode="email" required value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} autoComplete="email" aria-invalid={emailBad} aria-label={t("reserveEmail")} /></Field>
           <Field label={t("allergies")}><Input value={f.allergies} onChange={(e) => setF({ ...f, allergies: e.target.value })} /></Field>
           <Field label={t("specialRequests")}><Textarea value={f.notes} onChange={(e) => setF({ ...f, notes: e.target.value })} /></Field>
           {/* Champ piège invisible : laissé vide par les personnes, rempli par les robots */}
           <input type="text" name="website" tabIndex={-1} autoComplete="off" aria-hidden="true" value={f.website} onChange={(e) => setF({ ...f, website: e.target.value })} className="pointer-events-none absolute -left-[9999px] h-px w-px opacity-0" />
-          <Button size="lg" className="w-full" loading={sending} disabled={f.name.trim().length < 2 || f.phone.trim().length < 6} onClick={submit}>{t("book")}</Button>
+          <Button size="lg" className="w-full" loading={sending} disabled={f.name.trim().length < 2 || f.phone.trim().length < 6 || !emailOk} onClick={submit}>{t("book")}</Button>
         </div>
       )}
     </div>

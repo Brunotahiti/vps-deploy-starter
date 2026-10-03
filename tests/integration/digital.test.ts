@@ -159,7 +159,7 @@ describe("Phase 6 — fidélité et réservations", () => {
   it("réservation publique → confirmation → installation ouvre la commande avec les couverts et le client", async () => {
     const startsAt = new Date(Date.now() + 2 * 3600_000).toISOString();
     const day = localDay(new Date(startsAt), TZ); // jour local de la réservation (peut être demain en fin de soirée)
-    const pub = await createPublicReservation(T.est.id, T.org.id, { name: "Sophie Martin", phone: "87654321", startsAt, partySize: 4, allergies: "Arachides" });
+    const pub = await createPublicReservation(T.est.id, T.org.id, { name: "Sophie Martin", phone: "87654321", email: "sophie@exemple.pf", startsAt, partySize: 4, allergies: "Arachides" });
     expect(pub.status).toBe("PENDING");
     expect(pub.customerId).not.toBeNull();
     let list = await listReservations(T.est.id, day, TZ);
@@ -184,7 +184,7 @@ describe("Phase 6 — fidélité et réservations", () => {
 
   it("réservations publiques : pas de doublon sur un même service, 3 à venir au plus par numéro, 180 jours maximum", async () => {
     const at = (h: number) => new Date(Date.now() + h * 3600_000).toISOString();
-    const base = { name: "Robot Test", partySize: 2 };
+    const base = { name: "Robot Test", email: "robot@exemple.pf", partySize: 2 };
     await createPublicReservation(T.est.id, T.org.id, { ...base, phone: "87 00 00 01", startsAt: at(24) });
     // Même numéro (écrit autrement), même service : refusé
     await expect(createPublicReservation(T.est.id, T.org.id, { ...base, phone: "+689 87000001", startsAt: at(25) })).rejects.toMatchObject({ code: "ALREADY_BOOKED" });
