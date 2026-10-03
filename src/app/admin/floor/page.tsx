@@ -1,6 +1,7 @@
 "use client";
 
 import { TableTop } from "@/components/floor/table-shape";
+import { FloorGuide } from "@/components/floor/floor-guide";
 
 import { useRef, useState } from "react";
 import { Pencil, Plus, Save, Trash2 } from "lucide-react";
@@ -70,6 +71,7 @@ export default function FloorEditor() {
           <Button variant={dirty ? "accent" : "primary"} onClick={save} disabled={!dirty}><Save className="h-4 w-4" /> Enregistrer{dirty ? " •" : ""}</Button>
         </div>
       } />
+      <FloorGuide />
       {rooms.isLoading ? <div className="flex justify-center py-10"><Spinner /></div> : null}
       <div className="no-scrollbar -mx-4 mb-3 flex gap-2 overflow-x-auto px-4 lg:mx-0 lg:px-0">
         {rooms.data?.map((r) => (
