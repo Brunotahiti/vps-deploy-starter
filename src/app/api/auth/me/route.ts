@@ -24,6 +24,8 @@ export const GET = route(async () => {
   return ok({
     subscription: subscriptionInfo(org),
     isDemo,
+    // Réglages partagés du restaurant exemple non modifiables (sauf serveur de tests DEMO_UNLOCKED=1)
+    demoLocked: isDemo && process.env.DEMO_UNLOCKED !== "1",
     // Site public du restaurant (option Digital), à son adresse de partage
     publicSitePath: establishment && ctx.options.includes("digital") ? shareUrl(establishment.shareSlug ?? (await ensureShareSlug(establishment.id))) : null,
     options: ctx.options,

@@ -21,25 +21,30 @@ type QrRow = { id: string; name: string; url: string; qrToken: string; room: { n
 export default function DigitalPage() {
   const q = useList<S>(["digital"], "/api/digital/settings");
   if (q.isLoading || !q.data) return <div className="flex justify-center py-10"><Spinner /></div>;
-  return <DigitalForm key={JSON.stringify(q.data)} initial={q.data} />;
+  // Le formulaire reste monté quand les données sont rechargées (nouvelle adresse de partage…) : les réglages en cours
+  // de saisie ne sont pas perdus ; seules les adresses affichées suivent les données à jour
+  return <DigitalForm data={q.data} />;
 }
 
-function DigitalForm({ initial }: { initial: S }) {
+function DigitalForm({ data }: { data: S }) {
   const act = useAction();
   const { me } = useSession();
-  const [s, setS] = useState<S>(initial);
-  const [zones, setZones] = useState(initial.online.deliveryZones.join(", "));
-  const [photos, setPhotos] = useState(initial.site.photos.join("\n"));
+  const [s, setS] = useState<S>(data);
+  const [zones, setZones] = useState(data.online.deliveryZones.join(", "));
+  const [photos, setPhotos] = useState(data.site.photos.join("\n"));
+  // Restaurant exemple (partagé par tous les visiteurs) : le site public ne se modifie pas
+  const siteLocked = !!me?.demoLocked;
   const site = (patch: Partial<SiteSettings>) => setS({ ...s, site: { ...s.site, ...patch } });
   const qr = useList<QrRow[]>(["tables", "qr"], "/api/tables/qr");
   const regenerate = (t: QrRow) => confirm(`Créer un nouveau QR code pour la table ${t.name} ? L'ancien cessera aussitôt de fonctionner : il faudra imprimer le nouveau.`) && act(() => api.post(`/api/tables/${t.id}/qr`), { success: `Nouveau QR code pour la table ${t.name} : pensez à l'imprimer`, invalidate: [["tables", "qr"]] });
-  const save = () => act(() => api.patch("/api/digital/settings", { qrMode: s.qrMode, online: { ...s.online, deliveryZones: zones.split(",").map((z) => z.trim()).filter(Boolean) }, kiosk: s.kiosk, loyalty: s.loyalty, site: { ...s.site, photos: photos.split(/\n+/).map((u) => u.trim()).filter(Boolean) } }), { success: "Réglages enregistrés", invalidate: [["digital"]] });
+  const save = () => act(() => api.patch("/api/digital/settings", { qrMode: s.qrMode, online: { ...s.online, deliveryZones: zones.split(",").map((z) => z.trim()).filter(Boolean) }, kiosk: s.kiosk, loyalty: s.loyalty, ...(siteLocked ? {} : { site: { ...s.site, photos: photos.split(/\n+/).map((u) => u.trim()).filter(Boolean) } }) }), { success: "Réglages enregistrés", invalidate: [["digital"]] });
   return (
     <div>
       <PageHeader title="Digital" subtitle="Site du restaurant, QR codes à table, commande en ligne, borne et fidélité" action={<Button onClick={save}>Enregistrer</Button>} />
-      <ShareSite name={me?.establishment?.name ?? ""} slug={initial.shareSlug} url={initial.urls.share} card={initial.urls.shareCard} enabled={initial.site.enabled} />
-      <Card title="Site du restaurant (page publique, menu en ligne)" className="mb-4" action={<a href={s.urls.share} target="_blank" rel="noopener" className="text-xs font-bold text-lagon-600">Voir le site ↗</a>}>
-        <div className="grid gap-3 lg:grid-cols-2">
+      <ShareSite name={me?.establishment?.name ?? ""} slug={data.shareSlug} url={data.urls.share} card={data.urls.shareCard} enabled={data.site.enabled} locked={siteLocked} />
+      <Card title="Site du restaurant (page publique, menu en ligne)" className="mb-4" action={<a href={data.urls.share} target="_blank" rel="noopener" className="text-xs font-bold text-lagon-600">Voir le site ↗</a>}>
+        {siteLocked ? <p className="mb-3 rounded-xl bg-amber-500/10 px-3 py-2 text-sm font-semibold text-amber-800 dark:text-amber-200" data-testid="site-demo-locked">Restaurant exemple : le site se visite mais ne se modifie pas. Créez votre compte pour personnaliser le vôtre.</p> : null}
+        <fieldset disabled={siteLocked} className="grid min-w-0 gap-3 disabled:opacity-60 lg:grid-cols-2">
           <div className="min-w-0 space-y-3">
             <Toggle checked={s.site.enabled} onChange={(v) => site({ enabled: v })} label="Publier le site du restaurant" />
             <Field label="Accroche (une phrase)"><Input value={s.site.tagline} onChange={(e) => site({ tagline: e.target.value })} placeholder="Cuisine du lagon, les pieds dans le sable" maxLength={120} /></Field>
@@ -52,9 +57,9 @@ function DigitalForm({ initial }: { initial: S }) {
             <Field label="Logo (URL)"><Input value={s.site.logoUrl} onChange={(e) => site({ logoUrl: e.target.value })} placeholder="https://…/logo.png" inputMode="url" /></Field>
             <Field label="Photos (une URL par ligne, 12 max)"><Textarea rows={3} value={photos} onChange={(e) => setPhotos(e.target.value)} placeholder={"https://…/salle.jpg\nhttps://…/plat.jpg"} /></Field>
             <div className="grid gap-3 sm:grid-cols-2"><Field label="Page Facebook"><Input value={s.site.facebook} onChange={(e) => site({ facebook: e.target.value })} placeholder="https://facebook.com/…" inputMode="url" /></Field><Field label="Instagram"><Input value={s.site.instagram} onChange={(e) => site({ instagram: e.target.value })} placeholder="https://instagram.com/…" inputMode="url" /></Field></div>
-            <div className="rounded-xl surface-2 p-3 text-xs"><p className="font-bold">Adresse du site</p><LinkRow url={s.urls.share} /><p className="mt-1 text-muted">Le nom, l&apos;adresse, le téléphone et les horaires viennent de Paramètres → Établissement. Les boutons Commander et Réserver apparaissent selon les réglages ci-dessous.</p></div>
+            <div className="rounded-xl surface-2 p-3 text-xs"><p className="font-bold">Adresse du site</p><LinkRow url={data.urls.share} /><p className="mt-1 text-muted">Le nom, l&apos;adresse, le téléphone et les horaires viennent de Paramètres → Établissement. Les boutons Commander et Réserver apparaissent selon les réglages ci-dessous.</p></div>
           </div>
-        </div>
+        </fieldset>
       </Card>
       <div className="grid gap-4 lg:grid-cols-2">
         <Card title="QR code à table">

@@ -8,6 +8,7 @@ import { actorFrom } from "@/server/auth/authorize";
 import { digitalSettingsSchema } from "@/server/schemas";
 import { digitalSettings, siteSettings } from "@/server/services/public";
 import { loyaltySettings } from "@/server/services/customers";
+import { assertNotDemoAccount } from "@/server/services/demo";
 
 /** Réglages des canaux clients (QR, commande en ligne, borne) et du programme de fidélité. */
 export const GET = route(async () => {
@@ -23,6 +24,8 @@ export const PATCH = route(async (req) => {
   const ctx = await requirePermission("settings.manage");
   requireOption(ctx, "digital");
   const body = await parseBody(req, digitalSettingsSchema);
+  // Restaurant exemple : son site public (photos, textes) est vu par tous les visiteurs, il ne se modifie pas
+  if (body.site) await assertNotDemoAccount(ctx.organizationId);
   const est = await prisma.establishment.findUniqueOrThrow({ where: { id: ctx.establishment.id }, select: { settings: true } });
   const current = (est.settings ?? {}) as Record<string, unknown>;
   const digital = (current.digital ?? {}) as Record<string, unknown>;
