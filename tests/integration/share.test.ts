@@ -5,6 +5,8 @@ import { prisma } from "@/server/db";
 import { createEstablishment } from "@/server/services/establishments";
 import { ensureShareSlug, resolveShareSlug, setShareSlug, shareSlugAvailability } from "@/server/services/share";
 import { DEMO_ORG_SLUG } from "@/lib/platform";
+import { shareSlugError } from "@/lib/share";
+import { fetchPublicImage } from "@/server/net/fetch-image";
 
 let T: Awaited<ReturnType<typeof makeTenant>>;
 let U: Awaited<ReturnType<typeof makeTenant>>;
@@ -44,5 +46,28 @@ describe("adresse de partage du site", () => {
   it("restaurant exemple : adresse non modifiable", async () => {
     await prisma.organization.update({ where: { id: U.org.id }, data: { slug: DEMO_ORG_SLUG } });
     await expect(setShareSlug(U.managerActor, "autre-adresse")).rejects.toMatchObject({ code: "DEMO_LOCKED" });
+  });
+
+  it("nom long déjà pris : jamais de double tiret (adresse reconnue par manaresto.com)", async () => {
+    const name = "Restaurant Chez Mamie Hina de Papeete et Moorea";
+    const a = await createEstablishment(T.org.id, T.owner.id, { name });
+    const b = await createEstablishment(U.org.id, U.owner.id, { name });
+    for (const e of [a, b]) expect(shareSlugError(e.shareSlug ?? "")).toBeNull();
+    expect(b.shareSlug).not.toContain("--");
+  });
+
+  it("deux restaurants au même nom créés au même instant : les deux obtiennent une adresse", async () => {
+    const [a, b] = await Promise.all([createEstablishment(T.org.id, T.owner.id, { name: "Snack Teva" }), createEstablishment(U.org.id, U.owner.id, { name: "Snack Teva" })]);
+    expect(a.shareSlug).toBeTruthy();
+    expect(b.shareSlug).toBeTruthy();
+    expect(a.shareSlug).not.toBe(b.shareSlug);
+  });
+});
+
+describe("image d'aperçu : photo externe sans jamais viser le réseau interne", () => {
+  it("adresses internes, locales ou non https refusées", async () => {
+    for (const url of ["https://127.0.0.1/x.jpg", "https://localhost/x.jpg", "https://169.254.169.254/latest/meta-data", "https://10.0.0.5/a.png", "http://exemple.pf/a.jpg", "https://manaresto:3000/api/health", "https://[::1]/a.png"]) {
+      expect(await fetchPublicImage(url, { timeoutMs: 1500 })).toBeNull();
+    }
   });
 });

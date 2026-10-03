@@ -61,3 +61,35 @@ describe("réservation en ligne : e-mail obligatoire, validation par l'équipe, 
     expect(sentMails).toHaveLength(0);
   });
 });
+
+describe("réponse à une demande : une seule fois, jamais deux e-mails contradictoires", () => {
+  it("deux appuis simultanés (ou confirmer ici, refuser ailleurs) : un seul passe, un seul e-mail", async () => {
+    const r = await createPublicReservation(T.est.id, T.org.id, { name: "Poe", phone: "87 55 44 33", email: "poe@exemple.pf", startsAt: at(60), partySize: 2 });
+    sentMails.length = 0;
+    const results = await Promise.allSettled([
+      setReservationStatus(T.actor, r.id, "CONFIRMED", null, false, null, "PENDING"),
+      setReservationStatus(T.actor, r.id, "CANCELLED", null, false, null, "PENDING"),
+      setReservationStatus(T.actor, r.id, "CONFIRMED", null, false, null, "PENDING"),
+    ]);
+    expect(results.filter((x) => x.status === "fulfilled")).toHaveLength(1);
+    for (const x of results.filter((y) => y.status === "rejected")) expect((x as PromiseRejectedResult).reason).toMatchObject({ code: "ALREADY_HANDLED" });
+    expect(sentMails).toHaveLength(1);
+  });
+
+  it("écran resté ouvert : la demande déjà traitée par un collègue n'est pas retraitée", async () => {
+    const r = await createPublicReservation(T.est.id, T.org.id, { name: "Tiare", phone: "87 66 55 44", email: "tiare@exemple.pf", startsAt: at(70), partySize: 3 });
+    const first = await setReservationStatus(T.actor, r.id, "CONFIRMED", null, false, null, "PENDING");
+    expect(first.emailed).toBe(true);
+    sentMails.length = 0;
+    await expect(setReservationStatus(T.actor, r.id, "CANCELLED", null, false, null, "PENDING")).rejects.toMatchObject({ code: "ALREADY_HANDLED" });
+    expect(sentMails).toHaveLength(0);
+  });
+
+  it("accusé de réception : 3 par adresse e-mail et par jour au plus (le formulaire ne sert pas à écrire à n'importe qui)", async () => {
+    sentMails.length = 0;
+    const email = `cible-${Date.now()}@exemple.pf`; // compteur conservé 24 h en base : adresse propre à ce lancement
+    for (let i = 0; i < 5; i++) await createPublicReservation(T.est.id, T.org.id, { name: `Cible ${i}`, phone: `87 10 20 3${i}`, email, startsAt: at(80 + i * 24), partySize: 2 });
+    expect(sentMails.filter((m) => m.to === email)).toHaveLength(3);
+    expect(await pendingReservations(T.est.id).then((l) => l.filter((p) => p.email === email))).toHaveLength(5); // les demandes, elles, sont bien enregistrées
+  });
+});

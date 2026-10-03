@@ -9,7 +9,7 @@ import { assertPinAvailable, pinEstablishmentsOfUser } from "./pin-unique";
 import { assertEmailAllowed } from "@/server/auth/guards";
 import { audit } from "@/server/audit";
 import { slugify } from "@/lib/slug";
-import { uniqueShareSlug } from "./share";
+import { ensureShareSlug } from "./share";
 import { OFFER } from "@/lib/plan";
 import { businessTypeSettings, type BusinessType } from "@/lib/options";
 import { ensureSystemRoles } from "./roles";
@@ -135,11 +135,13 @@ export async function signup(input: {
     await ensureSystemRoles(org.id, tx);
     const businessType = input.businessType ?? "restaurant";
     const est = await tx.establishment.create({
-      data: { organizationId: org.id, name: input.establishmentName, slug: slugify(input.establishmentName), shareSlug: await uniqueShareSlug(tx, input.establishmentName), businessType, settings: businessTypeSettings(businessType) as object },
+      data: { organizationId: org.id, name: input.establishmentName, slug: slugify(input.establishmentName), businessType, settings: businessTypeSettings(businessType) as object },
     });
     await createEstablishmentDefaults(est.id, tx);
     return { org, owner, est };
   });
+  // Adresse de partage attribuée hors transaction : deux inscriptions au même nom au même instant ne s'annulent pas (nouvel essai)
+  result.est.shareSlug = await ensureShareSlug(result.est.id).catch(() => null);
   await audit({ organizationId: result.org.id, establishmentId: result.est.id, userId: result.owner.id, action: "org.signup", entityType: "organization", entityId: result.org.id });
   // E-mail de bienvenue (journalisé dans la console plateforme), sans bloquer l'inscription
   void sendWelcomeEmail(result.org.id).catch(() => {});

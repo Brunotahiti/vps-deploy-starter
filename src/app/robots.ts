@@ -13,7 +13,7 @@ export default function robots(): MetadataRoute.Robots {
   return {
     rules: [{
       userAgent: "*",
-      allow: ["/site/", "/commander/", "/reserver/"],
+      allow: ["/site/", "/commander/", "/reserver/", "/api/public/share-card/"], // image d'aperçu : lue par X/Twitter qui respecte robots.txt
       disallow: ["/api/", "/admin", "/pos", "/kds", "/platform", "/onboarding", "/kiosk", "/suivi/", "/invitation/", "/desabonnement/", "/devis/", "/ecran/", "/m/", "/salle", "/commande$", "/commande/", "/demo"],
     }],
     sitemap: `${base()}/sitemap.xml`,

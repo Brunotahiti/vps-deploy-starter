@@ -6,6 +6,7 @@ import { BellRing, CalendarDays, Check, Clock, Mail, MessageSquareWarning, Phone
 import { api } from "@/lib/api-client";
 import { useSession } from "@/hooks/use-session";
 import { useAction } from "@/components/admin/common";
+import { useToast } from "@/components/ui/toast";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
 import { Textarea } from "@/components/ui/field";
@@ -18,6 +19,7 @@ const SEEN = "mr-pending-seen";
 function chime() {
   try {
     const ctx = new AudioContext(), t = ctx.currentTime;
+    setTimeout(() => void ctx.close().catch(() => {}), 1500); // libéré après le son : une caisse ouverte toute la journée n'en accumule pas
     [[988, 0], [1319, 0.16], [1568, 0.32]].forEach(([f, d]) => {
       const o = ctx.createOscillator(), g = ctx.createGain();
       o.type = "sine"; o.frequency.value = f;
@@ -79,14 +81,23 @@ export function PendingReservationsAlert() {
 
 function PendingCard({ r, timezone }: { r: Pending; timezone: string }) {
   const act = useAction();
+  const { toast } = useToast();
   const [refusing, setRefusing] = useState(false);
   const [message, setMessage] = useState("");
   const day = new Intl.DateTimeFormat("fr-FR", { timeZone: timezone, weekday: "long", day: "numeric", month: "long" }).format(new Date(r.startsAt)).replace(/^./, (c) => c.toUpperCase()); // « Mardi 6 octobre »
   const invalidate = [["reservations"], ["reservations-summary"], ["floor"]];
-  const answer = (status: "CONFIRMED" | "CANCELLED") => act(
-    () => api.post(`/api/reservations/${r.id}/status`, { status, message: status === "CANCELLED" ? message.trim() || null : null }),
-    { success: status === "CONFIRMED" ? `Réservation de ${r.name} confirmée${r.email ? " : e-mail envoyé" : ""}` : `Demande de ${r.name} refusée${r.email ? " : e-mail envoyé" : ""}`, invalidate },
-  );
+  const [busy, setBusy] = useState(false);
+  // Un seul envoi à la fois (double appui) ; « expect » : refusé si un collègue a déjà répondu entre-temps
+  const answer = async (status: "CONFIRMED" | "CANCELLED") => {
+    if (busy) return;
+    setBusy(true);
+    const res = await act(
+      () => api.post<{ emailed: boolean }>(`/api/reservations/${r.id}/status`, { status, expect: "PENDING", message: status === "CANCELLED" ? message.trim() || null : null }),
+      { invalidate },
+    );
+    setBusy(false);
+    if (res) toast(`${status === "CONFIRMED" ? `Réservation de ${r.name} confirmée` : `Demande de ${r.name} refusée`}${res.emailed ? " : e-mail envoyé au client" : ""}`, "success");
+  };
   return (
     <article className="rounded-2xl border-2 border-amber-400/60 bg-[var(--surface)] p-4" data-testid="pending-card">
       <div className="flex flex-wrap items-start gap-3">
@@ -111,13 +122,13 @@ function PendingCard({ r, timezone }: { r: Pending; timezone: string }) {
           <Textarea rows={2} value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Message pour le client (facultatif) : complet ce soir-là, proposition d'un autre horaire…" aria-label="Message pour le client" />
           <div className="flex gap-2">
             <Button variant="secondary" className="flex-1" onClick={() => setRefusing(false)}>Retour</Button>
-            <Button variant="danger" className="flex-1" onClick={() => answer("CANCELLED")} data-testid="pending-refuse-send">Envoyer le refus</Button>
+            <Button variant="danger" className="flex-1" loading={busy} disabled={busy} onClick={() => answer("CANCELLED")} data-testid="pending-refuse-send">Envoyer le refus</Button>
           </div>
         </div>
       ) : (
         <div className="mt-3 grid grid-cols-[1fr_auto] gap-2">
-          <Button size="lg" onClick={() => answer("CONFIRMED")} data-testid="pending-confirm"><Check className="h-5 w-5" />Confirmer</Button>
-          <Button size="lg" variant="secondary" onClick={() => setRefusing(true)} data-testid="pending-refuse"><X className="h-5 w-5" />Refuser</Button>
+          <Button size="lg" loading={busy} disabled={busy} onClick={() => answer("CONFIRMED")} data-testid="pending-confirm"><Check className="h-5 w-5" />Confirmer</Button>
+          <Button size="lg" variant="secondary" disabled={busy} onClick={() => setRefusing(true)} data-testid="pending-refuse"><X className="h-5 w-5" />Refuser</Button>
         </div>
       )}
     </article>

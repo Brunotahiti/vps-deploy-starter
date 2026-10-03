@@ -1,4 +1,5 @@
 import { prisma } from "@/server/db";
+import { rateLimit } from "@/server/rate-limit";
 import { ApiError } from "@/server/errors";
 import { audit } from "@/server/audit";
 import { publish } from "@/server/realtime/bus";
@@ -89,15 +90,16 @@ export function simpleReservation<T extends Partial<ReservationInput>>(ctx: { op
 }
 
 /** E-mail de confirmation au client (si une adresse est connue et l'envoi d'e-mails configuré) */
-async function notifyCustomer(establishmentId: string, r: { email: string | null; name: string; startsAt: Date; partySize: number }, kind: "received" | "confirmed" | "declined" | "updated" | "cancelled", message?: string | null) {
-  if (!r.email || !isEmailConfigured()) return;
-  if (await isDemoEstablishment(establishmentId)) return; // restaurant exemple : jamais d'e-mail réel
+/** E-mail au client ; true s'il est réellement parti. */
+async function notifyCustomer(establishmentId: string, r: { email: string | null; name: string; startsAt: Date; partySize: number }, kind: "received" | "confirmed" | "declined" | "updated" | "cancelled", message?: string | null): Promise<boolean> {
+  if (!r.email || !isEmailConfigured()) return false;
+  if (await isDemoEstablishment(establishmentId)) return false; // restaurant exemple : jamais d'e-mail réel
   const est = await prisma.establishment.findUniqueOrThrow({ where: { id: establishmentId }, select: { name: true, timezone: true, phone: true, addressLine1: true, city: true } });
-  await sendMail(reservationMail({
+  return sendMail(reservationMail({
     to: r.email, kind, establishmentName: est.name, name: r.name, partySize: r.partySize,
     dateLabel: new Intl.DateTimeFormat("fr-FR", { timeZone: est.timezone, weekday: "long", day: "numeric", month: "long" }).format(r.startsAt), timeLabel: formatTime(r.startsAt, est.timezone),
     phone: est.phone, address: [est.addressLine1, est.city].filter(Boolean).join(", ") || null, message: message ?? null,
-  })).catch(() => {});
+  })).then(() => true, () => false);
 }
 
 const timezoneOf = async (establishmentId: string) => (await prisma.establishment.findUniqueOrThrow({ where: { id: establishmentId }, select: { timezone: true } })).timezone;
@@ -155,7 +157,7 @@ export async function reservationSummary(establishmentId: string, from: string, 
 export async function pendingReservations(establishmentId: string) {
   return prisma.reservation.findMany({
     where: { establishmentId, status: "PENDING", startsAt: { gte: new Date(Date.now() - 2 * 3600_000) } },
-    orderBy: { createdAt: "asc" }, take: 20,
+    orderBy: { createdAt: "asc" }, take: 100,
     select: { id: true, name: true, phone: true, email: true, startsAt: true, partySize: true, notes: true, allergies: true, createdAt: true, source: true },
   });
 }
@@ -186,8 +188,10 @@ export async function createPublicReservation(establishmentId: string, organizat
     return tx.reservation.create({ data: { establishmentId, customerId: customer.id, name: input.name, phone: input.phone, email: input.email.trim(), startsAt, partySize: input.partySize, notes: input.notes ?? null, allergies: input.allergies ?? null, status: "PENDING", source: "ONLINE", durationMinutes: duration }, include });
   });
   publish("floor.updated", establishmentId, { reservationId: row.id, publicReservation: true });
-  // Accusé de réception : le client sait que sa demande attend la réponse du restaurant (par e-mail)
-  await notifyCustomer(establishmentId, row, "received");
+  // Accusé de réception : le client sait que sa demande attend la réponse du restaurant (par e-mail).
+  // 3 par adresse et par jour au plus : le formulaire public ne doit pas servir à écrire à n'importe qui
+  const mailAllowed = await rateLimit(`reserve-mail:${input.email.trim().toLowerCase()}`, 3, 86_400_000).then(() => true, () => false);
+  if (mailAllowed) await notifyCustomer(establishmentId, row, "received");
   return row;
 }
 
@@ -196,31 +200,45 @@ const TRANSITIONS: Record<ReservationStatus, ReservationStatus[]> = {
 };
 
 /** Changement de statut ; « installée » ouvre la commande sur la table (couverts = taille du groupe, client rattaché). */
-export async function setReservationStatus(actor: Actor, id: string, status: ReservationStatus, tableId?: string | null, notify = false, message?: string | null) {
+export async function setReservationStatus(actor: Actor, id: string, status: ReservationStatus, tableId?: string | null, notify = false, message?: string | null, expect?: ReservationStatus) {
   const r = await prisma.reservation.findFirst({ where: { id, establishmentId: actor.establishmentId }, include });
   if (!r) throw new ApiError(404, "NOT_FOUND", "Réservation introuvable");
+  // Écran resté ouvert : la demande a déjà été traitée par un collègue
+  if (expect && r.status !== expect) throw new ApiError(409, "ALREADY_HANDLED", `Réservation de ${r.name} déjà traitée par un collègue`);
   if (!TRANSITIONS[r.status].includes(status)) throw new ApiError(409, "BAD_TRANSITION", `Passage ${r.status} → ${status} impossible`);
   const table = tableId ?? r.tableId;
   if (tableId && !(await prisma.table.findFirst({ where: { id: tableId, establishmentId: actor.establishmentId } }))) throw new ApiError(400, "BAD_TABLE", "Table invalide");
-  let orderId: string | null = null;
-  if (status === "SEATED") {
-    if (!table) throw new ApiError(400, "TABLE_REQUIRED", "Choisissez une table pour installer les clients");
-    const order = await createOrder(actor, { type: "DINE_IN", tableId: table, covers: r.partySize, customerName: r.name, notes: r.allergies ? `Allergies : ${r.allergies}` : null });
-    if (r.customerId) await prisma.order.update({ where: { id: order.id }, data: { customerId: r.customerId } });
-    orderId = order.id;
-  }
+  if (status === "SEATED" && !table) throw new ApiError(400, "TABLE_REQUIRED", "Choisissez une table pour installer les clients");
   // Une table choisie au dernier moment ne doit pas être déjà promise à quelqu'un d'autre
-  if (tableId && tableId !== r.tableId && (status === "SEATED" || status === "CONFIRMED" || status === "ARRIVED")) {
-    const clash = await tableConflict(actor.establishmentId, tableId, status === "SEATED" ? new Date() : r.startsAt, r.durationMinutes, r.id);
-    if (clash && status !== "SEATED") throw new ApiError(409, "TABLE_TAKEN", `Cette table est déjà réservée (${clash.name})`);
+  if (tableId && tableId !== r.tableId && (status === "CONFIRMED" || status === "ARRIVED")) {
+    const clash = await tableConflict(actor.establishmentId, tableId, r.startsAt, r.durationMinutes, r.id);
+    if (clash) throw new ApiError(409, "TABLE_TAKEN", `Cette table est déjà réservée (${clash.name})`);
   }
-  if (status === "SEATED" || status === "CANCELLED" || status === "NO_SHOW" || status === "COMPLETED") { if (table) await prisma.table.updateMany({ where: { id: table, establishmentId: actor.establishmentId, state: "RESERVED" }, data: { state: "FREE" } }); }
-  const updated = await prisma.reservation.update({ where: { id }, data: { status, tableId: table ?? null }, include });
+  // Passage réservé d'un seul coup : deux appuis simultanés (ou confirmer ici et refuser ailleurs) ne passent pas tous les deux,
+  // et le client ne reçoit jamais deux réponses contradictoires
+  const claimed = await prisma.reservation.updateMany({ where: { id, establishmentId: actor.establishmentId, status: r.status }, data: { status } });
+  if (!claimed.count) throw new ApiError(409, "ALREADY_HANDLED", `Réservation de ${r.name} modifiée entre-temps : rechargez`);
+  let orderId: string | null = null;
+  let updated;
+  try {
+    if (status === "SEATED" && table) {
+      const order = await createOrder(actor, { type: "DINE_IN", tableId: table, covers: r.partySize, customerName: r.name, notes: r.allergies ? `Allergies : ${r.allergies}` : null });
+      if (r.customerId) await prisma.order.update({ where: { id: order.id }, data: { customerId: r.customerId } });
+      orderId = order.id;
+    }
+    if (status === "SEATED" || status === "CANCELLED" || status === "NO_SHOW" || status === "COMPLETED") { if (table) await prisma.table.updateMany({ where: { id: table, establishmentId: actor.establishmentId, state: "RESERVED" }, data: { state: "FREE" } }); }
+    updated = await prisma.reservation.update({ where: { id }, data: { tableId: table ?? null }, include });
+  } catch (e) {
+    // Échec (table occupée…) : la réservation reprend son statut d'avant
+    await prisma.reservation.updateMany({ where: { id, status }, data: { status: r.status } });
+    throw e;
+  }
   await audit({ ...actor, action: "reservation.status", entityType: "reservation", entityId: id, oldValue: { status: r.status }, newValue: { status, orderId } });
   publish("floor.updated", actor.establishmentId, { reservationId: id });
   publish("table.updated", actor.establishmentId, { tableId: table });
   // Demande en ligne : le client attend la réponse du restaurant, toujours envoyée par e-mail (confirmée ou refusée)
-  if (r.status === "PENDING" && r.source === "ONLINE" && (status === "CONFIRMED" || status === "CANCELLED")) await notifyCustomer(actor.establishmentId, updated, status === "CONFIRMED" ? "confirmed" : "declined", message);
-  else if (status === "CANCELLED" && r.status !== "CANCELLED" && notify) await notifyCustomer(actor.establishmentId, updated, "cancelled", message);
-  return { ...updated, orderId };
+  let emailed = false;
+  if (r.status === "PENDING" && r.source === "ONLINE" && (status === "CONFIRMED" || status === "CANCELLED")) emailed = await notifyCustomer(actor.establishmentId, updated, status === "CONFIRMED" ? "confirmed" : "declined", message);
+  else if (status === "CANCELLED" && r.status !== "CANCELLED" && notify) emailed = await notifyCustomer(actor.establishmentId, updated, "cancelled", message);
+  return { ...updated, orderId, emailed };
 }

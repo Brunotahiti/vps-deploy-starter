@@ -9,7 +9,7 @@ import type { Actor } from "./orders";
 export async function uniqueShareSlug(db: Tx | typeof prisma, name: string, exceptId?: string) {
   const base = suggestShareSlug(name);
   for (let i = 1; ; i++) {
-    const candidate = i === 1 ? base : `${base.slice(0, SHARE_SLUG_MAX - String(i).length - 1)}-${i}`;
+    const candidate = i === 1 ? base : `${base.slice(0, SHARE_SLUG_MAX - String(i).length - 1).replace(/-+$/, "")}-${i}`; // jamais « --2 »
     const taken = await db.establishment.findUnique({ where: { shareSlug: candidate }, select: { id: true } });
     if (!taken || taken.id === exceptId) return candidate;
   }
