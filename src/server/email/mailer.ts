@@ -74,6 +74,9 @@ export function reservationMail(input: { to: string; kind: "received" | "confirm
   const title = TITLE[input.kind];
   const lead = LEAD[input.kind];
   const people = `${input.partySize} personne${input.partySize > 1 ? "s" : ""}`;
+  // Annulée ou refusée : réservation grisée, valeurs barrées (les intitulés restent lisibles)
+  const struck = input.kind === "cancelled" || input.kind === "declined";
+  const strike = struck ? ";text-decoration:line-through" : "";
   const html = `<!doctype html><html lang="fr"><body style="margin:0;background:#f3f5f8;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#0f172a">
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td align="center" style="padding:24px 12px">
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:520px;background:#fff;border-radius:20px;overflow:hidden;box-shadow:0 6px 20px -8px rgba(15,23,42,.15)">
@@ -82,10 +85,10 @@ export function reservationMail(input: { to: string; kind: "received" | "confirm
 <div style="font-size:24px;font-weight:800;margin-top:6px">${title}</div></td></tr>
 <tr><td style="padding:24px 28px">
 <p style="margin:0 0 16px;font-size:15px;line-height:1.5">Bonjour ${esc(input.name)},<br>${lead}</p>
-<table role="presentation" cellspacing="0" cellpadding="0" style="width:100%;background:#f1f4f8;border-radius:14px${input.kind === "cancelled" || input.kind === "declined" ? ";opacity:.6;text-decoration:line-through" : ""}"><tr>
-<td style="padding:16px 18px"><div style="font-size:12px;color:#64748b">Date</div><div style="font-size:16px;font-weight:800;text-transform:capitalize">${esc(input.dateLabel)}</div></td>
-<td style="padding:16px 18px"><div style="font-size:12px;color:#64748b">Heure</div><div style="font-size:16px;font-weight:800">${esc(input.timeLabel)}</div></td>
-<td style="padding:16px 18px"><div style="font-size:12px;color:#64748b">Table pour</div><div style="font-size:16px;font-weight:800">${people}</div></td></tr></table>
+<table role="presentation" cellspacing="0" cellpadding="0" style="width:100%;background:#f1f4f8;border-radius:14px${struck ? ";opacity:.6" : ""}"><tr>
+<td style="padding:16px 18px;vertical-align:top"><div style="font-size:12px;color:#64748b">Date</div><div style="font-size:16px;font-weight:800${strike}">${esc(input.dateLabel.replace(/^./, (c) => c.toUpperCase()))}</div></td>
+<td style="padding:16px 18px;vertical-align:top"><div style="font-size:12px;color:#64748b">Heure</div><div style="font-size:16px;font-weight:800${strike}">${esc(input.timeLabel)}</div></td>
+<td style="padding:16px 18px;vertical-align:top"><div style="font-size:12px;color:#64748b">Table pour</div><div style="font-size:16px;font-weight:800${strike}">${people}</div></td></tr></table>
 ${input.message ? `<p style="margin:18px 0 0;padding:14px 16px;background:#fff7ed;border-radius:12px;font-size:14px;line-height:1.5"><strong>Message du restaurant :</strong><br>${esc(input.message).replace(/\n/g, "<br>")}</p>` : ""}
 <p style="margin:18px 0 0;font-size:13px;color:#475569;line-height:1.5">${input.kind === "cancelled" || input.kind === "declined" ? "Pour réserver à une autre date" : input.kind === "received" ? "Une question ou une demande urgente" : "Un empêchement ou un changement"} : ${input.phone ? `appelez-nous au <strong>${esc(input.phone)}</strong>.` : "contactez directement le restaurant."}</p>
 ${input.address ? `<p style="margin:12px 0 0;font-size:12px;color:#64748b">${esc(input.establishmentName)} · ${esc(input.address)}</p>` : ""}

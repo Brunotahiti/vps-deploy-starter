@@ -11,6 +11,8 @@ export const RESERVED_SHARE_SLUGS = new Set([
   "desabonnement", "ecran", "favicon", "icons", "index", "inscription", "invitation", "kds", "kiosk", "login", "manaresto", "mentions-legales",
   "m", "nginx", "onboarding", "platform", "pos", "presse", "prix", "r", "readme", "reserver", "robots", "salle", "signup", "site", "sitemap",
   "static", "suivi", "support", "tarifs", "test", "www", "404", "500",
+  // Chemins servis par l'application sous manaresto.com (fichiers, suivi des erreurs)
+  "brand", "fonts", "monitoring", "images", "manifest",
 ]);
 
 export const SHARE_SLUG_MIN = 3;

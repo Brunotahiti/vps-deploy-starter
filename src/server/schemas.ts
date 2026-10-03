@@ -146,7 +146,7 @@ export const reservationSchema = z.object({
   status: z.enum(["PENDING", "CONFIRMED", "ARRIVED", "SEATED", "COMPLETED", "CANCELLED", "NO_SHOW"]).optional(), customerId: uuid.nullable().optional(),
   durationMinutes: z.number().int().min(15).max(360).optional(), source: z.enum(["PHONE", "WALK_IN", "ONLINE", "OTHER"]).optional(), tags: z.array(z.string().max(30)).max(10).optional(), notify: z.boolean().optional(),
 });
-export const reservationStatusSchema = z.object({ status: z.enum(["PENDING", "CONFIRMED", "ARRIVED", "SEATED", "COMPLETED", "CANCELLED", "NO_SHOW"]), tableId: uuid.nullable().optional(), notify: z.boolean().optional(), message: z.string().trim().max(300).nullable().optional() });
+export const reservationStatusSchema = z.object({ status: z.enum(["PENDING", "CONFIRMED", "ARRIVED", "SEATED", "COMPLETED", "CANCELLED", "NO_SHOW"]), tableId: uuid.nullable().optional(), notify: z.boolean().optional(), message: z.string().trim().max(300).nullable().optional(), expect: z.enum(["PENDING", "CONFIRMED", "ARRIVED", "SEATED", "COMPLETED", "CANCELLED", "NO_SHOW"]).optional() });
 const hhmm = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);
 export const reservationSettingsSchema = z.object({
   services: z.array(z.object({ key: z.enum(["lunch", "dinner"]), label: z.string().max(20).optional(), enabled: z.boolean(), from: hhmm, to: hhmm })).max(2).optional(),

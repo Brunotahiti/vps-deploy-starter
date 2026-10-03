@@ -102,3 +102,28 @@ test("lien de démo : /login?demo=1 connecte au compte d'exemple", async ({ page
   const me = await (await page.request.get("/api/auth/me")).json();
   expect(me.data.user.email).toBe("demo@manaresto.pf");
 });
+
+/** Commande en ligne sur téléphone : barre du panier en bas d'écran, lignes identiques regroupées. */
+test("commande en ligne sur téléphone : barre du panier, quantités regroupées, suivi", async ({ browser }) => {
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+  const page = await ctx.newPage();
+  await page.goto("/commander/demo-mana-beach/le-mana-beach");
+  const add = page.getByRole("button", { name: "Ajouter Eau minérale 50 cl" });
+  await add.click();
+  await add.click();
+  const bar = page.getByTestId("shop-cart-bar");
+  await expect(bar).toContainText("Ma commande · 2");
+  await bar.click();
+  await expect(bar).toHaveCount(0); // le panier est à l'écran : la barre s'efface
+  await page.getByLabel("Votre nom").fill("Client mobile");
+  await page.getByLabel("Téléphone").fill("87 00 00 02");
+  await page.getByRole("button", { name: "Confirmer la commande" }).click();
+  await page.waitForURL(/\/suivi\//);
+  await expect(page.getByText("2 × Eau minérale 50 cl")).toBeVisible(); // une seule ligne, quantité 2
+  const token = page.url().split("/suivi/")[1];
+  const track = (await (await page.request.get(`/api/public/track/${token}`)).json()).data;
+  expect(track.stage).toBe("RECEIVED");
+  await page.request.post("/api/auth/login", { data: { email: "manager@manaresto.pf", password: "demo1234" } });
+  await page.request.post(`/api/orders/${track.id}/cancel`, { data: { reason: "Test / formation" } });
+  await ctx.close();
+});

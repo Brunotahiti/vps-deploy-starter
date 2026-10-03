@@ -5,6 +5,9 @@ import { prisma } from "@/server/db";
 import { resolveShareSlug } from "@/server/services/share";
 import { restaurantSite } from "@/server/services/public";
 import { shareLabel, shareUrl } from "@/lib/share";
+import { fetchPublicImage } from "@/server/net/fetch-image";
+import { rateLimitIp } from "@/server/rate-limit";
+import type { NextRequest } from "next/server";
 
 export const dynamic = "force-dynamic";
 
@@ -27,10 +30,7 @@ async function photo(url: string, w: number, h: number): Promise<string | null> 
     const m = url.match(/^\/api\/uploads\/([0-9a-f-]{36})$/);
     if (m) bytes = await prisma.upload.findUnique({ where: { id: m[1] }, select: { data: true } }).then((u) => (u ? Buffer.from(u.data) : null));
     else if (/^\/[a-z0-9/_.-]+\.(webp|png|jpe?g)$/i.test(url) && !url.includes("..")) bytes = await readFile(path.join(process.cwd(), "public", url));
-    else if (/^https:\/\//.test(url)) {
-      const r = await fetch(url, { signal: AbortSignal.timeout(3000) });
-      if (r.ok && (r.headers.get("content-type") ?? "").startsWith("image/") && Number(r.headers.get("content-length") ?? 0) <= 8_000_000) bytes = Buffer.from(await r.arrayBuffer());
-    }
+    else if (/^https:\/\//.test(url)) bytes = await fetchPublicImage(url); // jamais le réseau interne (SSRF), taille plafonnée
     if (!bytes) return null;
     const sharp = (await import("sharp")).default;
     const jpeg = await sharp(bytes).rotate().resize(w, h, { fit: "cover" }).jpeg({ quality: 82 }).toBuffer();
@@ -42,11 +42,28 @@ async function photo(url: string, w: number, h: number): Promise<string | null> 
  * Image d'aperçu (1200 × 630) quand l'adresse du site est partagée sur WhatsApp, Facebook, Messenger… :
  * photo de couverture, nom, accroche, ville et adresse de partage.
  */
-export async function GET(_req: Request, { params }: { params: Promise<{ slug: string }> }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
+  // Génération coûteuse (téléchargement, recadrage, rendu) : limitée par adresse IP, et mise en mémoire tant que le site ne change pas
+  try { await rateLimitIp(req, "share-card", 30); } catch { return new Response("Trop de requêtes", { status: 429, headers: { "Retry-After": "60" } }); }
   const { slug } = await params;
   const est = await resolveShareSlug(slug);
   const data = est ? await restaurantSite(est.organization.slug, est.slug).catch(() => null) : null;
   if (!data) return new Response("Introuvable", { status: 404 });
+  const e = data.establishment, s = data.site;
+  const key = JSON.stringify([e.shareSlug, e.name, e.city, e.island, s.coverUrl, s.logoUrl, s.accent, s.tagline, s.description.slice(0, 110), data.online.enabled, !!data.menu]);
+  const hit = cards.get(key);
+  if (hit && Date.now() - hit.at < CARD_TTL_MS) return cardResponse(hit.body, hit.type);
+  const card = await render(data, slug);
+  if (cards.size >= 200) cards.delete(cards.keys().next().value as string);
+  cards.set(key, { ...card, at: Date.now() });
+  return cardResponse(card.body, card.type);
+}
+
+const CARD_TTL_MS = 30 * 60_000;
+const cards = new Map<string, { body: Buffer; type: string; at: number }>();
+const cardResponse = (body: Buffer, type: string) => new Response(new Uint8Array(body), { headers: { "Content-Type": type, "Cache-Control": "public, max-age=3600, s-maxage=3600" } });
+
+async function render(data: Awaited<ReturnType<typeof restaurantSite>>, slug: string): Promise<{ body: Buffer; type: string }> {
   const e = data.establishment, s = data.site;
   const [cover, logo] = await Promise.all([photo(s.coverUrl, 1200, 630), photo(s.logoUrl, 192, 192)]);
   const accent = /^#[0-9a-f]{6}$/i.test(s.accent) ? s.accent : "#14aaa3";
@@ -83,5 +100,5 @@ export async function GET(_req: Request, { params }: { params: Promise<{ slug: s
   // JPEG léger (≈ 150 Ko au lieu de ≈ 2 Mo en PNG) : WhatsApp n'affiche pas les aperçus trop lourds
   const raw = Buffer.from(await png.arrayBuffer());
   const jpeg = await import("sharp").then((m) => m.default(raw).jpeg({ quality: 84, mozjpeg: true }).toBuffer()).catch(() => null);
-  return new Response(new Uint8Array(jpeg ?? raw), { headers: { "Content-Type": jpeg ? "image/jpeg" : "image/png", "Cache-Control": "public, max-age=3600, s-maxage=3600" } });
+  return { body: jpeg ?? raw, type: jpeg ? "image/jpeg" : "image/png" };
 }

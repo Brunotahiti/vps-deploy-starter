@@ -14,6 +14,8 @@ import type { Key } from "@/lib/i18n/public";
 export type PublicCatalog = Awaited<ReturnType<typeof publicCatalog>>;
 export type CartLine = ProductChoice & { id: string; name: string; unitPrice: number; detail: string };
 
+const choiceKey = (c: ProductChoice) => JSON.stringify([c.productId ?? null, c.menuId ?? null, c.variantId ?? null, c.modifiers ?? [], c.menuSelections ?? [], c.notes || null]);
+
 /** Prix d'une ligne à partir du catalogue (variantes, options, formules). */
 export function priceOf(catalog: PublicCatalog, c: ProductChoice): { name: string; unitPrice: number; detail: string } {
   if (c.menuId) {
@@ -37,9 +39,15 @@ export function MenuBrowser({ catalog, cart, setCart, t, readOnly = false, big =
   const [open, setOpen] = useState<{ product?: PosProduct; menu?: PosMenu } | null>(null);
   const cats = catalog.categories.filter((c) => !c.parentId);
   const products = useMemo(() => { const q = search.trim().toLowerCase(); return catalog.products.filter((p) => (q ? p.name.toLowerCase().includes(q) : !catId || p.categoryId === catId)); }, [catalog.products, catId, search]);
-  const add = (choice: ProductChoice) => { const px = priceOf(catalog, choice); setCart([...cart, { ...choice, id: crypto.randomUUID(), ...px }]); };
+  // Même plat avec les mêmes choix : la quantité de la ligne existante augmente (« 2 × Eau » plutôt que deux lignes)
+  const add = (choice: ProductChoice) => {
+    const k = choiceKey(choice);
+    const same = cart.find((l) => choiceKey(l) === k);
+    if (same) return setCart(cart.map((l) => (l === same ? { ...l, quantity: l.quantity + choice.quantity } : l)));
+    setCart([...cart, { ...choice, id: crypto.randomUUID(), ...priceOf(catalog, choice) }]);
+  };
   const qtyIn = (productId: string) => cart.filter((l) => l.productId === productId).reduce((a, l) => a + l.quantity, 0);
-  const tile = big ? "h-52" : "h-44";
+  const tile = big ? "h-56" : "h-48"; // assez haut pour un nom sur deux lignes + le prix
   return (
     <div className="min-w-0">
       <div className="sticky top-0 z-10 -mx-1 mb-3 space-y-2 bg-[var(--bg)] px-1 py-2">
@@ -63,7 +71,7 @@ export function MenuBrowser({ catalog, cart, setCart, t, readOnly = false, big =
             <div key={p.id} className={`card relative flex ${tile} flex-col overflow-hidden`}>
               <button onClick={() => !readOnly && setOpen({ product: p as unknown as PosProduct })} className="touch flex min-h-0 flex-1 flex-col text-left" aria-label={`${p.name} : détail`}>
                 <Photo src={p.imageUrl} className="h-24 w-full shrink-0 object-cover" fallback={<span className="flex h-24 w-full shrink-0 items-center justify-center text-3xl font-extrabold text-white/90" style={{ background: `linear-gradient(140deg, color-mix(in srgb, ${p.color ?? cat?.color ?? "#14aaa3"} 85%, white), ${p.color ?? cat?.color ?? "#14aaa3"})` }}>{p.name.slice(0, 1)}</span>} />
-                <span className="flex min-h-0 flex-1 flex-col justify-between gap-1 p-3 pr-12"><span className="line-clamp-2 text-sm font-bold leading-tight">{p.name}{p.description ? <span className="line-clamp-1 text-xs font-normal text-muted">{p.description}</span> : null}</span><span className="flex items-center gap-1.5 text-sm font-extrabold"><Money amount={p.priceTtc} />{p.variants.length ? <span className="text-[10px] font-bold uppercase text-muted">{t("from")}</span> : null}{p.modifierGroups.length ? <span className="rounded-md surface-2 px-1.5 py-0.5 text-[10px] font-bold uppercase text-muted">{t("options")}</span> : null}</span></span>
+                <span className="flex min-h-0 flex-1 flex-col justify-between gap-1 p-3 pr-12"><span className="line-clamp-2 text-sm font-bold leading-tight">{p.name}{p.description ? <span className="line-clamp-1 text-xs font-normal text-muted">{p.description}</span> : null}</span><span className="flex items-center gap-1.5 text-sm font-extrabold"><Money amount={p.priceTtc} />{p.variants.length ? <span className="text-[10px] font-bold uppercase text-muted">{t("from")}</span> : null}{p.modifierGroups.length ? <span className="hidden rounded-md surface-2 px-1.5 py-0.5 text-[10px] font-bold uppercase text-muted sm:inline">{t("options")}</span> : null}</span></span>
               </button>
               {!readOnly ? <button onClick={() => { const needs = p.variants.length > 0 || p.modifierGroups.some((g) => g.minSelect > 0 && !g.modifiers.some((m) => m.isDefault)); if (needs) return setOpen({ product: p as unknown as PosProduct }); add({ productId: p.id, quantity: 1, modifiers: p.modifierGroups.flatMap((g) => g.modifiers.filter((m) => m.isDefault).slice(0, g.maxSelect ?? undefined).map((m) => ({ modifierId: m.id }))) }); }} className="touch absolute bottom-2 right-2 flex h-10 w-10 items-center justify-center rounded-full bg-brand text-white shadow-glow active:scale-90" aria-label={`${t("add")} ${p.name}`}>{n > 0 ? <span className="text-sm font-extrabold">{n}</span> : <Plus className="h-5 w-5" />}</button> : null}
             </div>
