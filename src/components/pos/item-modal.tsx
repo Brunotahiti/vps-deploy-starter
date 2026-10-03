@@ -4,16 +4,22 @@ import { useState } from "react";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { Money } from "@/components/money";
-import { Trash2, AlertTriangle } from "lucide-react";
+import { Trash2, AlertTriangle, Gift } from "lucide-react";
 import type { Order, OrderItem } from "./types";
 
-export function ItemModal({ order, item, onClose, onUpdate, onRemove }: {
+const OFFER_REASONS = ["Anniversaire", "Client fidèle", "Geste commercial", "Erreur de service"];
+
+export function ItemModal({ order, item, onClose, onUpdate, onRemove, onOffer, onUnoffer }: {
   order: Order; item: OrderItem | null; onClose: () => void;
+  /** Option Bar : offrir l'article (motif tracé) ou annuler l'offre */
+  onOffer?: (item: OrderItem, reason: string) => Promise<void>;
+  onUnoffer?: (item: OrderItem) => Promise<void>;
   onUpdate: (itemId: string, patch: { quantity?: number; seatNumber?: number | null; courseId?: string | null; notes?: string | null; isUrgent?: boolean }) => Promise<void>;
   onRemove: (item: OrderItem, reason: string | null) => Promise<void>;
 }) {
   const [reason, setReason] = useState("");
   const [notes, setNotes] = useState(item?.notes ?? "");
+  const [offerReason, setOfferReason] = useState("");
   const [loading, setLoading] = useState(false);
   if (!item) return null;
   const sent = item.status !== "PENDING";
@@ -64,6 +70,25 @@ export function ItemModal({ order, item, onClose, onUpdate, onRemove }: {
             <Button variant="secondary" disabled={loading || notes === (item.notes ?? "")} onClick={wrap(() => onUpdate(item.id, { notes: notes || null }))}>Enregistrer</Button>
           </div>
         </label>
+        {onOffer && onUnoffer && item.productId && !item.parentItemId ? (
+          <div className="rounded-xl border border-fuchsia-500/30 p-3" data-testid="offer-box">
+            {item.discountKind === "OFFERED" ? (
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="inline-flex items-center gap-1.5 text-sm font-bold text-fuchsia-700 dark:text-fuchsia-300"><Gift className="h-4 w-4" />Offert{item.discountNote ? ` : ${item.discountNote}` : ""}</span>
+                <Button variant="secondary" disabled={loading} onClick={wrap(() => onUnoffer(item))}>Annuler l&apos;offre</Button>
+              </div>
+            ) : (
+              <>
+                <p className="mb-1 text-xs font-semibold uppercase text-fuchsia-700 dark:text-fuchsia-300">Offrir (motif tracé)</p>
+                <div className="mb-2 flex flex-wrap gap-1.5">{OFFER_REASONS.map((r) => <button key={r} type="button" onClick={() => setOfferReason(r)} className={`touch h-9 rounded-full px-3 text-xs font-semibold ${offerReason === r ? "bg-fuchsia-600 text-white" : "surface-2"}`}>{r}</button>)}</div>
+                <div className="flex gap-2">
+                  <input value={offerReason} onChange={(e) => setOfferReason(e.target.value)} className="h-11 min-w-0 flex-1 rounded-xl border border-line surface px-3 text-sm" placeholder="Motif" aria-label="Motif de l'offre" />
+                  <Button disabled={loading || offerReason.trim().length < 2} onClick={wrap(() => onOffer(item, offerReason.trim()))} data-testid="offer-send"><Gift className="h-4 w-4" />Offrir</Button>
+                </div>
+              </>
+            )}
+          </div>
+        ) : null}
         <div className="rounded-xl border border-red-500/30 p-3">
           {sent ? (
             <label className="mb-2 block">

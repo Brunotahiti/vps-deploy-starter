@@ -4,7 +4,7 @@ import { Photo } from "@/components/ui/photo";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Search, Send, Receipt, CreditCard, Percent, XCircle, ArrowRightLeft, Printer, Flame, PauseCircle, CheckCircle2, AlertTriangle, ChevronDown, Plus, X, ShoppingBasket, UserRound } from "lucide-react";
+import { ArrowLeft, Search, Send, Receipt, CreditCard, Percent, XCircle, ArrowRightLeft, Printer, Flame, PauseCircle, CheckCircle2, AlertTriangle, ChevronDown, Plus, X, ShoppingBasket, UserRound, Gift } from "lucide-react";
 import { api, ApiClientError } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
@@ -26,7 +26,7 @@ import { useFloor } from "./floor";
 import { useOffline } from "@/lib/offline/provider";
 import { addFloorOverride, getLocalOrder, markOfflineOrderClosed, saveLocalOrder } from "@/lib/offline/local-orders";
 import { mergedOrderId } from "@/lib/offline/outbox";
-import { computeOrderTotals } from "@/lib/order-calc";
+import { computeOrderTotals, discountLabel } from "@/lib/order-calc";
 import { applyBps } from "@/lib/money";
 import { addSaleLocal } from "@/lib/offline/cash-local";
 import { colsFor, kitchenTickets, openDrawerLocal, printLocal, type LocalOrder, type LocalPrinter } from "@/lib/offline/print-local";
@@ -47,7 +47,7 @@ export function OrderScreen({ orderId: orderIdProp }: { orderId: string }) {
   const router = useRouter();
   const qc = useQueryClient();
   const { toast } = useToast();
-  const { can, me } = useSession();
+  const { can, me, hasOption } = useSession();
   const catalog = usePosCatalog();
   const { online, pending } = useOffline();
   // Table ouverte hors ligne alors qu'un autre appareil l'avait déjà ouverte : on rejoint la commande existante
@@ -118,7 +118,7 @@ export function OrderScreen({ orderId: orderIdProp }: { orderId: string }) {
       const unitPrice = p ? (choice.variantId ? (p.variants.find((v) => v.id === choice.variantId)?.priceTtc ?? p.priceTtc) : p.priceTtc) : (m?.priceTtc ?? 0);
       const modsTotal = p ? p.modifierGroups.flatMap((g) => g.modifiers).filter((x) => choice.modifiers?.some((s) => s.modifierId === x.id)).reduce((a, x) => a + x.priceDelta, 0) : 0;
       const modNames = p ? p.modifierGroups.flatMap((g) => g.modifiers.filter((x) => choice.modifiers?.some((s) => s.modifierId === x.id)).map((x) => ({ id: crypto.randomUUID(), orderItemId: choice.id, modifierId: x.id, groupName: g.name, name: x.name, priceDelta: x.priceDelta, quantity: 1 }))) : [];
-      const temp: OrderItem = { id: choice.id, orderId, courseId, productId: p?.id ?? null, variantId: choice.variantId ?? null, menuId: m?.id ?? null, parentItemId: null, kitchenStationId: p?.kitchenStationId ?? null, kitchenTicketId: null, name, quantity: choice.quantity, unitPrice, modifiersTotal: modsTotal, discountAmount: 0, lineTotal: (unitPrice + modsTotal) * choice.quantity, taxRateBps: p?.taxRate?.rateBps ?? 0, taxRateName: p?.taxRate?.name ?? null, taxAmount: 0, costPrice: 0, seatNumber: seat, notes: choice.notes ?? null, isUrgent: false, status: "PENDING", sentAt: null, readyAt: null, servedAt: null, voidedAt: null, voidReason: null, sortOrder: current.items.length, createdAt: new Date(), updatedAt: new Date(), modifiers: modNames };
+      const temp: OrderItem = { id: choice.id, orderId, courseId, productId: p?.id ?? null, variantId: choice.variantId ?? null, menuId: m?.id ?? null, parentItemId: null, kitchenStationId: p?.kitchenStationId ?? null, kitchenTicketId: null, name, quantity: choice.quantity, unitPrice, modifiersTotal: modsTotal, discountAmount: 0, lineTotal: (unitPrice + modsTotal) * choice.quantity, taxRateBps: p?.taxRate?.rateBps ?? 0, taxRateName: p?.taxRate?.name ?? null, taxAmount: 0, costPrice: 0, seatNumber: seat, notes: choice.notes ?? null, isUrgent: false, status: "PENDING", sentAt: null, readyAt: null, servedAt: null, voidedAt: null, voidReason: null, discountKind: null, discountBps: null, discountNote: null, discountById: null, sortOrder: current.items.length, createdAt: new Date(), updatedAt: new Date(), modifiers: modNames };
       setOrder(recomputeLocal({ ...current, items: [...current.items, temp] }));
     },
     onSuccess: (data) => setOrder(data),
@@ -135,6 +135,13 @@ export function OrderScreen({ orderId: orderIdProp }: { orderId: string }) {
     await withPin(setPin, "pos.void_item", (managerPin) => api.delete<Order>(`/api/orders/${orderId}/items/${item.id}`, { reason, managerPin }, { queueIfOffline: !sent }).then(setOrder))
       .catch((e) => { onError(e); if (isQueued(e)) patchLocal((o) => ({ ...o, items: o.items.filter((i) => i.id !== item.id && i.parentItemId !== item.id) })); });
     setItemOpen(null);
+  };
+  // Option Bar : article offert (motif tracé ; droit de remise ou PIN d'un responsable)
+  const offerItem = async (item: OrderItem, reason: string) => {
+    await withPin(setPin, "pos.discount", (managerPin) => api.post<Order>(`/api/orders/${orderId}/items/${item.id}/offer`, { reason, managerPin }).then(setOrder)).catch(onError);
+  };
+  const unofferItem = async (item: OrderItem) => {
+    await withPin(setPin, "pos.discount", (managerPin) => api.delete<Order>(`/api/orders/${orderId}/items/${item.id}/offer`, { managerPin }).then(setOrder)).catch(onError);
   };
   const [sending, setSending] = useState(false);
   const send = async (opts: { courseId?: string | null; all?: boolean }) => {
@@ -239,6 +246,9 @@ export function OrderScreen({ orderId: orderIdProp }: { orderId: string }) {
   const pendingCount = activeItems.filter((i) => i.status === "PENDING").length;
   const pendingInCourse = (cid: string | null) => activeItems.filter((i) => i.status === "PENDING" && i.courseId === cid && !i.parentItemId).length;
   const remaining = o.total - o.paidTotal;
+  // Tout est offert (option Bar) : l'addition se clôture sans encaissement
+  const topItems = activeItems.filter((i) => !i.parentItemId);
+  const allOffered = hasOption("bar") && topItems.length > 0 && o.total === 0 && o.paidTotal === 0 && topItems.every((i) => i.discountKind === "OFFERED" || i.lineTotal === 0);
   const showFormules = catalog.data.menus.length > 0;
   const rootItems = o.items.filter((i) => !i.parentItemId);
   const currentCourse = o.courses.find((c) => c.id === courseId);
@@ -262,7 +272,7 @@ export function OrderScreen({ orderId: orderIdProp }: { orderId: string }) {
       <div className="md:hidden flex shrink-0 items-center gap-2 px-2 pt-2">
         <button onClick={() => router.push("/pos")} className="touch flex h-11 w-11 shrink-0 items-center justify-center rounded-xl card" aria-label="Retour à la salle"><ArrowLeft className="h-5 w-5" /></button>
         <button onClick={() => !closed && setDialog("covers")} className="touch min-w-0 flex-1 text-left">
-          <p className="truncate text-base font-extrabold leading-tight">{o.table ? `Table ${o.table.name}` : ORDER_TYPE_LABEL[o.type]}{o.customerName ? ` · ${o.customerName}` : ""}</p>
+          <p className="truncate text-base font-extrabold leading-tight">{o.isTab ? "Ardoise" : o.table ? `Table ${o.table.name}` : ORDER_TYPE_LABEL[o.type]}{o.customerName ? ` · ${o.customerName}` : ""}</p>
           <p className="truncate text-[11px] text-muted">{o.covers} couv. · {formatElapsed(o.openedAt)} · {o.number === "HORS-LIGNE" ? "hors ligne" : `n° ${o.number.split("-")[1]}`}{currentCourse && o.courses.length > 1 ? ` · ${currentCourse.name}` : ""}</p>
         </button>
         {!closed && o.type === "DINE_IN" ? <button onClick={() => setSeat(seat === null ? 1 : seat >= o.covers ? null : seat + 1)} className="touch h-9 shrink-0 rounded-full surface-2 px-3 text-xs font-bold text-muted">{seat === null ? "Table" : `C${seat}`}</button> : null}
@@ -347,7 +357,7 @@ export function OrderScreen({ orderId: orderIdProp }: { orderId: string }) {
           <div className="flex items-center justify-between">
             <button onClick={() => setSheet(false)} className="md:hidden touch -ml-1 mr-2 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl surface-2" aria-label="Fermer la commande"><X className="h-5 w-5" /></button>
             <button onClick={() => !closed && setDialog("covers")} className="touch min-w-0 flex-1 text-left">
-              <p className="truncate text-lg font-extrabold leading-tight">{o.table ? `Table ${o.table.name}` : ORDER_TYPE_LABEL[o.type]}{o.customerName ? ` · ${o.customerName}` : ""}</p>
+              <p className="truncate text-lg font-extrabold leading-tight">{o.isTab ? "Ardoise" : o.table ? `Table ${o.table.name}` : ORDER_TYPE_LABEL[o.type]}{o.customerName ? ` · ${o.customerName}` : ""}</p>
               <p className="text-xs text-muted">{o.covers} couvert{o.covers > 1 ? "s" : ""} · {formatElapsed(o.openedAt)} · {o.server?.displayName || o.server?.firstName} · {o.number === "HORS-LIGNE" ? <span className="font-bold text-orange-500">hors ligne</span> : `n° ${o.number.split("-")[1]}`}</p>
             </button>
             {closed ? <span className={`rounded-lg px-2 py-1 text-xs font-bold ${o.status === "PAID" ? "bg-green-500/15 text-green-600" : "bg-red-500/15 text-red-600"}`}>{o.status === "PAID" ? "PAYÉE" : "ANNULÉE"}</span> : null}
@@ -410,6 +420,7 @@ export function OrderScreen({ orderId: orderIdProp }: { orderId: string }) {
                         {i.modifiers.length ? <span className="block text-xs text-muted">{i.modifiers.map((m) => m.name).join(", ")}</span> : null}
                         {comps.map((cmp) => <span key={cmp.id} className="block text-xs text-muted">↳ {cmp.name}{cmp.modifiers.length ? ` (${cmp.modifiers.map((m) => m.name).join(", ")})` : ""}{cmp.unitPrice > 0 ? ` +${cmp.unitPrice}` : ""}</span>)}
                         {i.notes ? <span className="block text-xs italic text-corail-500">« {i.notes} »</span> : null}
+                        {discountLabel(i) ? <span className={`mt-0.5 inline-block rounded-md px-1.5 text-[11px] font-bold ${i.discountKind === "OFFERED" ? "bg-fuchsia-500/12 text-fuchsia-700 dark:text-fuchsia-300" : "bg-amber-500/15 text-amber-700 dark:text-amber-300"}`} data-testid="line-discount">{discountLabel(i)}</span> : null}
                         <span className="mt-0.5 flex gap-1 text-[10px] font-semibold uppercase text-muted">{i.seatNumber ? <span className="rounded bg-slate-500/15 px-1">Client {i.seatNumber}</span> : null}<span>{i.status === "PENDING" ? "à envoyer" : i.status === "SENT" ? "envoyé" : i.status === "PREPARING" ? "en préparation" : i.status === "READY" ? "prêt" : i.status === "SERVED" ? "servi" : "annulé"}</span></span>
                       </span>
                       <span className="text-sm font-bold"><Money amount={i.lineTotal + comps.reduce((a, c) => a + c.lineTotal, 0)} /></span>
@@ -443,7 +454,9 @@ export function OrderScreen({ orderId: orderIdProp }: { orderId: string }) {
                 </div>
               ) : null}
               <Button size="lg" variant="secondary" className="w-14 shrink-0 px-0!" title="Demander l'addition" disabled={activeItems.length === 0 || o.status === "BILL_REQUESTED"} onClick={requestBill}><Receipt className="h-5 w-5" /></Button>
-              <Button size="lg" className="min-w-0 flex-1 px-2!" disabled={activeItems.length === 0} onClick={() => setPayOpen(true)}><CreditCard className="h-5 w-5 shrink-0" /><span className="truncate">Payer</span></Button>
+              {allOffered ? (
+                <Button size="lg" className="min-w-0 flex-1 px-2!" onClick={() => run(() => api.post<Order>(`/api/orders/${orderId}/close-offered`))} data-testid="close-offered"><Gift className="h-5 w-5 shrink-0" /><span className="truncate">Clôturer (offert)</span></Button>
+              ) : <Button size="lg" className="min-w-0 flex-1 px-2!" disabled={activeItems.length === 0} onClick={() => setPayOpen(true)}><CreditCard className="h-5 w-5 shrink-0" /><span className="truncate">Payer</span></Button>}
             </div>
             <div className="grid grid-cols-5 gap-1">
               <button onClick={() => setCustomerOpen(true)} className={`touch flex h-12 flex-col items-center justify-center gap-0.5 rounded-xl text-[10px] font-bold uppercase hover:surface-3 ${o.customerId ? "bg-lagon-500/15 text-lagon-700 dark:text-lagon-300" : "surface-2 text-muted"}`}><UserRound className="h-4 w-4" />Client</button>
@@ -456,14 +469,14 @@ export function OrderScreen({ orderId: orderIdProp }: { orderId: string }) {
         ) : (
           <div className="no-print flex gap-2 p-3">
             <Button size="lg" variant="secondary" className="flex-1" onClick={() => setReceipt({ afterPayment: false })}><Printer className="h-4 w-4" /> Reçu</Button>
-            <Button size="lg" variant="secondary" className="flex-1" onClick={() => router.push("/pos")}>Retour salle</Button>
+            <Button size="lg" variant="secondary" className="flex-1" onClick={() => router.push(o.isTab ? "/pos/bar" : "/pos")}>{o.isTab ? "Retour au bar" : "Retour salle"}</Button>
           </div>
         )}
       </aside>
 
       {productOpen ? <ProductModal product={productOpen} onClose={() => setProductOpen(null)} onAdd={async (c) => { addItem.mutate({ ...c, id: crypto.randomUUID() }); }} /> : null}
       {menuOpen ? <ProductModal menu={menuOpen} products={catalog.data.products} onClose={() => setMenuOpen(null)} onAdd={async (c) => { addItem.mutate({ ...c, id: crypto.randomUUID() }); }} /> : null}
-      {itemOpen ? <ItemModal order={o} item={o.items.find((i) => i.id === itemOpen.id) ?? itemOpen} onClose={() => setItemOpen(null)} onUpdate={updateItem} onRemove={removeItem} /> : null}
+      {itemOpen ? <ItemModal order={o} item={o.items.find((i) => i.id === itemOpen.id) ?? itemOpen} onClose={() => setItemOpen(null)} onUpdate={updateItem} onRemove={removeItem} {...(hasOption("bar") ? { onOffer: offerItem, onUnoffer: unofferItem } : {})} /> : null}
       {payOpen ? <PaymentModal key={o.paidTotal} order={o} methods={catalog.data.paymentMethods} open onClose={() => setPayOpen(false)} onPay={pay} onPaid={afterPayment} /> : null}
       <CustomerDialog open={customerOpen} orderId={orderId} customerId={o.customerId} closed={closed} onClose={() => setCustomerOpen(false)} onChanged={() => { qc.invalidateQueries({ queryKey: ["order", orderId] }); qc.invalidateQueries({ queryKey: ["customer"] }); }} />
       {receipt ? <ReceiptDialog order={o} printers={localPrinters} orderId={orderId} orderNumber={o.number} open afterPayment={receipt.afterPayment} onClose={() => { const after = receipt.afterPayment; setReceipt(null); if (after) router.push(o.tableId ? "/pos" : "/pos/orders"); }} /> : null}

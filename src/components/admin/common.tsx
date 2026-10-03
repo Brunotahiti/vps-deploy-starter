@@ -30,6 +30,7 @@ export function useAction() {
 /** Aide sur place : chaque page de la gestion expliquée en une phrase (bouton « ? » à côté du titre). */
 const HELP: [string, string][] = [
   ["/admin/catering", "Vos buffets, mariages, privatisations et repas d'entreprise : composez le devis avec les plats de votre carte, envoyez-le (le client l'accepte en ligne), encaissez l'acompte, puis facturez. La cuisine voit le planning et la fiche cuisine, sans les prix."],
+  ["/admin/bar", "Le bar en un endroit : happy hour automatique sur les boissons de votre choix, fiches cocktails pour le barman (doses décomptées de la cave à chaque vente), cave à boissons au cl avec réceptions, inventaire et casse, et rapport (offerts, happy hour, casse). Les ardoises se tiennent à la caisse, onglet Bar."],
   ["/admin/screens", "Chaque écran (télévision, tablette) affiche votre carte à une adresse secrète, sans connexion d'un employé. Prix et plats épuisés se mettent à jour tout seuls ; la mise en avant sert pour le plat du jour."],
   ["/admin/marketing", "Cartes cadeaux à vendre et à utiliser à la caisse, campagnes par e-mail aux clients qui l'ont accepté (anniversaires, clients à faire revenir), et lien d'avis Google sur vos reçus et vos tables."],
   ["/admin/hygiene", "Votre plan d'hygiène sans papier : relevés de température matin et soir, nettoyages à cocher, réceptions et préparations avec leur date limite. Le registre imprimable est prêt pour un contrôle sanitaire."],

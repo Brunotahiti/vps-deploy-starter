@@ -272,3 +272,25 @@ export const eventPaymentSchema = z.object({ amount: z.number().int().min(1).max
 export const eventInvoiceSchema = z.object({ dueDays: z.number().int().min(0).max(120).optional() });
 export const eventCancelSchema = z.object({ reason: z.string().trim().min(1).max(300) });
 export const quoteAcceptSchema = z.object({ name: z.string().trim().min(2).max(120), agree: z.literal(true) });
+
+// Option Bar : happy hour, ardoises, verres offerts, fiches cocktails, cave du bar
+export const barSettingsSchema = z.object({
+  happyHours: z.array(z.object({
+    id: z.string().min(1).max(40), name: z.string().trim().min(1).max(40), days: z.array(z.number().int().min(0).max(6)).max(7),
+    start: hhmm, end: hhmm, discountBps: z.number().int().min(100).max(10000), categoryIds: z.array(uuid).max(50), productIds: z.array(uuid).max(300).default([]), enabled: z.boolean(),
+  })).max(10),
+});
+export const tabCreateSchema = z.object({ id: uuid.optional(), name: z.string().trim().min(1).max(60), customerId: uuid.nullable().optional() });
+export const offerItemSchema = z.object({ reason: z.string().trim().min(2).max(120), managerPin: pin.optional() });
+export const unofferItemSchema = z.object({ managerPin: pin.optional() });
+export const cocktailSchema = z.object({
+  glass: z.string().trim().max(60).nullable().optional(), garnish: z.string().trim().max(120).nullable().optional(), method: z.string().trim().max(1000).nullable().optional(),
+  doses: z.array(z.object({ ingredientId: uuid, quantity: z.number().min(0).max(10_000) })).max(20),
+});
+export const bottleSchema = z.object({
+  name: z.string().trim().min(1).max(80), barKind: z.enum(["spirit", "wine", "beer", "soft", "syrup", "other"]), unit: z.enum(["cl", "pce"]),
+  bottleMl: z.number().int().min(50).max(5000).nullable().optional(), minBottles: z.number().min(0).max(10_000).optional(), bottleCost: money.optional(),
+});
+export const bottleReceiveSchema = z.object({ bottles: z.number().positive().max(10_000), bottleCost: money.nullable().optional() });
+export const bottleBreakageSchema = z.object({ quantity: z.number().positive().max(100_000), per: z.enum(["bottle", "unit"]), reason: z.string().trim().min(2).max(120) });
+export const barInventorySchema = z.object({ counts: z.array(z.object({ id: uuid, bottles: z.number().min(0).max(100_000) })).min(1).max(500) });

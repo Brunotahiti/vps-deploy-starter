@@ -1,7 +1,7 @@
 import { prisma } from "@/server/db";
 import { ApiError } from "@/server/errors";
 import { formatMoney, formatBps } from "@/lib/money";
-import { computeOrderTotals } from "@/lib/order-calc";
+import { computeOrderTotals, discountLabel } from "@/lib/order-calc";
 import { formatDateTime } from "@/lib/dates";
 import { orderInclude } from "@/server/services/orders";
 import { EscPosBuilder, encodeEscPos, type PrintOp } from "@/server/hardware/escpos";
@@ -26,7 +26,7 @@ export async function renderReceiptHtml(establishmentId: string, orderId: string
   const rows = active.filter((i) => !i.parentItemId).map((i) => {
     const comps = active.filter((c) => c.parentItemId === i.id);
     const total = i.lineTotal + comps.reduce((a, c) => a + c.lineTotal, 0);
-    return `<tr><td>${i.quantity} ×</td><td>${esc(i.name)}${i.modifiers.length ? `<br><small>${esc(i.modifiers.map((m) => m.name).join(", "))}</small>` : ""}${comps.map((c) => `<br><small>↳ ${esc(c.name)}${c.unitPrice ? ` +${f(c.unitPrice)}` : ""}</small>`).join("")}</td><td class="r">${f(total)}</td></tr>`;
+    return `<tr><td>${i.quantity} ×</td><td>${esc(i.name)}${i.modifiers.length ? `<br><small>${esc(i.modifiers.map((m) => m.name).join(", "))}</small>` : ""}${comps.map((c) => `<br><small>↳ ${esc(c.name)}${c.unitPrice ? ` +${f(c.unitPrice)}` : ""}</small>`).join("")}${discountLabel(i) ? `<br><small><i>${esc(discountLabel(i)!)}</i></small>` : ""}</td><td class="r">${f(total)}</td></tr>`;
   }).join("");
   const vat = totals.breakdown.map((b) => `<tr><td>${esc(b.name)} (${formatBps(b.rateBps)})</td><td class="r">${f(b.ht)}</td><td class="r">${f(b.tax)}</td><td class="r">${f(b.ttc)}</td></tr>`).join("");
   const pays = order.payments.filter((p) => p.status !== "VOIDED").map((p) => `<tr><td>${methodLabel[p.method]}${p.splitLabel ? ` · ${esc(p.splitLabel)}` : ""}</td><td class="r">${f(p.amount)}</td></tr>${p.tipAmount ? `<tr><td><small>Pourboire</small></td><td class="r"><small>${f(p.tipAmount)}</small></td></tr>` : ""}${p.changeGiven ? `<tr><td><small>Reçu ${f(p.tendered ?? 0)} · rendu</small></td><td class="r"><small>${f(p.changeGiven)}</small></td></tr>` : ""}${p.refundedAmount ? `<tr><td><small>Remboursé</small></td><td class="r"><small>−${f(p.refundedAmount)}</small></td></tr>` : ""}`).join("");
@@ -88,6 +88,7 @@ export async function renderReceiptPdf(establishmentId: string, orderId: string)
     row(`${i.quantity} × ${i.name}`, f(i.lineTotal + comps.reduce((a, c) => a + c.lineTotal, 0)));
     if (i.modifiers.length) doc.fontSize(7).fillColor("#444").text("   " + i.modifiers.map((m) => m.name).join(", ")).fillColor("#000");
     for (const c of comps) doc.fontSize(7).fillColor("#444").text(`   ↳ ${c.name}${c.unitPrice ? ` +${f(c.unitPrice)}` : ""}`).fillColor("#000");
+    if (discountLabel(i)) doc.fontSize(7).fillColor("#444").text("   " + discountLabel(i)).fillColor("#000");
   }
   hr();
   if (order.discountTotal) { row("Sous-total", f(totals.subtotal)); row(`Remise${order.discountReason ? ` (${order.discountReason})` : ""}`, `−${f(order.discountTotal)}`); }
@@ -133,6 +134,7 @@ export async function renderReceiptDoc(establishmentId: string, orderId: string,
     b.row(`${i.quantity} x ${i.name}`, f(i.lineTotal + comps.reduce((a, c) => a + c.lineTotal, 0)));
     if (i.modifiers.length) b.line("   " + i.modifiers.map((m) => m.name).join(", "));
     for (const c of comps) b.line(`   > ${c.name}`);
+    if (discountLabel(i)) b.line("   " + discountLabel(i)!.replace("−", "-"));
   }
   b.separator();
   if (order.discountTotal) b.row("Remise", `-${f(order.discountTotal)}`);

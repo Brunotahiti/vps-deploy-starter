@@ -2,7 +2,7 @@ import { prisma, type Tx } from "@/server/db";
 import { ApiError } from "@/server/errors";
 import { audit } from "@/server/audit";
 import { publish } from "@/server/realtime/bus";
-import { computeLine } from "@/lib/order-calc";
+import { computeLine, lineDiscount } from "@/lib/order-calc";
 import { autoPrintKitchenChange } from "@/server/hardware/printers";
 import { assertOpen, getOrder, lockOrder, recalcOrder, resolveModifiers, type Actor } from "./orders";
 import { onTicketNotReady } from "./service-tracking";
@@ -60,10 +60,11 @@ export async function modifyItem(actor: Actor, orderId: string, itemId: string, 
     await tx.orderItemModifier.deleteMany({ where: { orderItemId: item.id } });
     if (mods.length) await tx.orderItemModifier.createMany({ data: mods.map((m) => ({ orderItemId: item.id, modifierId: m.modifierId, groupName: m.groupName, name: m.name, priceDelta: m.priceDelta, quantity: m.quantity })) });
     const modifiersTotal = mods.reduce((a, m) => a + m.priceDelta * m.quantity, 0);
-    const calc = computeLine({ quantity: item.quantity, unitPrice: item.unitPrice, modifiersTotal, discountAmount: item.discountAmount, taxRateBps: item.taxRateBps });
+    const discountAmount = lineDiscount(item, item.quantity, modifiersTotal); // happy hour / offert : suit le prix des options
+    const calc = computeLine({ quantity: item.quantity, unitPrice: item.unitPrice, modifiersTotal, discountAmount, taxRateBps: item.taxRateBps });
     // Un plat déjà prêt à refaire repart en préparation : la salle ne doit pas l'emporter tel quel
     const backToKitchen = stage === "READY";
-    await tx.orderItem.update({ where: { id: item.id }, data: { modifiersTotal, lineTotal: calc.lineTotal, taxAmount: calc.taxAmount, notes: note, ...(backToKitchen ? { status: "PREPARING", readyAt: null } : {}) } });
+    await tx.orderItem.update({ where: { id: item.id }, data: { modifiersTotal, discountAmount, lineTotal: calc.lineTotal, taxAmount: calc.taxAmount, notes: note, ...(backToKitchen ? { status: "PREPARING", readyAt: null } : {}) } });
     if (backToKitchen && ticket && ticket.status === "READY") {
       await tx.kitchenTicket.update({ where: { id: ticket.id }, data: { status: "IN_PROGRESS", readyAt: null } });
       await onTicketNotReady(tx, orderId, ticket.id);
