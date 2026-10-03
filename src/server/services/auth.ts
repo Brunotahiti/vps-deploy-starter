@@ -9,6 +9,7 @@ import { assertPinAvailable, pinEstablishmentsOfUser } from "./pin-unique";
 import { assertEmailAllowed } from "@/server/auth/guards";
 import { audit } from "@/server/audit";
 import { slugify } from "@/lib/slug";
+import { uniqueShareSlug } from "./share";
 import { OFFER } from "@/lib/plan";
 import { businessTypeSettings, type BusinessType } from "@/lib/options";
 import { ensureSystemRoles } from "./roles";
@@ -134,7 +135,7 @@ export async function signup(input: {
     await ensureSystemRoles(org.id, tx);
     const businessType = input.businessType ?? "restaurant";
     const est = await tx.establishment.create({
-      data: { organizationId: org.id, name: input.establishmentName, slug: slugify(input.establishmentName), businessType, settings: businessTypeSettings(businessType) as object },
+      data: { organizationId: org.id, name: input.establishmentName, slug: slugify(input.establishmentName), shareSlug: await uniqueShareSlug(tx, input.establishmentName), businessType, settings: businessTypeSettings(businessType) as object },
     });
     await createEstablishmentDefaults(est.id, tx);
     return { org, owner, est };

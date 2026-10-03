@@ -74,7 +74,7 @@ export function openStatus(hours: Partial<Record<DayKey, string[]>>, timezone: s
 }
 
 /** Site public du restaurant, rendu côté serveur (référençable, sans JavaScript obligatoire). */
-export function RestaurantSite({ data, lang, base }: { data: SiteData; lang: SiteLang; base: string }) {
+export function RestaurantSite({ data, lang, base, selfUrl }: { data: SiteData; lang: SiteLang; base: string; selfUrl?: string }) {
   const t = L[lang];
   const e = data.establishment;
   const s = data.site;
@@ -92,7 +92,7 @@ export function RestaurantSite({ data, lang, base }: { data: SiteData; lang: Sit
   const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([e.name, address].filter(Boolean).join(" "))}`;
   const shop = `${base}/commander/${e.organization.slug}/${e.slug}`;
   const reserve = `${base}/reserver/${e.organization.slug}/${e.slug}`;
-  const self = `${base}/site/${e.organization.slug}/${e.slug}`;
+  const self = selfUrl ?? `${base}/site/${e.organization.slug}/${e.slug}`;
   const tel = e.phone ? `tel:${e.phone.replace(/[^+\d]/g, "")}` : null;
   const menu = data.menu;
   const roots = menu?.categories.filter((c) => !c.parentId) ?? [];

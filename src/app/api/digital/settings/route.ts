@@ -1,4 +1,6 @@
 import { route, ok, parseBody } from "@/server/http";
+import { shareUrl } from "@/lib/share";
+import { ensureShareSlug } from "@/server/services/share";
 import { requirePermission, requireOption } from "@/server/auth/context";
 import { prisma } from "@/server/db";
 import { audit } from "@/server/audit";
@@ -14,7 +16,8 @@ export const GET = route(async () => {
   const [digital, loyalty, site] = await Promise.all([digitalSettings(ctx.establishment.id), loyaltySettings(ctx.establishment.id), siteSettings(ctx.establishment.id)]);
   const org = await prisma.organization.findUniqueOrThrow({ where: { id: ctx.organizationId }, select: { slug: true } });
   const base = process.env.PUBLIC_URL?.replace(/\/$/, "") || "";
-  return ok({ ...digital, loyalty, site, urls: { shop: `${base}/commander/${org.slug}/${ctx.establishment.slug}`, reserve: `${base}/reserver/${org.slug}/${ctx.establishment.slug}`, kiosk: `${base}/kiosk`, site: `${base}/site/${org.slug}/${ctx.establishment.slug}` } });
+  const shareSlug = ctx.establishment.shareSlug ?? (await ensureShareSlug(ctx.establishment.id));
+  return ok({ ...digital, loyalty, site, shareSlug, urls: { share: shareUrl(shareSlug), shareCard: `${base}/api/public/share-card/${shareSlug}`, shop: `${base}/commander/${org.slug}/${ctx.establishment.slug}`, reserve: `${base}/reserver/${org.slug}/${ctx.establishment.slug}`, kiosk: `${base}/kiosk`, site: `${base}/site/${org.slug}/${ctx.establishment.slug}` } });
 });
 export const PATCH = route(async (req) => {
   const ctx = await requirePermission("settings.manage");

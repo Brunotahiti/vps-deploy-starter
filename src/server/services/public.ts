@@ -58,7 +58,7 @@ export async function siteMenu(establishmentId: string) {
 
 /** Site public du restaurant : coordonnées, horaires, réglages du site, canaux ouverts (commande en ligne, réservation) et menu. */
 export async function restaurantSite(orgSlug: string, estSlug: string) {
-  const est = await prisma.establishment.findFirst({ where: { slug: estSlug, isActive: true, organization: { slug: orgSlug, blockedAt: null, options: { has: "digital" } } }, select: { ...estPublic, addressLine2: true, postalCode: true } });
+  const est = await prisma.establishment.findFirst({ where: { slug: estSlug, isActive: true, organization: { slug: orgSlug, blockedAt: null, options: { has: "digital" } } }, select: { ...estPublic, addressLine2: true, postalCode: true, shareSlug: true } });
   if (!est) throw new ApiError(404, "NOT_FOUND", "Établissement introuvable");
   const [site, digital] = await Promise.all([siteSettings(est.id), digitalSettings(est.id)]);
   if (!site.enabled) throw new ApiError(404, "SITE_DISABLED", "Ce restaurant n'a pas activé son site");

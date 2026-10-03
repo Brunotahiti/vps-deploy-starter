@@ -56,6 +56,8 @@ model Establishment {
   organizationId   String   @map("organization_id") @db.Uuid
   name             String
   slug             String
+  /// Adresse de partage du site du restaurant (manaresto.com/<shareSlug>), unique sur toute la plateforme
+  shareSlug        String?  @unique @map("share_slug")
   legalName        String?  @map("legal_name")
   tahitiNumber     String?  @map("tahiti_number") // N° Tahiti (registre des entreprises PF)
   addressLine1     String?  @map("address_line1")
