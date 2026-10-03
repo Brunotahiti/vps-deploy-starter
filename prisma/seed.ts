@@ -103,7 +103,7 @@ async function main() {
 
   const est = await prisma.establishment.create({
     data: {
-      organizationId: org.id, name: "Le Mana Beach", slug: "le-mana-beach", legalName: "Mana Beach SARL", tahitiNumber: "A12345", addressLine1: "PK 18,2 côté mer",
+      organizationId: org.id, name: "Le Mana Beach", slug: "le-mana-beach", shareSlug: "le-mana-beach", legalName: "Mana Beach SARL", tahitiNumber: "A12345", addressLine1: "PK 18,2 côté mer",
       city: "Punaauia", island: "Tahiti", postalCode: "98718", phone: "+689 40 12 34 56", email: "contact@manabeach.pf", tipsEnabled: true, onboardingDone: true, onboardingStep: 15,
       openingHours: { mon: ["11:00-14:30", "18:00-22:00"], tue: ["11:00-14:30", "18:00-22:00"], wed: ["11:00-14:30", "18:00-22:00"], thu: ["11:00-14:30", "18:00-22:00"], fri: ["11:00-14:30", "18:00-23:00"], sat: ["11:00-15:00", "18:00-23:00"], sun: ["11:00-15:00"] },
     },

@@ -3,6 +3,7 @@ import { ApiError } from "@/server/errors";
 import { slugify } from "@/lib/slug";
 import { audit } from "@/server/audit";
 import type { Prisma } from "@/generated/prisma/client";
+import { uniqueShareSlug } from "./share";
 
 /** Valeurs par défaut d'un nouvel établissement (TVA, moyens de paiement, poste cuisine). */
 export async function createEstablishmentDefaults(establishmentId: string, tx?: Tx) {
@@ -44,7 +45,7 @@ export async function createEstablishment(organizationId: string, actorId: strin
   let slug = base;
   for (let i = 2; await prisma.establishment.findUnique({ where: { organizationId_slug: { organizationId, slug } } }); i++) slug = `${base}-${i}`;
   const est = await prisma.$transaction(async (tx) => {
-    const e = await tx.establishment.create({ data: { organizationId, name: input.name, slug, city: input.city ?? null } });
+    const e = await tx.establishment.create({ data: { organizationId, name: input.name, slug, shareSlug: await uniqueShareSlug(tx, input.name), city: input.city ?? null } });
     await createEstablishmentDefaults(e.id, tx);
     return e;
   });

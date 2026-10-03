@@ -11,8 +11,10 @@ import type { DigitalSettings, SiteSettings } from "@/server/services/public";
 import type { LoyaltySettings } from "@/server/services/customers";
 import { ExternalLink, Copy } from "lucide-react";
 import { useToast } from "@/components/ui/toast";
+import { useSession } from "@/hooks/use-session";
+import { ShareSite } from "@/components/admin/share-site";
 
-type S = DigitalSettings & { loyalty: LoyaltySettings; site: SiteSettings; urls: { shop: string; reserve: string; kiosk: string; site: string } };
+type S = DigitalSettings & { loyalty: LoyaltySettings; site: SiteSettings; shareSlug: string; urls: { shop: string; reserve: string; kiosk: string; site: string; share: string; shareCard: string } };
 type QrRow = { id: string; name: string; url: string; qrToken: string; room: { name: string } };
 
 /** Canaux clients : QR à table, commande en ligne, borne, fidélité ; QR codes à imprimer. */
@@ -24,6 +26,7 @@ export default function DigitalPage() {
 
 function DigitalForm({ initial }: { initial: S }) {
   const act = useAction();
+  const { me } = useSession();
   const [s, setS] = useState<S>(initial);
   const [zones, setZones] = useState(initial.online.deliveryZones.join(", "));
   const [photos, setPhotos] = useState(initial.site.photos.join("\n"));
@@ -34,7 +37,8 @@ function DigitalForm({ initial }: { initial: S }) {
   return (
     <div>
       <PageHeader title="Digital" subtitle="Site du restaurant, QR codes à table, commande en ligne, borne et fidélité" action={<Button onClick={save}>Enregistrer</Button>} />
-      <Card title="Site du restaurant (page publique, menu en ligne)" className="mb-4" action={<a href={s.urls.site} target="_blank" rel="noopener" className="text-xs font-bold text-lagon-600">Voir le site ↗</a>}>
+      <ShareSite name={me?.establishment?.name ?? ""} slug={initial.shareSlug} url={initial.urls.share} card={initial.urls.shareCard} enabled={initial.site.enabled} />
+      <Card title="Site du restaurant (page publique, menu en ligne)" className="mb-4" action={<a href={s.urls.share} target="_blank" rel="noopener" className="text-xs font-bold text-lagon-600">Voir le site ↗</a>}>
         <div className="grid gap-3 lg:grid-cols-2">
           <div className="min-w-0 space-y-3">
             <Toggle checked={s.site.enabled} onChange={(v) => site({ enabled: v })} label="Publier le site du restaurant" />
@@ -48,7 +52,7 @@ function DigitalForm({ initial }: { initial: S }) {
             <Field label="Logo (URL)"><Input value={s.site.logoUrl} onChange={(e) => site({ logoUrl: e.target.value })} placeholder="https://…/logo.png" inputMode="url" /></Field>
             <Field label="Photos (une URL par ligne, 12 max)"><Textarea rows={3} value={photos} onChange={(e) => setPhotos(e.target.value)} placeholder={"https://…/salle.jpg\nhttps://…/plat.jpg"} /></Field>
             <div className="grid gap-3 sm:grid-cols-2"><Field label="Page Facebook"><Input value={s.site.facebook} onChange={(e) => site({ facebook: e.target.value })} placeholder="https://facebook.com/…" inputMode="url" /></Field><Field label="Instagram"><Input value={s.site.instagram} onChange={(e) => site({ instagram: e.target.value })} placeholder="https://instagram.com/…" inputMode="url" /></Field></div>
-            <div className="rounded-xl surface-2 p-3 text-xs"><p className="font-bold">Adresse du site</p><LinkRow url={s.urls.site} /><p className="mt-1 text-muted">Le nom, l&apos;adresse, le téléphone et les horaires viennent de Paramètres → Établissement. Les boutons Commander et Réserver apparaissent selon les réglages ci-dessous.</p></div>
+            <div className="rounded-xl surface-2 p-3 text-xs"><p className="font-bold">Adresse du site</p><LinkRow url={s.urls.share} /><p className="mt-1 text-muted">Le nom, l&apos;adresse, le téléphone et les horaires viennent de Paramètres → Établissement. Les boutons Commander et Réserver apparaissent selon les réglages ci-dessous.</p></div>
           </div>
         </div>
       </Card>

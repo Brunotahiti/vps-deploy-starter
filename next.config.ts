@@ -9,9 +9,10 @@ const nextConfig: NextConfig = {
   env: { NEXT_PUBLIC_BUILD_ID: buildId, NEXT_PUBLIC_SENTRY_DSN: process.env.SENTRY_DSN ?? "", NEXT_PUBLIC_SENTRY_ENVIRONMENT: process.env.SENTRY_ENVIRONMENT ?? "production" },
   reactStrictMode: true,
   poweredByHeader: false,
-  serverExternalPackages: ["pdfkit", "pg"],
+  serverExternalPackages: ["pdfkit", "pg", "sharp"],
   // Polices AFM de pdfkit (tickets PDF) à embarquer dans le build standalone (Docker)
-  outputFileTracingIncludes: { "/api/orders/[id]/receipt": ["./node_modules/pdfkit/js/data/**", "./node_modules/.pnpm/pdfkit@*/node_modules/pdfkit/js/data/**"] },
+  // Police des images d'aperçu des liens partagés (site des restaurants)
+  outputFileTracingIncludes: { "/api/orders/[id]/receipt": ["./node_modules/pdfkit/js/data/**", "./node_modules/.pnpm/pdfkit@*/node_modules/pdfkit/js/data/**"], "/api/public/share-card/[slug]": ["./src/server/fonts/**"] },
   async headers() {
     return [
       {

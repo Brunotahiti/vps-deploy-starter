@@ -1,3 +1,5 @@
+import { shareUrl } from "@/lib/share";
+import { ensureShareSlug } from "@/server/services/share";
 import { route, ok } from "@/server/http";
 import { getAuthContext } from "@/server/auth/context";
 import { getTerminalFromCookie } from "@/server/auth/session";
@@ -22,7 +24,8 @@ export const GET = route(async () => {
   return ok({
     subscription: subscriptionInfo(org),
     isDemo,
-    publicSitePath: establishment && ctx.options.includes("digital") ? `/site/${org.slug}/${establishment.slug}` : null, // page publique du restaurant (option Digital)
+    // Site public du restaurant (option Digital), à son adresse de partage
+    publicSitePath: establishment && ctx.options.includes("digital") ? shareUrl(establishment.shareSlug ?? (await ensureShareSlug(establishment.id))) : null,
     options: ctx.options,
     demoVisit: back ? { returnTo: { firstName: back.session.user.firstName, establishmentName: backEst?.name ?? null } } : null,
     user: { id: user.id, email: user.email, firstName: user.firstName, lastName: user.lastName, displayName: user.displayName, color: user.color, isOwner: user.isOwner, hasPin: !!user.pinHash },

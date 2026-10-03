@@ -15,7 +15,7 @@ export const OPTIONS = {
   digital: {
     label: "Digital",
     tagline: "Vos clients commandent et réservent seuls",
-    includes: ["QR code à table : menu et commande depuis le téléphone", "Commande en ligne à emporter ou en livraison, 0 % de commission", "Borne de commande", "Site du restaurant, réservation en ligne et fidélité", "Réservations avancées : planning des tables, client reconnu au téléphone, confirmation par e-mail"],
+    includes: ["QR code à table : menu et commande depuis le téléphone", "Commande en ligne à emporter ou en livraison, 0 % de commission", "Borne de commande", "Site du restaurant à une belle adresse à partager (manaresto.com/votre-restaurant), avec aperçu sur WhatsApp et Facebook", "Réservation en ligne et fidélité", "Réservations avancées : planning des tables, client reconnu au téléphone, confirmation par e-mail"],
     permissions: ["customers.manage"],
   },
   team: {

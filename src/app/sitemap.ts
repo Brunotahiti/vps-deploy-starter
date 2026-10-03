@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
 import { prisma } from "@/server/db";
 import { DEMO_ORG_SLUG } from "@/lib/platform";
+import { shareUrl } from "@/lib/share";
 
 export const dynamic = "force-dynamic";
 
@@ -10,9 +11,10 @@ const base = () => process.env.PUBLIC_URL?.replace(/\/$/, "") || "https://app.ma
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const ests = await prisma.establishment.findMany({
     where: { isActive: true, organization: { blockedAt: null, options: { has: "digital" }, slug: { not: DEMO_ORG_SLUG } } },
-    select: { slug: true, settings: true, updatedAt: true, organization: { select: { slug: true } } },
+    select: { slug: true, shareSlug: true, settings: true, updatedAt: true, organization: { select: { slug: true } } },
   }).catch(() => []);
   return ests
     .filter((e) => ((e.settings ?? {}) as { site?: { enabled?: boolean } }).site?.enabled !== false)
-    .map((e) => ({ url: `${base()}/site/${e.organization.slug}/${e.slug}`, lastModified: e.updatedAt, changeFrequency: "weekly" as const, priority: 0.8 }));
+    // Adresse de partage (manaresto.com/<adresse>, l'adresse officielle du site), sinon l'adresse longue
+    .map((e) => ({ url: e.shareSlug ? shareUrl(e.shareSlug) : `${base()}/site/${e.organization.slug}/${e.slug}`, lastModified: e.updatedAt, changeFrequency: "weekly" as const, priority: 0.8 }));
 }
