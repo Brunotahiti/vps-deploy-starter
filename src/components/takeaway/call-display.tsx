@@ -28,10 +28,15 @@ export function CallDisplay() {
   const { timezone } = useSession();
   const q = useQuery({ queryKey: ["takeaway", "display"], queryFn: () => api.get<Display>("/api/takeaway/display"), refetchInterval: 4000 });
   const [sound, setSound] = useState(false);
-  const [now, setNow] = useState(() => Date.now());
+  // Heure lue seulement dans le navigateur : la page est pré-rendue au déploiement (sinon heure figée et erreur d'hydratation)
+  const [now, setNow] = useState<number | null>(null);
   const audio = useRef<AudioContext | null>(null);
   const seen = useRef<Set<string> | null>(null);
-  useEffect(() => { const t = setInterval(() => setNow(Date.now()), 10_000); return () => clearInterval(t); }, []);
+  useEffect(() => {
+    const tick = () => setNow(Date.now());
+    const first = setTimeout(tick, 0), t = setInterval(tick, 10_000);
+    return () => { clearTimeout(first); clearInterval(t); };
+  }, []);
 
   // Nouveau numéro prêt : carillon (si le son est activé)
   const readyKey = q.data?.ready.map((r) => r.call).join(",") ?? "";
@@ -49,13 +54,13 @@ export function CallDisplay() {
     setSound(!sound);
   };
   const d = q.data;
-  const fresh = (iso: string | null) => !!iso && now - new Date(iso).getTime() < 90_000;
+  const fresh = (iso: string | null) => !!iso && now !== null && now - new Date(iso).getTime() < 90_000;
 
   return (
     <div className="flex h-dvh flex-col bg-[radial-gradient(1200px_600px_at_80%_-10%,rgba(20,170,163,.35),transparent),linear-gradient(160deg,#0b1222,#0f1d33)] text-white" data-testid="call-display">
       <header className="flex items-center gap-3 px-6 py-4">
         <p className="mr-auto text-xl font-extrabold tracking-tight sm:text-2xl">{d?.establishment ?? "…"}</p>
-        <p className="text-2xl font-black tabular-nums text-white/80">{formatTime(new Date(now), timezone)}</p>
+        <p className="text-2xl font-black tabular-nums text-white/80">{now !== null ? formatTime(new Date(now), timezone) : ""}</p>
         <button onClick={toggleSound} className="flex h-11 items-center gap-2 rounded-xl bg-white/10 px-3 text-sm font-semibold hover:bg-white/20" aria-pressed={sound}>{sound ? <Volume2 className="h-5 w-5" /> : <VolumeX className="h-5 w-5" />}<span className="hidden sm:inline">{sound ? "Son activé" : "Activer le son"}</span></button>
         <button onClick={() => document.documentElement.requestFullscreen?.().catch(() => {})} className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/10 hover:bg-white/20" aria-label="Plein écran"><Maximize2 className="h-5 w-5" /></button>
       </header>

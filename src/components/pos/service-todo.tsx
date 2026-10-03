@@ -99,7 +99,7 @@ function Row({ r, upcoming }: { r: Reminder; upcoming?: boolean }) {
 export function TodoPanel({ open, onClose, data }: { open: boolean; onClose: () => void; data?: Reminders }) {
   const due = data?.due ?? [], upcoming = data?.upcoming ?? [];
   return (
-    <div className={`fixed inset-0 z-[55] ${open ? "" : "pointer-events-none"}`} aria-hidden={!open}>
+    <div className={`fixed inset-0 z-[55] overflow-hidden ${open ? "" : "pointer-events-none"}`} aria-hidden={!open}>
       <div className={`absolute inset-0 bg-black/40 transition-opacity ${open ? "opacity-100" : "opacity-0"}`} onClick={onClose} />
       <aside className={`absolute inset-y-0 right-0 flex w-full max-w-md flex-col surface shadow-2xl transition-transform duration-300 ease-out ${open ? "translate-x-0" : "translate-x-full"}`} style={{ paddingTop: "env(safe-area-inset-top)", paddingBottom: "env(safe-area-inset-bottom)" }} role="dialog" aria-label="À faire maintenant" data-testid="todo-panel">
         <header className="flex items-center gap-3 border-b border-line px-4 py-3">
@@ -121,7 +121,7 @@ export function TodoPanel({ open, onClose, data }: { open: boolean; onClose: () 
 export function TodoButton({ count, late, onClick, compact }: { count: number; late: boolean; onClick: () => void; compact?: boolean }) {
   return (
     <button onClick={onClick} className={`touch relative flex h-10 shrink-0 items-center gap-2 whitespace-nowrap rounded-xl px-3 text-sm font-semibold transition ${count ? (late ? "bg-red-600 text-white" : "bg-corail-500 text-white shadow-[0_8px_20px_-8px_rgb(249_124_60/0.6)]") : "surface-2 text-muted"}`} title="À faire maintenant" aria-label="À faire maintenant" data-testid="todo-button">
-      <BellRing className={`h-4 w-4 ${count && late ? "animate-pulse" : ""}`} />{compact ? null : <span className="hidden lg:inline">À faire</span>}
+      <BellRing className={`h-4 w-4 ${count && late ? "animate-pulse" : ""}`} />{compact ? null : <span className="hidden xl:inline">À faire</span>}
       {count ? <span className={`ml-0.5 rounded-full px-1.5 text-[11px] font-extrabold ${count ? "bg-white/25" : ""}`}>{count}</span> : null}
     </button>
   );
