@@ -32,6 +32,7 @@ import { addSaleLocal } from "@/lib/offline/cash-local";
 import { colsFor, kitchenTickets, openDrawerLocal, printLocal, type LocalOrder, type LocalPrinter } from "@/lib/offline/print-local";
 import { ORDER_TYPE_LABEL, type Order, type OrderItem, type PosMenu, type PosProduct } from "./types";
 import { NumPad } from "@/components/ui/numpad";
+import { WinePairingStrip } from "@/components/wine/pairing-strip";
 
 const FORMULES = "__menus__";
 
@@ -430,6 +431,7 @@ export function OrderScreen({ orderId: orderIdProp }: { orderId: string }) {
               </div>
             );
           })}
+          {!closed && panel === "ticket" && rootItems.length ? <WinePairingStrip productIds={rootItems.filter((i) => i.status !== "VOIDED" && i.productId).map((i) => i.productId!)} onAdd={(productId) => addItem.mutate({ id: crypto.randomUUID(), productId, quantity: 1 })} /> : null}
         </div>
 
         <div className="surface-2 px-4 py-3 text-sm">

@@ -78,6 +78,12 @@ export const OPTIONS = {
     includes: ["Ardoises au comptoir : une note au nom du client, réglée en fin de soirée", "Happy hour automatique sur les créneaux et les boissons de votre choix", "Fiches cocktails pour le barman : doses, verre, garniture, préparation", "Cave du bar : bouteilles au cl, réceptions, inventaire, casse et alertes", "Verres offerts tracés avec leur motif et rapport du bar"],
     permissions: ["bar.use", "bar.manage"],
   },
+  wine: {
+    label: "Cave à vin",
+    tagline: "Votre cave, le vin au verre et une carte des vins qui donne envie",
+    includes: ["Fiches vins : domaine, appellation, millésime, cépages, notes de dégustation, apogée et photo de l'étiquette", "Cave par emplacement : réceptions, inventaire, casse, valeur et alertes de réassort", "Vin au verre et en carafe : bouteilles ouvertes suivies, alerte quand il faut les écouler", "Carte des vins toujours à jour : à l'écran, en PDF et sur votre site", "Accords mets-vins proposés à la caisse et rapport des ventes et marges"],
+    permissions: ["wine.use", "wine.manage"],
+  },
   advanced: {
     label: "Avancé",
     tagline: "Pour les établissements qui grandissent",
