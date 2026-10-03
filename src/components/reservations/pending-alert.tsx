@@ -81,7 +81,7 @@ function PendingCard({ r, timezone }: { r: Pending; timezone: string }) {
   const act = useAction();
   const [refusing, setRefusing] = useState(false);
   const [message, setMessage] = useState("");
-  const day = new Intl.DateTimeFormat("fr-FR", { timeZone: timezone, weekday: "long", day: "numeric", month: "long" }).format(new Date(r.startsAt));
+  const day = new Intl.DateTimeFormat("fr-FR", { timeZone: timezone, weekday: "long", day: "numeric", month: "long" }).format(new Date(r.startsAt)).replace(/^./, (c) => c.toUpperCase()); // « Mardi 6 octobre »
   const invalidate = [["reservations"], ["reservations-summary"], ["floor"]];
   const answer = (status: "CONFIRMED" | "CANCELLED") => act(
     () => api.post(`/api/reservations/${r.id}/status`, { status, message: status === "CANCELLED" ? message.trim() || null : null }),
@@ -93,7 +93,7 @@ function PendingCard({ r, timezone }: { r: Pending; timezone: string }) {
         <div className="min-w-0 flex-1">
           <p className="text-xl font-extrabold leading-tight">{r.name}</p>
           <p className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-base font-bold">
-            <span className="inline-flex items-center gap-1.5 capitalize"><CalendarDays className="h-4 w-4 text-lagon-600" />{day}</span>
+            <span className="inline-flex items-center gap-1.5"><CalendarDays className="h-4 w-4 text-lagon-600" />{day}</span>
             <span className="inline-flex items-center gap-1.5"><Clock className="h-4 w-4 text-lagon-600" />{formatTime(r.startsAt, timezone)}</span>
             <span className="inline-flex items-center gap-1.5"><Users className="h-4 w-4 text-lagon-600" />{r.partySize} pers.</span>
           </p>

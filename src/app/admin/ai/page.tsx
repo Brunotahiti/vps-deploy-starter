@@ -20,7 +20,7 @@ type Forecast = { days: ForecastDay[]; reference: number; historyDays: number; t
 type QualityData = { configured: boolean; indicators: { period: { days: number }; current: QualityIndicators; previous: QualityIndicators }; reports: { id: string; createdAt: string; model: string; report: QualityReport }[] };
 type Purchase = { horizon: number; leadDays: number; activity: number; groups: { supplier: { id: string; name: string }; total: number; lines: { ingredientId: string; ingredient: string; unit: string; stockQty: number; dailyUse: number; daysLeft: number | null; product: string; packSize: number; packs: number; unitPrice: number; reason: string }[] }[] };
 
-const dayLabel = (day: string) => new Intl.DateTimeFormat("fr-FR", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" }).format(new Date(`${day}T12:00:00Z`));
+const dayLabel = (day: string) => new Intl.DateTimeFormat("fr-FR", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" }).format(new Date(`${day}T12:00:00Z`)).replace(/^./, (c) => c.toUpperCase()); // « Lun. 5 oct. »
 
 /** Assistant IA : prévisions façon Bison Futé, analyse qualité inspirée de l'ISO 9001, commande d'achats proposée. */
 export default function AiPage() {
@@ -72,7 +72,7 @@ function ForecastTab() {
             <div key={d.day} className={`card overflow-hidden ${d.closed ? "opacity-50" : ""}`} data-level={d.closed ? "closed" : d.level}>
               <div className={`${d.closed ? "bg-slate-300 dark:bg-slate-700" : look.band} px-3 py-1.5 text-xs font-extrabold uppercase tracking-wide text-white`}>{d.closed ? "Fermé d'habitude" : look.label}</div>
               <div className="p-3">
-                <p className="text-sm font-bold capitalize">{dayLabel(d.day)}</p>
+                <p className="text-sm font-bold">{dayLabel(d.day)}</p>
                 {d.closed ? null : <>
                   <p className="mt-1 whitespace-nowrap text-3xl font-extrabold tabular-nums">≈ {d.expected.clients}</p>
                   <p className="text-[11px] font-semibold text-muted">clients · midi {d.expected.lunch} · soir {d.expected.dinner}</p>
@@ -95,7 +95,7 @@ function ForecastTab() {
         {week.data ? (
           <div className="space-y-4 p-5">
             <p className="text-lg font-extrabold">{week.data.advice.titre}</p>
-            <ul className="space-y-1.5">{week.data.advice.jours.map((j) => <li key={j.jour} className="flex gap-3 text-sm"><span className="w-24 shrink-0 font-bold capitalize">{dayLabel(j.jour)}</span><span>{j.conseil}</span></li>)}</ul>
+            <ul className="space-y-1.5">{week.data.advice.jours.map((j) => <li key={j.jour} className="flex gap-3 text-sm"><span className="w-24 shrink-0 font-bold">{dayLabel(j.jour)}</span><span>{j.conseil}</span></li>)}</ul>
             <div className="grid gap-3 sm:grid-cols-2">
               {([["👥 Équipe", week.data.advice.equipe], ["🔪 Mise en place", week.data.advice.miseEnPlace], ["🌿 Jours calmes", week.data.advice.joursCalmes], ["👀 Vigilance", week.data.advice.vigilance]] as const).filter(([, xs]) => xs.length).map(([t, xs]) => (
                 <div key={t} className="rounded-2xl surface-2 p-3"><p className="mb-1 text-sm font-extrabold">{t}</p><ul className="list-disc space-y-0.5 pl-5 text-sm">{xs.map((x) => <li key={x}>{x}</li>)}</ul></div>
