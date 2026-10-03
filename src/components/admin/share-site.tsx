@@ -15,7 +15,7 @@ type Availability = { slug: string; available: boolean; reason: string | null };
  * « Partager mon site » : la belle adresse du restaurant (manaresto.com/<adresse>), l'aperçu affiché par WhatsApp ou
  * Facebook, les boutons de partage, le QR code à imprimer, et le choix de l'adresse.
  */
-export function ShareSite({ name, slug, url, card, enabled }: { name: string; slug: string; url: string; card: string; enabled: boolean }) {
+export function ShareSite({ name, slug, url, card, enabled, locked = false }: { name: string; slug: string; url: string; card: string; enabled: boolean; locked?: boolean }) {
   const { toast } = useToast();
   const [editing, setEditing] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -47,7 +47,7 @@ export function ShareSite({ name, slug, url, card, enabled }: { name: string; sl
           <div className="mt-4 flex flex-wrap gap-2 text-sm">
             <a href="/api/digital/share/qr?download=1" className="touch inline-flex h-10 items-center gap-1.5 rounded-xl border border-line px-3 font-semibold hover:surface-2" data-testid="share-qr"><Download className="h-4 w-4" />QR code à imprimer</a>
             <a href={url} target="_blank" rel="noopener" className="touch inline-flex h-10 items-center gap-1.5 rounded-xl border border-line px-3 font-semibold hover:surface-2"><ExternalLink className="h-4 w-4" />Voir le site</a>
-            <button onClick={() => setEditing(true)} className="touch inline-flex h-10 items-center gap-1.5 rounded-xl border border-line px-3 font-semibold hover:surface-2" data-testid="share-edit"><Pencil className="h-4 w-4" />Changer l&apos;adresse</button>
+            {locked ? null : <button onClick={() => setEditing(true)} className="touch inline-flex h-10 items-center gap-1.5 rounded-xl border border-line px-3 font-semibold hover:surface-2" data-testid="share-edit"><Pencil className="h-4 w-4" />Changer l&apos;adresse</button>}
           </div>
         </div>
         <div className="min-w-0 border-t border-line surface-2 p-4 md:border-l md:border-t-0">

@@ -24,6 +24,7 @@ export type Me = {
   publicSitePath?: string | null;
   /** Compte du restaurant exemple */
   isDemo?: boolean;
+  demoLocked?: boolean;
   /** Options payantes débloquées (src/lib/options.ts) */
   options?: string[];
   /** Visite du restaurant exemple depuis son propre compte (« Revenir à mon restaurant ») */
