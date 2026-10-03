@@ -40,7 +40,7 @@ const HELP: [string, string][] = [
   ["/admin/reports", "Les chiffres de la période choisie et leurs exports (tableur, comptabilité)."],
   ["/admin/catalog", "Votre carte : catégories, produits, prix, options (cuisson, suppléments) et formules. Ce qui est ici s'affiche à la caisse."],
   ["/admin/stock", "Le stock des ingrédients baisse à chaque vente selon les recettes. Inventaires, fournisseurs et commandes d'achat."],
-  ["/admin/floor", "Dessinez vos salles et placez vos tables : c'est le plan que l'équipe voit à la caisse."],
+  ["/admin/floor", "Dessinez vos salles et glissez vos tables à leur vraie place : c'est le plan que l'équipe voit à la caisse. Une table libre se touche pour ouvrir une commande ; la couleur de chaque table montre où en est le service (libre, en commande, servie, addition, réservée)."],
   ["/admin/ai", "Prévisions de fréquentation (vert, orange, rouge, noir), analyse qualité inspirée de l'ISO 9001 et commande d'achats proposée. Les chiffres viennent de vos ventes et réservations."],
   ["/admin/customers", "Vos clients, leurs visites et leurs points de fidélité."],
   ["/admin/digital", "QR codes à table, commande en ligne et borne : vos clients commandent eux-mêmes, les commandes arrivent en caisse et en cuisine."],
