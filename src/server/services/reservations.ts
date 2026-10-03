@@ -8,6 +8,7 @@ import { isEmailConfigured, reservationMail, sendMail } from "@/server/email/mai
 import { createOrder, type Actor } from "./orders";
 import { findOrCreatePublicCustomer } from "./customers";
 import { privatizedAt } from "./catering";
+import { isDemoEstablishment } from "./demo";
 import type { Prisma, ReservationStatus } from "@/generated/prisma/client";
 
 /**
@@ -88,13 +89,14 @@ export function simpleReservation<T extends Partial<ReservationInput>>(ctx: { op
 }
 
 /** E-mail de confirmation au client (si une adresse est connue et l'envoi d'e-mails configuré) */
-async function notifyCustomer(establishmentId: string, r: { email: string | null; name: string; startsAt: Date; partySize: number }, kind: "confirmed" | "updated" | "cancelled") {
+async function notifyCustomer(establishmentId: string, r: { email: string | null; name: string; startsAt: Date; partySize: number }, kind: "received" | "confirmed" | "declined" | "updated" | "cancelled", message?: string | null) {
   if (!r.email || !isEmailConfigured()) return;
+  if (await isDemoEstablishment(establishmentId)) return; // restaurant exemple : jamais d'e-mail réel
   const est = await prisma.establishment.findUniqueOrThrow({ where: { id: establishmentId }, select: { name: true, timezone: true, phone: true, addressLine1: true, city: true } });
   await sendMail(reservationMail({
     to: r.email, kind, establishmentName: est.name, name: r.name, partySize: r.partySize,
     dateLabel: new Intl.DateTimeFormat("fr-FR", { timeZone: est.timezone, weekday: "long", day: "numeric", month: "long" }).format(r.startsAt), timeLabel: formatTime(r.startsAt, est.timezone),
-    phone: est.phone, address: [est.addressLine1, est.city].filter(Boolean).join(", ") || null,
+    phone: est.phone, address: [est.addressLine1, est.city].filter(Boolean).join(", ") || null, message: message ?? null,
   })).catch(() => {});
 }
 
@@ -149,12 +151,22 @@ export async function reservationSummary(establishmentId: string, from: string, 
   });
 }
 
+/** Demandes de réservation en ligne à valider (à venir), les plus anciennes d'abord : grande alerte de la caisse et de la gestion. */
+export async function pendingReservations(establishmentId: string) {
+  return prisma.reservation.findMany({
+    where: { establishmentId, status: "PENDING", startsAt: { gte: new Date(Date.now() - 2 * 3600_000) } },
+    orderBy: { createdAt: "asc" }, take: 20,
+    select: { id: true, name: true, phone: true, email: true, startsAt: true, partySize: true, notes: true, allergies: true, createdAt: true, source: true },
+  });
+}
+
 /** Réservation publique (formulaire client) : statut PENDING, à confirmer par le restaurant. */
 const PUBLIC_MAX_DAYS_AHEAD = 180;
 const PUBLIC_MAX_PER_PHONE = 3;
 
-export async function createPublicReservation(establishmentId: string, organizationId: string, input: { name: string; phone: string; email?: string | null; startsAt: string; partySize: number; notes?: string | null; allergies?: string | null }) {
+export async function createPublicReservation(establishmentId: string, organizationId: string, input: { name: string; phone: string; email: string; startsAt: string; partySize: number; notes?: string | null; allergies?: string | null }) {
   const startsAt = new Date(input.startsAt);
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.email ?? "")) throw new ApiError(400, "EMAIL_REQUIRED", "E-mail obligatoire : le restaurant vous répond par e-mail");
   if (!(startsAt.getTime() > Date.now() - 5 * 60_000)) throw new ApiError(400, "BAD_DATE", "La date doit être dans le futur");
   if (startsAt.getTime() > Date.now() + PUBLIC_MAX_DAYS_AHEAD * 86_400_000) throw new ApiError(400, "BAD_DATE", `Réservation possible jusqu'à ${PUBLIC_MAX_DAYS_AHEAD} jours à l'avance`);
   // Contre les fausses réservations : un même numéro ne bloque pas la salle avec des demandes à répétition
@@ -171,9 +183,11 @@ export async function createPublicReservation(establishmentId: string, organizat
   if (await privatizedAt(establishmentId, startsAt, duration)) throw new ApiError(409, "PRIVATIZED", "Le restaurant est privatisé pour un événement à ce moment-là : choisissez un autre créneau ou appelez-nous");
   const row = await prisma.$transaction(async (tx) => {
     const customer = await findOrCreatePublicCustomer(tx, organizationId, { name: input.name, phone: input.phone, email: input.email });
-    return tx.reservation.create({ data: { establishmentId, customerId: customer.id, name: input.name, phone: input.phone, email: input.email ?? null, startsAt, partySize: input.partySize, notes: input.notes ?? null, allergies: input.allergies ?? null, status: "PENDING", source: "ONLINE", durationMinutes: duration }, include });
+    return tx.reservation.create({ data: { establishmentId, customerId: customer.id, name: input.name, phone: input.phone, email: input.email.trim(), startsAt, partySize: input.partySize, notes: input.notes ?? null, allergies: input.allergies ?? null, status: "PENDING", source: "ONLINE", durationMinutes: duration }, include });
   });
   publish("floor.updated", establishmentId, { reservationId: row.id, publicReservation: true });
+  // Accusé de réception : le client sait que sa demande attend la réponse du restaurant (par e-mail)
+  await notifyCustomer(establishmentId, row, "received");
   return row;
 }
 
@@ -182,7 +196,7 @@ const TRANSITIONS: Record<ReservationStatus, ReservationStatus[]> = {
 };
 
 /** Changement de statut ; « installée » ouvre la commande sur la table (couverts = taille du groupe, client rattaché). */
-export async function setReservationStatus(actor: Actor, id: string, status: ReservationStatus, tableId?: string | null, notify = false) {
+export async function setReservationStatus(actor: Actor, id: string, status: ReservationStatus, tableId?: string | null, notify = false, message?: string | null) {
   const r = await prisma.reservation.findFirst({ where: { id, establishmentId: actor.establishmentId }, include });
   if (!r) throw new ApiError(404, "NOT_FOUND", "Réservation introuvable");
   if (!TRANSITIONS[r.status].includes(status)) throw new ApiError(409, "BAD_TRANSITION", `Passage ${r.status} → ${status} impossible`);
@@ -205,6 +219,8 @@ export async function setReservationStatus(actor: Actor, id: string, status: Res
   await audit({ ...actor, action: "reservation.status", entityType: "reservation", entityId: id, oldValue: { status: r.status }, newValue: { status, orderId } });
   publish("floor.updated", actor.establishmentId, { reservationId: id });
   publish("table.updated", actor.establishmentId, { tableId: table });
-  if (status === "CANCELLED" && r.status !== "CANCELLED" && notify) await notifyCustomer(actor.establishmentId, updated, "cancelled");
+  // Demande en ligne : le client attend la réponse du restaurant, toujours envoyée par e-mail (confirmée ou refusée)
+  if (r.status === "PENDING" && r.source === "ONLINE" && (status === "CONFIRMED" || status === "CANCELLED")) await notifyCustomer(actor.establishmentId, updated, status === "CONFIRMED" ? "confirmed" : "declined", message);
+  else if (status === "CANCELLED" && r.status !== "CANCELLED" && notify) await notifyCustomer(actor.establishmentId, updated, "cancelled", message);
   return { ...updated, orderId };
 }

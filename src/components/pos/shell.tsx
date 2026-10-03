@@ -23,6 +23,7 @@ import { Logo } from "@/components/brand";
 import { api } from "@/lib/api-client";
 import { Money } from "@/components/money";
 import { TodoButton, TodoPanel, useServiceReminders } from "./service-todo";
+import { PendingReservationsAlert } from "@/components/reservations/pending-alert";
 import { MenuButton } from "@/components/ui/menu-button";
 
 export function PosShell({ children }: { children: React.ReactNode }) {
@@ -107,6 +108,7 @@ export function PosShell({ children }: { children: React.ReactNode }) {
       <SupportBar />
       <DemoVisitBar />
       <BoxBar />
+      <PendingReservationsAlert />
       <TodoPanel open={todo} onClose={() => setTodo(false)} data={reminders.data} />
       <header className="no-print glass flex h-[72px] shrink-0 items-center gap-1.5 border-b px-2 sm:h-16 sm:gap-2 sm:px-4">
         {/* Téléphone : le menu s'ouvre à gauche, comme dans l'administration */}

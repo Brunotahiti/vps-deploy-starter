@@ -327,7 +327,7 @@ async function reservationsDay(prisma: PrismaClient, ctx: DemoCtx, day: string, 
   for (let i = 0; i < count; i++) {
     const dinner = dow !== 0 && r.chance(0.6);
     const c = ctx.customers.length && r.chance(0.6) ? ctx.customers[r.between(0, ctx.customers.length - 1)] : null;
-    const status = day < today ? (r.chance(0.08) ? "NO_SHOW" : r.chance(0.06) ? "CANCELLED" : "COMPLETED") : r.chance(0.75) ? "CONFIRMED" : "PENDING";
+    const status = day < today ? (r.chance(0.08) ? "NO_SHOW" : r.chance(0.06) ? "CANCELLED" : "COMPLETED") : r.chance(0.9) ? "CONFIRMED" : "PENDING"; // quelques demandes en ligne à valider (grande alerte de la caisse)
     const party = r.chance(0.12) ? r.between(8, 14) : r.between(2, 6);
     const name = c?.name ?? r.pick(RES_NAMES);
     // Tables déjà attribuées aux réservations confirmées à venir (une table par réservation et par jour)
@@ -337,7 +337,9 @@ async function reservationsDay(prisma: PrismaClient, ctx: DemoCtx, day: string, 
       if (!usedTables.has(t)) { usedTables.add(t); tableId = ctx.tables[t].id; }
     }
     const tags = [/Anniversaire/.test(name) ? "birthday" : null, /affaires/.test(name) ? "business" : null, r.chance(0.15) ? r.pick(["terrace", "quiet", "baby"]) : null].filter((x): x is string => !!x);
-    data.push({ establishmentId: ctx.estId, customerId: c?.id ?? null, name, tableId, tags, source: status === "PENDING" ? "ONLINE" : r.chance(0.85) ? "PHONE" : "WALK_IN", phone: c?.phone ?? null, startsAt: new Date(dayStart.getTime() + ((dinner ? r.between(18, 20) : r.between(11, 13)) * 60 + r.pick([0, 15, 30, 45])) * 60000), partySize: party, status, allergies: r.chance(0.12) ? r.pick(["Gluten", "Fruits de mer", "Arachides", "Lactose"]) : null, notes: party >= 8 ? "Grande table, prévoir l'installation" : r.chance(0.15) ? r.pick(["Près de la mer si possible", "Chaise bébé", "Gâteau apporté par le client"]) : null });
+    // Reçues quelques jours plus tôt : les demandes en ligne de l'exemple s'affichent dans le bandeau « à valider »
+    // sans ouvrir d'elles-mêmes le grand message réservé aux demandes qui viennent d'arriver
+    data.push({ establishmentId: ctx.estId, customerId: c?.id ?? null, name, tableId, tags, createdAt: new Date(Math.min(Date.now(), dayStart.getTime()) - 3 * 86_400_000), source: status === "PENDING" ? "ONLINE" : r.chance(0.85) ? "PHONE" : "WALK_IN", phone: c?.phone ?? null, startsAt: new Date(dayStart.getTime() + ((dinner ? r.between(18, 20) : r.between(11, 13)) * 60 + r.pick([0, 15, 30, 45])) * 60000), partySize: party, status, allergies: r.chance(0.12) ? r.pick(["Gluten", "Fruits de mer", "Arachides", "Lactose"]) : null, notes: party >= 8 ? "Grande table, prévoir l'installation" : r.chance(0.15) ? r.pick(["Près de la mer si possible", "Chaise bébé", "Gâteau apporté par le client"]) : null });
   }
   await prisma.reservation.createMany({ data });
 }

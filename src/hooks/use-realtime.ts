@@ -27,7 +27,7 @@ export function useRealtime(enabled = true, onEvent?: (ev: Ev) => void) {
         if (ev.type === "hello") return;
         const keys: string[][] = [];
         if (ev.type.startsWith("order.")) { keys.push(["orders"], ["floor"], ["service"], ["takeaway"]); if (ev.payload.orderId) keys.push(["order", ev.payload.orderId as string]); keys.push(["reports"]); }
-        if (ev.type === "table.updated" || ev.type === "floor.updated") keys.push(["floor"], ["rooms"]);
+        if (ev.type === "table.updated" || ev.type === "floor.updated") keys.push(["floor"], ["rooms"], ["reservations"]);
         if (ev.type === "product.availability" || ev.type === "catalog.updated") keys.push(["pos-catalog"], ["products"], ["categories"], ["menus"], ["modifier-groups"]);
         if (ev.type === "cash.updated") keys.push(["cash"]);
         if (ev.type === "kitchen.updated") keys.push(["kitchen"], ["takeaway"]);

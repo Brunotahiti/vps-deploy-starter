@@ -142,9 +142,9 @@ describe("Traiteur & événements", () => {
   it("privatisation : réservations en ligne refusées pendant l'événement, bandeau du jour", async () => {
     const [e] = (await listEvents(T.est.id, "Pacific/Tahiti")).filter((x) => x.kind === "WEDDING");
     const during = new Date(new Date(e.startsAt).getTime() + 3600_000).toISOString();
-    await expect(createPublicReservation(T.est.id, T.org.id, { name: "Hina", phone: "87 11 22 33", startsAt: during, partySize: 2 })).rejects.toMatchObject({ code: "PRIVATIZED" });
+    await expect(createPublicReservation(T.est.id, T.org.id, { name: "Hina", phone: "87 11 22 33", email: "hina@exemple.pf", startsAt: during, partySize: 2 })).rejects.toMatchObject({ code: "PRIVATIZED" });
     const lunch = new Date(new Date(e.startsAt).getTime() - 6 * 3600_000).toISOString();
-    expect((await createPublicReservation(T.est.id, T.org.id, { name: "Hina", phone: "87 11 22 33", startsAt: lunch, partySize: 2 })).status).toBe("PENDING");
+    expect((await createPublicReservation(T.est.id, T.org.id, { name: "Hina", phone: "87 11 22 33", email: "hina@exemple.pf", startsAt: lunch, partySize: 2 })).status).toBe("PENDING");
     const day = new Intl.DateTimeFormat("en-CA", { timeZone: "Pacific/Tahiti" }).format(new Date(e.startsAt));
     const events = await eventsOfDay(T.est.id, day, "Pacific/Tahiti");
     expect(events.map((x) => x.title)).toContain("Mariage Teva & Hina");
