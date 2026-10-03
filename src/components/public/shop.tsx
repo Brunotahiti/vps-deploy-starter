@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { api, ApiClientError } from "@/lib/api-client";
 import { Spinner } from "@/components/ui/misc";
 import { Field, Input, Select } from "@/components/ui/field";
 import { Logo } from "@/components/brand";
+import { Money } from "@/components/money";
 import { useToast } from "@/components/ui/toast";
 import { usePublicLang, LangSwitch } from "@/lib/i18n/public";
 import { MenuBrowser, Cart, toLines, type CartLine, type PublicCatalog } from "./menu-browser";
@@ -24,6 +25,16 @@ export function ShopScreen({ org, est }: { org: string; est: string }) {
   const [mode, setMode] = useState<"PICKUP" | "DELIVERY">("PICKUP");
   const [f, setF] = useState({ name: "", phone: "", email: "", when: "", address: "", zone: "", notes: "" });
   const [sending, setSending] = useState(false);
+  // Téléphone : le panier est sous la carte ; une barre fixe y mène tant qu'il n'est pas à l'écran
+  const checkout = useRef<HTMLDivElement>(null);
+  const [checkoutVisible, setCheckoutVisible] = useState(false);
+  useEffect(() => {
+    const el = checkout.current;
+    if (!el || typeof IntersectionObserver === "undefined") return;
+    const io = new IntersectionObserver(([e]) => setCheckoutVisible(e.isIntersecting), { rootMargin: "0px 0px -35% 0px" });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [q.data]);
   const d = q.data;
   if (q.isLoading) return <div className="flex h-dvh items-center justify-center"><Spinner /></div>;
   if (!d) return <main className="p-8 text-center text-muted">Établissement introuvable.</main>;
@@ -39,7 +50,7 @@ export function ShopScreen({ org, est }: { org: string; est: string }) {
     } catch (e) { toast(e instanceof ApiClientError ? e.message : "Erreur", "error"); setSending(false); }
   };
   return (
-    <div className="mx-auto max-w-6xl px-3 pb-10 pt-3 sm:px-4">
+    <div className={`mx-auto max-w-6xl px-3 pt-3 sm:px-4 ${cart.length ? "pb-28 lg:pb-10" : "pb-10"}`}>
       <header className="mb-3 flex items-center gap-3">
         <Logo size={36} withText={false} />
         <div className="min-w-0 flex-1"><p className="truncate text-lg font-extrabold">{d.establishment.name}</p><p className="truncate text-xs text-muted">{[d.establishment.addressLine1, d.establishment.city, d.establishment.phone].filter(Boolean).join(" · ")}</p></div>
@@ -48,7 +59,7 @@ export function ShopScreen({ org, est }: { org: string; est: string }) {
       {!o.enabled ? <div className="card p-8 text-center"><p className="text-lg font-bold">{t("closed")}</p>{o.message ? <p className="mt-2 text-sm text-muted">{o.message}</p> : null}</div> : (
         <div className="grid gap-4 lg:grid-cols-[1fr_360px]">
           <MenuBrowser catalog={d.catalog} cart={cart} setCart={setCart} t={t} />
-          <div className="space-y-3 lg:sticky lg:top-3 lg:self-start">
+          <div ref={checkout} className="scroll-mt-3 space-y-3 lg:sticky lg:top-3 lg:self-start">
             {o.message ? <p className="rounded-xl bg-lagon-500/10 px-3 py-2 text-sm text-lagon-800 dark:text-lagon-200">{o.message}</p> : null}
             <div className="card p-4">
               <div className="mb-3 flex gap-2">{o.pickup ? <button onClick={() => setMode("PICKUP")} className={`touch h-11 flex-1 rounded-xl text-sm font-bold ${mode === "PICKUP" ? "bg-brand text-white" : "surface-2"}`}>{t("pickup")}</button> : null}{o.delivery ? <button onClick={() => setMode("DELIVERY")} className={`touch h-11 flex-1 rounded-xl text-sm font-bold ${mode === "DELIVERY" ? "bg-brand text-white" : "surface-2"}`}>{t("delivery")}</button> : null}</div>
@@ -66,6 +77,14 @@ export function ShopScreen({ org, est }: { org: string; est: string }) {
           </div>
         </div>
       )}
+      {o.enabled && cart.length && !checkoutVisible ? (
+        <div className="fixed inset-x-0 bottom-0 z-20 p-3 lg:hidden" style={{ paddingBottom: "max(12px, env(safe-area-inset-bottom))" }}>
+          <button onClick={() => checkout.current?.scrollIntoView({ behavior: "smooth", block: "start" })} className="touch flex h-14 w-full items-center justify-between rounded-2xl bg-brand px-5 text-white shadow-glow" data-testid="shop-cart-bar">
+            <span className="font-bold">{t("cart")} · {cart.reduce((a, l) => a + l.quantity, 0)}</span>
+            <Money amount={subtotal + fee} className="text-lg font-extrabold" />
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }
