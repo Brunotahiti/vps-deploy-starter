@@ -89,7 +89,7 @@ Sessions chiffrées par cookie, PIN et mots de passe hachés, tentatives limité
 
 ## Offre et abonnement
 
-15 jours d'essai gratuits à la création de votre espace, sans carte bancaire. Ensuite 12 000 F CFP par mois avec un engagement de 12 mois, toutes fonctions comprises, 0 % de commission sur vos ventes et vos commandes en ligne. Contact : contact@manaresto.com.
+15 jours d'essai gratuits à la création de votre espace, sans carte bancaire. Ensuite 12 000 F CFP par mois avec un engagement de 12 mois pour le programme de base (caisse, salle, cuisine, réservations par téléphone, tickets et rapports du jour), 0 % de commission sur vos ventes et vos commandes en ligne. Les options (stock, digital, équipe, statistiques, hors ligne…) et les services ponctuels (mise en place, formation…) se demandent depuis Gestion → Options. Contact : contact@manaresto.com.
 
 ## Compte de démonstration
 

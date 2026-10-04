@@ -46,7 +46,7 @@ export function BrandPanel() {
       <div className="relative flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-white/80">
         <span className="font-extrabold text-white">12 000 F CFP / mois</span>
         <span>0 % de commission</span>
-        <span>Fonctionne hors ligne</span>
+        <span>15 jours gratuits</span>
         <span>Tablette, ordinateur, téléphone</span>
       </div>
     </aside>

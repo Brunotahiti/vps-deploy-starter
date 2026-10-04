@@ -24,7 +24,7 @@ const CLOUD_OFFLINE_MS = 2 * 60_000;
 const DRIVERS: { value: PrinterDriver; title: string; text: string; icon: typeof Cloud; badge?: string }[] = [
   { value: "cloud-epson", title: "Imprimante Epson connectée", text: "Compatible « Server Direct Print » (par exemple la gamme TM-m30). Elle vient chercher ses tickets sur ManaResto : rien à installer.", icon: Cloud, badge: "Recommandé" },
   { value: "cloud-star", title: "Imprimante Star connectée", text: "Compatible « CloudPRNT » (par exemple mC-Print3 ou TSP143IV). Même principe, rien à installer.", icon: Cloud },
-  { value: "agent", title: "Agent sur l'ordinateur de la caisse", text: "Un petit programme sur un ordinateur du restaurant transmet les tickets à une imprimante réseau ou USB.", icon: Laptop },
+  { value: "agent", title: "Agent sur l'ordinateur de la caisse", text: "Un petit programme sur un ordinateur du restaurant transmet les tickets à une imprimante réseau.", icon: Laptop },
   { value: "escpos-network", title: "Réseau local direct", text: "Seulement si ManaResto est installé sur un ordinateur du restaurant (pas avec la version en ligne).", icon: Router },
   { value: "browser", title: "Impression par le navigateur", text: "AirPrint, imprimante de bureau… Le ticket s'ouvre dans la fenêtre d'impression. Pas de tiroir-caisse.", icon: Globe },
 ];
