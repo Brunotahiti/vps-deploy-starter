@@ -1614,10 +1614,10 @@ model DemoRequest {
   id             String   @id @default(uuid()) @db.Uuid
   restaurantName String   @map("restaurant_name")
   contactName    String   @map("contact_name")
-  phone          String
-  email          String
-  commune        String
-  kind           String // RESTAURANT | ROULOTTE | SNACK | BAR | CAFE | AUTRE
+  phone          String? // téléphone ou e-mail : au moins l'un des deux
+  email          String?
+  commune        String?
+  kind           String? // RESTAURANT | ROULOTTE | SNACK | BAR | CAFE | AUTRE
   message        String?
   consent        Boolean  @default(false)
   status         String   @default("NEW") // NEW | CONTACTED | DONE

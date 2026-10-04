@@ -4,7 +4,9 @@
  *   BASE=http://localhost:3000 node scripts/site-screenshots.mjs [nom…]
  *
  * Serveur lancé avec une démo neuve (RESEED=1 pnpm db:seed, sans données de test) et DEMO_UNLOCKED=1.
- * Écrit site/assets/img/<nom>.webp : 1280 × 800 pour l'ordinateur, 640 × 1090 pour les vues téléphone (m-…).
+ * Écrit site/assets/img/<nom>.webp : 1280 × 800 pour l'ordinateur, 640 × 1090 pour les vues téléphone (m-…),
+ * plus une version légère (<nom>-640.webp, ou -320 pour le téléphone) chargée par les petits écrans.
+ * Après une mise à jour, augmenter le ?v= des images dans site/index.html (cache navigateur de 30 jours).
  */
 import { chromium, devices } from "@playwright/test";
 import sharp from "sharp";
@@ -54,7 +56,9 @@ for (const [name, url, o = {}] of SHOTS) {
   await p.waitForTimeout(800);
   const png = await p.screenshot();
   const [w, h] = o.phone ? [640, 1090] : [W, H];
-  await sharp(png).resize(w, h, { fit: "cover", position: "top" }).webp({ quality: 78 }).toFile(`${OUT}${name}.webp`);
+  const full = await sharp(png).resize(w, h, { fit: "cover", position: "top" }).toBuffer();
+  await sharp(full).webp({ quality: 78 }).toFile(`${OUT}${name}.webp`);
+  await sharp(full).resize(w / 2).webp({ quality: 76 }).toFile(`${OUT}${name}-${w / 2}.webp`);
   console.log(`✓ ${name}  ${url}`);
   await p.close();
 }

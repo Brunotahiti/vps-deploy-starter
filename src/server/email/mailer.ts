@@ -142,18 +142,21 @@ export function invitationMail(input: { to: string; firstName: string; organizat
 }
 
 /** E-mail interne : nouvelle demande de démonstration depuis le site vitrine. */
-export function demoRequestMail(input: { to: string; restaurantName: string; contactName: string; phone: string; email: string; commune: string; kind: string; message?: string | null; consoleUrl?: string }): OutgoingMail {
-  const rows: [string, string][] = [["Établissement", input.restaurantName], ["Type", input.kind], ["Contact", input.contactName], ["Téléphone", input.phone], ["E-mail", input.email], ["Commune", input.commune]];
+export function demoRequestMail(input: { to: string; restaurantName: string; contactName: string; phone?: string | null; email?: string | null; commune?: string | null; kind?: string | null; message?: string | null; consoleUrl?: string }): OutgoingMail {
+  // Champs facultatifs (un seul moyen de contact suffit) : les lignes vides ne sont pas affichées
+  const rows = ([["Établissement", input.restaurantName], ["Type", input.kind], ["Contact", input.contactName], ["Téléphone", input.phone], ["E-mail", input.email], ["Commune", input.commune]] as [string, string | null | undefined][])
+    .filter((r): r is [string, string] => !!r[1]);
+  const actions = [input.phone ? `<a href="tel:${esc(input.phone.replace(/[^+\d]/g, ""))}" style="color:#0f6e6c">Appeler</a>` : "", input.email ? `<a href="mailto:${esc(input.email)}" style="color:#0f6e6c">Répondre par e-mail</a>` : "", input.consoleUrl ? `<a href="${esc(input.consoleUrl)}" style="color:#0f6e6c">Ouvrir la console</a>` : ""].filter(Boolean).join(" · ");
   const html = `<!doctype html><html lang="fr"><body style="margin:0;background:#f3f5f8;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#0f172a">
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td align="center" style="padding:24px 12px">
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:520px;background:#fff;border-radius:20px;overflow:hidden">
 <tr><td style="background:linear-gradient(135deg,#14aaa3,#0f6e6c);padding:24px 28px;color:#fff"><div style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;opacity:.85">ManaResto · site vitrine</div><div style="font-size:22px;font-weight:800;margin-top:6px">Nouvelle demande de démonstration</div></td></tr>
 <tr><td style="padding:22px 28px"><table role="presentation" cellspacing="0" cellpadding="0" style="width:100%;font-size:14px">${rows.map(([k, v]) => `<tr><td style="padding:6px 0;color:#64748b;width:38%">${esc(k)}</td><td style="padding:6px 0;font-weight:700">${esc(v)}</td></tr>`).join("")}</table>
 ${input.message ? `<p style="margin:16px 0 0;font-size:14px;line-height:1.5;white-space:pre-wrap"><b>Message :</b><br>${esc(input.message)}</p>` : ""}
-<p style="margin:18px 0 0;font-size:13px"><a href="tel:${esc(input.phone.replace(/[^+\d]/g, ""))}" style="color:#0f6e6c">Appeler</a> · <a href="mailto:${esc(input.email)}" style="color:#0f6e6c">Répondre par e-mail</a>${input.consoleUrl ? ` · <a href="${esc(input.consoleUrl)}" style="color:#0f6e6c">Ouvrir la console</a>` : ""}</p></td></tr>
+<p style="margin:18px 0 0;font-size:13px">${actions}</p></td></tr>
 </table></td></tr></table></body></html>`;
   const text = `Nouvelle demande de démonstration\n\n${rows.map(([k, v]) => `${k} : ${v}`).join("\n")}${input.message ? `\n\nMessage :\n${input.message}` : ""}`;
-  return { to: input.to, subject: `Démo ManaResto — ${input.restaurantName} (${input.commune})`, text, html, replyTo: input.email };
+  return { to: input.to, subject: `Démo ManaResto — ${input.restaurantName}${input.commune ? ` (${input.commune})` : ""}`, text, html, replyTo: input.email || undefined };
 }
 
 /**

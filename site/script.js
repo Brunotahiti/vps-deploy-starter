@@ -8,8 +8,8 @@
     else {
       document.body.classList.add("anim", "intro-on");
       try { sessionStorage.setItem("mr-intro", "1"); } catch { /* stockage indisponible */ }
-      setTimeout(function () { intro.classList.add("done"); document.body.classList.remove("intro-on"); }, 1250);
-      setTimeout(function () { intro.remove(); }, 2100);
+      setTimeout(function () { intro.classList.add("done"); document.body.classList.remove("intro-on"); }, 650);
+      setTimeout(function () { intro.remove(); }, 1200);
     }
   }
   var C = window.MANARESTO_CONFIG || {}; var B = C.business || {}; var app = C.app || "https://app.manaresto.com";
@@ -64,16 +64,22 @@
   $$("[data-legal-group]").forEach(function (g) { if (!$("dd", g)) g.remove(); });
 
 
-  // Témoignages réels uniquement (testimonials.js)
-  var T = window.MANARESTO_TESTIMONIALS || []; var tSection = $("#temoignages");
+  // Témoignages et vidéo réels uniquement (testimonials.js) : la section reste masquée sans contenu vérifié
+  var T = window.MANARESTO_TESTIMONIALS || [], V = window.MANARESTO_VIDEO; var tSection = $("#temoignages");
   if (tSection) {
-    if (!T.length) { tSection.hidden = true; } else {
+    if (!T.length && !(V && V.src)) { tSection.hidden = true; } else {
+      tSection.hidden = false;
+      if (V && V.src) {
+        var fig = $(".video", tSection), vid = $("video", fig);
+        vid.src = V.src; if (V.poster) vid.poster = V.poster;
+        $("figcaption", fig).textContent = V.caption || ""; fig.hidden = false;
+      }
       var box = $(".testimonials", tSection);
       T.forEach(function (t) {
         var art = document.createElement("article"); art.className = "testimonial";
         var q = document.createElement("blockquote"); q.textContent = "« " + t.quote + " »"; art.appendChild(q);
         var who = document.createElement("div"); who.className = "who";
-        if (t.photo || t.logo) { var im = document.createElement("img"); im.src = t.photo || t.logo; im.alt = ""; im.loading = "lazy"; who.appendChild(im); }
+        if (t.photo || t.logo) { var im = document.createElement("img"); im.src = t.photo || t.logo; im.alt = ""; im.loading = "lazy"; im.width = 42; im.height = 42; who.appendChild(im); }
         var d = document.createElement("div"); var b = document.createElement("b"); b.textContent = (t.firstName ? t.firstName + (t.role ? ", " + t.role : "") : t.establishment); d.appendChild(b);
         var s = document.createElement("span"); s.textContent = t.establishment + (t.commune ? " · " + t.commune : ""); d.appendChild(s); who.appendChild(d); art.appendChild(who); box.appendChild(art);
       });
@@ -86,18 +92,84 @@
     $$(".reveal").forEach(function (el) { io.observe(el); });
   } else { $$(".reveal").forEach(function (el) { el.classList.add("in"); }); }
 
+  // Agrandissement des captures : clic (ou Entrée) sur une capture → plein écran avec sa légende.
+  // Fermeture : bouton ✕, touche Échap, clic à côté de l'image ou glissé vers le bas ; ← → (ou glissé de côté) pour passer d'un écran à l'autre.
+  var zooms = $$("[data-zoom]");
+  if (zooms.length) {
+    var lb = document.createElement("div");
+    lb.className = "lb"; lb.hidden = true;
+    lb.setAttribute("role", "dialog"); lb.setAttribute("aria-modal", "true"); lb.setAttribute("aria-label", "Capture agrandie");
+    lb.innerHTML = '<button class="lb-close" type="button" aria-label="Fermer"><i data-icon="x"></i></button>' +
+      '<button class="lb-nav lb-prev" type="button" aria-label="Capture précédente"><i data-icon="chevron-left"></i></button>' +
+      '<figure class="lb-fig"><img alt=""><figcaption><b></b><span></span><small class="lb-count"></small><small class="lb-rotate">Astuce : tournez le téléphone pour voir l\'écran en grand.</small></figcaption></figure>' +
+      '<button class="lb-nav lb-next" type="button" aria-label="Capture suivante"><i data-icon="chevron-right"></i></button>';
+    document.body.appendChild(lb);
+    $$("[data-icon]", lb).forEach(function (el) { var d = I[el.getAttribute("data-icon")]; if (d) el.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + d + "</svg>"; });
+    var lbImg = $("img", lb), lbTitle = $("figcaption b", lb), lbText = $("figcaption span", lb), lbCount = $(".lb-count", lb);
+    var list = [], pos = 0, opener = null;
+    var show = function (i) {
+      pos = (i + list.length) % list.length;
+      var z = list[pos], img = $("img", z);
+      lbImg.src = z.getAttribute("data-full") || (img && img.currentSrc) || "";
+      lbImg.alt = img ? img.alt : "";
+      lbTitle.textContent = z.getAttribute("data-title") || "";
+      lbText.textContent = z.getAttribute("data-text") || "";
+      lbCount.textContent = list.length > 1 ? (pos + 1) + " / " + list.length : "";
+      lb.classList.toggle("single", list.length < 2);
+    };
+    var close = function () {
+      if (lb.hidden) return;
+      lb.classList.remove("on"); document.body.style.overflow = "";
+      setTimeout(function () { lb.hidden = true; lbImg.removeAttribute("src"); }, reduce ? 0 : 180);
+      if (opener) opener.focus();
+    };
+    var open = function (z) {
+      var group = z.getAttribute("data-zoom");
+      list = zooms.filter(function (x) { return x.getAttribute("data-zoom") === group; });
+      opener = z; show(list.indexOf(z));
+      lb.hidden = false; document.body.style.overflow = "hidden";
+      requestAnimationFrame(function () { lb.classList.add("on"); });
+      $(".lb-close", lb).focus();
+      track("screenshot_zoom", { label: z.getAttribute("data-title") || "" });
+    };
+    zooms.forEach(function (z) { z.addEventListener("click", function () { open(z); }); });
+    $(".lb-close", lb).addEventListener("click", close);
+    $(".lb-prev", lb).addEventListener("click", function () { show(pos - 1); });
+    $(".lb-next", lb).addEventListener("click", function () { show(pos + 1); });
+    lb.addEventListener("click", function (e) { if (e.target === lb || e.target.classList.contains("lb-fig")) close(); });
+    window.addEventListener("keydown", function (e) {
+      if (lb.hidden) return;
+      if (e.key === "Escape") close();
+      else if (e.key === "ArrowLeft") show(pos - 1);
+      else if (e.key === "ArrowRight") show(pos + 1);
+      else if (e.key === "Tab") { // le focus reste dans la visionneuse
+        var f = $$("button", lb).filter(function (b) { return b.offsetParent !== null; }), first = f[0], last = f[f.length - 1];
+        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); } else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+      }
+    });
+    // Gestes sur téléphone : glisser de côté pour changer d'écran, vers le bas pour fermer
+    var sx = 0, sy = 0, touching = false;
+    lb.addEventListener("touchstart", function (e) { if (e.touches.length !== 1) { touching = false; return; } touching = true; sx = e.touches[0].clientX; sy = e.touches[0].clientY; }, { passive: true });
+    lb.addEventListener("touchend", function (e) {
+      if (!touching) return; touching = false;
+      var dx = e.changedTouches[0].clientX - sx, dy = e.changedTouches[0].clientY - sy;
+      if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) && list.length > 1) show(pos + (dx < 0 ? 1 : -1));
+      else if (dy > 90 && Math.abs(dy) > Math.abs(dx)) close();
+    }, { passive: true });
+  }
+
   // Formulaire de démonstration
   var form = $("#demo-form");
   if (form) {
     var started = 0, msg = $(".form-msg", form), btn = $("button[type=submit]", form);
     form.addEventListener("focusin", function () { if (!started) { started = Date.now(); track("demo_form_start"); } }, { once: true });
+    // Obligatoires : nom du contact, établissement, et un moyen de contact (téléphone ou e-mail). Le reste est facultatif.
+    var hasContact = function () { return !!(form.elements.phone.value.trim() || form.elements.email.value.trim()); };
     var rules = {
-      restaurantName: function (v) { return v.trim().length >= 2 || "Indiquez le nom de votre établissement."; },
       contactName: function (v) { return v.trim().length >= 2 || "Indiquez votre nom."; },
-      phone: function (v) { return v.replace(/\D/g, "").length >= 6 || "Indiquez un numéro de téléphone valide."; },
-      email: function (v) { return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.trim()) || "Indiquez une adresse e-mail valide."; },
-      commune: function (v) { return v.trim().length >= 2 || "Indiquez votre commune."; },
-      kind: function (v) { return !!v || "Choisissez le type d'établissement."; },
+      restaurantName: function (v) { return v.trim().length >= 2 || "Indiquez le nom de votre établissement."; },
+      phone: function (v) { if (!v.trim()) return hasContact() || "Indiquez un téléphone ou un e-mail pour être recontacté."; return v.replace(/\D/g, "").length >= 6 || "Ce numéro de téléphone semble incomplet."; },
+      email: function (v) { return !v.trim() || /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.trim()) || "Cette adresse e-mail semble incorrecte."; },
       consent: function (v, el) { return el.checked || "Votre accord est nécessaire pour être recontacté."; }
     };
     var validate = function () {
@@ -108,7 +180,8 @@
       });
       return ok;
     };
-    $$("input, select, textarea", form).forEach(function (el) { el.addEventListener("input", function () { var f = el.closest(".field"); if (f && f.classList.contains("error") && rules[el.name] && rules[el.name](el.value, el) === true) f.classList.remove("error"); }); });
+    var recheck = function (el) { var f = el.closest(".field"); if (f && f.classList.contains("error") && rules[el.name] && rules[el.name](el.value, el) === true) f.classList.remove("error"); };
+    $$("input, select, textarea", form).forEach(function (el) { el.addEventListener("input", function () { recheck(el); if (el.name === "email") recheck(form.elements.phone); }); });
     form.addEventListener("submit", function (e) {
       e.preventDefault(); msg.className = "form-msg";
       if (!validate()) { var first = $(".field.error input, .field.error select", form); if (first) first.focus(); return; }

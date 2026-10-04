@@ -194,18 +194,20 @@ export const serviceSettingsSchema = z.object({
 });
 
 // Site vitrine : demande de démonstration
+const orBlank = (schema: z.ZodString) => schema.optional().or(z.literal(""));
 export const demoRequestSchema = z.object({
-  restaurantName: z.string().trim().min(2, "Nom du restaurant requis").max(120),
+  restaurantName: z.string().trim().min(2, "Nom de l'établissement requis").max(120),
   contactName: z.string().trim().min(2, "Nom du contact requis").max(120),
-  phone: z.string().trim().min(6, "Téléphone requis").max(30),
-  email: z.string().trim().email("E-mail invalide").max(160),
-  commune: z.string().trim().min(2, "Commune requise").max(80),
-  kind: z.enum(["RESTAURANT", "ROULOTTE", "SNACK", "BAR", "CAFE", "AUTRE"]),
+  // Un moyen de contact suffit : téléphone ou e-mail (vérifié plus bas)
+  phone: orBlank(z.string().trim().max(30).refine((v) => v === "" || v.replace(/\D/g, "").length >= 6, "Téléphone invalide")),
+  email: orBlank(z.string().trim().email("E-mail invalide").max(160)),
+  commune: orBlank(z.string().trim().max(80)),
+  kind: z.enum(["RESTAURANT", "ROULOTTE", "SNACK", "BAR", "CAFE", "AUTRE"]).optional().or(z.literal("")),
   message: z.string().trim().max(1000).optional().or(z.literal("")),
   consent: z.literal(true, { message: "Votre accord est nécessaire pour être recontacté" }),
   website: z.string().max(200).optional(), // pot de miel anti-spam : un robot le remplit, un humain ne le voit pas
   startedAt: z.number().optional(), // horodatage d'ouverture du formulaire (anti-robot)
-});
+}).refine((v) => !!(v.phone || v.email), { message: "Indiquez un téléphone ou un e-mail", path: ["phone"] });
 
 // ─── Hygiène & HACCP ───
 const celsius = z.number().min(-60).max(300); // °C, au dixième près
