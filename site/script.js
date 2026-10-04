@@ -158,6 +158,13 @@
     }, { passive: true });
   }
 
+  // Vidéo : lancée (sans le son) quand elle devient visible, mise en pause hors de l'écran ; rien d'automatique si l'utilisateur préfère moins d'animations
+  $$("video[data-autoplay]").forEach(function (v) {
+    if (reduce || !("IntersectionObserver" in window)) return;
+    new IntersectionObserver(function (es) { es.forEach(function (e) { if (e.isIntersecting) { var pr = v.play(); if (pr && pr.catch) pr.catch(function () { /* lecture automatique refusée : les contrôles restent */ }); } else { v.pause(); } }); }, { threshold: 0.35 }).observe(v);
+    v.addEventListener("play", function () { if (!v.dataset.tracked) { v.dataset.tracked = "1"; track("video_play"); } });
+  });
+
   // Formulaire de démonstration
   var form = $("#demo-form");
   if (form) {

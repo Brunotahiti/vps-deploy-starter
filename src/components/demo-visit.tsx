@@ -5,10 +5,12 @@ import { ArrowLeft, Play, Radio } from "lucide-react";
 import { useSession } from "@/hooks/use-session";
 import { api, ApiClientError } from "@/lib/api-client";
 import { useToast } from "@/components/ui/toast";
+import { startDemoTour } from "@/components/demo-tour";
 
 /** Ouvre le restaurant exemple en gardant sa propre session (rechargement complet : l'application repart propre). */
 export async function openLiveDemo(path = "/admin") {
   await api.post("/api/auth/demo-session");
+  startDemoTour();
   window.location.replace(path);
 }
 

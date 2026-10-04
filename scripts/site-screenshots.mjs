@@ -15,7 +15,7 @@ const BASE = process.env.BASE ?? "http://localhost:3000";
 const OUT = new URL("../site/assets/img/", import.meta.url).pathname;
 const W = 1280, H = 800;
 const ORG = "demo-mana-beach", EST = "le-mana-beach";
-const HIDE = "[data-testid=pending-banner],[data-testid=subscription-banner],[data-testid=install-banner],[data-testid=trial-banner],nextjs-portal{display:none!important}";
+const HIDE = "[data-testid=pending-banner],[data-testid=subscription-banner],[data-testid=install-banner],[data-testid=trial-banner],[data-testid=demo-tour],[data-testid=demo-tour-pill],nextjs-portal{display:none!important}";
 // Sur ordinateur, la barre des portails cache le bas de l'écran : on la retire des grandes captures
 const HIDE_DESK = "[data-testid=portal-dock]{display:none!important}";
 
@@ -42,6 +42,11 @@ const SHOTS = [
   ["kds", "/kds"],
   ["dashboard", "/admin"],
   ["stats", "/admin/stats"],
+  // Pages par activité : comptoir et vente à emporter, écran d'appel, commande en ligne sur téléphone, site du restaurant
+  ["takeaway", "/pos/emporter"],
+  ["call", "/pos/appel"],
+  ["m-online", `/commander/${ORG}/${EST}`, { phone: true, act: async (p) => { await p.getByRole("button", { name: "Plats", exact: true }).first().click(); await p.waitForTimeout(1200); } }],
+  ["restosite", `/site/${ORG}/${EST}`],
 ];
 
 const only = process.argv.slice(2);

@@ -11,6 +11,7 @@ import { Logo, BrandPanel, BrandHeaderMobile } from "@/components/brand";
 import { useQueryClient } from "@tanstack/react-query";
 import { WelcomeSplash } from "@/components/welcome-splash";
 import { InstallAppButton } from "@/components/install-app";
+import { startDemoTour } from "@/components/demo-tour";
 
 
 function LoginForm() {
@@ -45,6 +46,7 @@ function LoginForm() {
     setError(null);
     try {
       await api.post("/api/auth/demo-session");
+      startDemoTour();
       await qc.invalidateQueries();
       setWelcome({ name: "", next: "/admin" });
     } catch (err) {

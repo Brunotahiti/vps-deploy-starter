@@ -8,6 +8,18 @@ Pages statiques servies par nginx (voir `docker-compose.yml`, service `site`). A
 - `assets/img/` — captures réelles de l'application (WebP, avec une version légère `-640` pour les petits écrans), refaites par `scripts/site-screenshots.mjs` ; après une mise à jour, augmenter le `?v=` des images dans `index.html`. Chaque capture s'agrandit au clic (visionneuse de `script.js`, attributs `data-zoom`, `data-title`, `data-text`). `banner-iaorana.jpg` (bannière « Iaorana et Maeva ») et `logo.png` (logo officiel) sont à déposer ici : le site les affiche automatiquement s'ils existent.
 - `robots.txt`, `sitemap.xml` — référencement. Ajouter chaque nouvelle page au sitemap.
 
+## Vidéo
+
+`assets/video/service.mp4` (et son image d'attente `service-poster.webp`) : un vrai service filmé dans le restaurant exemple par `scripts/site-video.mjs` (Playwright + ffmpeg). La vidéo démarre sans le son quand elle devient visible ; rien d'automatique si le visiteur préfère moins d'animations.
+
+## Image de partage
+
+`assets/img/og-2026.jpg` (1200 × 630) : aperçu des liens partagés (WhatsApp, Facebook, Messenger). Pour la changer, créer un nouveau nom de fichier (les réseaux sociaux gardent l'ancienne image en cache) et mettre à jour les balises `og:image` et `twitter:image` des pages.
+
+## Pages par activité
+
+`logiciel-caisse-restaurant-tahiti`, `-roulotte-`, `-snack-`, `-bar-`, `commande-en-ligne-restaurant-tahiti`, `gestion-restaurant-polynesie` : chacune avec son texte, ses captures et sa FAQ (données structurées FAQ et fil d'Ariane), reliées depuis l'accueil et le pied de page. Leurs adresses sont réservées côté application (`src/lib/share.ts`) pour qu'aucun restaurant ne les prenne.
+
 ## Ajouter une page d'atterrissage SEO
 
 Créer `logiciel-caisse-restaurant-tahiti.html` (l'adresse devient `/logiciel-caisse-restaurant-tahiti` grâce à nginx), en réutilisant l'en-tête, le pied de page, `styles.css`, `config.js` et `script.js` d'`index.html`. Chaque page doit avoir un contenu réellement spécifique (pas de texte dupliqué), son propre `<title>`, sa meta description, sa balise canonique et être ajoutée au `sitemap.xml`. Pages prévues :
