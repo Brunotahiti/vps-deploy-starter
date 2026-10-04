@@ -62,8 +62,13 @@ test("snack : programme de base épuré, demande d'option, activation par la con
   // Demande de l'option Stock
   const stock = page.getByTestId("option-stock");
   await expect(stock).toContainText("Stock et recettes");
-  await stock.getByRole("button", { name: "Débloquer" }).click();
-  await expect(stock).toContainText("Demande envoyée");
+  // Sélection puis demande (une ou plusieurs options en une fois)
+  await stock.getByTestId("option-select-stock").click();
+  await expect(page.getByTestId("selection-bar")).toContainText("1 option sélectionnée");
+  await page.getByTestId("selection-send").click();
+  await expect(page.getByTestId("selection-sent")).toContainText("Stock et recettes");
+  await page.getByRole("button", { name: "Parfait" }).click();
+  await expect(stock).toContainText("Demandée le");
   // Service ponctuel : formation de l'équipe, avec des précisions
   const training = page.getByTestId("service-training");
   await training.getByRole("button", { name: "Demander" }).click();
@@ -93,10 +98,48 @@ test("snack : programme de base épuré, demande d'option, activation par la con
 
   // Chez le restaurateur : l'option est active et son menu apparaît
   await page.reload();
-  await expect(page.getByTestId("option-stock")).toContainText("Active");
+  await expect(page.getByTestId("active-stock")).toBeVisible();
+  await expect(page.getByTestId("option-stock")).toHaveCount(0);
   expect((await page.request.get("/api/stock/ingredients")).status()).toBe(200);
   await page.goto("/admin/stock");
   await expect(page.getByText(/Une erreur est survenue/)).toHaveCount(0);
+  await expect(page.getByTestId("option-promo")).toHaveCount(0);
+});
+
+/**
+ * Mise en valeur : un bar voit ses options conseillées (tableau de bord, page Options), en sélectionne deux et les demande
+ * en une fois ; un écran d'option non débloquée présente l'option au lieu d'une erreur.
+ */
+test("options : vitrine, sélection multiple, présentation d'une option non débloquée", async ({ page }) => {
+  const stamp = Date.now();
+  expect((await page.request.post("/api/auth/signup", { data: { organizationName: `Bar ${stamp}`, establishmentName: "Le Bar du Port", firstName: "Hina", lastName: "Bar", email: `bar${stamp}@test.pf`, password: "motdepasse1", businessType: "bar" } })).ok()).toBeTruthy();
+  await page.goto("/admin");
+  const discover = page.getByTestId("options-discover");
+  await expect(discover).toContainText("Bar");
+  await expect(discover).toContainText("Cave à vin");
+  await expect(page.getByTestId("options-badge")).toHaveText("+14");
+
+  await page.goto("/admin/options");
+  const reco = page.getByTestId("options-recommended");
+  await expect(reco.locator("article")).toHaveCount(3);
+  await reco.getByTestId("reco-select-bar").click();
+  await reco.getByTestId("reco-view-wine").click();
+  await page.getByTestId("viewer-select").click();
+  await page.keyboard.press("Escape");
+  await expect(page.getByTestId("selection-bar")).toContainText("2 options sélectionnées");
+  await page.getByTestId("goal-calm").click();
+  await expect(page.locator("#catalogue article")).toHaveCount(2);
+  await page.getByTestId("selection-send").click();
+  await expect(page.getByTestId("selection-sent")).toContainText("Cave à vin");
+  const requested = ((await (await page.request.get("/api/options")).json()).data as { key: string; requestedAt: string | null }[]).filter((o) => o.requestedAt).map((o) => o.key).sort();
+  expect(requested).toEqual(["bar", "wine"]);
+
+  // Écran réservé à une option : présentation et demande d'un geste
+  await page.goto("/admin/stock");
+  const promo = page.getByTestId("option-promo");
+  await expect(promo).toContainText("Stock et recettes");
+  await page.getByTestId("promo-unlock").click();
+  await expect(promo).toContainText("Demande envoyée");
 });
 
 /** Téléphone : le mot « Menu » sous l'icône du menu. */

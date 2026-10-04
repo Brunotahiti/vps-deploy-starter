@@ -2,11 +2,12 @@
 /* eslint-disable @next/next/no-img-element -- captures d'écran statiques (public/options), déjà au bon format */
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { CheckCircle2, ChevronLeft, ChevronRight, Clock, Sparkles, X } from "lucide-react";
+import { Check, CheckCircle2, ChevronLeft, ChevronRight, Clock, MonitorPlay, Plus, Sparkles, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatDate } from "@/lib/dates";
 import { OPTION_SHOTS, optionCover, optionShotUrl } from "@/lib/option-shots";
 import type { OptionKey } from "@/lib/options";
+import { OPTION_PITCH } from "@/lib/option-pitch";
 
 export type ViewerOption = { key: OptionKey; label: string; tagline: string; includes: string[]; enabled: boolean; monthly: number | null; requestedAt: string | null };
 
@@ -27,9 +28,13 @@ function fromOrigin(panel: DOMRect, origin: DOMRect | null) {
  * Elle jaillit de la carte touchée et y retourne à la fermeture ; les images glissent l'une après l'autre.
  * Flèches, glisser du doigt, vignettes et clavier (← → Échap) ; le bouton « Débloquer » reste à portée.
  */
-export function OptionViewer({ option, icon: Icon, tile, price, origin = null, onUnlock, onClose }: {
+export function OptionViewer({ option, icon: Icon, tile, price, origin = null, onUnlock, onClose, selected, onToggleSelect, onTryDemo }: {
   option: ViewerOption; icon: React.ComponentType<{ className?: string }>; tile: string; price: (n: number) => string;
-  origin?: DOMRect | null; onUnlock: () => Promise<unknown>; onClose: () => void;
+  origin?: DOMRect | null; onUnlock?: () => Promise<unknown>; onClose: () => void;
+  /** Sélection de plusieurs options (page Options) */
+  selected?: boolean; onToggleSelect?: () => void;
+  /** Ouvrir l'écran de l'option dans le restaurant exemple */
+  onTryDemo?: () => void;
 }) {
   const shots = OPTION_SHOTS[option.key] ?? [];
   const [i, setI] = useState(() => optionCover(option.key));
@@ -86,7 +91,7 @@ export function OptionViewer({ option, icon: Icon, tile, price, origin = null, o
     return () => { window.removeEventListener("keydown", onKey); document.body.style.overflow = overflow; };
   }, [go, close]);
 
-  const unlock = async () => { setBusy(true); await onUnlock(); setBusy(false); };
+  const unlock = async () => { if (!onUnlock) return; setBusy(true); await onUnlock(); setBusy(false); };
   const onTouchEnd = (e: React.TouchEvent) => {
     const s = touch.current; touch.current = null;
     if (!s) return;
@@ -146,10 +151,17 @@ export function OptionViewer({ option, icon: Icon, tile, price, origin = null, o
         </div>
 
         <footer data-reveal className="flex flex-wrap items-center justify-between gap-3 border-t border-line px-4 py-3 sm:px-5" style={{ paddingBottom: "max(12px, env(safe-area-inset-bottom))" }}>
-          <span className="text-sm font-bold">{option.monthly !== null ? price(option.monthly) : <span className="text-muted">Prix sur demande</span>}</span>
-          {option.enabled ? <span className="inline-flex items-center gap-1.5 rounded-full bg-green-500/10 px-3 py-1.5 text-sm font-bold text-green-700 dark:text-green-400"><CheckCircle2 className="h-4 w-4" />Active</span>
-            : option.requestedAt ? <span className="inline-flex items-center gap-1.5 rounded-full bg-orange-500/10 px-3 py-1.5 text-xs font-bold text-orange-700 dark:text-orange-300"><Clock className="h-4 w-4" />Demande envoyée le {formatDate(option.requestedAt, "Pacific/Tahiti")}</span>
-            : <Button onClick={unlock} loading={busy} data-testid="viewer-unlock"><Sparkles className="h-4 w-4" />Débloquer</Button>}
+          <span className="min-w-0">
+            <span className="block text-sm font-bold">{option.monthly !== null ? price(option.monthly) : <span className="text-muted">Prix sur demande</span>}</span>
+            <span className="hidden text-xs text-muted sm:block">{OPTION_PITCH[option.key].benefit}</span>
+          </span>
+          <span className="flex flex-wrap items-center gap-2">
+            {onTryDemo && !option.enabled ? <Button variant="ghost" onClick={onTryDemo} data-testid="viewer-try"><MonitorPlay className="h-4 w-4" /><span className="hidden sm:inline">Voir en vrai</span></Button> : null}
+            {option.enabled ? <span className="inline-flex items-center gap-1.5 rounded-full bg-green-500/10 px-3 py-1.5 text-sm font-bold text-green-700 dark:text-green-400"><CheckCircle2 className="h-4 w-4" />Active</span>
+              : option.requestedAt ? <span className="inline-flex items-center gap-1.5 rounded-full bg-orange-500/10 px-3 py-1.5 text-xs font-bold text-orange-700 dark:text-orange-300"><Clock className="h-4 w-4" />Demande envoyée le {formatDate(option.requestedAt, "Pacific/Tahiti")}</span>
+              : onToggleSelect ? <Button variant={selected ? "secondary" : "primary"} onClick={onToggleSelect} data-testid="viewer-select">{selected ? <><Check className="h-4 w-4" />Dans ma sélection</> : <><Plus className="h-4 w-4" />Ajouter à ma sélection</>}</Button>
+              : onUnlock ? <Button onClick={unlock} loading={busy} data-testid="viewer-unlock"><Sparkles className="h-4 w-4" />Débloquer</Button> : null}
+          </span>
         </footer>
       </div>
     </div>

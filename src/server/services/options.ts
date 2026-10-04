@@ -84,24 +84,47 @@ export async function listOptions(organizationId: string) {
 
 /** Demande de déblocage : notée (une seule en attente par option) et signalée à l'équipe ManaResto. */
 export async function requestOption(actor: Actor, key: string) {
-  if (!isOptionKey(key)) throw new ApiError(400, "BAD_OPTION", "Option inconnue");
+  return (await requestOptions(actor, [key]))[0];
+}
+
+/**
+ * Demande d'une ou plusieurs options en une fois (sélection de la page Options) : une demande en attente par option,
+ * un seul e-mail à l'équipe ManaResto qui les liste toutes.
+ */
+export async function requestOptions(actor: Actor, keys: string[]) {
+  const wanted = [...new Set(keys)];
+  if (!wanted.length) throw new ApiError(400, "BAD_OPTION", "Choisissez au moins une option");
+  for (const k of wanted) if (!isOptionKey(k)) throw new ApiError(400, "BAD_OPTION", "Option inconnue");
   const org = await prisma.organization.findUniqueOrThrow({ where: { id: actor.organizationId }, select: { name: true, slug: true, options: true } });
   if (org.slug === DEMO_ORG_SLUG) throw new ApiError(403, "DEMO_READ_ONLY", "Sur le restaurant exemple, toutes les options sont déjà ouvertes : créez votre compte pour les demander");
-  if (org.options.includes(key)) throw new ApiError(409, "ALREADY_ENABLED", "Cette option est déjà active");
-  const existing = await prisma.optionRequest.findFirst({ where: { organizationId: actor.organizationId, option: key, status: "PENDING" } });
-  if (existing) return existing;
-  const req = await prisma.optionRequest.create({ data: { organizationId: actor.organizationId, option: key, requestedById: actor.userId } });
-  await audit({ ...actor, action: "option.request", entityType: "organization", entityId: actor.organizationId, newValue: { option: key } });
-  if (isEmailConfigured()) {
+  const active = wanted.filter((k) => org.options.includes(k));
+  if (active.length === wanted.length) throw new ApiError(409, "ALREADY_ENABLED", active.length > 1 ? "Ces options sont déjà actives" : "Cette option est déjà active");
+  const results = [];
+  const fresh: OptionKey[] = [];
+  for (const key of wanted.filter((k) => !org.options.includes(k)) as OptionKey[]) {
+    const existing = await prisma.optionRequest.findFirst({ where: { organizationId: actor.organizationId, option: key, status: "PENDING" } });
+    if (existing) { results.push(existing); continue; }
+    const req = await prisma.optionRequest.create({ data: { organizationId: actor.organizationId, option: key, requestedById: actor.userId } });
+    await audit({ ...actor, action: "option.request", entityType: "organization", entityId: actor.organizationId, newValue: { option: key } });
+    results.push(req);
+    fresh.push(key);
+  }
+  if (fresh.length && isEmailConfigured()) {
     const who = await prisma.user.findUnique({ where: { id: actor.userId }, select: { firstName: true, lastName: true, email: true } });
+    const labels = fresh.map((k) => OPTIONS[k].label);
     await sendMail(platformMail({
-      to: teamRecipients(), replyTo: who?.email ?? OFFER.contactEmail, subject: `Demande d'option : ${OPTIONS[key].label} · ${org.name}`,
-      kicker: "ManaResto · console", title: `${org.name} demande l'option « ${OPTIONS[key].label} »`,
-      paragraphs: [`Demande faite par ${who ? `${who.firstName} ${who.lastName} (${who.email})` : "le restaurant"}.`, "Activez l'option depuis la fiche du restaurant dans la console, une fois la facturation convenue."],
+      to: teamRecipients(), replyTo: who?.email ?? OFFER.contactEmail,
+      subject: `${fresh.length > 1 ? "Demande d'options" : "Demande d'option"} : ${labels.join(", ")} · ${org.name}`,
+      kicker: "ManaResto · console", title: fresh.length > 1 ? `${org.name} demande ${fresh.length} options` : `${org.name} demande l'option « ${labels[0]} »`,
+      paragraphs: [
+        ...(fresh.length > 1 ? [`Options demandées : ${labels.map((l) => `« ${l} »`).join(", ")}.`] : []),
+        `Demande faite par ${who ? `${who.firstName} ${who.lastName} (${who.email})` : "le restaurant"}.`,
+        "Activez les options depuis la fiche du restaurant dans la console, une fois la facturation convenue.",
+      ],
       cta: { label: "Ouvrir la console", url: consoleUrl() }, footer: "Message automatique de ManaResto.",
     })).catch(() => {});
   }
-  return req;
+  return results;
 }
 
 /** Console : options actives d'une entreprise. Les demandes en attente des options activées sont closes. */

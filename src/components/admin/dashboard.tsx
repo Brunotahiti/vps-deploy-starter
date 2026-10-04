@@ -11,6 +11,7 @@ import { Spinner } from "@/components/ui/misc";
 import { Money } from "@/components/money";
 import { PageHeader } from "./common";
 import { LiveDemoCard } from "@/components/demo-visit";
+import { OptionsDiscover } from "./options-catalog";
 import { DayGoal, GettingStarted, greeting } from "./fun";
 import { ChartCard, ColumnChart, LineChart, HBars, StackedBar, Ranking, Stat, Delta, Meter, Sparkline, compact } from "./charts";
 import type { DailySummary } from "@/components/pos/types";
@@ -62,6 +63,7 @@ export function Dashboard() {
     <div>
       <PageHeader title={hello.title} subtitle={`${me?.establishment?.name ?? ""} · ${hello.mood}`} action={dateNav} />
       <LiveDemoCard />
+      <OptionsDiscover />
       {me?.establishment ? <GettingStarted establishmentId={me.establishment.id} /> : null}
       {daily.isLoading || !d ? <div className="flex justify-center py-20"><Spinner /></div> : (
         <div className={`space-y-4 transition-opacity duration-300 ${stale ? "opacity-60" : ""}`}>

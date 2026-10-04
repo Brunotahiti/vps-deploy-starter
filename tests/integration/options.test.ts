@@ -4,7 +4,7 @@ import { makeTenant } from "../setup/fixtures";
 import { prisma } from "@/server/db";
 import { lockedPermissions, OPTION_KEYS, businessTypeSettings } from "@/lib/options";
 import { requireOption } from "@/server/auth/context";
-import { handleServiceRequest, listOptions, listServices, pendingOptionRequests, requestOption, requestService, setOptionPrice, setOrganizationOptions } from "@/server/services/options";
+import { handleServiceRequest, listOptions, listServices, pendingOptionRequests, requestOption, requestOptions, requestService, setOptionPrice, setOrganizationOptions } from "@/server/services/options";
 import { assertDigitalOption, createOnlineOrder, restaurantSite, tableMenu } from "@/server/services/public";
 import { DEMO_ORG_SLUG } from "@/lib/platform";
 
@@ -51,6 +51,21 @@ describe("programme de base et options payantes", () => {
     expect(await pendingOptionRequests()).toEqual([]); // demande close à l'activation
     await expect(requestOption(base.managerActor, "stock")).rejects.toMatchObject({ status: 409 });
     expect(await prisma.auditLog.count({ where: { action: "platform.options", entityId: base.org.id } })).toBe(1);
+    await setOrganizationOptions(base.org.id, [], admin);
+  });
+
+  it("sélection : plusieurs options demandées en une fois ; les options déjà actives sont ignorées", async () => {
+    await setOrganizationOptions(base.org.id, ["stock"], admin);
+    const rows = await requestOptions(base.managerActor, ["bar", "wine", "stock", "bar"]);
+    expect(rows.map((r) => r.option).sort()).toEqual(["bar", "wine"]);
+    // Redemander ne crée pas de doublon
+    const again = await requestOptions(base.managerActor, ["wine", "bar"]);
+    expect(again.map((r) => r.id).sort()).toEqual(rows.map((r) => r.id).sort());
+    await expect(requestOptions(base.managerActor, ["stock"])).rejects.toMatchObject({ status: 409 });
+    await expect(requestOptions(base.managerActor, [])).rejects.toMatchObject({ status: 400 });
+    await expect(requestOptions(base.managerActor, ["bar", "inconnue"])).rejects.toMatchObject({ status: 400 });
+    expect((await pendingOptionRequests()).filter((p) => p.organizationName === "Org opt-base").map((p) => p.label).sort()).toEqual(["Bar", "Cave à vin"]);
+    await prisma.optionRequest.deleteMany({ where: { organizationId: base.org.id } });
     await setOrganizationOptions(base.org.id, [], admin);
   });
 

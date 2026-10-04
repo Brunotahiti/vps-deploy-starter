@@ -7,9 +7,9 @@ import { api, ApiClientError } from "@/lib/api-client";
 import { useToast } from "@/components/ui/toast";
 
 /** Ouvre le restaurant exemple en gardant sa propre session (rechargement complet : l'application repart propre). */
-export async function openLiveDemo() {
+export async function openLiveDemo(path = "/admin") {
   await api.post("/api/auth/demo-session");
-  window.location.replace("/admin");
+  window.location.replace(path);
 }
 
 /**
