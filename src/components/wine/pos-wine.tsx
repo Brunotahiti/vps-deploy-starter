@@ -8,6 +8,7 @@ import { useSession } from "@/hooks/use-session";
 import { Empty } from "@/components/ui/misc";
 import { OpenBottles, WineAdvisor } from "./wine-ui";
 import type { OpenBottle } from "./types";
+import { OptionPromo } from "@/components/admin/options-catalog";
 
 type View = "advisor" | "open";
 
@@ -17,7 +18,7 @@ export function PosWine() {
   const allowed = hasOption("wine") && (can("wine.use") || can("wine.manage"));
   const [view, setView] = useState<View>("advisor");
   const open = useQuery({ queryKey: ["wine", "open"], queryFn: () => api.get<OpenBottle[]>("/api/wine/open-bottles"), enabled: allowed, refetchInterval: 60_000 });
-  if (!allowed) return <div className="p-6"><Empty title="Cave à vin" hint="L'option Cave à vin se débloque dans Gestion → Options." /></div>;
+  if (!allowed) return <div className="overflow-y-auto p-4">{hasOption("wine") ? <Empty title="Cave à vin" hint="Votre profil n'a pas accès à cet écran." /> : <OptionPromo option="wine" />}</div>;
   const overdue = (open.data ?? []).filter((b) => b.overdue).length;
   const views: { key: View; label: string; icon: typeof Wine; alert?: number }[] = [
     { key: "advisor", label: "Conseiller un vin", icon: Wine },

@@ -22,8 +22,11 @@ import { PendingReservationsAlert } from "@/components/reservations/pending-aler
 import { PortalButtons } from "@/components/portal/portal-buttons";
 import { roleLabel } from "@/components/admin/profile-picker";
 import { confirmLogoutWithPending, purgeLocalData } from "@/lib/offline/purge";
+import { OPTION_KEYS } from "@/lib/options";
+import { optionForRoute } from "@/lib/option-pitch";
+import { OptionPromo } from "@/components/admin/options-catalog";
 
-type NavItem = { href: string; label: string; icon: LucideIcon; show?: boolean; match?: string; external?: boolean };
+type NavItem = { href: string; label: string; icon: LucideIcon; show?: boolean; match?: string; external?: boolean; badge?: React.ReactNode };
 type NavGroup = { key: string; label: string; icon: LucideIcon; items: NavItem[] };
 
 export function AdminShell({ children }: { children: React.ReactNode }) {
@@ -38,6 +41,10 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   useRealtime(!!me?.user);
 
   if (isLoading) return <div className="flex h-screen items-center justify-center"><Spinner /></div>;
+  // Options à découvrir (pastille du menu) et écran d'une option non débloquée (présenté au lieu d'une erreur)
+  const toDiscover = OPTION_KEYS.filter((k) => !hasOption(k)).length;
+  const lockedOption = optionForRoute(pathname);
+  const showPromo = lockedOption !== null && !hasOption(lockedOption);
 
   // Menu court : le tableau de bord, puis cinq rubriques repliables (celle de la page ouverte est dépliée)
   const groups: NavGroup[] = [
@@ -85,7 +92,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
     // Site public : nouvel onglet, l'administration reste ouverte
     if (n.external) return <a key={n.href} href={n.href} target="_blank" rel="noreferrer" onClick={() => setOpen(false)} className={`mb-0.5 flex items-center gap-3 rounded-xl px-3 text-sm font-semibold text-lagon-700 transition hover:surface-2 dark:text-lagon-300 ${nested ? "h-10 pl-5" : "h-11"}`}><span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${nested ? "" : "surface-2"}`}><n.icon className="h-4 w-4" /></span>{n.label}<ExternalLink className="ml-auto h-3.5 w-3.5 opacity-70" /></a>;
     const active = isActive(n);
-    return <Link key={n.href} href={n.href} onClick={() => setOpen(false)} aria-current={active ? "page" : undefined} className={`mb-0.5 flex items-center gap-3 rounded-xl px-3 text-sm font-semibold transition ${nested ? "h-10 pl-5" : "h-11"} ${active ? "bg-brand text-white shadow-glow" : "text-muted hover:surface-2 hover:text-[var(--text)]"}`}><span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${active ? "bg-white/15" : nested ? "" : "surface-2"}`}><n.icon className="h-4 w-4" /></span>{n.label}</Link>;
+    return <Link key={n.href} href={n.href} onClick={() => setOpen(false)} aria-current={active ? "page" : undefined} className={`mb-0.5 flex items-center gap-3 rounded-xl px-3 text-sm font-semibold transition ${nested ? "h-10 pl-5" : "h-11"} ${active ? "bg-brand text-white shadow-glow" : "text-muted hover:surface-2 hover:text-[var(--text)]"}`}><span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${active ? "bg-white/15" : nested ? "" : "surface-2"}`}><n.icon className="h-4 w-4" /></span>{n.label}{n.badge}</Link>;
   };
 
   const switchEst = async (id: string) => { try { await api.post("/api/auth/switch-establishment", { establishmentId: id }); } catch { return; } await purgeLocalData(); qc.clear(); router.refresh(); qc.invalidateQueries(); };
@@ -104,7 +111,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
         {/* Assistant IA (option) : prévisions, analyse qualité, commande proposée */}
         {hasOption("ai") && can("reports.view") ? link({ href: "/admin/ai", label: "Assistant IA", icon: BrainCircuit }) : null}
         {/* Options payantes : ce qui est actif et ce qu'on peut débloquer */}
-        {can("settings.manage") ? link({ href: "/admin/options", label: "Options", icon: Sparkles }) : null}
+        {can("settings.manage") ? link({ href: "/admin/options", label: "Options", icon: Sparkles, badge: toDiscover > 0 && !me?.isDemo ? <span className="ml-auto rounded-full bg-gradient-to-r from-violet-500 to-fuchsia-500 px-2 py-0.5 text-[10px] font-extrabold text-white shadow-sm" title={`${toDiscover} options à découvrir`} data-testid="options-badge">+{toDiscover}</span> : undefined }) : null}
         {groups.map((g) => {
           const expanded = isOpen(g.key);
           const holdsActive = activeGroup === g.key;
@@ -142,7 +149,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
         <DemoVisitBar />
         <PendingReservationsAlert />
         <header className="glass flex h-[72px] shrink-0 items-center gap-3 border-b px-4 lg:hidden"><MenuButton onClick={() => setOpen(true)} blink /><Logo size={28} /><VersionBadge /></header>
-        <main className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden p-4 lg:p-8"><InstallBanner className="mb-3 lg:hidden" /><SubscriptionBanner />{children}</main>
+        <main className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden p-4 lg:p-8"><InstallBanner className="mb-3 lg:hidden" /><SubscriptionBanner />{showPromo ? <OptionPromo option={lockedOption} /> : children}</main>
         {/* Les quatre portails, toujours visibles sous la page */}
         <PortalButtons />
       </div>

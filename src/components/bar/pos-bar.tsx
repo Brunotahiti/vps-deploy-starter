@@ -16,6 +16,7 @@ import { Money } from "@/components/money";
 import { formatElapsed } from "@/lib/dates";
 import { isHappyHourOn, type BarSettings } from "@/lib/happy-hour";
 import { doseLabel, stockLabel, type Bottle, type Cocktail, type Tab } from "./types";
+import { OptionPromo } from "@/components/admin/options-catalog";
 
 type View = "tabs" | "cards" | "breakage";
 const BREAK_REASONS = ["Bouteille cassée", "Verre renversé", "Périmé", "Erreur de préparation"];
@@ -28,7 +29,7 @@ export function PosBar() {
   // Rechargée à chaque ouverture : une ardoise réglée à l'instant ne doit pas réapparaître
   const tabs = useQuery({ queryKey: ["bar", "tabs"], queryFn: () => api.get<Tab[]>("/api/bar/tabs"), enabled: allowed, refetchInterval: 15_000, refetchOnMount: "always" });
   const settings = useQuery({ queryKey: ["bar", "settings"], queryFn: () => api.get<BarSettings>("/api/bar/settings"), enabled: allowed, refetchInterval: 60_000 });
-  if (!allowed) return <div className="p-6"><Empty title="Bar" hint="L'option Bar se débloque dans Gestion → Options." /></div>;
+  if (!allowed) return <div className="overflow-y-auto p-4">{hasOption("bar") ? <Empty title="Bar" hint="Votre profil n'a pas accès à cet écran." /> : <OptionPromo option="bar" />}</div>;
 
   // Happy hour en cours (le plus avantageux), pour le rappeler à l'équipe
   const now = new Date();
