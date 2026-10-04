@@ -13,6 +13,9 @@ export const RESERVED_SHARE_SLUGS = new Set([
   "static", "suivi", "support", "tarifs", "test", "www", "404", "500",
   // Chemins servis par l'application sous manaresto.com (fichiers, suivi des erreurs)
   "brand", "fonts", "monitoring", "images", "manifest",
+  // Pages du site vitrine par activité
+  "logiciel-caisse-restaurant-tahiti", "logiciel-caisse-roulotte-tahiti", "logiciel-caisse-snack-tahiti", "logiciel-caisse-bar-tahiti",
+  "commande-en-ligne-restaurant-tahiti", "gestion-restaurant-polynesie",
 ]);
 
 export const SHARE_SLUG_MIN = 3;

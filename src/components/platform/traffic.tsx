@@ -16,7 +16,9 @@ import type { TrafficStats } from "@/server/services/site-traffic";
 
 const PERIODS = [7, 30, 90] as const;
 const WEEKDAYS = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
-const PAGE_LABEL: Record<string, string> = { "/": "Accueil", "/demo": "Démo en live", "/conditions": "Conditions générales", "/mentions-legales": "Mentions légales", "/confidentialite": "Confidentialité" };
+const PAGE_LABEL: Record<string, string> = { "/": "Accueil", "/demo": "Démo en live", "/conditions": "Conditions générales", "/mentions-legales": "Mentions légales", "/confidentialite": "Confidentialité",
+  "/logiciel-caisse-restaurant-tahiti": "Page Restaurant", "/logiciel-caisse-roulotte-tahiti": "Page Roulotte", "/logiciel-caisse-snack-tahiti": "Page Snack",
+  "/logiciel-caisse-bar-tahiti": "Page Bar", "/commande-en-ligne-restaurant-tahiti": "Page Commande en ligne", "/gestion-restaurant-polynesie": "Page Gestion" };
 const CLICK_LABEL: Record<string, string> = {
   cta_trial: "« Essayer gratuitement »", cta_demo: "« Demander une démonstration »", cta_demo_submit: "Envoi du formulaire de démo",
   demo_form_start: "Formulaire de démo commencé", demo_form_submit: "Demande de démo envoyée",

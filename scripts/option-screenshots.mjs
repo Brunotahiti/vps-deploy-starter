@@ -15,7 +15,7 @@ const BASE = process.env.BASE ?? "http://localhost:3000";
 const OUT = new URL("../public/options/", import.meta.url).pathname;
 const W = 1280, H = 800;
 const ORG = "demo-mana-beach", EST = "le-mana-beach";
-const HIDE = "[data-testid=pending-banner],[data-testid=subscription-banner],[data-testid=install-banner],nextjs-portal{display:none!important}";
+const HIDE = "[data-testid=pending-banner],[data-testid=subscription-banner],[data-testid=install-banner],[data-testid=demo-tour],[data-testid=demo-tour-pill],nextjs-portal{display:none!important}";
 // Fond des vues téléphone (dégradé de la tuile de l'option)
 const BG = { digital: ["#38bdf8", "#4f46e5"], continuity: ["#fb7185", "#dc2626"], bar: ["#d946ef", "#e11d48"], wine: ["#be123c", "#7f1d1d"], screens: ["#818cf8", "#0284c7"] };
 

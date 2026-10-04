@@ -12,6 +12,7 @@ import { markLogoutPending, useSession } from "@/hooks/use-session";
 import { useRealtime } from "@/hooks/use-realtime";
 import { SupportBar } from "@/components/support-bar";
 import { DemoVisitBar } from "@/components/demo-visit";
+import { DemoTour } from "@/components/demo-tour";
 import { BoxBar } from "@/components/pos/box-bar";
 import { confirmLogoutWithPending, purgeLocalData } from "@/lib/offline/purge";
 import { useTheme } from "@/hooks/use-theme";
@@ -112,6 +113,7 @@ export function PosShell({ children }: { children: React.ReactNode }) {
     <div className="flex h-dvh flex-col">
       <SupportBar />
       <DemoVisitBar />
+      <DemoTour />
       <BoxBar />
       <PendingReservationsAlert />
       <TodoPanel open={todo} onClose={() => setTodo(false)} data={reminders.data} />

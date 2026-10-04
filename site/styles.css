@@ -436,3 +436,47 @@ body.anim.anim-fast .hero-banner { animation-delay: 0s; } body.anim.anim-fast .h
 @media (max-width: 700px) and (orientation: portrait) { .lb-rotate { display: block; } }
 @media (max-height: 500px) { .lb { padding-top: 8px; padding-bottom: 8px; } .lb-fig { gap: 6px; } .lb-fig img { max-height: calc(100dvh - 60px); } .lb-fig figcaption span, .lb-count { display: none; } }
 .shot { margin: 0; }
+
+/* Vidéo d'un vrai service */
+.video-frame { padding: 30px 8px 8px; }
+.video-frame video { display: block; width: 100%; height: auto; aspect-ratio: 1024 / 640; border-radius: 8px; background: #0b2a2f; }
+.steps { list-style: none; counter-reset: st; margin: 18px 0 0; padding: 0; display: grid; gap: 10px; }
+.steps li { counter-increment: st; display: grid; grid-template-columns: 34px 1fr; column-gap: 12px; align-items: baseline; }
+.steps li::before { content: counter(st); grid-row: span 2; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 999px; background: var(--corail); color: #fff; font-weight: 800; font-size: .9rem; box-shadow: 0 8px 18px -8px rgb(249 124 60 / .9); }
+.steps b { color: var(--lagon-800); }
+.steps span { color: var(--muted); font-size: .95rem; }
+
+/* Liens vers les pages par activité */
+.by-activity { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 24px; }
+.by-activity span { font-weight: 800; color: var(--lagon-800); margin-right: 4px; }
+.by-activity a { display: inline-flex; align-items: center; min-height: 44px; padding: 0 16px; border-radius: 999px; border: 1.5px solid var(--lagon-100); background: #fff; color: var(--lagon-800); font-weight: 800; font-size: .93rem; }
+.by-activity a:hover { border-color: var(--lagon); background: var(--lagon-50); }
+
+/* Pied de page à quatre colonnes */
+@media (min-width: 760px) { .foot-grid.foot-grid-4 { grid-template-columns: 1.3fr 1fr 1fr 1fr; } }
+footer a[aria-current="page"] { color: #9be9e2; font-weight: 800; }
+
+/* Pages par activité */
+.page-hero { padding-top: 28px; }
+@media (min-width: 960px) { .page-hero { padding: 48px 0 96px; } }
+.crumbs { font-size: .85rem; color: rgb(255 255 255 / .7); margin-bottom: 12px; }
+.crumbs a { color: #fff; font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
+.page-hero .hero-shot { order: 2; }
+.page-hero .hero-shot .zoom.frame { max-width: 560px; margin-inline: auto; }
+.page-hero .hero-shot .zoom.phone-frame { max-width: 280px; padding: 8px; background: #0f172a; border-radius: 30px; }
+.page-hero .hero-shot .zoom.phone-frame::before { display: none; }
+@media (max-width: 959px) { .page-hero .hero-shot { margin-top: 6px; } }
+@media (max-width: 600px) { .page-hero .badge { display: inline-flex; } }
+.shots-page { grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 760px) { .shots-page { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (min-width: 1100px) { .shots-page:has(> :nth-child(3):last-child) { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.shot.phone-shot img { aspect-ratio: 640 / 1090; max-height: 520px; object-fit: contain; background: var(--soft); }
+.faq-more { margin-top: 14px; color: var(--muted); }
+.faq-more a, .also a { font-weight: 800; text-decoration: underline; text-underline-offset: 3px; }
+.faq-more a { color: var(--lagon-700); }
+.final .also { margin-top: 18px; color: rgb(255 255 255 / .75); font-size: .95rem; }
+.final .also a { color: #fff; }
+
+/* Contrastes (audit d'accessibilité) : turquoise un ton plus soutenu sur fond blanc, lien d'administration plus lisible */
+.nav .brand b, .legal .brand b { color: var(--lagon-600); }
+.foot-admin { color: rgb(255 255 255 / .58); }

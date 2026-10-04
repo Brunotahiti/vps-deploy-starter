@@ -56,3 +56,32 @@ test("lien /login?demo=1 connecté : retour possible, déconnexion complète", a
   expect(await meEmail(page)).toBeNull();
   expect((await page.request.post("/api/auth/demo-return")).status()).toBe(401); // la session mise de côté est fermée aussi
 });
+
+test("visite guidée : seulement pour un visiteur de la démo, étapes cochées en ouvrant les écrans", async ({ page }) => {
+  await page.goto("/login?demo=1");
+  await page.waitForURL(/\/admin/);
+  const tour = page.getByTestId("demo-tour");
+  await expect(tour).toContainText("1/4"); // le tableau de bord coche « Vos chiffres »
+  await tour.getByRole("link", { name: "Y aller" }).filter({ visible: true }).click();
+  await page.waitForURL(/\/pos$/);
+  await expect(page.getByTestId("demo-tour")).toContainText("2/4");
+  await page.goto("/kds");
+  await expect(page.getByTestId("demo-tour")).toContainText("3/4");
+  // Réduite, elle le reste après un rechargement ; fermée, elle ne revient plus
+  await page.getByRole("button", { name: "Réduire la visite guidée" }).click();
+  await page.reload();
+  await expect(page.getByTestId("demo-tour-pill")).toBeVisible();
+  await page.getByTestId("demo-tour-pill").click();
+  await page.getByTestId("demo-tour-close").click();
+  await page.reload();
+  await expect(page.getByTestId("demo-tour-pill")).toHaveCount(0);
+  await expect(page.getByTestId("demo-tour")).toHaveCount(0);
+});
+
+test("visite guidée : absente après une connexion par mot de passe au compte exemple", async ({ page }) => {
+  await page.request.post("/api/auth/login", { data: { email: "demo@manaresto.pf", password: "demo1234" } });
+  await page.goto("/pos");
+  await expect(page.getByRole("button", { name: /Comptoir/ })).toBeVisible();
+  await expect(page.getByTestId("demo-tour")).toHaveCount(0);
+  await expect(page.getByTestId("demo-tour-pill")).toHaveCount(0);
+});

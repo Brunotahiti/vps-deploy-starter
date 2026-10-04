@@ -18,6 +18,7 @@ import { Spinner } from "@/components/ui/misc";
 import { MenuButton } from "@/components/ui/menu-button";
 import { SupportBar } from "@/components/support-bar";
 import { DemoVisitBar } from "@/components/demo-visit";
+import { DemoTour } from "@/components/demo-tour";
 import { PendingReservationsAlert } from "@/components/reservations/pending-alert";
 import { PortalButtons } from "@/components/portal/portal-buttons";
 import { roleLabel } from "@/components/admin/profile-picker";
@@ -147,6 +148,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
       <div className="flex min-w-0 flex-1 flex-col">
         <SupportBar />
         <DemoVisitBar />
+        <DemoTour />
         <PendingReservationsAlert />
         <header className="glass flex h-[72px] shrink-0 items-center gap-3 border-b px-4 lg:hidden"><MenuButton onClick={() => setOpen(true)} blink /><Logo size={28} /><VersionBadge /></header>
         <main className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden p-4 lg:p-8"><InstallBanner className="mb-3 lg:hidden" /><SubscriptionBanner />{showPromo ? <OptionPromo option={lockedOption} /> : children}</main>
