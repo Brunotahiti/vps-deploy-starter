@@ -139,7 +139,8 @@ const specOf = (raw: unknown): BarSpec | null => {
 export async function listCocktails(establishmentId: string) {
   const products = await prisma.product.findMany({
     // Boissons : produits envoyés au bar, ou déjà dotés d'une fiche (pas les plats qui utilisent un ingrédient de la cave)
-    where: { establishmentId, isActive: true, OR: [{ barSpec: { not: Prisma.AnyNull } }, { kitchenStation: { name: { contains: "bar", mode: "insensitive" } } }] },
+    // (les vins de la cave à vin ont leur propre fiche)
+    where: { establishmentId, isActive: true, wineId: null, OR: [{ barSpec: { not: Prisma.AnyNull } }, { kitchenStation: { name: { contains: "bar", mode: "insensitive" } } }] },
     orderBy: { name: "asc" },
     select: { id: true, name: true, priceTtc: true, imageUrl: true, barSpec: true, category: { select: { id: true, name: true } }, recipeLines: { where: { ingredient: { barKind: { not: null } } }, select: { quantity: true, ingredient: { select: { id: true, name: true, unit: true, avgCost: true } } } } },
   });
