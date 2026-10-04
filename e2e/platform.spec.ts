@@ -98,3 +98,23 @@ test("console : écran de connexion administrateur, refus d'un compte non admini
   await page.getByRole("button", { name: "Se connecter à la console" }).click();
   await expect(page.getByRole("heading", { name: "Vos restaurants ManaResto" })).toBeVisible();
 });
+
+test.describe("console sur téléphone", () => {
+  test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+  test("pas de défilement horizontal : fiches à la place des tableaux, fiche restaurant lisible", async ({ page }) => {
+    await page.request.post("/api/auth/login", { data: { email: "demo@manaresto.pf", password: "demo1234" } });
+    const me = await (await page.request.get("/api/auth/me")).json();
+    test.skip(!me.data.platformAdmin, "PLATFORM_ADMIN_EMAILS ne contient pas demo@manaresto.pf sur ce serveur");
+    await page.goto("/platform");
+    await expect(page.getByTestId("org-card").first()).toBeVisible();
+    await expect(page.locator("table").first()).toBeHidden();
+    const overflow = () => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    expect(await overflow()).toBe(0);
+    // La fiche d'un restaurant tient dans l'écran (interrupteurs des options visibles)
+    await page.getByTestId("org-card").first().locator("p").first().click();
+    const toggle = page.getByTestId("org-options").getByRole("switch").first();
+    await expect(toggle).toBeVisible();
+    const box = await toggle.boundingBox();
+    expect(box!.x + box!.width).toBeLessThanOrEqual(390);
+  });
+});
