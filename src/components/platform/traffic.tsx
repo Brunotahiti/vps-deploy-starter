@@ -68,7 +68,7 @@ export function TrafficPanel() {
             <Stat label="Visites de la démo" value={n(t.totals.demos)} icon={<PlayCircle className="h-4 w-4" />} accent="#e87ba4" delta={evolution(t.totals.demos, t.previous.demos)} deltaSuffix={vs} hint="restaurant exemple ouvert" />
           </div>
 
-          <div className="grid gap-4 lg:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             <ChartCard title="Visites par jour" subtitle={`Visiteurs différents chaque jour · ${days} derniers jours`} table={{ head: ["Jour", "Visites", "Pages vues"], rows: t.series.days.map((d, i) => [shortDay(d), t.series.visits[i], t.series.views[i]]) }}>
               <ColumnChart data={t.series.days.map((d, i) => ({ label: days > 7 ? tinyDay(d) : shortDay(d), value: t.series.visits[i], sub: plural(t.series.views[i], "page vue", "pages vues") }))} valueLabel={(v) => plural(v, "visite")} height={200} />
             </ChartCard>
@@ -77,7 +77,7 @@ export function TrafficPanel() {
             </ChartCard>
           </div>
 
-          <div className="grid gap-4 lg:grid-cols-5">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
             <ChartCard className="lg:col-span-3" title="Quand vient-on sur le site ?" subtitle="Pages vues par jour de la semaine et par heure" table={{ head: ["Jour", ...Array.from({ length: 24 }, (_, h) => hourLabel(h))], rows: t.viewGrid.map((r, d) => [WEEKDAYS[d], ...r]) }}>
               <Heatmap grid={t.viewGrid} />
             </ChartCard>
@@ -86,7 +86,7 @@ export function TrafficPanel() {
             </ChartCard>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
             <ChartCard title="Pages les plus vues" table={{ head: ["Page", "Vues"], rows: t.pages.map((p) => [pageName(p.k), p.n]) }}>
               <HBars data={t.pages.map((p) => ({ label: pageName(p.k), value: p.n }))} valueLabel={n} />
             </ChartCard>
@@ -106,7 +106,7 @@ export function TrafficPanel() {
             </ChartCard>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
             <ChartCard title="Appareils" subtitle="Pages vues du site · connexions à l'application">
               <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-muted">Site</p>
               <StackedBar data={t.devices.map((d) => ({ label: DEVICE_LABEL[d.k ?? ""] ?? "Autre", value: d.n }))} valueLabel={n} />
@@ -130,7 +130,7 @@ export function TrafficPanel() {
           <div className="card p-4">
             <h3 className="mb-3 flex items-center gap-2 text-sm font-extrabold"><LogIn className="h-4 w-4 text-lagon-600" />Connexions et inscriptions récentes</h3>
             {t.recent.length === 0 ? <p className="py-6 text-center text-sm text-muted">Aucune connexion enregistrée pour l&apos;instant.</p> : (
-              <ul className="grid gap-x-6 divide-y divide-[var(--border)] md:grid-cols-2 md:divide-y-0">
+              <ul className="grid grid-cols-1 gap-x-6 divide-y divide-[var(--border)] md:grid-cols-2 md:divide-y-0">
                 {t.recent.map((r, i) => {
                   const Icon = DEVICE_ICON[(r.device ?? "desktop") as keyof typeof DEVICE_ICON] ?? Monitor;
                   return (

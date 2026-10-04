@@ -122,7 +122,7 @@ export default function PlatformPage() {
   const actions = { impersonate, quickPlan, toggleBlock, email: (r: PlatformRow) => setMail({ row: r, subject: "", message: "" }) };
 
   return (
-    <div className="min-h-dvh bg-[var(--bg)]">
+    <div className="min-h-dvh overflow-x-clip bg-[var(--bg)]">
       {/* En-tête */}
       <header className="relative overflow-hidden bg-[linear-gradient(135deg,#0f6e6c,#14aaa3_55%,#0b4f4e)] text-white">
         <div aria-hidden className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-white/10 blur-2xl" />
@@ -174,7 +174,7 @@ export default function PlatformPage() {
             </section>
 
             {/* Graphiques */}
-            <section className="grid gap-4 lg:grid-cols-3">
+            <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
               <ChartCard title="Inscriptions par jour" subtitle="30 derniers jours" table={{ head: ["Jour", "Inscriptions"], rows: data.series.map((d) => [shortDay(d.day), d.signups]) }}>
                 <ColumnChart data={data.series.map((d) => ({ label: shortDay(d.day), value: d.signups }))} valueLabel={(v) => `${v} inscription${v > 1 ? "s" : ""}`} height={190} emphasis="none" />
               </ChartCard>
@@ -193,15 +193,19 @@ export default function PlatformPage() {
             <section className="card overflow-hidden">
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line p-4">
                 <div><h2 className="text-lg font-extrabold tracking-tight">Restaurants</h2><p className="text-xs text-muted">Touchez une ligne pour voir l&apos;équipe, les connexions et l&apos;historique.</p></div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <label className="relative"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" /><Input placeholder="Nom, e-mail, commune…" value={search} onChange={(e) => setSearch(e.target.value)} className="w-56 pl-9" aria-label="Rechercher un restaurant" /></label>
+                <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
+                  <label className="relative w-full sm:w-auto"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" /><Input placeholder="Nom, e-mail, commune…" value={search} onChange={(e) => setSearch(e.target.value)} className="w-full pl-9 sm:w-56" aria-label="Rechercher un restaurant" /></label>
                   <label className="flex items-center gap-2 text-xs font-semibold text-muted"><input type="checkbox" checked={showDemo} onChange={(e) => setShowDemo(e.target.checked)} />Compte démo</label>
                 </div>
               </div>
               <div className="flex gap-1 overflow-x-auto border-b border-line px-3 py-2">
                 {FILTERS.map((f) => <button key={f} onClick={() => setFilter(f)} aria-pressed={filter === f} className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-bold transition ${filter === f ? "bg-brand text-white" : "text-muted hover:surface-2"}`}>{f === "ALL" ? "Tous" : STATUS_LABEL[f]} <span className="opacity-70">{counts[f] ?? 0}</span></button>)}
               </div>
-              <div className="overflow-x-auto">
+              {/* Téléphone : une fiche par restaurant (le tableau complet demande un grand écran) */}
+              <ul className="divide-y divide-[var(--border)] md:hidden" data-testid="org-cards">
+                {rows.length === 0 ? <li className="px-4 py-10 text-center text-sm text-muted">Aucun restaurant pour ce filtre.</li> : rows.map((r) => <OrgCard key={r.id} r={r} mine={r.id === me.organizationId} onOpen={() => setDetailId(r.id)} {...actions} />)}
+              </ul>
+              <div className="hidden overflow-x-auto md:block">
                 <table className="w-full min-w-[1320px] text-sm">
                   <thead><tr className="border-b border-line text-left text-[11px] uppercase tracking-wider text-muted">{["Propriétaire", "Plan", "Statut", "Fin essai / période", "Activité", "Dernier e-mail", "Page publique", "Inscription", "Facturation", "Actions"].map((h) => <th key={h} className="px-3 py-3 font-bold">{h}</th>)}</tr></thead>
                   <tbody>
@@ -211,9 +215,9 @@ export default function PlatformPage() {
               </div>
             </section>
 
-            <section className="grid gap-4 lg:grid-cols-5">
+            <section className="grid grid-cols-1 gap-4 lg:grid-cols-5">
               {/* Connexions récentes */}
-              <div className="card p-4 lg:col-span-2">
+              <div className="card min-w-0 p-4 lg:col-span-2">
                 <h2 className="mb-3 flex items-center gap-2 text-sm font-extrabold"><LogIn className="h-4 w-4 text-lagon-600" />Dernières connexions</h2>
                 {data.recentLogins.length === 0 ? <p className="py-6 text-center text-sm text-muted">Aucune connexion pour l&apos;instant.</p> : (
                   <ul className="divide-y divide-[var(--border)]">
@@ -228,7 +232,7 @@ export default function PlatformPage() {
                 )}
               </div>
               {/* Demandes de démo */}
-              <div id="demandes" className="card p-4 lg:col-span-3">
+              <div id="demandes" className="card min-w-0 p-4 lg:col-span-3">
                 <h2 className="mb-3 flex items-center gap-2 text-sm font-extrabold"><Sparkles className="h-4 w-4 text-pink-600" />Demandes de démonstration <span className="text-xs font-semibold text-muted">(site vitrine)</span></h2>
                 <p className="-mt-2 mb-3 text-xs text-muted">{data.email.configured ? <>Alertes envoyées à <b className="text-[var(--text)]">{data.email.recipients}</b>{data.email.from ? <> · expéditeur {data.email.from}</> : null}</> : "Envoi d'e-mails non configuré : aucune alerte ne part."}</p>
                 <DemoTable requests={data.demoRequests} onStatus={(id, status) => act(() => api.patch(`/api/platform/demo-requests/${id}`, { status }), { invalidate: [["platform"]] })} />
@@ -328,6 +332,30 @@ function OrgRow({ r, mine, onOpen, ...a }: RowActions & { r: PlatformRow; mine: 
   );
 }
 
+/** Fiche d'un restaurant sur téléphone : l'essentiel du tableau, empilé, et les mêmes actions. */
+function OrgCard({ r, mine, onOpen, ...a }: RowActions & { r: PlatformRow; mine: boolean; onOpen: () => void }) {
+  return (
+    <li className="cursor-pointer px-4 py-3 transition active:surface-2" onClick={onOpen} data-testid="org-card">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="font-bold">{r.owner ? `${r.owner.firstName} ${r.owner.lastName}` : "—"}{mine ? <Badge color="teal">vous</Badge> : null}{r.isDemo ? <Badge color="purple">démo</Badge> : null}</p>
+          <p className="truncate text-xs text-muted">{r.owner?.email}</p>
+          <p className="mt-0.5 text-xs font-semibold text-lagon-700">{r.name}{r.establishment?.city ? <span className="font-normal text-muted"> · {r.establishment.city}</span> : null}</p>
+        </div>
+        <Badge color={STATUS_COLOR[r.status]}>{STATUS_LABEL[r.status]}</Badge>
+      </div>
+      <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs">
+        <div><dt className="text-muted">Plan</dt><dd className="font-semibold">{r.plan === "ACTIVE" ? "Abonnement" : r.plan === "TRIAL" ? "Essai gratuit" : "Suspendu"} <span className="font-normal text-muted">· {r.establishments} établ. · {r.users} util.</span></dd></div>
+        <div><dt className="text-muted">Fin essai / période</dt><dd><PeriodCell r={r} /></dd></div>
+        <div><dt className="text-muted">Activité</dt><dd><b>{formatMinutes(r.minutes7)}</b> sur 7 j<span className="block text-muted">{r.lastSeenAt ? `vu ${relativeDays(r.lastSeenAt)}` : "jamais connecté"} · {r.orders30} cde{r.orders30 > 1 ? "s" : ""} / 30 j</span></dd></div>
+        <div><dt className="text-muted">Dernier e-mail</dt><dd>{r.lastEmail ? <><span className={`font-semibold ${r.lastEmail.status === "FAILED" ? "text-red-600" : ""}`}>{EMAIL_KIND_LABEL[r.lastEmail.kind] ?? r.lastEmail.kind}{r.lastEmail.status === "FAILED" ? " (échec)" : ""}</span><span className="block text-muted">{relativeDays(r.lastEmail.at)}</span></> : <span className="text-muted">aucun</span>}</dd></div>
+      </dl>
+      {r.blockedReason ? <p className="mt-1.5 text-[11px] text-muted">Motif : {r.blockedReason}</p> : null}
+      <div className="mt-2.5"><ActionButtons r={r} mine={mine} {...a} /></div>
+    </li>
+  );
+}
+
 /** Entonnoir : inscrits → ont utilisé l'application → utilisation régulière (3 jours ou plus sur 30 j) → abonnés. */
 function Funnel({ rows }: { rows: PlatformRow[] }) {
   const total = rows.length;
@@ -375,7 +403,7 @@ function OrgDetail({ id, row, mine, onClose, ...a }: RowActions & { id: string |
             <ColumnChart data={d.activity.map((x) => ({ label: shortDay(x.day), value: x.minutes }))} valueLabel={formatMinutes} height={150} emphasis="none" />
           </ChartCard>
 
-          <div className="grid gap-4 lg:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             <div>
               <h3 className="mb-2 text-sm font-extrabold">Équipe et connexions</h3>
               <ul className="divide-y divide-[var(--border)] rounded-xl border border-line">
@@ -582,8 +610,23 @@ function KpiDetail({ kind, data, onClose, onOpen, onMail, onDemoStatus }: { kind
 /** Demandes reçues depuis le formulaire du site vitrine, avec leur suivi. */
 function DemoTable({ requests, onStatus }: { requests: Overview["demoRequests"]; onStatus: (id: string, status: string) => void }) {
   if (requests.length === 0) return <p className="py-6 text-center text-sm text-muted">Aucune demande pour l&apos;instant.</p>;
+  const status = (d: Overview["demoRequests"][number]) => <div className="w-32 shrink-0"><Select value={d.status} onChange={(e) => onStatus(d.id, e.target.value)} className="h-9 text-xs" aria-label={`Suivi de ${d.restaurantName}`}>{Object.entries(DEMO_STATUS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</Select></div>;
   return (
-    <div className="max-h-[420px] overflow-auto">
+    <>
+    <ul className="max-h-[520px] divide-y divide-[var(--border)] overflow-y-auto md:hidden" data-testid="demo-cards">
+      {requests.map((d) => (
+        <li key={d.id} className="py-2.5 text-sm">
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0"><p className="font-semibold">{d.restaurantName}</p>{d.kind || d.commune ? <p className="text-xs text-muted">{[d.kind?.toLowerCase(), d.commune].filter(Boolean).join(" · ")}</p> : null}</div>
+            {status(d)}
+          </div>
+          <p className="mt-1 text-xs"><span className="font-semibold">{d.contactName}</span>{d.phone ? <> · <a href={`tel:${d.phone.replace(/[^+\d]/g, "")}`} className="text-lagon-700 underline">{d.phone}</a></> : null}{d.email ? <> · <a href={`mailto:${d.email}`} className="break-all text-lagon-700 underline">{d.email}</a></> : null}</p>
+          {d.message ? <p className="mt-1 text-xs italic text-muted">« {d.message} »</p> : null}
+          <p className="mt-1 text-[11px] text-muted" title={formatDateTime(d.createdAt, TZ)}>{relativeDays(d.createdAt)} · <span className={`font-semibold ${d.emailSent ? "text-green-600" : "text-orange-600"}`}>{d.emailSent ? "alerte envoyée" : "alerte non envoyée"}</span></p>
+        </li>
+      ))}
+    </ul>
+    <div className="hidden max-h-[420px] overflow-auto md:block">
       <table className="w-full min-w-[620px] text-sm">
         <thead className="sticky top-0 surface"><tr className="border-b border-line text-left text-[11px] uppercase tracking-wider text-muted"><th className="py-2 pr-3">Établissement</th><th className="py-2 pr-3">Contact</th><th className="py-2 pr-3">Reçue</th><th className="py-2">Suivi</th></tr></thead>
         <tbody>
@@ -592,11 +635,12 @@ function DemoTable({ requests, onStatus }: { requests: Overview["demoRequests"];
               <td className="py-2 pr-3"><span className="font-semibold">{d.restaurantName}</span>{d.kind || d.commune ? <span className="block text-xs text-muted">{[d.kind?.toLowerCase(), d.commune].filter(Boolean).join(" · ")}</span> : null}{d.message ? <span className="mt-1 block max-w-xs text-xs italic text-muted">« {d.message} »</span> : null}</td>
               <td className="py-2 pr-3"><span className="font-semibold">{d.contactName}</span>{d.phone ? <a href={`tel:${d.phone.replace(/[^+\d]/g, "")}`} className="block text-xs text-lagon-700 underline">{d.phone}</a> : null}{d.email ? <a href={`mailto:${d.email}`} className="block text-xs text-lagon-700 underline">{d.email}</a> : null}</td>
               <td className="py-2 pr-3 text-xs text-muted" title={formatDateTime(d.createdAt, TZ)}>{relativeDays(d.createdAt)}<span className={`mt-1 block font-semibold ${d.emailSent ? "text-green-600" : "text-orange-600"}`}>{d.emailSent ? "alerte envoyée" : "alerte non envoyée"}</span></td>
-              <td className="py-2"><Select value={d.status} onChange={(e) => onStatus(d.id, e.target.value)} className="h-9 w-32 text-xs" aria-label={`Suivi de ${d.restaurantName}`}>{Object.entries(DEMO_STATUS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</Select></td>
+              <td className="py-2">{status(d)}</td>
             </tr>
           ))}
         </tbody>
       </table>
     </div>
+    </>
   );
 }
