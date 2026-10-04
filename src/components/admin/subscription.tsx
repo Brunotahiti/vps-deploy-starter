@@ -38,14 +38,15 @@ export function SubscriptionCard() {
         <div className="grid gap-4 md:grid-cols-[1fr_1.2fr]">
           <div className={`rounded-2xl p-4 ${s.plan === "ACTIVE" ? "bg-green-500/12" : s.expired ? "bg-red-500/12" : "surface-2"}`}>
             <p className="flex items-center gap-2 text-sm font-extrabold">{s.plan === "ACTIVE" ? <BadgeCheck className="h-4 w-4 text-green-600" /> : s.expired ? <AlertTriangle className="h-4 w-4 text-red-600" /> : <Sparkles className="h-4 w-4 text-lagon-600" />}{s.label}</p>
-            {s.plan === "TRIAL" && s.trialEndsAt ? <p className="mt-1 text-xs text-muted">Fin de l&apos;essai le {new Date(s.trialEndsAt).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}. Toutes les fonctions sont incluses pendant l&apos;essai.</p> : null}
+            {s.plan === "TRIAL" && s.trialEndsAt ? <p className="mt-1 text-xs text-muted">Fin de l&apos;essai le {new Date(s.trialEndsAt).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}. L&apos;essai porte sur le programme de base ; les options se demandent depuis Gestion → Options.</p> : null}
             {s.plan === "ACTIVE" ? <p className="mt-1 text-xs text-muted">Merci de votre confiance. Facturation mensuelle, engagement {OFFER.commitmentMonths} mois.</p> : null}
           </div>
           <div>
             <p className="text-[11px] font-bold uppercase tracking-wider text-muted">Tarif</p>
             <ul className="mt-1 space-y-1 text-sm">
               <li><b>{OFFER.trialDays} jours d&apos;essai gratuits</b>, sans carte bancaire</li>
-              <li><b>{fmt(OFFER.monthly)} par mois</b>, engagement {OFFER.commitmentMonths} mois, toutes fonctions, établissements et appareils compris</li>
+              <li><b>{fmt(OFFER.monthly)} par mois</b>, engagement {OFFER.commitmentMonths} mois : programme de base, appareils et utilisateurs sans limite</li>
+              <li><b>Options à la carte</b> (stock, digital, équipe, hors ligne…) : voir Gestion → Options</li>
               <li><b>{OFFER.commission} % de commission</b> sur vos ventes, en salle comme en ligne</li>
             </ul>
             {s.plan !== "ACTIVE" ? <a href={`mailto:${OFFER.contactEmail}?subject=${subject}&body=${body}`} className="mt-3 inline-flex h-11 items-center gap-2 rounded-xl bg-brand px-4 text-sm font-bold text-white shadow-glow"><Mail className="h-4 w-4" />Activer mon abonnement</a> : null}
