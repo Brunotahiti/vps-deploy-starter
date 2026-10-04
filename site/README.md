@@ -4,8 +4,8 @@ Pages statiques servies par nginx (voir `docker-compose.yml`, service `site`). A
 
 - `index.html` — page d'accueil (landing). `mentions-legales.html`, `confidentialite.html`, `conditions.html` — pages légales, remplies depuis `config.js`.
 - `config.js` — **informations commerciales et légales** (offre, coordonnées, WhatsApp, mentions). Les champs vides sont masqués.
-- `testimonials.js` — témoignages clients réels ; la section reste masquée tant que le tableau est vide.
-- `assets/img/` — captures réelles de l'application (WebP). `banner-iaorana.jpg` (bannière « Iaorana et Maeva ») et `logo.png` (logo officiel) sont à déposer ici : le site les affiche automatiquement s'ils existent.
+- `testimonials.js` — témoignages clients réels et vidéo d'un service réel ; la section « confiance » reste masquée tant que les deux sont vides. N'y mettre que du contenu vérifié et autorisé.
+- `assets/img/` — captures réelles de l'application (WebP, avec une version légère `-640` pour les petits écrans), refaites par `scripts/site-screenshots.mjs` ; après une mise à jour, augmenter le `?v=` des images dans `index.html`. Chaque capture s'agrandit au clic (visionneuse de `script.js`, attributs `data-zoom`, `data-title`, `data-text`). `banner-iaorana.jpg` (bannière « Iaorana et Maeva ») et `logo.png` (logo officiel) sont à déposer ici : le site les affiche automatiquement s'ils existent.
 - `robots.txt`, `sitemap.xml` — référencement. Ajouter chaque nouvelle page au sitemap.
 
 ## Ajouter une page d'atterrissage SEO
@@ -15,7 +15,7 @@ Créer `logiciel-caisse-restaurant-tahiti.html` (l'adresse devient `/logiciel-ca
 
 ## Formulaire de démonstration
 
-Le formulaire envoie `POST /api/demo`, relayé par nginx vers l'application (`/api/public/demo-request`) : enregistrement en base (table `demo_requests`) et e-mail à `contact@manaresto.com` si le SMTP est configuré sur le VPS. Anti-spam : pot de miel, délai minimal, limitation par IP.
+Champs obligatoires : nom du contact, nom de l'établissement et un moyen de contact (téléphone ou e-mail) ; commune, type d'établissement et message sont facultatifs. Le formulaire envoie `POST /api/demo`, relayé par nginx vers l'application (`/api/public/demo-request`) : enregistrement en base (table `demo_requests`) et e-mail à `contact@manaresto.com` si le SMTP est configuré sur le VPS. Anti-spam : pot de miel, délai minimal, limitation par IP.
 
 ## Suivi (tracking)
 

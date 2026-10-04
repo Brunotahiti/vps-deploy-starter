@@ -589,8 +589,8 @@ function DemoTable({ requests, onStatus }: { requests: Overview["demoRequests"];
         <tbody>
           {requests.map((d) => (
             <tr key={d.id} className="border-b border-line align-top last:border-0">
-              <td className="py-2 pr-3"><span className="font-semibold">{d.restaurantName}</span><span className="block text-xs text-muted">{d.kind.toLowerCase()} · {d.commune}</span>{d.message ? <span className="mt-1 block max-w-xs text-xs italic text-muted">« {d.message} »</span> : null}</td>
-              <td className="py-2 pr-3"><span className="font-semibold">{d.contactName}</span><a href={`tel:${d.phone.replace(/[^+\d]/g, "")}`} className="block text-xs text-lagon-700 underline">{d.phone}</a><a href={`mailto:${d.email}`} className="block text-xs text-lagon-700 underline">{d.email}</a></td>
+              <td className="py-2 pr-3"><span className="font-semibold">{d.restaurantName}</span>{d.kind || d.commune ? <span className="block text-xs text-muted">{[d.kind?.toLowerCase(), d.commune].filter(Boolean).join(" · ")}</span> : null}{d.message ? <span className="mt-1 block max-w-xs text-xs italic text-muted">« {d.message} »</span> : null}</td>
+              <td className="py-2 pr-3"><span className="font-semibold">{d.contactName}</span>{d.phone ? <a href={`tel:${d.phone.replace(/[^+\d]/g, "")}`} className="block text-xs text-lagon-700 underline">{d.phone}</a> : null}{d.email ? <a href={`mailto:${d.email}`} className="block text-xs text-lagon-700 underline">{d.email}</a> : null}</td>
               <td className="py-2 pr-3 text-xs text-muted" title={formatDateTime(d.createdAt, TZ)}>{relativeDays(d.createdAt)}<span className={`mt-1 block font-semibold ${d.emailSent ? "text-green-600" : "text-orange-600"}`}>{d.emailSent ? "alerte envoyée" : "alerte non envoyée"}</span></td>
               <td className="py-2"><Select value={d.status} onChange={(e) => onStatus(d.id, e.target.value)} className="h-9 w-32 text-xs" aria-label={`Suivi de ${d.restaurantName}`}>{Object.entries(DEMO_STATUS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</Select></td>
             </tr>
