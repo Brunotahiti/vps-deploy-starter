@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { BarChart3, BookOpen, BookUser, Boxes, GraduationCap, Megaphone, Martini, PartyPopper, Printer, Tv, Wrench, BrainCircuit, CheckCircle2, Clock, Globe2, Rocket, ShieldCheck, Sparkles, ThermometerSnowflake, UsersRound, Wallet } from "lucide-react";
+import { BarChart3, BookOpen, BookUser, Boxes, GraduationCap, Megaphone, Martini, PartyPopper, Wine, Printer, Tv, Wrench, BrainCircuit, CheckCircle2, Clock, Globe2, Rocket, ShieldCheck, Sparkles, ThermometerSnowflake, UsersRound, Wallet } from "lucide-react";
 import { api } from "@/lib/api-client";
 import { PageHeader, useAction } from "@/components/admin/common";
 import { Button } from "@/components/ui/button";
@@ -26,6 +26,7 @@ const LOOK: Record<OptionKey, { icon: typeof Boxes; tile: string }> = {
   marketing: { icon: Megaphone, tile: "from-pink-500 to-rose-600" },
   screens: { icon: Tv, tile: "from-indigo-400 to-sky-600" },
   bar: { icon: Martini, tile: "from-fuchsia-500 to-rose-600" },
+  wine: { icon: Wine, tile: "from-rose-700 to-red-900" },
   catering: { icon: PartyPopper, tile: "from-amber-400 to-rose-600" },
   advanced: { icon: Rocket, tile: "from-violet-500 to-fuchsia-600" },
 };

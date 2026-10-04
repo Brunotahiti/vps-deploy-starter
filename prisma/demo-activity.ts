@@ -19,6 +19,7 @@ import { marketingDemo } from "./demo-marketing";
 import { screensDemo } from "./demo-screens";
 import { cateringDemo } from "./demo-catering";
 import { barDemo } from "./demo-bar";
+import { wineDemo } from "./demo-wine";
 
 export const DEMO_SLUG = "demo-mana-beach";
 const SERVER_EMAILS = ["moana@manaresto.pf", "vaiana@manaresto.pf", "tamatoa@manaresto.pf", "poema@manaresto.pf", "heimana@manaresto.pf"];
@@ -48,7 +49,7 @@ type P = { id: string; name: string; priceTtc: number; costPrice: number; taxRat
 export type DemoCtx = {
   orgId: string; estId: string; tz: string; ownerId: string; managerId: string; servers: string[];
   employees: { id: string }[]; tables: { id: string }[]; customers: { id: string; name: string; phone: string | null }[];
-  entrees: P[]; plats: P[]; desserts: P[]; boissons: P[];
+  entrees: P[]; plats: P[]; desserts: P[]; boissons: P[]; vins: P[];
   recipes: Map<string, { ingredientId: string; quantity: number; avgCost: number }[]>;
   supplierProducts: { id: string; supplierId: string; ingredientId: string; packSize: number; lastPrice: number }[];
   pointsPer100: number; deliveryFee: number;
@@ -80,7 +81,7 @@ export async function loadDemoContext(prisma: PrismaClient): Promise<DemoCtx | n
     employees: await prisma.employee.findMany({ where: { establishmentId: est.id, isActive: true }, orderBy: { createdAt: "asc" }, select: { id: true } }),
     tables: await prisma.table.findMany({ where: { establishmentId: est.id, isActive: true }, orderBy: { name: "asc" }, select: { id: true } }),
     customers: (await prisma.customer.findMany({ where: { organizationId: org.id }, orderBy: { createdAt: "asc" }, select: { id: true, firstName: true, lastName: true, phone: true } })).map((c) => ({ id: c.id, name: `${c.firstName ?? ""} ${c.lastName ?? ""}`.trim(), phone: c.phone })),
-    entrees: inCat("Entrées"), plats: inCat("Plats"), desserts: inCat("Desserts"), boissons: inCat("Boissons"),
+    entrees: inCat("Entrées"), plats: inCat("Plats"), desserts: inCat("Desserts"), boissons: inCat("Boissons"), vins: inCat("Vins"),
     recipes,
     supplierProducts: (await prisma.supplierProduct.findMany({ where: { supplier: { establishmentId: est.id }, ingredientId: { not: null } }, select: { id: true, supplierId: true, ingredientId: true, packSize: true, lastPrice: true } })).map((s) => ({ ...s, ingredientId: s.ingredientId!, packSize: Number(s.packSize) })),
     pointsPer100: settings.loyalty?.pointsPer100 ?? 1, deliveryFee: settings.digital?.online?.deliveryFee ?? 500,
@@ -114,6 +115,8 @@ function chooseItems(ctx: DemoCtx, r: Rng, covers: number, full: boolean): PlanI
     const b = r.pick(ctx.boissons); out.push({ p: b, course: 0, mods: [], seat: c + 1 });
     if (full && r.chance(0.3)) { const p = r.pick(ctx.boissons); out.push({ p, course: 0, mods: [], seat: c + 1 }); }
   }
+  // Cave à vin : une table sur trois prend du vin (bouteille, verre ou carafe)
+  if (full && ctx.vins.length && r.chance(0.35)) out.push({ p: r.pick(ctx.vins), course: 0, mods: [], seat: 1 });
   return out;
 }
 
@@ -515,9 +518,9 @@ export async function refreshDemo(prisma: PrismaClient, opts: { historyDays?: nu
   const log = opts.log ?? (() => {});
   const ctx = await loadDemoContext(prisma);
   if (!ctx) { log("Démo absente ou incomplète : rien à rafraîchir."); return null; }
-  // Verrou de session : libéré au plus tard à la fin du processus (le rafraîchissement tourne dans un processus dédié)
-  const got = await prisma.$queryRaw<{ ok: boolean }[]>`SELECT pg_try_advisory_lock(hashtext('manaresto-demo-refresh')) AS ok`;
-  if (!got[0]?.ok) { log("Rafraîchissement déjà en cours : ignoré."); return null; }
+  // Un seul rafraîchissement à la fois : bail de 30 min (un verrou de session PostgreSQL pourrait être libéré sur
+  // une autre connexion du pool et rester pris ; un bail abandonné par un processus arrêté expire tout seul)
+  if (!(await takeRefreshLease(prisma))) { log("Rafraîchissement déjà en cours : ignoré."); return null; }
   try {
     const today = localDay(new Date(), ctx.tz);
     const todayStart = startOfLocalDay(today, ctx.tz);
@@ -530,6 +533,11 @@ export async function refreshDemo(prisma: PrismaClient, opts: { historyDays?: nu
     for (const s of await prisma.cashSession.findMany({ where: { establishmentId: ctx.estId, status: "OPEN", openedAt: { lt: todayStart } }, orderBy: { openedAt: "asc" } })) {
       await finalizeDay(prisma, ctx, localDay(s.openedAt, ctx.tz), s.id);
     }
+
+    // Cave à vin : vins, emplacements, formats de vente, accords et bouteilles ouvertes (une seule fois),
+    // avant l'activité du jour pour que les tables commandent aussi du vin
+    const wines = await wineDemo(prisma, ctx);
+    if (wines) { log(`→ Cave à vin : ${wines} vins`); ctx.vins = (await loadDemoContext(prisma))?.vins ?? []; }
 
     // Journées manquantes jusqu'à hier
     const last = await prisma.cashSession.findFirst({ where: { establishmentId: ctx.estId, openedAt: { lt: todayStart } }, orderBy: { openedAt: "desc" }, select: { openedAt: true } });
@@ -589,6 +597,18 @@ export async function refreshDemo(prisma: PrismaClient, opts: { historyDays?: nu
     await prisma.organization.update({ where: { id: ctx.orgId }, data: { trialEndsAt: new Date(Date.now() + 15 * 86400000) } });
     return { generated, today };
   } finally {
-    await prisma.$queryRaw`SELECT pg_advisory_unlock(hashtext('manaresto-demo-refresh'))`;
+    await prisma.rateHit.deleteMany({ where: { key: REFRESH_LEASE } });
   }
+}
+
+const REFRESH_LEASE = "demo-refresh-lease";
+const REFRESH_LEASE_MS = 30 * 60_000;
+async function takeRefreshLease(prisma: PrismaClient) {
+  return prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${REFRESH_LEASE}))`;
+    if (await tx.rateHit.count({ where: { key: REFRESH_LEASE, at: { gt: new Date(Date.now() - REFRESH_LEASE_MS) } } })) return false;
+    await tx.rateHit.deleteMany({ where: { key: REFRESH_LEASE } });
+    await tx.rateHit.create({ data: { key: REFRESH_LEASE, at: new Date() } });
+    return true;
+  });
 }

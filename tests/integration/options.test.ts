@@ -24,7 +24,7 @@ describe("programme de base et options payantes", () => {
     for (const p of ["stock.view", "stock.manage", "staff.manage", "customers.manage", "establishments.manage", "reports.view_global", "audit.view", "hygiene.record", "hygiene.manage", "accounts.charge", "accounts.manage", "giftcards.sell", "marketing.manage"]) expect(locked.has(p)).toBe(true);
     for (const p of ["pos.use", "cash.open", "catalog.manage", "reports.view", "settings.manage", "users.manage"]) expect(locked.has(p)).toBe(false); // programme de base
     expect(lockedPermissions(OPTION_KEYS).size).toBe(0);
-    expect(OPTION_KEYS).toEqual(["stock", "digital", "team", "stats", "continuity", "ai", "hygiene", "accounts", "marketing", "screens", "catering", "bar", "advanced"]);
+    expect(OPTION_KEYS).toEqual(["stock", "digital", "team", "stats", "continuity", "ai", "hygiene", "accounts", "marketing", "screens", "catering", "bar", "wine", "advanced"]);
     // Statistiques et continuité ne retirent pas de droit : les écrans et routes vérifient l'option elle-même
     expect(() => requireOption({ options: ["stock"] }, "stats")).toThrow(expect.objectContaining({ code: "OPTION_REQUIRED" }));
     expect(() => requireOption({ options: [] }, "team")).toThrow(expect.objectContaining({ status: 403, code: "OPTION_REQUIRED" }));

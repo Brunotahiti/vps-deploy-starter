@@ -54,6 +54,8 @@ export const PERMISSIONS = {
   "catering.manage": { group: "Traiteur", description: "Gérer les événements : devis, acomptes, factures" },
   "bar.use": { group: "Bar", description: "Utiliser le bar : ardoises, fiches cocktails, casse" },
   "bar.manage": { group: "Bar", description: "Gérer le bar : happy hour, cave, fiches cocktails, rapport du bar" },
+  "wine.use": { group: "Cave à vin", description: "Consulter la cave à vin : fiches, accords, bouteilles ouvertes" },
+  "wine.manage": { group: "Cave à vin", description: "Gérer la cave à vin : fiches, prix, réceptions, inventaire, carte des vins, rapport" },
 } as const;
 
 export type PermissionKey = keyof typeof PERMISSIONS;
@@ -79,19 +81,19 @@ export const SYSTEM_ROLES: Record<string, { name: string; permissions: Permissio
   },
   server: {
     name: "Équipe en salle",
-    permissions: ["pos.use", "pos.transfer_table", "catalog.view", "catalog.availability", "customers.manage", "hygiene.record", "accounts.charge", "catering.view", "bar.use"],
+    permissions: ["pos.use", "pos.transfer_table", "catalog.view", "catalog.availability", "customers.manage", "hygiene.record", "accounts.charge", "catering.view", "bar.use", "wine.use"],
   },
   cashier: {
     name: "Responsable caisse",
     permissions: [
       "pos.use", "pos.discount", "pos.void_item", "pos.cancel_order", "pos.refund", "pos.open_drawer", "pos.transfer_table",
       "cash.open", "cash.close", "cash.movement",
-      "catalog.view", "catalog.availability", "orders.view_history", "reports.view", "customers.manage", "accounts.charge", "giftcards.sell", "catering.view", "bar.use",
+      "catalog.view", "catalog.availability", "orders.view_history", "reports.view", "customers.manage", "accounts.charge", "giftcards.sell", "catering.view", "bar.use", "wine.use",
     ],
   },
   bartender: {
     name: "Barman",
-    permissions: ["pos.use", "kds.use", "catalog.view", "catalog.availability", "cash.open", "cash.close", "cash.movement", "bar.use"],
+    permissions: ["pos.use", "kds.use", "catalog.view", "catalog.availability", "cash.open", "cash.close", "cash.movement", "bar.use", "wine.use"],
   },
   accountant: {
     name: "Comptable",

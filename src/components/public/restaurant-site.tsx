@@ -15,6 +15,8 @@ export type SiteLang = "fr" | "en" | "ty";
 const FR = {
   order: "Commander en ligne", reserve: "Réserver une table", orderShort: "Commander", reserveShort: "Réserver", call: "Appeler", menu: "La carte", about: "Notre histoire", photos: "En images", hours: "Horaires", address: "Adresse", contact: "Contact", directions: "Itinéraire", closed: "Fermé", formulas: "Formules", from: "dès", powered: "Site créé avec", pickup: "À emporter", delivery: "Livraison", languages: "Langue",
   openNow: "Ouvert", closedNow: "Fermé", until: "jusqu'à", opensAt: "ouvre à", opensTomorrow: "ouvre demain à", opensOn: "ouvre", today: "Aujourd'hui", featured: "À la une", featuredSub: "Les assiettes que nos clients commandent le plus",
+  wines: "Carte des vins", bottle: "Bouteille", glass: "Verre", carafe: "Carafe", organic: "bio", moderation: "Prix TTC. L'abus d'alcool est dangereux pour la santé, à consommer avec modération.",
+  wineSections: { RED: "Vins rouges", WHITE: "Vins blancs", ROSE: "Vins rosés", SPARKLING: "Bulles", SWEET: "Liquoreux et moelleux", ORANGE: "Vins orange" } as Record<string, string>,
   info: "Infos pratiques", ctaTitle: "Une table vous attend", ctaText: "Réservez en quelques secondes, ou commandez pour emporter.", seeMenu: "Voir la carte", scroll: "Découvrir", onlineOrder: "Commande en ligne",
   days: { mon: "Lundi", tue: "Mardi", wed: "Mercredi", thu: "Jeudi", fri: "Vendredi", sat: "Samedi", sun: "Dimanche" },
 };
@@ -24,6 +26,8 @@ const L: Record<SiteLang, Texts> = {
   en: {
     order: "Order online", reserve: "Book a table", orderShort: "Order", reserveShort: "Book", call: "Call", menu: "Our menu", about: "Our story", photos: "Gallery", hours: "Opening hours", address: "Address", contact: "Contact", directions: "Directions", closed: "Closed", formulas: "Set menus", from: "from", powered: "Website made with", pickup: "Pickup", delivery: "Delivery", languages: "Language",
     openNow: "Open", closedNow: "Closed", until: "until", opensAt: "opens at", opensTomorrow: "opens tomorrow at", opensOn: "opens", today: "Today", featured: "Signature dishes", featuredSub: "The plates our guests order the most",
+    wines: "Wine list", bottle: "Bottle", glass: "Glass", carafe: "Carafe", organic: "organic", moderation: "Prices include tax. Please drink responsibly.",
+    wineSections: { RED: "Red wines", WHITE: "White wines", ROSE: "Rosé wines", SPARKLING: "Sparkling", SWEET: "Sweet wines", ORANGE: "Orange wines" },
     info: "Visit us", ctaTitle: "A table is waiting for you", ctaText: "Book in seconds, or order for pickup.", seeMenu: "See the menu", scroll: "Discover", onlineOrder: "Online ordering",
     days: { mon: "Monday", tue: "Tuesday", wed: "Wednesday", thu: "Thursday", fri: "Friday", sat: "Saturday", sun: "Sunday" },
   },
@@ -116,7 +120,11 @@ export function RestaurantSite({ data, lang, base, selfUrl }: { data: SiteData; 
     if (n === 6) return i >= 3 ? "col-span-2" : "";
     return "";
   };
-  const sections = [menu ? { id: "carte", label: t.menu } : null, s.description ? { id: "histoire", label: t.about } : null, gallery.length ? { id: "images", label: t.photos } : null, { id: "infos", label: t.info }].filter(Boolean) as { id: string; label: string }[];
+  const wine = data.wine;
+  // Titre choisi par le restaurant ; le titre par défaut suit la langue du site
+  const wineTitle = wine && wine.title !== "Carte des vins" ? wine.title : t.wines;
+  const cl = (ml: number) => `${String(ml / 10).replace(".", lang === "en" ? "." : ",")} cl`;
+  const sections = [menu ? { id: "carte", label: t.menu } : null, wine ? { id: "vins", label: t.wines } : null, s.description ? { id: "histoire", label: t.about } : null, gallery.length ? { id: "images", label: t.photos } : null, { id: "infos", label: t.info }].filter(Boolean) as { id: string; label: string }[];
   const btn = "inline-flex h-12 items-center justify-center gap-2 rounded-full px-6 text-sm font-extrabold transition duration-200 active:scale-[.98]";
   const eyebrow = "text-[11px] font-extrabold uppercase tracking-[0.22em]";
 
@@ -297,6 +305,43 @@ export function RestaurantSite({ data, lang, base, selfUrl }: { data: SiteData; 
                 </ul>
               </div>
             ) : null}
+          </section>
+        ) : null}
+
+        {/* Carte des vins (option Cave à vin) */}
+        {wine ? (
+          <section id="vins" className="mx-auto max-w-4xl scroll-mt-24 px-4 pt-20 sm:pt-28" data-testid="site-wines">
+            <div className="text-center">
+              <p className={eyebrow} style={{ color: "var(--accent)" }}>{e.name}</p>
+              <h2 className="mt-2 text-4xl font-extrabold tracking-tight sm:text-5xl">{wineTitle}</h2>
+              {wine.intro ? <p className="mx-auto mt-4 max-w-2xl leading-relaxed text-muted">{wine.intro}</p> : null}
+            </div>
+            {wine.sections.map((sec) => (
+              <div key={sec.color} className="mt-12">
+                <div className="mb-5 flex items-center gap-4"><h3 className="text-2xl font-extrabold tracking-tight">{t.wineSections[sec.color] ?? sec.title}</h3><span className="h-px flex-1 bg-[var(--border)]" /></div>
+                {sec.regions.map((r) => (
+                  <div key={r.region ?? "-"} className="mb-6">
+                    {r.region ? <p className={`${eyebrow} mb-3 text-muted`}>{r.region}</p> : null}
+                    <ul className="space-y-3">
+                      {r.wines.map((w) => (
+                        <li key={w.id} className="flex flex-col gap-1 rounded-2xl px-2 py-1.5 sm:flex-row sm:items-baseline sm:gap-4">
+                          <div className="min-w-0 flex-1">
+                            <p className="font-bold leading-snug">{w.producer ? <span>{w.producer}, </span> : null}{w.name}{w.vintage ? ` ${w.vintage}` : ""}{w.isOrganic ? <span className="ml-2 rounded-full bg-emerald-500/12 px-2 py-0.5 align-middle text-[11px] font-bold text-emerald-700 dark:text-emerald-300">{t.organic}</span> : null}</p>
+                            {w.appellation || w.grapes.length ? <p className="text-sm italic text-muted">{[w.appellation, w.grapes.join(", ")].filter(Boolean).join(" · ")}</p> : null}
+                          </div>
+                          {s.showPrices ? (
+                            <p className="flex shrink-0 flex-wrap gap-x-3 gap-y-0.5 text-sm tabular-nums">
+                              {w.formats.map((f) => <span key={f.serving} className="whitespace-nowrap"><span className="text-muted">{f.serving === "BOTTLE" ? (f.ml === 750 ? t.bottle : cl(f.ml)) : `${f.serving === "GLASS" ? t.glass : t.carafe} ${cl(f.ml)}`}</span> <b className="font-extrabold" style={{ color: "var(--accent)" }}>{price(f.priceTtc)}</b></span>)}
+                            </p>
+                          ) : null}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            ))}
+            <p className="mt-8 text-center text-xs text-muted">{t.moderation}</p>
           </section>
         ) : null}
 

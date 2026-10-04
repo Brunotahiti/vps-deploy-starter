@@ -294,3 +294,26 @@ export const bottleSchema = z.object({
 export const bottleReceiveSchema = z.object({ bottles: z.number().positive().max(10_000), bottleCost: money.nullable().optional() });
 export const bottleBreakageSchema = z.object({ quantity: z.number().positive().max(100_000), per: z.enum(["bottle", "unit"]), reason: z.string().trim().min(2).max(120) });
 export const barInventorySchema = z.object({ counts: z.array(z.object({ id: uuid, bottles: z.number().min(0).max(100_000) })).min(1).max(500) });
+
+// Cave à vin (option)
+const year = z.number().int().min(1900).max(2100);
+export const wineSchema = z.object({
+  name: z.string().trim().min(1).max(80), producer: optText(80), appellation: optText(80), region: optText(60), country: optText(40),
+  color: z.enum(["RED", "WHITE", "ROSE", "SPARKLING", "SWEET", "ORANGE"]), vintage: year.nullable().optional(), grapes: z.array(z.string().trim().min(1).max(40)).max(12).optional(),
+  abv: z.number().min(0).max(25).nullable().optional(), isOrganic: z.boolean().optional(), tastingNotes: optText(1000), pairingNotes: optText(400), servingTemp: optText(20),
+  drinkFrom: year.nullable().optional(), drinkUntil: year.nullable().optional(), location: optText(60), imageUrl: optText(500),
+  keepDays: z.number().int().min(1).max(60).nullable().optional(), pairedProductIds: z.array(uuid).max(50).optional(), showOnList: z.boolean().optional(), isActive: z.boolean().optional(),
+  bottleMl: z.number().int().min(100).max(15_000).optional(), minBottles: z.number().min(0).max(10_000).optional(), bottleCost: money.optional(),
+});
+export const wineFormatsSchema = z.object({
+  categoryId: uuid.nullable().optional(), taxRateId: uuid.nullable().optional(), kitchenStationId: uuid.nullable().optional(),
+  bottle: z.object({ priceTtc: money }).nullable().optional(),
+  glass: z.object({ priceTtc: money, ml: z.number().int().min(50).max(1500) }).nullable().optional(),
+  carafe: z.object({ priceTtc: money, ml: z.number().int().min(50).max(1500) }).nullable().optional(),
+});
+export const wineReceiveSchema = z.object({ bottles: z.number().int().positive().max(10_000), bottleCost: money.nullable().optional(), note: optText(120) });
+export const wineRemoveSchema = z.object({ bottles: z.number().positive().max(10_000), kind: z.enum(["BREAKAGE", "LOSS", "INTERNAL_USE"]), reason: z.string().trim().min(2).max(120) });
+export const wineInventorySchema = z.object({ counts: z.array(z.object({ id: uuid, bottles: z.number().min(0).max(100_000) })).min(1).max(1000), location: optText(60) });
+export const wineSettingsSchema = z.object({ showOnSite: z.boolean().optional(), listTitle: z.string().trim().max(60).optional(), listIntro: z.string().trim().max(400).optional(), hideOutOfStock: z.boolean().optional() });
+export const wineOpenAdjustSchema = z.object({ remainingMl: z.number().int().min(0).max(15_000) });
+export const wineDiscardSchema = z.object({ reason: optText(120) });

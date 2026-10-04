@@ -48,6 +48,9 @@ export const BOX_TABLES: { table: string; where: string; set?: Record<string, st
   { table: "kitchen_stations", where: "establishment_id = $1" },
   { table: "printers", where: "establishment_id = $1" },
   { table: "categories", where: "establishment_id = $1" },
+  // Ingrédients puis fiches vins (option Cave à vin) avant les produits : un format de vente renvoie à son vin
+  { table: "ingredients", where: "establishment_id = $1" },
+  { table: "wines", where: "establishment_id = $1" },
   { table: "products", where: "establishment_id = $1" },
   { table: "product_variants", where: "product_id IN (SELECT id FROM products WHERE establishment_id = $1)" },
   { table: "modifier_groups", where: "establishment_id = $1" },
@@ -56,7 +59,6 @@ export const BOX_TABLES: { table: string; where: string; set?: Record<string, st
   { table: "menus", where: "establishment_id = $1" },
   { table: "menu_sections", where: "menu_id IN (SELECT id FROM menus WHERE establishment_id = $1)" },
   { table: "menu_items", where: "section_id IN (SELECT s.id FROM menu_sections s JOIN menus m ON m.id = s.menu_id WHERE m.establishment_id = $1)" },
-  { table: "ingredients", where: "establishment_id = $1" },
   { table: "recipes", where: "product_id IN (SELECT id FROM products WHERE establishment_id = $1)" },
   { table: "payment_method_configs", where: "establishment_id = $1" },
   { table: "order_counters", where: "establishment_id = $1" },

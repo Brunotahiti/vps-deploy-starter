@@ -4,6 +4,7 @@ import { audit } from "@/server/audit";
 import { publish } from "@/server/realtime/bus";
 import { localDay } from "@/lib/dates";
 import type { Actor } from "./orders";
+import { pourWine, type Pour } from "./wine-pour";
 import type { InventoryMovementKind, Prisma, PurchaseOrderStatus } from "@/generated/prisma/client";
 
 /**
@@ -153,11 +154,14 @@ export async function consumeForItems(tx: Tx, establishmentId: string, items: { 
   const withProduct = items.filter((i) => i.productId);
   if (withProduct.length === 0) return;
   const productIds = [...new Set(withProduct.map((i) => i.productId!))];
-  const products = await tx.product.findMany({ where: { id: { in: productIds } }, select: { id: true, trackStock: true, stockQty: true, recipeLines: { select: { ingredientId: true, quantity: true } } } });
+  const products = await tx.product.findMany({ where: { id: { in: productIds } }, select: { id: true, trackStock: true, stockQty: true, wineId: true, wineServing: true, wineServingMl: true, wine: { select: { ingredient: { select: { bottleMl: true } } } }, recipeLines: { select: { ingredientId: true, quantity: true } } } });
   const touched = new Set<string>();
+  const pours: Pour[] = [];
   for (const item of withProduct) {
     const p = products.find((x) => x.id === item.productId);
     if (!p) continue;
+    // Vin au verre ou en carafe (option Cave à vin) : versé d'une bouteille ouverte
+    if (p.wineId && (p.wineServing === "GLASS" || p.wineServing === "CARAFE") && p.wineServingMl && p.wine?.ingredient.bottleMl) pours.push({ wineId: p.wineId, ml: p.wineServingMl * item.quantity, bottleMl: p.wine.ingredient.bottleMl });
     if (p.trackStock) {
       await tx.product.update({ where: { id: p.id }, data: { stockQty: { increment: direction * item.quantity } } });
       touched.add(`product:${p.id}`);
@@ -167,6 +171,7 @@ export async function consumeForItems(tx: Tx, establishmentId: string, items: { 
       touched.add(line.ingredientId);
     }
   }
+  if (pours.length) await pourWine(tx, establishmentId, pours, direction < 0 ? -1 : 1, userId ?? null);
   await refreshAvailability(tx, establishmentId, [...touched].filter((t) => !t.startsWith("product:")), productIds);
 }
 

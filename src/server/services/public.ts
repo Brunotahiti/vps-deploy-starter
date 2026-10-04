@@ -6,6 +6,7 @@ import { getPosCatalog } from "./catalog";
 import { createOrder, addItem, sendCourse, cancelOrder, getOrder, recalcOrder, type Actor } from "./orders";
 import { findOrCreatePublicCustomer } from "./customers";
 import type { ProductChoice } from "@/components/pos/product-modal";
+import { publicWineList } from "./wine";
 
 /**
  * Phase 6 — Canaux clients : menu et commande par QR code à table, commande en ligne
@@ -63,7 +64,9 @@ export async function restaurantSite(orgSlug: string, estSlug: string) {
   const [site, digital] = await Promise.all([siteSettings(est.id), digitalSettings(est.id)]);
   if (!site.enabled) throw new ApiError(404, "SITE_DISABLED", "Ce restaurant n'a pas activé son site");
   const menu = site.showMenu ? await siteMenu(est.id) : null;
-  return { establishment: est, site, online: { enabled: digital.online.enabled, pickup: digital.online.pickup, delivery: digital.online.delivery }, menu };
+  // Carte des vins (option Cave à vin), si le restaurant a choisi de l'afficher sur son site
+  const wine = (await prisma.organization.count({ where: { id: est.organizationId, options: { has: "wine" } } })) ? await publicWineList(est.id) : null;
+  return { establishment: est, site, online: { enabled: digital.online.enabled, pickup: digital.online.pickup, delivery: digital.online.delivery }, menu, wine };
 }
 
 /** Catalogue public : produits disponibles uniquement, sans coûts ni stocks. */

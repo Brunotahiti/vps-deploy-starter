@@ -133,6 +133,8 @@ model Establishment {
   traceRecords        TraceRecord[]
   cateringEvents      CateringEvent[]
   cateringPayments    CateringPayment[]
+  wines               Wine[]
+  wineOpenBottles     WineOpenBottle[]
 
   @@unique([organizationId, slug])
   @@index([organizationId])
@@ -557,6 +559,9 @@ model Product {
   availability     Json? // horaires de disponibilité { days:[1..7], from:"11:00", to:"14:30" }
   trackStock       Boolean  @default(false) @map("track_stock")
   barSpec          Json?    @map("bar_spec") // fiche cocktail (option Bar) : verre, garniture, préparation
+  wineId           String?  @map("wine_id") @db.Uuid // format de vente d'un vin de la cave (option Cave à vin)
+  wineServing      String?  @map("wine_serving") // BOTTLE, GLASS, CARAFE
+  wineServingMl    Int?     @map("wine_serving_ml")
   stockQty         Int      @default(0) @map("stock_qty")
   stockMin         Int      @default(0) @map("stock_min")
   sortOrder        Int      @default(0) @map("sort_order")
@@ -574,8 +579,10 @@ model Product {
   orderItems       OrderItem[]
   recipeLines      RecipeLine[]
   supplierProducts SupplierProduct[]
+  wine             Wine?                  @relation(fields: [wineId], references: [id], onDelete: SetNull)
 
   @@unique([establishmentId, sku])
+  @@index([wineId])
   @@index([establishmentId, categoryId])
   @@index([establishmentId, barcode])
   @@map("products")
@@ -1205,6 +1212,7 @@ model Ingredient {
   recipeLines      RecipeLine[]
   movements        InventoryMovement[]
   supplierProducts SupplierProduct[]
+  wine             Wine?
 
   @@index([establishmentId])
   @@map("ingredients")
@@ -2126,4 +2134,65 @@ model CateringPayment {
   @@index([eventId])
   @@index([establishmentId, receivedAt])
   @@map("catering_payments")
+}
+
+// ------------------------------------------------------------------ Cave à vin (option)
+/// Fiche d'un vin (une cuvée d'un millésime) ; son stock (en cl) est un ingrédient dédié, ses formats de vente des produits.
+model Wine {
+  id               String   @id @default(uuid()) @db.Uuid
+  establishmentId  String   @map("establishment_id") @db.Uuid
+  ingredientId     String   @unique @map("ingredient_id") @db.Uuid
+  name             String // cuvée
+  producer         String? // domaine, château, maison
+  appellation      String?
+  region           String?
+  country          String?
+  color            String // RED, WHITE, ROSE, SPARKLING, SWEET, ORANGE
+  vintage          Int? // null : sans année
+  grapes           String[] @default([])
+  abv              Float? // degré d'alcool
+  isOrganic        Boolean  @default(false) @map("is_organic")
+  tastingNotes     String?  @map("tasting_notes")
+  pairingNotes     String?  @map("pairing_notes")
+  servingTemp      String?  @map("serving_temp")
+  drinkFrom        Int?     @map("drink_from") // apogée : de… à… (années)
+  drinkUntil       Int?     @map("drink_until")
+  location         String? // emplacement en cave : casier, rangée
+  imageUrl         String?  @map("image_url")
+  keepDays         Int?     @map("keep_days") // conservation après ouverture (jours) ; vide : selon la couleur
+  pairedProductIds String[] @default([]) @map("paired_product_ids") @db.Uuid // plats de la carte conseillés avec ce vin
+  showOnList       Boolean  @default(true) @map("show_on_list") // présent sur la carte des vins
+  sortOrder        Int      @default(0) @map("sort_order")
+  isActive         Boolean  @default(true) @map("is_active")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  establishment Establishment    @relation(fields: [establishmentId], references: [id], onDelete: Cascade)
+  ingredient    Ingredient       @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+  products      Product[]
+  openBottles   WineOpenBottle[]
+
+  @@index([establishmentId, color])
+  @@map("wines")
+}
+
+/// Bouteille ouverte pour le service au verre ou en carafe : ce qu'il reste et depuis quand elle est ouverte.
+model WineOpenBottle {
+  id              String    @id @default(uuid()) @db.Uuid
+  establishmentId String    @map("establishment_id") @db.Uuid
+  wineId          String    @map("wine_id") @db.Uuid
+  openedAt        DateTime  @default(now()) @map("opened_at")
+  openedById      String?   @map("opened_by_id") @db.Uuid
+  remainingMl     Int       @map("remaining_ml")
+  closedAt        DateTime? @map("closed_at")
+  closedReason    String?   @map("closed_reason") // FINISHED, DISCARDED
+  discardedMl     Int?      @map("discarded_ml")
+  closedById      String?   @map("closed_by_id") @db.Uuid
+
+  establishment Establishment @relation(fields: [establishmentId], references: [id], onDelete: Cascade)
+  wine          Wine          @relation(fields: [wineId], references: [id], onDelete: Cascade)
+
+  @@index([establishmentId, closedAt])
+  @@index([wineId, closedAt])
+  @@map("wine_open_bottles")
 }

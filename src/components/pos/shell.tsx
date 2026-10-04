@@ -7,7 +7,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { LayoutGrid, ListOrdered, Wallet, Settings, Moon, Sun, LogOut, Wifi, WifiOff, RefreshCw, ChefHat, Download, X, ChevronRight, Clock, CalendarDays, ShoppingBag, ThermometerSnowflake, Gift, PartyPopper, Martini } from "lucide-react";
+import { LayoutGrid, ListOrdered, Wallet, Settings, Moon, Sun, LogOut, Wifi, WifiOff, RefreshCw, ChefHat, Download, X, ChevronRight, Clock, CalendarDays, ShoppingBag, ThermometerSnowflake, Gift, PartyPopper, Martini, Wine } from "lucide-react";
 import { markLogoutPending, useSession } from "@/hooks/use-session";
 import { useRealtime } from "@/hooks/use-realtime";
 import { SupportBar } from "@/components/support-bar";
@@ -41,6 +41,7 @@ export function PosShell({ children }: { children: React.ReactNode }) {
   useOfflineSnapshot(posAllowed, hasOption("continuity")); // copie de travail pour les coupures d'internet (option Continuité)
   // Réservations du jour sur l'onglet : toujours en vue, en orange s'il y a des demandes à confirmer
   const takeaway = useQuery({ queryKey: ["takeaway"], queryFn: () => api.get<{ toAccept: unknown[]; preparing: unknown[]; ready: unknown[] }>("/api/takeaway"), enabled: posAllowed, refetchInterval: 20_000 });
+  const wineOpen = useQuery({ queryKey: ["wine", "open"], queryFn: () => api.get<{ overdue: boolean }[]>("/api/wine/open-bottles"), enabled: posAllowed && hasOption("wine") && (can("wine.use") || can("wine.manage")), refetchInterval: 120_000 });
   const barTabs = useQuery({ queryKey: ["bar", "tabs"], queryFn: () => api.get<unknown[]>("/api/bar/tabs"), enabled: posAllowed && hasOption("bar") && (can("bar.use") || can("bar.manage")), refetchInterval: 30_000 });
   const resaToday = useQuery({ queryKey: ["reservations-summary", "today"], queryFn: () => api.get<{ count: number; pending: number }[]>("/api/reservations/summary?days=1"), enabled: posAllowed && businessType !== "snack", refetchInterval: 60_000 });
   const [todo, setTodoState] = useState(false);
@@ -97,6 +98,8 @@ export function PosShell({ children }: { children: React.ReactNode }) {
     { href: "/pos/orders", label: "Commandes", icon: ListOrdered },
     { href: "/pos/emporter", label: "À emporter", icon: ShoppingBag, badge: takeawayCount ? { count: takeawayCount, alert: (takeaway.data?.toAccept.length ?? 0) > 0 } : undefined },
     ...(hasOption("bar") && (can("bar.use") || can("bar.manage")) ? [{ href: "/pos/bar", label: "Bar", icon: Martini, badge: barTabs.data?.length ? { count: barTabs.data.length, alert: false } : undefined }] : []),
+    // Cave à vin : la pastille rouge signale les bouteilles ouvertes à écouler
+    ...(hasOption("wine") && (can("wine.use") || can("wine.manage")) ? [{ href: "/pos/wine", label: "Cave", icon: Wine, badge: wineOpen.data?.some((b) => b.overdue) ? { count: wineOpen.data.filter((b) => b.overdue).length, alert: true } : undefined }] : []),
     { href: "/pos/cash", label: "Caisse", icon: Wallet },
     ...(businessType !== "snack" ? [{ href: "/pos/reservations", label: "Réservations", icon: CalendarDays, badge: today?.count ? { count: today.count, alert: today.pending > 0 } : undefined }] : []),
     ...(hasOption("team") ? [{ href: "/pos/clock", label: "Pointage", icon: Clock }] : []),

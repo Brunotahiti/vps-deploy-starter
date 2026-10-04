@@ -15,6 +15,7 @@ import { exportSnapshot, importSnapshot, BOX_TABLES } from "@/server/box/snapsho
 import { createBox, openBoxSession, requireBox, requireBoxSecret, revokeBox } from "@/server/box/boxes";
 import { sha256 } from "@/server/auth/password";
 import { kitchenTicketId } from "@/server/services/orders";
+import { setFormats, upsertWine } from "@/server/services/wine";
 
 let T: Awaited<ReturnType<typeof makeTenant>>;
 let U: Awaited<ReturnType<typeof makeTenant>>;
@@ -46,6 +47,9 @@ describe("boîtier de secours : copie du restaurant", () => {
     const byCard = await addItem(T.actor, (await createOrder(T.actor, { type: "COUNTER" })).id, { productId: T.eau.id });
     await addPayments(T.actor, byCard.id, [{ method: "GIFT_CARD", amount: byCard.total, giftCardCode: card.code }]);
     await createOrder(U.actor, { type: "COUNTER" });
+    // Option Cave à vin : un format de vente renvoie à sa fiche vin
+    const wine = await upsertWine(T.managerActor, null, { name: "Vin du boîtier", color: "RED", bottleMl: 750 });
+    await setFormats(T.managerActor, wine.id, { categoryId: T.cat.id, bottle: { priceTtc: 5000 }, glass: { priceTtc: 1000, ml: 120 } });
 
     // Une invitation en attente et un membre d'un autre établissement de la même entreprise
     await prisma.user.update({ where: { id: T.server.id }, data: { inviteToken: "jeton-invitation-secret" } });
@@ -78,6 +82,7 @@ describe("boîtier de secours : copie du restaurant", () => {
     expect(local.items).toHaveLength(1);
         expect((await boxDb.user.findUniqueOrThrow({ where: { id: T.server.id } })).pinHash).toBe((await prisma.user.findUniqueOrThrow({ where: { id: T.server.id } })).pinHash);
     expect(await boxDb.product.count()).toBe(await prisma.product.count({ where: { establishmentId: T.est.id } }));
+    expect((await boxDb.product.findFirstOrThrow({ where: { wineId: wine.id, wineServing: "GLASS" } })).wineServingMl).toBe(120);
     expect(await boxDb.cashSession.count({ where: { status: "OPEN" } })).toBe(1);
     expect((await boxDb.payment.findFirstOrThrow({ where: { orderId: paid.id } })).amount).toBe(paid.total);
     expect(await boxDb.establishment.count({ where: { id: U.est.id } })).toBe(0);
