@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { BarChart3, BookOpen, BookUser, Boxes, GraduationCap, Megaphone, Martini, PartyPopper, Wine, Printer, Tv, Wrench, BrainCircuit, CheckCircle2, Clock, Globe2, Rocket, ShieldCheck, Sparkles, ThermometerSnowflake, UsersRound, Wallet } from "lucide-react";
+import { BarChart3, Images, BookOpen, BookUser, Boxes, GraduationCap, Megaphone, Martini, PartyPopper, Wine, Printer, Tv, Wrench, BrainCircuit, CheckCircle2, Clock, Globe2, Rocket, ShieldCheck, Sparkles, ThermometerSnowflake, UsersRound, Wallet } from "lucide-react";
 import { api } from "@/lib/api-client";
 import { PageHeader, useAction } from "@/components/admin/common";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,8 @@ import { Textarea } from "@/components/ui/field";
 import { Spinner } from "@/components/ui/misc";
 import { formatDate } from "@/lib/dates";
 import type { OptionKey } from "@/lib/options";
+import { OPTION_SHOTS, optionCover, optionShotUrl } from "@/lib/option-shots";
+import { OptionViewer } from "@/components/admin/option-viewer";
 
 type Option = { key: OptionKey; label: string; tagline: string; includes: string[]; enabled: boolean; monthly: number | null; requestedAt: string | null };
 
@@ -38,6 +40,10 @@ export default function OptionsPage() {
   const act = useAction();
   const q = useQuery({ queryKey: ["options"], queryFn: () => api.get<Option[]>("/api/options") });
   const unlock = (o: Option) => act(() => api.post("/api/options/request", { option: o.key }), { success: "Demande envoyée : l'équipe ManaResto vous recontacte rapidement", invalidate: [["options"]] });
+  // Visionneuse : l'option est relue dans la liste à jour (après « Débloquer », le statut change sans fermer)
+  const [viewing, setViewing] = useState<OptionKey | null>(null);
+  const [origin, setOrigin] = useState<DOMRect | null>(null);
+  const viewed = q.data?.find((o) => o.key === viewing) ?? null;
 
   return (
     <div className="mx-auto max-w-5xl">
@@ -54,16 +60,26 @@ export default function OptionsPage() {
           {q.data?.map((o) => {
             const L = LOOK[o.key];
             return (
-              <article key={o.key} className={`card flex flex-col p-5 ${o.enabled ? "ring-2 ring-green-500/40" : ""}`} data-testid={`option-${o.key}`}>
-                <div className="flex items-start gap-3">
-                  <span className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br text-white shadow-lift ${L.tile}`}><L.icon className="h-6 w-6" /></span>
-                  <div className="min-w-0 flex-1">
-                    <h2 className="text-lg font-extrabold">{o.label}</h2>
-                    <p className="text-sm text-muted">{o.tagline}</p>
-                  </div>
-                </div>
-                <ul className="mt-3 flex-1 space-y-1 text-sm">{o.includes.map((i) => <li key={i} className="flex items-start gap-2"><Sparkles className="mt-0.5 h-3.5 w-3.5 shrink-0 text-violet-500" />{i}</li>)}</ul>
-                <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-3">
+              <article key={o.key} className={`card flex flex-col overflow-hidden ${o.enabled ? "ring-2 ring-green-500/40" : ""}`} data-testid={`option-${o.key}`}>
+                {/* Toucher l'option : visionneuse avec les captures d'écran */}
+                <button type="button" onClick={(e) => { setOrigin(e.currentTarget.closest("article")?.getBoundingClientRect() ?? null); setViewing(o.key); }} className="group text-left" aria-label={`Voir l'option ${o.label} en images`} data-testid={`option-view-${o.key}`}>
+                  {OPTION_SHOTS[o.key]?.length ? (
+                    <span className="relative block aspect-[16/7] overflow-hidden bg-slate-900">
+                      {/* eslint-disable-next-line @next/next/no-img-element -- capture statique (public/options) */}
+                      <img src={optionShotUrl(o.key, optionCover(o.key))} alt="" loading="lazy" className="h-full w-full object-cover object-top transition duration-500 group-hover:scale-[1.03]" />
+                      <span className="absolute bottom-2 right-2 inline-flex items-center gap-1.5 rounded-full bg-black/65 px-2.5 py-1 text-xs font-bold text-white backdrop-blur"><Images className="h-3.5 w-3.5" />Voir en images · {OPTION_SHOTS[o.key].length}</span>
+                    </span>
+                  ) : null}
+                  <span className="flex items-start gap-3 px-5 pt-4">
+                    <span className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br text-white shadow-lift ${L.tile}`}><L.icon className="h-6 w-6" /></span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-lg font-extrabold group-hover:underline">{o.label}</span>
+                      <span className="block text-sm text-muted">{o.tagline}</span>
+                    </span>
+                  </span>
+                </button>
+                <ul className="mt-3 flex-1 space-y-1 px-5 text-sm">{o.includes.map((i) => <li key={i} className="flex items-start gap-2"><Sparkles className="mt-0.5 h-3.5 w-3.5 shrink-0 text-violet-500" />{i}</li>)}</ul>
+                <div className="mx-5 mb-5 mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-3">
                   <span className="text-sm font-bold">{o.monthly !== null ? price(o.monthly) : <span className="text-muted">Prix sur demande</span>}</span>
                   {o.enabled ? <span className="inline-flex items-center gap-1.5 rounded-full bg-green-500/10 px-3 py-1.5 text-sm font-bold text-green-700 dark:text-green-400"><CheckCircle2 className="h-4 w-4" />Active</span>
                     : o.requestedAt ? <span className="inline-flex items-center gap-1.5 rounded-full bg-orange-500/10 px-3 py-1.5 text-xs font-bold text-orange-700 dark:text-orange-300"><Clock className="h-4 w-4" />Demande envoyée le {formatDate(o.requestedAt, "Pacific/Tahiti")}</span>
@@ -74,7 +90,8 @@ export default function OptionsPage() {
           })}
         </div>
       )}
-      <p className="mt-5 text-center text-xs text-muted">« Débloquer » envoie une demande à l&apos;équipe ManaResto : nous vous recontactons pour l&apos;activer.</p>
+      {viewed ? <OptionViewer option={viewed} icon={LOOK[viewed.key].icon} tile={LOOK[viewed.key].tile} price={price} origin={origin} onUnlock={() => unlock(viewed)} onClose={() => setViewing(null)} /> : null}
+      <p className="mt-5 text-center text-xs text-muted">Touchez une option pour la voir en images. « Débloquer » envoie une demande à l&apos;équipe ManaResto : nous vous recontactons pour l&apos;activer.</p>
       <Services />
     </div>
   );

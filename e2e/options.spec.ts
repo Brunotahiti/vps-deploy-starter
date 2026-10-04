@@ -110,3 +110,25 @@ test("le bouton du menu porte le mot « Menu »", async ({ browser }) => {
   }
   await ctx.close();
 });
+
+/** Toucher une option ouvre la visionneuse : captures, légendes, image suivante, fermeture. */
+test("options : visionneuse de captures d'écran", async ({ page }) => {
+  await page.request.post("/api/auth/login", { data: { email: "demo@manaresto.pf", password: "demo1234" } });
+  await page.goto("/admin/options");
+  if (await page.getByTestId("pending-later").count()) await page.getByTestId("pending-later").click();
+  await page.getByTestId("option-view-wine").click();
+  const viewer = page.getByTestId("option-viewer");
+  await expect(viewer).toBeVisible();
+  await expect(viewer.getByRole("heading", { name: "Cave à vin" })).toBeVisible();
+  await expect(page.getByTestId("viewer-count")).toHaveText("1 / 5");
+  // L'image est bien chargée (fichier présent dans public/options)
+  await expect.poll(() => page.getByTestId("viewer-image").evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth)).toBe(1280);
+  const first = await page.getByTestId("viewer-caption").innerText();
+  await page.getByTestId("viewer-next").click();
+  await expect(page.getByTestId("viewer-count")).toHaveText("2 / 5");
+  await expect(page.getByTestId("viewer-caption")).not.toHaveText(first);
+  await page.keyboard.press("ArrowLeft");
+  await expect(page.getByTestId("viewer-count")).toHaveText("1 / 5");
+  await page.keyboard.press("Escape");
+  await expect(viewer).toHaveCount(0);
+});
