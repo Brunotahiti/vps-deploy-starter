@@ -556,6 +556,7 @@ model Product {
   autoUnavailable  Boolean  @default(false) @map("auto_unavailable") // rupture automatique (stock)
   availability     Json? // horaires de disponibilité { days:[1..7], from:"11:00", to:"14:30" }
   trackStock       Boolean  @default(false) @map("track_stock")
+  barSpec          Json?    @map("bar_spec") // fiche cocktail (option Bar) : verre, garniture, préparation
   stockQty         Int      @default(0) @map("stock_qty")
   stockMin         Int      @default(0) @map("stock_min")
   sortOrder        Int      @default(0) @map("sort_order")
@@ -861,6 +862,7 @@ model Order {
   openedAt        DateTime    @default(now()) @map("opened_at")
   billRequestedAt DateTime?   @map("bill_requested_at")
   closedAt        DateTime?   @map("closed_at")
+  isTab           Boolean     @default(false) @map("is_tab") // ardoise au comptoir (option Bar), au nom du client
   createdAt       DateTime    @default(now()) @map("created_at")
   updatedAt       DateTime    @updatedAt @map("updated_at")
 
@@ -883,6 +885,7 @@ model Order {
   @@index([establishmentId, openedAt])
   @@index([establishmentId, type, openedAt])
   @@index([establishmentId, closedAt])
+  @@index([establishmentId, isTab, status])
   @@index([tableId])
   @@map("orders")
 }
@@ -952,6 +955,10 @@ model OrderItem {
   servedAt         DateTime?       @map("served_at")
   voidedAt         DateTime?       @map("voided_at")
   voidReason       String?         @map("void_reason")
+  discountKind     String?         @map("discount_kind") // HAPPY_HOUR, OFFERED (option Bar)
+  discountBps      Int?            @map("discount_bps") // remise de la ligne en points de base (10 000 = 100 %), recalculée si la quantité change
+  discountNote     String?         @map("discount_note") // happy hour : son nom ; offert : le motif
+  discountById     String?         @map("discount_by_id") @db.Uuid // qui a offert
   sortOrder        Int             @default(0) @map("sort_order")
   createdAt        DateTime        @default(now()) @map("created_at")
   updatedAt        DateTime        @updatedAt @map("updated_at")
@@ -1188,6 +1195,8 @@ model Ingredient {
   avgCost         Int      @default(0) @map("avg_cost") // coût par unité
   lastCost        Int      @default(0) @map("last_cost")
   isCritical      Boolean  @default(false) @map("is_critical")
+  barKind         String?  @map("bar_kind") // boisson de la cave du bar (option Bar) : spirit, wine, beer, soft, syrup, other
+  bottleMl        Int?     @map("bottle_ml") // contenance d'une bouteille (ml) : stock affiché en bouteilles + cl
   isActive        Boolean  @default(true) @map("is_active")
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")

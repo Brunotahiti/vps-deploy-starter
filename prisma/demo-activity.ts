@@ -18,6 +18,7 @@ import { accountsDemo } from "./demo-accounts";
 import { marketingDemo } from "./demo-marketing";
 import { screensDemo } from "./demo-screens";
 import { cateringDemo } from "./demo-catering";
+import { barDemo } from "./demo-bar";
 
 export const DEMO_SLUG = "demo-mana-beach";
 const SERVER_EMAILS = ["moana@manaresto.pf", "vaiana@manaresto.pf", "tamatoa@manaresto.pf", "poema@manaresto.pf", "heimana@manaresto.pf"];
@@ -567,6 +568,10 @@ export async function refreshDemo(prisma: PrismaClient, opts: { historyDays?: nu
 
     // Écrans en salle : comptoir et terrasse (une seule fois)
     if (await screensDemo(prisma, ctx)) log("→ Écrans en salle : comptoir et terrasse");
+
+    // Bar : cave, fiches cocktails et happy hour (une seule fois) ; ardoises ouvertes au comptoir (renouvelées)
+    const bar = await barDemo(prisma, ctx, today);
+    if (bar) log(`→ Bar : ${bar} élément(s) (cave, fiches, ardoises)`);
 
     // Traiteur : un buffet facturé, un devis envoyé, un mariage confirmé (quand plus rien n'est à venir)
     const cat = await cateringDemo(prisma, ctx, today);

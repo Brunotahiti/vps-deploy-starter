@@ -72,6 +72,12 @@ export const OPTIONS = {
     includes: ["Devis en PDF pour buffets, mariages, privatisations et repas d'entreprise", "Devis accepté en ligne par le client, acompte à la commande", "Facture finale, acomptes déduits", "Planning des événements, fiche cuisine, réservations en ligne fermées pendant une privatisation"],
     permissions: ["catering.view", "catering.manage"],
   },
+  bar: {
+    label: "Bar",
+    tagline: "Ardoises, happy hour et cave à boissons",
+    includes: ["Ardoises au comptoir : une note au nom du client, réglée en fin de soirée", "Happy hour automatique sur les créneaux et les boissons de votre choix", "Fiches cocktails pour le barman : doses, verre, garniture, préparation", "Cave du bar : bouteilles au cl, réceptions, inventaire, casse et alertes", "Verres offerts tracés avec leur motif et rapport du bar"],
+    permissions: ["bar.use", "bar.manage"],
+  },
   advanced: {
     label: "Avancé",
     tagline: "Pour les établissements qui grandissent",

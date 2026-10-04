@@ -1,3 +1,4 @@
+import { discountLabel } from "@/lib/order-calc";
 import { buildReceiptData } from "./receipt";
 import { formatBps } from "@/lib/money";
 import { formatDateTime } from "@/lib/dates";
@@ -51,7 +52,7 @@ export async function renderReceiptPdfElegant(establishmentId: string, orderId: 
   const items = active.filter((x) => !x.parentItemId);
   items.forEach((i, idx) => {
     const comps = active.filter((c) => c.parentItemId === i.id);
-    const details = [i.modifiers.map((m) => m.name).join(", "), ...comps.map((c) => `+ ${c.name}${c.unitPrice ? ` (${f(c.unitPrice)})` : ""}`), i.notes ? `« ${i.notes} »` : ""].filter(Boolean);
+    const details = [i.modifiers.map((m) => m.name).join(", "), ...comps.map((c) => `+ ${c.name}${c.unitPrice ? ` (${f(c.unitPrice)})` : ""}`), i.notes ? `« ${i.notes} »` : "", discountLabel(i) ?? ""].filter(Boolean);
     const rowH = 18 + details.length * 10;
     if (y + rowH > H - 150) { doc.addPage(); y = M; }
     if (idx % 2 === 1) doc.rect(M, y, cw, rowH).fill("#f8fafc");

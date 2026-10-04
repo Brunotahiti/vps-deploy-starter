@@ -3,10 +3,11 @@ import { prisma, type Tx } from "@/server/db";
 import { ApiError } from "@/server/errors";
 import { audit } from "@/server/audit";
 import { publish } from "@/server/realtime/bus";
-import { computeLine, computeOrderTotals } from "@/lib/order-calc";
+import { bpsDiscount, computeLine, computeOrderTotals, lineDiscount } from "@/lib/order-calc";
 import { applyBps } from "@/lib/money";
 import { localDay } from "@/lib/dates";
 import { consumeForItems } from "./stock";
+import { happyHourFor } from "./happy-hour";
 import { autoPrintKitchenChange, autoPrintKitchenTickets } from "@/server/hardware/printers";
 import { recordCancellation } from "./kitchen-changes";
 import { startTracking, onCoursesSent, onServed, onBillRequested, onOrderClosed, onTicketNotReady } from "./service-tracking";
@@ -123,7 +124,7 @@ export async function settleAfterChange(tx: Tx, actor: Actor, orderId: string, o
 }
 
 // ---------------------------------------------------------------- Création
-export type CreateOrderInput = { id?: string; type: OrderType; tableId?: string | null; covers?: number; customerName?: string | null; customerPhone?: string | null; pickupAt?: string | null; notes?: string | null; courses?: { id: string; name: string }[]; openedAt?: string };
+export type CreateOrderInput = { id?: string; type: OrderType; isTab?: boolean; tableId?: string | null; covers?: number; customerName?: string | null; customerPhone?: string | null; pickupAt?: string | null; notes?: string | null; courses?: { id: string; name: string }[]; openedAt?: string };
 
 export async function createOrder(actor: Actor, input: CreateOrderInput) {
   const est = await prisma.establishment.findUniqueOrThrow({ where: { id: actor.establishmentId } });
@@ -149,7 +150,7 @@ export async function createOrder(actor: Actor, input: CreateOrderInput) {
     const number = await nextOrderNumber(tx, actor.establishmentId, est.timezone);
     const o = await tx.order.create({
       data: {
-        id: input.id, establishmentId: actor.establishmentId, number, type: input.type, tableId: input.tableId ?? null, serverId: actor.userId,
+        id: input.id, establishmentId: actor.establishmentId, number, type: input.type, isTab: input.isTab ?? false, tableId: input.tableId ?? null, serverId: actor.userId,
         terminalId: actor.terminalId ?? null, covers: input.covers ?? 1, customerName: input.customerName ?? null, notes: input.notes ?? null,
         customerPhone: input.customerPhone ?? null, pickupAt: input.pickupAt ? new Date(input.pickupAt) : null,
         openedAt: input.openedAt ? new Date(input.openedAt) : undefined,
@@ -268,11 +269,15 @@ export async function addItem(actor: Actor, orderId: string, input: AddItemInput
       const mods = await resolveModifiers(tx, product.id, input.modifiers ?? []);
       const modifiersTotal = mods.reduce((a, m) => a + m.priceDelta * m.quantity, 0);
       const unitPrice = variant ? variant.priceTtc : product.priceTtc;
-      const calc = computeLine({ quantity: qty, unitPrice, modifiersTotal, discountAmount: 0, taxRateBps: product.taxRate?.rateBps ?? 0 });
+      // Happy hour en cours (option Bar) : la remise est notée sur la ligne et suit la quantité
+      const hh = await happyHourFor(tx, actor.establishmentId, { id: product.id, categoryId: product.categoryId });
+      const discountAmount = hh ? bpsDiscount(unitPrice, modifiersTotal, qty, hh.discountBps) : 0;
+      const calc = computeLine({ quantity: qty, unitPrice, modifiersTotal, discountAmount, taxRateBps: product.taxRate?.rateBps ?? 0 });
       await tx.orderItem.create({
         data: {
           id: input.id, orderId, courseId, productId: product.id, variantId: variant?.id ?? null, kitchenStationId: product.kitchenStationId,
           name: variant ? `${product.name} (${variant.name})` : product.name, quantity: qty, unitPrice, modifiersTotal, lineTotal: calc.lineTotal,
+          ...(hh ? { discountAmount, discountKind: "HAPPY_HOUR", discountBps: hh.discountBps, discountNote: hh.name } : {}),
           taxRateBps: product.taxRate?.rateBps ?? 0, taxRateName: product.taxRate?.name ?? null, taxAmount: calc.taxAmount, costPrice: product.costPrice,
           seatNumber: input.seatNumber ?? null, notes: input.notes ?? null, isUrgent: input.isUrgent ?? false, sortOrder,
           modifiers: { create: mods.map((m) => ({ modifierId: m.modifierId, groupName: m.groupName, name: m.name, priceDelta: m.priceDelta, quantity: m.quantity })) },
@@ -295,14 +300,15 @@ export async function updateItem(actor: Actor, orderId: string, itemId: string, 
   if (input.courseId && !order.courses.some((c) => c.id === input.courseId)) throw new ApiError(400, "BAD_COURSE", "Service invalide");
   await prisma.$transaction(async (tx) => {
     const qty = input.quantity !== undefined ? Math.max(1, Math.floor(input.quantity)) : item.quantity;
-    const calc = computeLine({ quantity: qty, unitPrice: item.unitPrice, modifiersTotal: item.modifiersTotal, discountAmount: item.discountAmount, taxRateBps: item.taxRateBps });
     const targets = [item.id, ...order.items.filter((i) => i.parentItemId === item.id).map((i) => i.id)];
     for (const id of targets) {
       const it = order.items.find((i) => i.id === id)!;
-      const c = computeLine({ quantity: qty, unitPrice: it.unitPrice, modifiersTotal: it.modifiersTotal, discountAmount: it.discountAmount, taxRateBps: it.taxRateBps });
+      // Remise en % (happy hour, offert) : recalculée sur la nouvelle quantité
+      const discountAmount = lineDiscount(it, qty, it.modifiersTotal);
+      const c = computeLine({ quantity: qty, unitPrice: it.unitPrice, modifiersTotal: it.modifiersTotal, discountAmount, taxRateBps: it.taxRateBps });
       await tx.orderItem.update({
         where: { id },
-        data: { quantity: qty, lineTotal: id === item.id ? calc.lineTotal : c.lineTotal, taxAmount: id === item.id ? calc.taxAmount : c.taxAmount, seatNumber: input.seatNumber, notes: id === item.id ? input.notes : undefined, courseId: input.courseId, isUrgent: input.isUrgent },
+        data: { quantity: qty, discountAmount, lineTotal: c.lineTotal, taxAmount: c.taxAmount, seatNumber: input.seatNumber, notes: id === item.id ? input.notes : undefined, courseId: input.courseId, isUrgent: input.isUrgent },
       });
     }
     await recalcOrder(tx, orderId);

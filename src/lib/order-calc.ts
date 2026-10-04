@@ -91,3 +91,20 @@ export function computeOrderTotals(
     breakdown: [...byRate.values()].sort((a, b) => b.rateBps - a.rateBps),
   };
 }
+
+/** Remise d'une ligne exprimée en points de base (happy hour −30 % = 3000, offert = 10000), options comprises. */
+export function bpsDiscount(unitPrice: number, modifiersTotal: number, quantity: number, bps: number): number {
+  return Math.min((unitPrice + modifiersTotal) * quantity, roundHalfUp(((unitPrice + modifiersTotal) * quantity * bps) / 10000));
+}
+
+/** Remise à jour d'une ligne après un changement de quantité ou d'options : proportionnelle si elle est en %, sinon inchangée. */
+export function lineDiscount(item: { unitPrice: number; discountAmount: number; discountBps?: number | null }, quantity: number, modifiersTotal: number): number {
+  return item.discountBps ? bpsDiscount(item.unitPrice, modifiersTotal, quantity, item.discountBps) : item.discountAmount;
+}
+
+/** Mention imprimée sous une ligne remisée (option Bar) : « Happy hour −30 % » ou « Offert : anniversaire ». */
+export function discountLabel(i: { discountKind?: string | null; discountBps?: number | null; discountNote?: string | null }): string | null {
+  if (i.discountKind === "HAPPY_HOUR") return `${i.discountNote || "Happy hour"} −${Math.round((i.discountBps ?? 0) / 100)} %`;
+  if (i.discountKind === "OFFERED") return i.discountNote ? `Offert : ${i.discountNote}` : "Offert";
+  return null;
+}

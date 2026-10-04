@@ -5,14 +5,14 @@
  * n'est pas joignable sans internet depuis une tablette.
  */
 import { EscPosBuilder, encodeEscPos, type PrintOp } from "@/lib/escpos";
-import { computeOrderTotals } from "@/lib/order-calc";
+import { computeOrderTotals, discountLabel } from "@/lib/order-calc";
 import { formatBps, formatMoney } from "@/lib/money";
 import { formatDateTime, formatTime } from "@/lib/dates";
 
 export type LocalPrinter = { id: string; name: string; kind: "RECEIPT" | "KITCHEN"; driver: string; agentUrl: string | null; paperWidthMm: number; stationId: string | null; terminalId: string | null; hasDrawer: boolean; drawerPin: number };
 type Est = { name: string; addressLine1?: string | null; city?: string | null; postalCode?: string | null; tahitiNumber?: string | null; timezone?: string; currency?: string };
 type Mod = { name: string };
-type Item = { id: string; name: string; quantity: number; unitPrice: number; modifiersTotal: number; discountAmount: number; lineTotal: number; taxRateBps: number; taxRateName: string | null; status: string; parentItemId: string | null; courseId: string | null; kitchenStationId: string | null; notes: string | null; seatNumber: number | null; isUrgent: boolean; modifiers: Mod[] };
+type Item = { id: string; name: string; quantity: number; unitPrice: number; modifiersTotal: number; discountAmount: number; discountKind?: string | null; discountBps?: number | null; discountNote?: string | null; lineTotal: number; taxRateBps: number; taxRateName: string | null; status: string; parentItemId: string | null; courseId: string | null; kitchenStationId: string | null; notes: string | null; seatNumber: number | null; isUrgent: boolean; modifiers: Mod[] };
 type Pay = { method: string; amount: number; status: string };
 export type LocalOrder = {
   number: string; type: string; status: string; covers: number; discountTotal: number; total: number; paidTotal: number; customerName: string | null; notes: string | null;
@@ -47,6 +47,7 @@ export function receiptOps(order: LocalOrder, est: Est, cols = 42): PrintOp[] {
     b.row(`${i.quantity} x ${i.name}`, f(i.lineTotal + comps.reduce((a, c) => a + c.lineTotal, 0)));
     if (i.modifiers.length) b.line("   " + i.modifiers.map((m) => m.name).join(", "));
     for (const c of comps) b.line(`   > ${c.name}`);
+    if (discountLabel(i)) b.line("   " + discountLabel(i)!.replace("−", "-"));
   }
   b.separator();
   if (order.discountTotal) b.row("Remise", `-${f(order.discountTotal)}`);
