@@ -135,6 +135,7 @@ model Establishment {
   cateringPayments    CateringPayment[]
   wines               Wine[]
   wineOpenBottles     WineOpenBottle[]
+  pushSubscriptions   PushSubscription[]
 
   @@unique([organizationId, slug])
   @@index([organizationId])
@@ -182,6 +183,7 @@ model User {
   temperatureReadings TemperatureReading[]
   cleaningLogs        CleaningLog[]
   traceRecords        TraceRecord[]
+  pushSubscriptions   PushSubscription[]
 
   @@index([organizationId])
   @@map("users")
@@ -346,6 +348,28 @@ model Terminal {
 
   @@index([establishmentId])
   @@map("terminals")
+}
+
+/// Notifications push (Web Push) : un abonnement par navigateur / appareil, au nom de la personne connectée.
+/// Prévient le serveur quand un plat est prêt en cuisine, même l'écran éteint (application installée).
+model PushSubscription {
+  id              String    @id @default(uuid()) @db.Uuid
+  establishmentId String    @map("establishment_id") @db.Uuid
+  userId          String    @map("user_id") @db.Uuid
+  endpoint        String    @unique
+  p256dh          String
+  auth            String
+  userAgent       String?   @map("user_agent")
+  failures        Int       @default(0) // envois refusés d'affilée ; l'abonnement est supprimé quand le service push le dit expiré
+  createdAt       DateTime  @default(now()) @map("created_at")
+  lastUsedAt      DateTime? @map("last_used_at")
+
+  establishment Establishment @relation(fields: [establishmentId], references: [id], onDelete: Cascade)
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([establishmentId])
+  @@index([userId])
+  @@map("push_subscriptions")
 }
 
 // ---------------------------------------------------------------------------

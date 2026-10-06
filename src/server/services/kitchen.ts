@@ -6,6 +6,7 @@ import { startOfLocalDay, localDay } from "@/lib/dates";
 import type { Actor } from "./orders";
 import { serviceSettings, onTicketReady, onTicketNotReady } from "./service-tracking";
 import { syncTakeawayReady } from "./takeaway";
+import { notifyDishReady } from "@/server/push";
 import type { KitchenTicketStatus, Prisma } from "@/generated/prisma/client";
 
 /**
@@ -119,6 +120,8 @@ export async function setTicketStatus(actor: Actor, ticketId: string, status: Ki
   if (status === "READY" || status === "DONE") await syncTakeawayReady(actor.establishmentId, ticket.orderId).catch((e) => console.error("[à emporter] statut prêt non mis à jour", e));
   const after = await loadTicket(actor.establishmentId, ticketId);
   if (tracking && (status === "READY" || status === "DONE")) await onTicketReady(actor, { id: after.id, orderId: after.orderId, items: after.items, order: { tableId: after.order.table?.id ?? null, serverId: after.order.serverId, type: after.order.type } });
+  // Notification push « plat prêt » sur le téléphone du serveur (une fois : au passage à PRÊT, ou TERMINÉ sans être passé par PRÊT)
+  if (status === "READY" || (status === "DONE" && ticket.status !== "READY")) notifyDishReady(actor, { orderId: after.orderId, items: after.items, course: after.course, order: { number: after.order.number, type: after.order.type, serverId: after.order.serverId, customerName: after.order.customerName, table: after.order.table } }).catch((e) => console.warn("[push] plat prêt non notifié", e));
   return after;
 }
 

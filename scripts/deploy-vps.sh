@@ -98,6 +98,17 @@ else
   echo '  ✓ .env existant conservé (mots de passe inchangés)'
 fi"
 
+# Notifications push « plat prêt » : clés VAPID (courbe P-256) générées une fois sur le VPS si le .env n'en a pas
+$SSH "cd $VPS_PATH && if ! grep -q '^VAPID_PRIVATE_KEY=.\+' .env; then
+  K=\$(mktemp) && openssl ecparam -genkey -name prime256v1 -noout -out \$K
+  PUB=\$(openssl ec -in \$K -pubout -outform DER 2>/dev/null | tail -c 65 | base64 | tr -d '\n=' | tr '+/' '-_')
+  PRIV=\$(openssl ec -in \$K -outform DER 2>/dev/null | head -c 39 | tail -c 32 | base64 | tr -d '\n=' | tr '+/' '-_')
+  rm -f \$K
+  sed -i '/^#\? \?VAPID_PUBLIC_KEY=/d; /^#\? \?VAPID_PRIVATE_KEY=/d; /^#\? \?VAPID_SUBJECT=/d' .env
+  printf '\nVAPID_PUBLIC_KEY=%s\nVAPID_PRIVATE_KEY=%s\nVAPID_SUBJECT=mailto:contact@manaresto.com\n' \"\$PUB\" \"\$PRIV\" >> .env
+  echo '  ✓ Clés VAPID générées (notifications push)'
+fi"
+
 # Console plateforme : PLATFORM_ADMIN_EMAILS=vous@exemple.com bash scripts/deploy-vps.sh (enregistré dans le .env du VPS)
 if [ -n "${PLATFORM_ADMIN_EMAILS:-}" ]; then
   if ! printf '%s' "$PLATFORM_ADMIN_EMAILS" | grep -Eq '^[A-Za-z0-9@._+,-]+$'; then echo "✗ PLATFORM_ADMIN_EMAILS invalide (adresses séparées par des virgules, sans espace)"; exit 1; fi

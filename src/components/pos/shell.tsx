@@ -26,6 +26,7 @@ import { Money } from "@/components/money";
 import { TodoButton, TodoPanel, useServiceReminders } from "./service-todo";
 import { PendingReservationsAlert } from "@/components/reservations/pending-alert";
 import { MenuButton } from "@/components/ui/menu-button";
+import { PushToggle } from "@/components/push-toggle";
 
 export function PosShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -193,6 +194,8 @@ export function PosShell({ children }: { children: React.ReactNode }) {
             </div>
           </nav>
           <div className="space-y-2 border-t border-line p-3">
+            {/* Notifications push « plat prêt » sur cet appareil */}
+            <PushToggle />
             <div className="flex gap-2">
               <button onClick={toggle} className="touch flex h-12 flex-1 items-center justify-center gap-2 rounded-xl surface-2 text-sm font-semibold"><Sun className="h-4 w-4 dark:hidden" /><Moon className="hidden h-4 w-4 dark:block" />Thème</button>
               <InstallAppButton variant="accent" className="h-12 flex-1" label="Installer" compact />
