@@ -7,7 +7,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { LayoutGrid, ListOrdered, Wallet, Settings, Moon, Sun, LogOut, Wifi, WifiOff, RefreshCw, ChefHat, Download, X, ChevronRight, Clock, CalendarDays, ShoppingBag, ThermometerSnowflake, Gift, PartyPopper, Martini, Wine } from "lucide-react";
+import { LayoutGrid, ListOrdered, Wallet, Settings, Moon, Sun, LogOut, Wifi, WifiOff, RefreshCw, ChefHat, Download, X, ChevronRight, Clock, CalendarDays, ShoppingBag, ThermometerSnowflake, Gift, PartyPopper, Martini, Wine, Store } from "lucide-react";
 import { markLogoutPending, useSession } from "@/hooks/use-session";
 import { useRealtime } from "@/hooks/use-realtime";
 import { SupportBar } from "@/components/support-bar";
@@ -32,7 +32,7 @@ export function PosShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const qc = useQueryClient();
-  const { me, can, hasOption, businessType } = useSession();
+  const { me, can, hasOption, businessType, payAtOrder } = useSession();
   const { toggle } = useTheme();
   const { online, pending, syncing, flush } = useOffline();
   const connected = useRealtime(!!me?.user);
@@ -96,7 +96,7 @@ export function PosShell({ children }: { children: React.ReactNode }) {
   const today = resaToday.data?.[0];
   const takeawayCount = (takeaway.data?.toAccept.length ?? 0) + (takeaway.data?.preparing.length ?? 0) + (takeaway.data?.ready.length ?? 0);
   const nav: { href: string; label: string; icon: typeof LayoutGrid; badge?: { count: number; alert: boolean } }[] = [
-    { href: "/pos", label: businessType === "snack" ? "Comptoir" : "Salle", icon: LayoutGrid },
+    { href: "/pos", label: payAtOrder || businessType === "snack" ? "Comptoir" : "Salle", icon: payAtOrder ? Store : LayoutGrid },
     { href: "/pos/orders", label: "Commandes", icon: ListOrdered },
     { href: "/pos/emporter", label: "À emporter", icon: ShoppingBag, badge: takeawayCount ? { count: takeawayCount, alert: (takeaway.data?.toAccept.length ?? 0) > 0 } : undefined },
     ...(hasOption("bar") && (can("bar.use") || can("bar.manage")) ? [{ href: "/pos/bar", label: "Bar", icon: Martini, badge: barTabs.data?.length ? { count: barTabs.data.length, alert: false } : undefined }] : []),

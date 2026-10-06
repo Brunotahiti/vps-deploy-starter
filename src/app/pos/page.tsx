@@ -1,5 +1,5 @@
-import { FloorPlan } from "@/components/pos/floor";
+import { PosHome } from "@/components/pos/pos-home";
 
-export default function PosHome() {
-  return <FloorPlan />;
+export default function PosHomePage() {
+  return <PosHome />;
 }
