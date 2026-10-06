@@ -13,6 +13,7 @@ import { ExternalLink, Copy } from "lucide-react";
 import { useToast } from "@/components/ui/toast";
 import { useSession } from "@/hooks/use-session";
 import { ShareSite } from "@/components/admin/share-site";
+import { PhotoField, PhotoGallery } from "@/components/photo-field";
 
 type S = DigitalSettings & { loyalty: LoyaltySettings; site: SiteSettings; shareSlug: string; urls: { shop: string; reserve: string; kiosk: string; site: string; share: string; shareCard: string } };
 type QrRow = { id: string; name: string; url: string; qrToken: string; room: { name: string } };
@@ -31,13 +32,22 @@ function DigitalForm({ data }: { data: S }) {
   const { me } = useSession();
   const [s, setS] = useState<S>(data);
   const [zones, setZones] = useState(data.online.deliveryZones.join(", "));
-  const [photos, setPhotos] = useState(data.site.photos.join("\n"));
+  const [photos, setPhotos] = useState<string[]>(data.site.photos);
   // Restaurant exemple (partagé par tous les visiteurs) : le site public ne se modifie pas
   const siteLocked = !!me?.demoLocked;
   const site = (patch: Partial<SiteSettings>) => setS({ ...s, site: { ...s.site, ...patch } });
+  // Photos du site : enregistrées dès l'envoi (ou le retrait), sans attendre « Enregistrer » ; une adresse tapée à la
+  // main attend l'enregistrement du formulaire
+  const { toast: notify } = useToast();
+  const savePhotos = (patch: Partial<SiteSettings>) => {
+    if (siteLocked) return;
+    api.patch("/api/digital/settings", { site: patch }).catch((e) => notify(e instanceof Error ? e.message : "Enregistrement des photos impossible", "error"));
+  };
+  const setImage = (key: "coverUrl" | "logoUrl", url: string) => { site({ [key]: url }); if (url === "" || url.startsWith("/api/uploads/")) savePhotos({ [key]: url }); };
+  const setGallery = (urls: string[]) => { setPhotos(urls); savePhotos({ photos: urls }); };
   const qr = useList<QrRow[]>(["tables", "qr"], "/api/tables/qr");
   const regenerate = (t: QrRow) => confirm(`Créer un nouveau QR code pour la table ${t.name} ? L'ancien cessera aussitôt de fonctionner : il faudra imprimer le nouveau.`) && act(() => api.post(`/api/tables/${t.id}/qr`), { success: `Nouveau QR code pour la table ${t.name} : pensez à l'imprimer`, invalidate: [["tables", "qr"]] });
-  const save = () => act(() => api.patch("/api/digital/settings", { qrMode: s.qrMode, online: { ...s.online, deliveryZones: zones.split(",").map((z) => z.trim()).filter(Boolean) }, kiosk: s.kiosk, loyalty: s.loyalty, ...(siteLocked ? {} : { site: { ...s.site, photos: photos.split(/\n+/).map((u) => u.trim()).filter(Boolean) } }) }), { success: "Réglages enregistrés", invalidate: [["digital"]] });
+  const save = () => act(() => api.patch("/api/digital/settings", { qrMode: s.qrMode, online: { ...s.online, deliveryZones: zones.split(",").map((z) => z.trim()).filter(Boolean) }, kiosk: s.kiosk, loyalty: s.loyalty, ...(siteLocked ? {} : { site: { ...s.site, photos } }) }), { success: "Réglages enregistrés", invalidate: [["digital"]] });
   return (
     <div>
       <PageHeader title="Digital" subtitle="Site du restaurant, QR codes à table, commande en ligne, borne et fidélité" action={<Button onClick={save}>Enregistrer</Button>} />
@@ -53,9 +63,11 @@ function DigitalForm({ data }: { data: S }) {
             <Field label="Couleur du site"><div className="flex items-center gap-2"><input type="color" value={s.site.accent} onChange={(e) => site({ accent: e.target.value })} className="h-10 w-14 cursor-pointer rounded-lg border border-[var(--border)] bg-transparent" aria-label="Couleur du site" /><code className="text-xs">{s.site.accent}</code></div></Field>
           </div>
           <div className="min-w-0 space-y-3">
-            <Field label="Image de couverture (URL)"><Input value={s.site.coverUrl} onChange={(e) => site({ coverUrl: e.target.value })} placeholder="https://…/photo.jpg" inputMode="url" /></Field>
-            <Field label="Logo (URL)"><Input value={s.site.logoUrl} onChange={(e) => site({ logoUrl: e.target.value })} placeholder="https://…/logo.png" inputMode="url" /></Field>
-            <Field label="Photos (une URL par ligne, 12 max)"><Textarea rows={3} value={photos} onChange={(e) => setPhotos(e.target.value)} placeholder={"https://…/salle.jpg\nhttps://…/plat.jpg"} /></Field>
+            {/* Photos envoyées depuis le téléphone ou l'ordinateur (réduites automatiquement), lien web en option */}
+            <PhotoField value={s.site.coverUrl} onChange={(url) => setImage("coverUrl", url)} label="Photo principale (couverture)" shape="wide" maxSide={1920} testId="site-cover" hint="La grande photo derrière le nom du restaurant, en haut du site et dans les partages WhatsApp ou Facebook. Choisissez votre plus belle vue : la salle, la terrasse ou un plat signature, bien éclairée, prise à l'horizontale. Gardez l'essentiel au centre : sur téléphone, les côtés sont coupés." />
+            <PhotoField value={s.site.logoUrl} onChange={(url) => setImage("logoUrl", url)} label="Logo" shape="logo" maxSide={600} testId="site-logo" hint="Votre logo, de préférence sur fond transparent (PNG)." />
+            <PhotoGallery value={photos} onChange={setGallery} max={12} maxSide={1600} label="Photos du restaurant" />
+            <p className="text-xs text-muted">Les photos envoyées apparaissent tout de suite sur votre site.</p>
             <div className="grid gap-3 sm:grid-cols-2"><Field label="Page Facebook"><Input value={s.site.facebook} onChange={(e) => site({ facebook: e.target.value })} placeholder="https://facebook.com/…" inputMode="url" /></Field><Field label="Instagram"><Input value={s.site.instagram} onChange={(e) => site({ instagram: e.target.value })} placeholder="https://instagram.com/…" inputMode="url" /></Field></div>
             <div className="rounded-xl surface-2 p-3 text-xs"><p className="font-bold">Adresse du site</p><LinkRow url={data.urls.share} /><p className="mt-1 text-muted">Le nom, l&apos;adresse, le téléphone et les horaires viennent de Paramètres → Établissement. Les boutons Commander et Réserver apparaissent selon les réglages ci-dessous.</p></div>
           </div>
