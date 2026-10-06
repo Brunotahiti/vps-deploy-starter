@@ -1,5 +1,5 @@
 import { route, created } from "@/server/http";
-import { requirePermission } from "@/server/auth/context";
+import { can, requireEstablishment } from "@/server/auth/context";
 import { prisma } from "@/server/db";
 import { ApiError } from "@/server/errors";
 import { isDemoEstablishment } from "@/server/services/demo";
@@ -7,7 +7,6 @@ import { isDemoEstablishment } from "@/server/services/demo";
 const MAX = 4 * 1024 * 1024; // 4 Mo (les photos sont réduites côté navigateur avant envoi)
 const TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
 
-/** Envoi d'une photo (multipart, champ `file`) : stockée en base, renvoie l'URL à enregistrer dans imageUrl. */
 /** Signature réelle du fichier (le type annoncé par le navigateur ne suffit pas). */
 function sniff(b: Uint8Array): string | null {
   if (b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return "image/jpeg";
@@ -17,8 +16,13 @@ function sniff(b: Uint8Array): string | null {
   return null;
 }
 
+/**
+ * Envoi d'une photo (multipart, champ `file`) : stockée en base, renvoie l'URL à enregistrer (photo d'un plat,
+ * couverture, logo et photos du site du restaurant). Réservé à qui gère la carte ou les réglages.
+ */
 export const POST = route(async (req) => {
-  const ctx = await requirePermission("catalog.manage");
+  const ctx = await requireEstablishment();
+  if (!can(ctx, "catalog.manage") && !can(ctx, "settings.manage")) throw new ApiError(403, "FORBIDDEN", "Permission requise : catalog.manage ou settings.manage", { permission: "catalog.manage" });
   // Corps trop lourd refusé avant d'être lu
   if (Number(req.headers.get("content-length") ?? 0) > MAX + 64 * 1024) throw new ApiError(413, "TOO_LARGE", "Photo trop lourde (4 Mo maximum)");
   const form = await req.formData().catch(() => null);
