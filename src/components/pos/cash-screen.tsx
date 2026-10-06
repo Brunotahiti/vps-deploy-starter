@@ -13,7 +13,8 @@ import { formatDateTime } from "@/lib/dates";
 import { useSession } from "@/hooks/use-session";
 import { PinModal, withPin, type PinRequest } from "./pin-modal";
 import { PAYMENT_LABEL } from "./types";
-import { Archive } from "lucide-react";
+import { Archive, Sparkles } from "lucide-react";
+import Link from "next/link";
 import { reportPrint, type PrintResult } from "@/lib/print-client";
 import { useOffline } from "@/lib/offline/provider";
 import { addCashMovementLocal, closeCashLocal, openCashLocal, useCashCurrent } from "@/lib/offline/cash-local";
@@ -64,7 +65,7 @@ export function CashScreen() {
             <p className="text-xl font-bold">Aucune session de caisse ouverte</p>
             <p className="mt-1 text-sm text-muted">Ouvrez la caisse avec le fond de caisse pour commencer à encaisser des espèces.</p>
             {can("cash.open") ? <Button size="xl" className="mt-4" onClick={() => setDialog("open")}>Ouvrir la caisse</Button> : <p className="mt-4 text-sm text-corail-500">Vous n&apos;avez pas la permission d&apos;ouvrir la caisse.</p>}
-            <div className="mt-3 flex justify-center"><DrawerButton /></div>
+            <div className="mt-3 flex flex-wrap justify-center gap-2"><DrawerButton /><RecapButton /></div>
           </div>
         </Card>
       ) : (
@@ -79,6 +80,7 @@ export function CashScreen() {
             {can("cash.movement") || can("cash.correct") ? <Button size="lg" variant="secondary" onClick={() => setDialog("movement")}>Entrée / sortie d&apos;espèces</Button> : null}
             {can("cash.close") ? <Button size="lg" variant="accent" onClick={() => setDialog("close")}>Clôturer la caisse</Button> : null}
             <DrawerButton />
+            <RecapButton />
             {online ? <a className="touch inline-flex h-14 items-center rounded-xl border border-line px-6 text-base font-semibold" href={`/api/cash/${s.session.id}/report`} target="_blank" rel="noreferrer">Rapport X (impression)</a> : <span className="inline-flex h-14 items-center rounded-xl bg-amber-500/10 px-4 text-sm font-semibold text-amber-700 dark:text-amber-300">Hors ligne : chiffres tenus sur cette tablette, rapport à la reconnexion</span>}
           </div>
           <div className="grid gap-4 md:grid-cols-2">
@@ -125,6 +127,13 @@ export function CashScreen() {
       <PinModal request={pin} onClose={() => setPin(null)} />
     </div>
   );
+}
+
+/** Récapitulatif de fin de service (couverts, chiffres, marge, caisses, équipe…), imprimable. */
+function RecapButton() {
+  const { can } = useSession();
+  if (!can("reports.view") && !can("cash.close")) return null;
+  return <Link href="/pos/recap" data-testid="recap-link" className="touch inline-flex h-14 items-center gap-2 rounded-xl bg-gradient-to-br from-lagon-500 to-lagon-700 px-6 text-base font-bold text-white shadow-glow"><Sparkles className="h-5 w-5" />Fin de service</Link>;
 }
 
 const DRAWER_REASONS = ["Faire de la monnaie", "Erreur de rendu", "Vérification du fond"];

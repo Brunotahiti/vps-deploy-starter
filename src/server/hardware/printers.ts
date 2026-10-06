@@ -26,7 +26,7 @@ export const isCloudDriver = (d: string) => d === "cloud-epson" || d === "cloud-
 
 export type PrinterConnection = { host?: string; port?: number; agentUrl?: string; timeoutMs?: number };
 export type PrintJob = { printerId: string; driver: string; name: string; paperWidthMm: number; delivered: boolean; queued?: boolean; jobId?: string; warning?: string; agentUrl?: string; payloadBase64?: string; error?: string };
-export type PrintDoc = { kind: "receipt"; orderId: string } | { kind: "kitchen"; ticketId: string } | { kind: "change"; changeId: string } | { kind: "test" } | { kind: "drawer" };
+export type PrintDoc = { kind: "receipt"; orderId: string } | { kind: "kitchen"; ticketId: string } | { kind: "change"; changeId: string } | { kind: "test" } | { kind: "drawer" } | { kind: "recap"; day: string; withMargin: boolean; withStaff: boolean };
 
 /** Au-delà, une imprimante connectée qui ne s'est pas manifestée est considérée hors ligne. */
 export const CLOUD_OFFLINE_MS = 2 * 60_000;
@@ -126,6 +126,7 @@ async function renderDoc(establishmentId: string, printer: Printer, doc: PrintDo
   if (doc.kind === "kitchen") return renderKitchenTicketDoc(establishmentId, doc.ticketId, cols);
   if (doc.kind === "change") return renderKitchenChangeDoc(establishmentId, doc.changeId, cols);
   if (doc.kind === "drawer") return new EscPosBuilder(cols).drawer(printer.drawerPin === 5 ? 5 : 2).ops();
+  if (doc.kind === "recap") { const { getServiceRecap, renderRecapDoc } = await import("@/server/services/recap"); return renderRecapDoc(await getServiceRecap(establishmentId, doc.day, { withMargin: doc.withMargin, withStaff: doc.withStaff }), cols); }
   const b = new EscPosBuilder(cols).align("center").bold(true).size(2, 2).line("ManaResto").size(1, 1).bold(false).line("Test d'impression").line(new Date().toLocaleString("fr-FR"));
   if (printer.hasDrawer) b.line("Le tiroir-caisse doit s'ouvrir");
   b.feed(3).cut();
