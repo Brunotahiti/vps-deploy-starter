@@ -278,7 +278,7 @@ export function OrderScreen({ orderId: orderIdProp, counter = false, onNext }: {
       <div className="md:hidden flex shrink-0 items-center gap-2 px-2 pt-2">
         {counter ? <button onClick={() => router.push("/pos/orders")} className="touch flex h-11 w-11 shrink-0 items-center justify-center rounded-xl card" aria-label="Commandes du jour"><ListOrdered className="h-5 w-5" /></button> : <button onClick={() => router.push("/pos")} className="touch flex h-11 w-11 shrink-0 items-center justify-center rounded-xl card" aria-label="Retour à la salle"><ArrowLeft className="h-5 w-5" /></button>}
         <button onClick={() => !closed && setDialog("covers")} className="touch min-w-0 flex-1 text-left">
-          <p className="truncate text-base font-extrabold leading-tight">{o.isTab ? "Ardoise" : o.table ? `Table ${o.table.name}` : ORDER_TYPE_LABEL[o.type]}{o.customerName ? ` · ${o.customerName}` : ""}</p>
+          <p className="truncate text-base font-extrabold leading-tight">{o.isTab ? "Ardoise" : o.table ? `Table ${o.table.name}` : counter && o.type === "COUNTER" ? "Sur place" : ORDER_TYPE_LABEL[o.type]}{o.customerName ? ` · ${o.customerName}` : ""}</p>
           <p className="truncate text-[11px] text-muted">{o.covers} couv. · {formatElapsed(o.openedAt)} · {o.number === "HORS-LIGNE" ? "hors ligne" : `n° ${o.number.split("-")[1]}`}{currentCourse && o.courses.length > 1 ? ` · ${currentCourse.name}` : ""}</p>
         </button>
         {!closed && o.type === "DINE_IN" ? <button onClick={() => setSeat(seat === null ? 1 : seat >= o.covers ? null : seat + 1)} className="touch h-9 shrink-0 rounded-full surface-2 px-3 text-xs font-bold text-muted">{seat === null ? "Table" : `C${seat}`}</button> : null}
@@ -364,11 +364,18 @@ export function OrderScreen({ orderId: orderIdProp, counter = false, onNext }: {
           <div className="flex items-center justify-between">
             <button onClick={() => setSheet(false)} className="md:hidden touch -ml-1 mr-2 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl surface-2" aria-label="Fermer la commande"><X className="h-5 w-5" /></button>
             <button onClick={() => !closed && setDialog("covers")} className="touch min-w-0 flex-1 text-left">
-              <p className="truncate text-lg font-extrabold leading-tight">{o.isTab ? "Ardoise" : o.table ? `Table ${o.table.name}` : ORDER_TYPE_LABEL[o.type]}{o.customerName ? ` · ${o.customerName}` : ""}</p>
+              <p className="truncate text-lg font-extrabold leading-tight">{o.isTab ? "Ardoise" : o.table ? `Table ${o.table.name}` : counter && o.type === "COUNTER" ? "Sur place" : ORDER_TYPE_LABEL[o.type]}{o.customerName ? ` · ${o.customerName}` : ""}</p>
               <p className="text-xs text-muted">{o.covers} couvert{o.covers > 1 ? "s" : ""} · {formatElapsed(o.openedAt)} · {o.server?.displayName || o.server?.firstName} · {o.number === "HORS-LIGNE" ? <span className="font-bold text-orange-500">hors ligne</span> : `n° ${o.number.split("-")[1]}`}</p>
             </button>
             {closed ? <span className={`rounded-lg px-2 py-1 text-xs font-bold ${o.status === "PAID" ? "bg-green-500/15 text-green-600" : "bg-red-500/15 text-red-600"}`}>{o.status === "PAID" ? "PAYÉE" : "ANNULÉE"}</span> : null}
           </div>
+          {counter && !closed ? (
+            <div className="mt-2 flex rounded-xl surface-2 p-0.5 text-xs font-bold" role="radiogroup" aria-label="Sur place ou à emporter" data-testid="counter-type">
+              {([["COUNTER", "Sur place"], ["TAKEAWAY", "À emporter"]] as const).map(([type, label]) => (
+                <button key={type} role="radio" aria-checked={o.type === type} onClick={() => o.type !== type && run(() => api.patch<Order>(`/api/orders/${orderId}`, { type }, { queueIfOffline: true }), (x) => ({ ...x, type }))} className={`touch h-9 flex-1 rounded-[10px] ${o.type === type ? "surface shadow-soft" : "text-muted"}`}>{label}</button>
+              ))}
+            </div>
+          ) : null}
           {!closed && o.type === "DINE_IN" ? (
             <div className="mt-2 flex gap-1 overflow-x-auto no-scrollbar">
               <button onClick={() => setSeat(null)} className={`touch h-8 shrink-0 rounded-full px-3 text-xs font-bold transition ${seat === null ? "bg-nuit-800 text-white dark:bg-lagon-500 dark:text-nuit-950" : "surface-2 text-muted"}`}>Table</button>
