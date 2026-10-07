@@ -279,8 +279,8 @@ export function WaiterOrder({ orderId }: { orderId: string }) {
       {/* Mode roulotte : le client paie, puis la commande part en cuisine */}
       {roulotte && live.length && !closed ? (
         <div className="pointer-events-none absolute inset-x-0 bottom-3 z-20 flex justify-center px-4">
-          <button onClick={() => setPayOpen(true)} disabled={busy} data-testid="waiter-pay" className="touch pointer-events-auto flex h-16 w-full max-w-md items-center justify-center gap-3 rounded-3xl bg-gradient-to-r from-lagon-500 to-lagon-700 text-lg font-extrabold text-white shadow-[0_16px_40px_-12px_rgb(20_170_163/0.9)] active:scale-[0.98] disabled:opacity-60">
-            <CreditCard className="h-6 w-6" />Encaisser <Money amount={o.total - o.paidTotal} className="rounded-full bg-white/25 px-2.5 py-0.5 text-base" />
+          <button onClick={() => setPayOpen(true)} disabled={busy || (o.type === "COUNTER" && !o.tableLabel)} data-testid="waiter-pay" className="touch pointer-events-auto flex h-16 w-full max-w-md items-center justify-center gap-3 rounded-3xl bg-gradient-to-r from-lagon-500 to-lagon-700 text-lg font-extrabold text-white shadow-[0_16px_40px_-12px_rgb(20_170_163/0.9)] active:scale-[0.98] disabled:opacity-60">
+            <CreditCard className="h-6 w-6" />{o.type === "COUNTER" && !o.tableLabel ? <span className="text-base">Indiquez le n° de table</span> : <>Encaisser <Money amount={o.total - o.paidTotal} className="rounded-full bg-white/25 px-2.5 py-0.5 text-base" /></>}
           </button>
         </div>
       ) : null}

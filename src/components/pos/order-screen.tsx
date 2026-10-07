@@ -357,7 +357,7 @@ export function OrderScreen({ orderId: orderIdProp, counter = false, onNext }: {
           <span className="min-w-0 flex-1 text-left"><span className="block truncate text-sm font-extrabold">Commande{!counter && pendingCount > 0 ? ` · ${pendingCount} à envoyer` : ""}</span><span className="block text-[11px] text-muted">{itemCount} article{itemCount > 1 ? "s" : ""}</span></span>
           <Money amount={o.total} className="text-lg font-extrabold" />
         </button>
-        {!closed && counter && activeItems.length > 0 ? <Button size="lg" className="h-14 shrink-0 px-4" aria-label="Encaisser" onClick={() => setPayOpen(true)}><CreditCard className="h-5 w-5" /></Button> : null}
+        {!closed && counter && activeItems.length > 0 ? <Button size="lg" className="h-14 shrink-0 px-4" aria-label="Encaisser" disabled={o.type === "COUNTER" && !o.tableLabel} title={o.type === "COUNTER" && !o.tableLabel ? "Indiquez le n° de table" : undefined} onClick={() => (o.type === "COUNTER" && !o.tableLabel ? setSheet(true) : setPayOpen(true))}><CreditCard className="h-5 w-5" /></Button> : null}
         {!closed && !counter && pendingCount > 0 ? <Button size="lg" variant="accent" className="h-14 shrink-0 px-4" disabled={sending} aria-label="Envoyer en cuisine" onClick={() => send({ all: true })}><Send className="h-5 w-5" /></Button> : null}
       </div>
 
@@ -468,7 +468,7 @@ export function OrderScreen({ orderId: orderIdProp, counter = false, onNext }: {
             {allOffered ? (
               <Button size="xl" className="w-full" onClick={() => run(() => api.post<Order>(`/api/orders/${orderId}/close-offered`))} data-testid="close-offered"><Gift className="h-5 w-5 shrink-0" /><span className="truncate">Clôturer (offert) et envoyer en cuisine</span></Button>
             ) : (
-              <Button size="xl" className="w-full" disabled={activeItems.length === 0} onClick={() => setPayOpen(true)} data-testid="counter-pay"><CreditCard className="h-6 w-6 shrink-0" /><span className="flex min-w-0 flex-1 items-center justify-between gap-2"><span className="truncate">Encaisser et envoyer en cuisine</span><Money amount={remaining} className="shrink-0" /></span></Button>
+              <Button size="xl" className="w-full" disabled={activeItems.length === 0 || (o.type === "COUNTER" && !o.tableLabel)} onClick={() => setPayOpen(true)} data-testid="counter-pay"><CreditCard className="h-6 w-6 shrink-0" /><span className="flex min-w-0 flex-1 items-center justify-between gap-2"><span className="truncate">{o.type === "COUNTER" && !o.tableLabel && activeItems.length > 0 ? "Indiquez le n° de table pour encaisser" : "Encaisser et envoyer en cuisine"}</span><Money amount={remaining} className="shrink-0" /></span></Button>
             )}
             <div className="grid grid-cols-4 gap-1">
               <button onClick={() => setCustomerOpen(true)} className={`touch flex h-12 flex-col items-center justify-center gap-0.5 rounded-xl text-[10px] font-bold uppercase hover:surface-3 ${o.customerId ? "bg-lagon-500/15 text-lagon-700 dark:text-lagon-300" : "surface-2 text-muted"}`}><UserRound className="h-4 w-4" />Client</button>
