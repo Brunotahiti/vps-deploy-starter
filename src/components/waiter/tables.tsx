@@ -89,7 +89,8 @@ export function WaiterTables() {
         </>
       ) : null}
 
-      {ready.length ? (
+      {/* Mode roulotte : les plats prêts s'affichent uniquement dans le portail Salle */}
+      {ready.length && !payAtOrder ? (
         <section className="mb-4 rounded-3xl bg-gradient-to-br from-emerald-500 to-green-600 p-4 text-white shadow-lift" data-testid="ready-banner">
           <p className="mb-2 flex items-center gap-2 text-lg font-extrabold"><BellRing className="h-5 w-5 animate-bounce" />Prêt à servir !</p>
           <div className="flex flex-wrap gap-2">{ready.map((t) => <button key={t.id} onClick={() => tap(t)} className="touch rounded-2xl bg-white/20 px-4 py-2 text-base font-extrabold backdrop-blur active:scale-95">Table {t.name} · {t.order!.readyCount} plat{t.order!.readyCount > 1 ? "s" : ""}</button>)}</div>
@@ -113,7 +114,7 @@ export function WaiterTables() {
                 <span className="text-sm font-bold"><Money amount={t.order.total} /></span>
                 <span className="text-[11px] font-semibold text-muted">{t.order.covers} pers. · {formatElapsed(t.order.openedAt)}</span>
               </> : <span className="text-xs font-semibold text-muted">{look.label} · {t.seats} pl.</span>}
-              {t.order?.readyCount ? <span className="absolute -right-1 -top-1 flex items-center gap-1 rounded-full bg-green-500 px-2 py-0.5 text-xs font-extrabold text-white shadow-lift pulse-soft">🍽️ {t.order.readyCount}</span> : null}
+              {t.order?.readyCount && !payAtOrder ? <span className="absolute -right-1 -top-1 flex items-center gap-1 rounded-full bg-green-500 px-2 py-0.5 text-xs font-extrabold text-white shadow-lift pulse-soft">🍽️ {t.order.readyCount}</span> : null}
             </button>
           );
         })}
