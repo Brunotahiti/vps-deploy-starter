@@ -73,7 +73,9 @@ describe("Notifications push « plat prêt »", () => {
     await setItemReady(kitchenActor, ticket.id, ticket.items[1].id, true);
     await waitFor(() => sentPushes.length === 1);
     expect(sentPushes[0].endpoint).toBe(sub("tel-serveur").endpoint);
-    expect(sentPushes[0].payload.title).toMatch(/^Plats prêts · Comptoir n° \d+ · Teva$/);
+    expect(sentPushes[0].payload.title).toMatch(/^Plats prêts · Sur place n° \d+ · Teva$/);
+    expect(sentPushes[0].payload.body).toContain("à apporter au client");
+    expect(sentPushes[0].payload.url).toBe("/pos/emporter"); // la file des commandes, avec « Remise au client »
   });
 
   it("abonnement expiré (410) retiré ; autre erreur comptée puis retirée après 10 échecs", async () => {

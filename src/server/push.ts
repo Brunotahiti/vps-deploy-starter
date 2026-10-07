@@ -97,15 +97,18 @@ export async function notifyDishReady(actor: Actor, ticket: { orderId: string; i
   const where = ticket.order.table ? `Table ${ticket.order.table.name}` : `${typeLabel(ticket.order.type)} n° ${ticket.order.number.split("-").pop()}${ticket.order.customerName ? ` · ${ticket.order.customerName}` : ""}`;
   const dishes = live.map((i) => `${i.quantity > 1 ? `${i.quantity} × ` : ""}${i.name}`).join(", ");
   const total = live.reduce((a, i) => a + i.quantity, 0);
+  // Sans table (comptoir, roulotte, à emporter) : le serveur va chercher le plat en cuisine et le remet au client ;
+  // la notification ouvre la file des commandes (« À emporter »), où « Remise au client » clôt le parcours
+  const todo = ticket.order.table ? "à apporter" : ticket.order.type === "TAKEAWAY" || ticket.order.type === "ONLINE" ? "à remettre au client (n° appelé)" : ticket.order.type === "DELIVERY" ? "à remettre au livreur" : "à apporter au client";
   return sendPush(actor.establishmentId, { userId: ticket.order.serverId, excludeUserId: actor.userId }, {
     title: `${total > 1 ? "Plats prêts" : "Plat prêt"} · ${where}`,
-    body: `${dishes}${ticket.course?.name && ticket.course.name !== "COMMANDE" ? ` (${ticket.course.name.toLowerCase()})` : ""} — à apporter`.slice(0, 180),
-    url: `/pos/order/${ticket.orderId}`,
+    body: `${dishes}${ticket.course?.name && ticket.course.name !== "COMMANDE" ? ` (${ticket.course.name.toLowerCase()})` : ""} — ${todo}`.slice(0, 180),
+    url: ticket.order.table ? `/pos/order/${ticket.orderId}` : "/pos/emporter",
     tag: `ready-${ticket.orderId}`,
     renotify: true,
   });
 }
 
 function typeLabel(type: string) {
-  return ({ DINE_IN: "Sur place", COUNTER: "Comptoir", TAKEAWAY: "À emporter", DELIVERY: "Livraison", ONLINE: "En ligne", KIOSK: "Borne" } as Record<string, string>)[type] ?? type;
+  return ({ DINE_IN: "Sur place", COUNTER: "Sur place", TAKEAWAY: "À emporter", DELIVERY: "Livraison", ONLINE: "En ligne", KIOSK: "Borne" } as Record<string, string>)[type] ?? type;
 }

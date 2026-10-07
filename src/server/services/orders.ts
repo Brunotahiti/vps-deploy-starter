@@ -171,12 +171,12 @@ export const isPayAtOrder = (settings: unknown) => ((settings ?? {}) as { payAtO
 
 /**
  * Mode roulotte : la commande comptoir en cours de saisie sur cet appareil (ouverte, jamais encaissée, de la même
- * personne et du même terminal), ou une nouvelle. Recharger la page ramène la même commande ; une commande payée ou
+ * personne et du même terminal ; sur place ou à emporter, au choix du caissier), ou une nouvelle. Recharger la page ramène la même commande ; une commande payée ou
  * annulée laisse place à la suivante.
  */
 export async function getOrCreateCounterDraft(actor: Actor) {
   const draft = await prisma.order.findFirst({
-    where: { establishmentId: actor.establishmentId, type: "COUNTER", status: "OPEN", isTab: false, paidTotal: 0, serverId: actor.userId, terminalId: actor.terminalId ?? null },
+    where: { establishmentId: actor.establishmentId, type: { in: ["COUNTER", "TAKEAWAY"] }, status: "OPEN", isTab: false, paidTotal: 0, serverId: actor.userId, terminalId: actor.terminalId ?? null },
     orderBy: { openedAt: "desc" }, select: { id: true },
   });
   if (draft) return getOrder(actor.establishmentId, draft.id);
