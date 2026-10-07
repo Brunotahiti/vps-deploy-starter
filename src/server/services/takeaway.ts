@@ -23,7 +23,7 @@ export type TakeawayStage = "to_accept" | "preparing" | "ready";
 export const callNumber = (number: string) => String(Number(number.split("-")[1] ?? number) || number);
 
 const boardSelect = {
-  id: true, number: true, type: true, status: true, customerName: true, tableLabel: true, customerPhone: true, pickupAt: true, readyAt: true, pickedUpAt: true,
+  id: true, number: true, type: true, status: true, isTab: true, customerName: true, tableLabel: true, customerPhone: true, pickupAt: true, readyAt: true, pickedUpAt: true,
   openedAt: true, acceptedAt: true, closedAt: true, total: true, paidTotal: true, channelMeta: true,
   items: { where: { status: { not: "VOIDED" as const }, parentItemId: null }, select: { quantity: true, status: true, name: true } },
 } satisfies Prisma.OrderSelect;
@@ -44,6 +44,7 @@ function cardOf(o: Row) {
     name: o.customerName ?? (typeof meta.name === "string" ? meta.name : null),
     // Mode roulotte : numéro ou repère de table où apporter les plats
     tableLabel: o.tableLabel ?? null,
+    isTab: o.isTab, // ardoise du bar : servie au comptoir du bar, pas une table de la salle
     itemNames: o.items.map((i) => `${i.quantity > 1 ? `${i.quantity} × ` : ""}${i.name}`),
     phone: o.customerPhone ?? (typeof meta.phone === "string" ? meta.phone : null),
     when: typeof meta.when === "string" ? meta.when : null,

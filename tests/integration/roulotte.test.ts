@@ -114,6 +114,10 @@ describe("Mode roulotte : encaissement à la commande puis envoi en cuisine", ()
     expect(sentPushes[0].payload.body).toContain("à apporter");
     expect(sentPushes[0].payload.url).toBe("/pos/salle");
     expect((await takeawayBoard(T.est.id)).ready.map((c) => c.id)).toContain(o.id);
+    // Commande déjà encaissée : le numéro de table reste modifiable (portail Salle), pas le reste
+    await updateOrder(T.actor, o.id, { tableLabel: "14" });
+    expect((await getOrder(T.est.id, o.id)).tableLabel).toBe("14");
+    await expect(updateOrder(T.actor, o.id, { tableLabel: "15", customerName: "X" })).rejects.toMatchObject({ code: "ORDER_CLOSED" });
     await setTakeawayStep(T.actor, o.id, "picked_up"); // « Servi » dans le portail Salle
     expect([...(await takeawayBoard(T.est.id)).ready].map((c) => c.id)).not.toContain(o.id);
   });

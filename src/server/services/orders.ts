@@ -185,7 +185,9 @@ export async function getOrCreateCounterDraft(actor: Actor) {
 
 export async function updateOrder(actor: Actor, orderId: string, input: { covers?: number; customerName?: string | null; tableLabel?: string | null; customerPhone?: string | null; pickupAt?: string | null; notes?: string | null; type?: OrderType }) {
   const order = await getOrder(actor.establishmentId, orderId);
-  assertOpen(order);
+  // Le numéro de table seul peut être renseigné après l'encaissement (mode roulotte : depuis le portail Salle) ; le reste exige une commande ouverte
+  const onlyTable = Object.keys(input).every((k) => k === "tableLabel");
+  if (!onlyTable || order.status === "CANCELLED") assertOpen(order);
   await prisma.order.update({ where: { id: orderId }, data: { covers: input.covers, customerName: input.customerName, tableLabel: input.tableLabel === undefined ? undefined : input.tableLabel?.trim() || null, customerPhone: input.customerPhone, pickupAt: input.pickupAt === undefined ? undefined : input.pickupAt ? new Date(input.pickupAt) : null, notes: input.notes, type: input.type, version: { increment: 1 } } });
   publish("order.updated", actor.establishmentId, { orderId, tableId: order.tableId });
   return getOrder(actor.establishmentId, orderId);
