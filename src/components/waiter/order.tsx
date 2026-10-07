@@ -3,9 +3,12 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Minus, Pencil, Plus, Search, Send, Trash2, X } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { ArrowLeft, Minus, Pencil, Plus, Search, Send, Trash2, X, CreditCard, ShoppingBag } from "lucide-react";
 import { api, ApiClientError } from "@/lib/api-client";
+import { useSession } from "@/hooks/use-session";
 import { usePosCatalog } from "@/components/pos/use-catalog";
+import { PaymentModal, type PaymentPayload } from "@/components/pos/payment-modal";
 import { ProductModal, type ProductChoice } from "@/components/pos/product-modal";
 import { PinModal, withPin, type PinRequest } from "@/components/pos/pin-modal";
 import { Modal } from "@/components/ui/modal";
@@ -43,7 +46,11 @@ const CANCEL_REASONS = ["Le client a changé d'avis", "Erreur de saisie", "Trop 
  */
 export function WaiterOrder({ orderId }: { orderId: string }) {
   const qc = useQueryClient();
+  const router = useRouter();
   const { toast } = useToast();
+  const { payAtOrder } = useSession();
+  const [payOpen, setPayOpen] = useState(false);
+  const [paidBurst, setPaidBurst] = useState(false);
   const q = useQuery({ queryKey: ["order", orderId], queryFn: () => api.get<Order>(`/api/orders/${orderId}`), refetchInterval: 15_000 });
   const kitchen = useQuery({ queryKey: ["order", orderId, "kitchen"], queryFn: () => api.get<KitchenState>(`/api/orders/${orderId}/kitchen`), refetchInterval: 10_000 });
   const catalog = usePosCatalog();
@@ -117,6 +124,31 @@ export function WaiterOrder({ orderId }: { orderId: string }) {
   const changesOf = (i: OrderItem) => (kitchen.data?.changes ?? []).filter((c) => c.orderItemId === i.id);
   const closed = o.status === "PAID" || o.status === "CANCELLED";
   const activeCat = category ?? catalog.data?.categories[0]?.id ?? null;
+  // Mode roulotte sur le téléphone : on prend la commande, le client paie, le serveur envoie alors la commande en cuisine
+  const roulotte = payAtOrder && (o.type === "COUNTER" || o.type === "TAKEAWAY");
+  const setType = async (type: "COUNTER" | "TAKEAWAY") => { if (o.type === type) return; try { await api.patch(`/api/orders/${orderId}`, { type }); refresh(); } catch (e) { fail(e); } };
+  const setName = async (customerName: string) => { try { await api.patch(`/api/orders/${orderId}`, { customerName: customerName.trim() || null }); refresh(); } catch (e) { fail(e); } };
+  const pay = async (payments: PaymentPayload[]) => {
+    const body = payments.map((p) => ({ ...p, id: crypto.randomUUID() }));
+    try {
+      const r = await api.post<{ order: Order }>(`/api/orders/${orderId}/payments`, { payments: body }, { idempotencyKey: crypto.randomUUID() });
+      onPaid(r.order);
+    } catch (e) { fail(e); }
+  };
+  const onPaid = (paid: Order) => {
+    qc.setQueryData(["order", orderId], paid);
+    if (paid.status !== "PAID") { toast("Paiement enregistré", "success"); return; }
+    setPayOpen(false);
+    setPaidBurst(true); setTimeout(() => setPaidBurst(false), 1800);
+    try { navigator.vibrate?.([40, 60, 40]); } catch {}
+    qc.invalidateQueries({ queryKey: ["takeaway"] }); qc.invalidateQueries({ queryKey: ["orders"] }); qc.invalidateQueries({ queryKey: ["cash"] });
+    refresh();
+  };
+  const newOrder = async () => {
+    setBusy(true);
+    try { const id = crypto.randomUUID(); const created = await api.post<Order>("/api/orders", { id, type: "COUNTER" }, { idempotencyKey: id }); router.push(`/pos/m/${created.id}`); }
+    catch (e) { fail(e); setBusy(false); }
+  };
 
   return (
     <div className="flex h-full flex-col" data-testid="waiter-order">
@@ -124,11 +156,19 @@ export function WaiterOrder({ orderId }: { orderId: string }) {
       <div className="sticky top-0 z-10 flex items-center gap-3 border-b border-line surface px-3 py-2.5">
         <Link href="/pos/m" className="touch flex h-11 w-11 items-center justify-center rounded-2xl surface-2" aria-label="Mes tables"><ArrowLeft className="h-5 w-5" /></Link>
         <div className="min-w-0 flex-1">
-          <p className="text-lg font-extrabold leading-tight">{o.table ? `Table ${o.table.name}` : "Commande"}</p>
-          <p className="text-xs text-muted">{o.covers} pers. · n° {o.number.split("-").pop()}</p>
+          <p className="text-lg font-extrabold leading-tight">{o.table ? `Table ${o.table.name}` : roulotte ? (o.type === "TAKEAWAY" ? "À emporter" : "Sur place") : "Commande"}{o.customerName ? ` · ${o.customerName}` : ""}</p>
+          <p className="text-xs text-muted">{roulotte ? (closed ? (o.status === "PAID" ? "Payée · en cuisine" : "Annulée") : "À encaisser") : `${o.covers} pers.`} · n° {o.number.split("-").pop()}</p>
         </div>
         <p className="text-lg font-extrabold"><Money amount={o.total} /></p>
       </div>
+      {roulotte && !closed ? (
+        <div className="flex items-center gap-2 border-b border-line surface px-3 py-2">
+          <div className="flex shrink-0 rounded-xl surface-2 p-0.5 text-xs font-bold" role="radiogroup" aria-label="Sur place ou à emporter" data-testid="waiter-type">
+            {([["COUNTER", "Sur place"], ["TAKEAWAY", "À emporter"]] as const).map(([type, label]) => <button key={type} role="radio" aria-checked={o.type === type} onClick={() => setType(type)} className={`touch h-9 rounded-[10px] px-3 ${o.type === type ? "surface shadow-soft" : "text-muted"}`}>{label}</button>)}
+          </div>
+          <input key={o.customerName ?? ""} defaultValue={o.customerName ?? ""} onBlur={(e) => e.target.value.trim() !== (o.customerName ?? "") && setName(e.target.value)} placeholder="Nom ou repère (facultatif)" aria-label="Nom du client" className="h-9 min-w-0 flex-1 rounded-xl border border-line surface px-3 text-sm outline-none focus:border-lagon-500" />
+        </div>
+      ) : null}
       <div className="flex gap-1 surface-2 p-1">
         {([["menu", "🍽️ La carte"], ["order", `🧾 La commande${live.length ? ` (${live.length})` : ""}`]] as const).map(([k, l]) => (
           <button key={k} role="tab" aria-selected={tab === k} onClick={() => setTab(k)} className={`touch h-11 flex-1 rounded-xl text-sm font-extrabold ${tab === k ? "surface shadow-sm" : "text-muted"}`}>{l}</button>
@@ -194,7 +234,7 @@ export function WaiterOrder({ orderId }: { orderId: string }) {
                         <div className="mt-2 flex flex-wrap items-center gap-1.5">
                           {i.status === "PENDING" ? (
                             <>
-                              <span className="rounded-full surface-2 px-2.5 py-1 text-[11px] font-extrabold text-muted">À envoyer</span>
+                              <span className="rounded-full surface-2 px-2.5 py-1 text-[11px] font-extrabold text-muted">{roulotte ? "À encaisser" : "À envoyer"}</span>
                               {!closed ? <span className="ml-auto flex items-center gap-1">
                                 <button onClick={() => changeQty(i, i.quantity - 1)} className="touch flex h-9 w-9 items-center justify-center rounded-xl surface-2" aria-label="Un de moins">{i.quantity > 1 ? <Minus className="h-4 w-4" /> : <Trash2 className="h-4 w-4 text-red-600" />}</button>
                                 <button onClick={() => changeQty(i, i.quantity + 1)} className="touch flex h-9 w-9 items-center justify-center rounded-xl surface-2" aria-label="Un de plus"><Plus className="h-4 w-4" /></button>
@@ -234,8 +274,22 @@ export function WaiterOrder({ orderId }: { orderId: string }) {
         )}
       </div>
 
-      {/* Envoi en cuisine */}
-      {pending.length && !closed ? (
+      {/* Mode roulotte : le client paie, puis la commande part en cuisine */}
+      {roulotte && live.length && !closed ? (
+        <div className="pointer-events-none absolute inset-x-0 bottom-3 z-20 flex justify-center px-4">
+          <button onClick={() => setPayOpen(true)} disabled={busy} data-testid="waiter-pay" className="touch pointer-events-auto flex h-16 w-full max-w-md items-center justify-center gap-3 rounded-3xl bg-gradient-to-r from-lagon-500 to-lagon-700 text-lg font-extrabold text-white shadow-[0_16px_40px_-12px_rgb(20_170_163/0.9)] active:scale-[0.98] disabled:opacity-60">
+            <CreditCard className="h-6 w-6" />Encaisser <Money amount={o.total - o.paidTotal} className="rounded-full bg-white/25 px-2.5 py-0.5 text-base" />
+          </button>
+        </div>
+      ) : null}
+      {roulotte && closed ? (
+        <div className="pointer-events-none absolute inset-x-0 bottom-3 z-20 flex justify-center gap-2 px-4">
+          <Link href="/pos/m" className="touch pointer-events-auto flex h-14 items-center justify-center gap-2 rounded-2xl card px-4 text-sm font-extrabold"><ShoppingBag className="h-5 w-5" />Mes commandes</Link>
+          <button onClick={newOrder} disabled={busy} data-testid="waiter-new-order" className="touch pointer-events-auto flex h-14 flex-1 items-center justify-center gap-2 rounded-2xl bg-brand text-base font-extrabold text-white shadow-glow active:scale-[0.98] disabled:opacity-60"><Plus className="h-5 w-5" />Nouvelle commande</button>
+        </div>
+      ) : null}
+      {/* Envoi en cuisine (service à table) */}
+      {!roulotte && pending.length && !closed ? (
         <div className="pointer-events-none absolute inset-x-0 bottom-3 z-20 flex justify-center px-4">
           <button onClick={send} disabled={busy} data-testid="send-kitchen" className="touch pointer-events-auto flex h-16 w-full max-w-md items-center justify-center gap-3 rounded-3xl bg-gradient-to-r from-orange-500 to-corail-500 text-lg font-extrabold text-white shadow-[0_16px_40px_-12px_rgb(249_124_60/0.9)] active:scale-[0.98] disabled:opacity-60">
             <Send className="h-6 w-6" />Envoyer en cuisine <span className="rounded-full bg-white/25 px-2.5 py-0.5 text-base">{pending.reduce((a, i) => a + i.quantity, 0)}</span>
@@ -248,6 +302,12 @@ export function WaiterOrder({ orderId }: { orderId: string }) {
           <p className="rise text-7xl">👨‍🍳</p><p className="rise mt-3 text-2xl font-extrabold">C&apos;est parti en cuisine !</p>
         </div>
       ) : null}
+      {paidBurst ? (
+        <div className="pointer-events-none fixed inset-0 z-40 flex flex-col items-center justify-center bg-white/60 backdrop-blur-sm dark:bg-black/50" data-testid="paid-burst">
+          <p className="rise text-7xl">✅</p><p className="rise mt-3 text-center text-2xl font-extrabold">Encaissé !<br /><span className="text-lg font-bold text-muted">C&apos;est parti en cuisine</span></p>
+        </div>
+      ) : null}
+      {payOpen && catalog.data ? <PaymentModal key={o.paidTotal} order={o} methods={catalog.data.paymentMethods} open onClose={() => setPayOpen(false)} onPay={pay} onPaid={onPaid} /> : null}
 
       {picker ? <ProductModal product={picker.product ?? null} menu={picker.menu ?? null} products={catalog.data?.products ?? []} onClose={() => setPicker(null)} onAdd={async (c) => { await add(c); setPicker(null); }} /> : null}
       {modifying ? <ModifySheet orderId={orderId} item={modifying} stage={stageOf(modifying)} product={catalog.data?.products.find((p) => p.id === modifying.productId) ?? null} onClose={() => setModifying(null)} onDone={() => { setModifying(null); refresh(); }} onError={fail} /> : null}

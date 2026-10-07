@@ -13,6 +13,9 @@ import { useToast } from "@/components/ui/toast";
 import { formatElapsed } from "@/lib/dates";
 import type { FloorTable, Order } from "@/components/pos/types";
 import { PushBanner, PushToggle } from "@/components/push-toggle";
+import { ReadyBanner } from "@/components/pos/counter-home";
+import { useQuery } from "@tanstack/react-query";
+import { Plus, ShoppingBag } from "lucide-react";
 
 const LOOK: Record<FloorTable["status"], { label: string; emoji: string; ring: string; bg: string }> = {
   FREE: { label: "Libre", emoji: "🟢", ring: "ring-emerald-400/50", bg: "from-emerald-50 to-white dark:from-emerald-500/10 dark:to-transparent" },
@@ -31,8 +34,16 @@ const LOOK: Record<FloorTable["status"], { label: string; emoji: string; ring: s
 export function WaiterTables() {
   const router = useRouter();
   const { toast } = useToast();
-  const { me } = useSession();
+  const { me, payAtOrder } = useSession();
   const floor = useFloor();
+  // Mode roulotte : commandes au comptoir prises depuis le téléphone (encaissées puis envoyées en cuisine)
+  const mine = useQuery({ queryKey: ["orders", "open"], queryFn: () => api.get<Order[]>("/api/orders?open=1"), enabled: payAtOrder, refetchInterval: 20_000 });
+  const myDrafts = (mine.data ?? []).filter((o) => (o.type === "COUNTER" || o.type === "TAKEAWAY") && o.serverId === me?.user?.id && o.paidTotal === 0 && !o.isTab);
+  const newCounterOrder = async () => {
+    setBusy(true);
+    try { const id = crypto.randomUUID(); const order = await api.post<Order>("/api/orders", { id, type: "COUNTER" }, { idempotencyKey: id }); router.push(`/pos/m/${order.id}`); }
+    catch (e) { toast(e instanceof ApiClientError ? e.message : "Erreur", "error"); setBusy(false); }
+  };
   const [roomId, setRoomId] = useState<string | null>(null);
   const [opening, setOpening] = useState<FloorTable | null>(null);
   const [busy, setBusy] = useState(false);
@@ -40,7 +51,7 @@ export function WaiterTables() {
   const room = rooms.find((r) => r.id === roomId) ?? rooms[0];
   const all = rooms.flatMap((r) => r.tables.map((t) => ({ ...t, room: r.name })));
   const ready = all.filter((t) => t.order?.readyCount);
-  const mine = all.filter((t) => t.order && t.order.serverId === me?.user?.id).length;
+  const myTables = all.filter((t) => t.order && t.order.serverId === me?.user?.id).length;
   const first = (me?.user?.displayName || me?.user?.firstName || "").split(" ")[0];
 
   const open = async (t: FloorTable, covers: number) => {
@@ -54,17 +65,31 @@ export function WaiterTables() {
   };
   const tap = (t: FloorTable) => (t.order ? router.push(`/pos/m/${t.order.id}`) : setOpening(t));
 
-  if (floor.isLoading) return <div className="flex h-full items-center justify-center"><Spinner /></div>;
+  if (floor.isLoading && !payAtOrder) return <div className="flex h-full items-center justify-center"><Spinner /></div>;
   return (
     <div className="mx-auto w-full max-w-xl px-4 pb-6 pt-4" data-testid="waiter-tables">
       <div className="mb-4 flex items-start gap-3">
         <div className="min-w-0 flex-1">
           <p className="text-2xl font-extrabold">Bonjour {first} 👋</p>
-          <p className="text-sm text-muted">{mine ? `${mine} table${mine > 1 ? "s" : ""} à vous` : "Touchez une table pour prendre la commande"}</p>
+          <p className="text-sm text-muted">{payAtOrder ? (myDrafts.length ? `${myDrafts.length} commande${myDrafts.length > 1 ? "s" : ""} en cours` : "Prenez la commande, encaissez, c'est parti en cuisine") : myTables ? `${myTables} table${myTables > 1 ? "s" : ""} à vous` : "Touchez une table pour prendre la commande"}</p>
         </div>
         <PushToggle compact />
       </div>
       <PushBanner className="mb-4" />
+      {payAtOrder ? (
+        <>
+          <ReadyBanner className="mb-4" />
+          <button onClick={newCounterOrder} disabled={busy} data-testid="waiter-new-order" className="touch mb-4 flex h-20 w-full items-center justify-center gap-3 rounded-3xl bg-gradient-to-r from-lagon-500 to-lagon-700 text-xl font-extrabold text-white shadow-lift active:scale-[0.98] disabled:opacity-60"><Plus className="h-7 w-7" />Nouvelle commande</button>
+          {myDrafts.length ? (
+            <section className="mb-4">
+              <p className="mb-2 flex items-center gap-2 text-sm font-extrabold uppercase tracking-wide text-muted"><ShoppingBag className="h-4 w-4" />À encaisser</p>
+              <div className="space-y-2">
+                {myDrafts.map((o) => <button key={o.id} onClick={() => router.push(`/pos/m/${o.id}`)} className="touch card flex w-full items-center gap-3 p-3 text-left active:scale-[0.98]"><span className="min-w-0 flex-1"><span className="block truncate font-extrabold">{o.type === "TAKEAWAY" ? "À emporter" : "Sur place"}{o.customerName ? ` · ${o.customerName}` : ""} <span className="font-normal text-muted">· n° {o.number.split("-").pop()}</span></span><span className="block text-xs text-muted">{o.items.filter((i) => i.status !== "VOIDED" && !i.parentItemId).reduce((a, i) => a + i.quantity, 0)} article(s) · {formatElapsed(o.openedAt)}</span></span><Money amount={o.total} className="font-extrabold" /></button>)}
+              </div>
+            </section>
+          ) : null}
+        </>
+      ) : null}
 
       {ready.length ? (
         <section className="mb-4 rounded-3xl bg-gradient-to-br from-emerald-500 to-green-600 p-4 text-white shadow-lift" data-testid="ready-banner">
@@ -95,7 +120,7 @@ export function WaiterTables() {
           );
         })}
       </div>
-      {!room?.tables.length ? <p className="py-10 text-center text-sm text-muted">Aucune table : le plan de salle se dessine dans Gestion → Plan de salle.</p> : null}
+      {!room?.tables.length && !payAtOrder ? <p className="py-10 text-center text-sm text-muted">Aucune table : le plan de salle se dessine dans Gestion → Plan de salle.</p> : null}
 
       <Modal open={!!opening} onClose={() => setOpening(null)} title={opening ? `Table ${opening.name}` : ""} size="sm">
         <p className="mb-3 flex items-center gap-2 text-base font-bold"><Users className="h-5 w-5 text-lagon-600" />Combien de personnes ?</p>

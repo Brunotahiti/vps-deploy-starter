@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api-client";
 
@@ -32,7 +32,8 @@ export function usePush(enabled = true) {
   const qc = useQueryClient();
   const on = enabled && supported();
   const info = useQuery({ queryKey: ["push"], queryFn: () => api.get<PushInfo>("/api/push"), enabled: on, staleTime: 60_000 });
-  const local = useQuery({ queryKey: ["push", "device"], queryFn: readLocal, enabled: on, staleTime: Infinity });
+  // Relu à chaque retour au premier plan : la personne revient souvent des Réglages du téléphone après avoir réautorisé
+  const local = useQuery({ queryKey: ["push", "device"], queryFn: readLocal, enabled: on, staleTime: 0, refetchOnWindowFocus: true, refetchOnMount: "always" });
   const [busy, setBusy] = useState(false);
   const refresh = () => qc.invalidateQueries({ queryKey: ["push"] });
 
@@ -71,5 +72,7 @@ export function usePush(enabled = true) {
     } finally { setBusy(false); await refresh(); }
   };
 
-  return { state, busy, subscribe, unsubscribe };
+  // Application installée (écran d'accueil) : lu sans écart entre rendu serveur et navigateur
+  const standalone = useSyncExternalStore(() => () => {}, () => window.matchMedia("(display-mode: standalone)").matches || (navigator as Navigator & { standalone?: boolean }).standalone === true, () => false);
+  return { state, busy, subscribe, unsubscribe, standalone };
 }
