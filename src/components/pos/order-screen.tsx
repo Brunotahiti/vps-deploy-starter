@@ -4,7 +4,7 @@ import { Photo } from "@/components/ui/photo";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Search, Send, Receipt, CreditCard, Percent, XCircle, ArrowRightLeft, Printer, Flame, PauseCircle, CheckCircle2, AlertTriangle, ChevronDown, Plus, X, ShoppingBasket, UserRound, Gift } from "lucide-react";
+import { ArrowLeft, Search, Send, Receipt, CreditCard, Percent, XCircle, ArrowRightLeft, Printer, Flame, PauseCircle, CheckCircle2, AlertTriangle, ChevronDown, Plus, X, ShoppingBasket, UserRound, Gift, ListOrdered } from "lucide-react";
 import { api, ApiClientError } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
@@ -42,7 +42,12 @@ function recomputeLocal(o: Order): Order {
   return { ...o, subtotal: t.subtotal, discountTotal: t.discountTotal, taxTotal: t.taxTotal, total: t.total };
 }
 
-export function OrderScreen({ orderId: orderIdProp }: { orderId: string }) {
+/**
+ * `counter` (mode roulotte) : l'écran est la page d'accueil de la caisse, tout se passe ici. Pas d'« Envoyer » ni
+ * d'addition : un seul bouton « Encaisser » ; le serveur envoie alors les articles en cuisine. `onNext` ouvre la
+ * commande suivante une fois le reçu refermé.
+ */
+export function OrderScreen({ orderId: orderIdProp, counter = false, onNext }: { orderId: string; counter?: boolean; onNext?: () => void }) {
   // Hors ligne, la page peut être servie depuis un shell générique : l'id réel est dans l'URL
   const [orderId] = useState(() => (typeof window !== "undefined" ? window.location.pathname.split("/pos/order/")[1]?.split(/[/?#]/)[0] || orderIdProp : orderIdProp));
   const router = useRouter();
@@ -190,7 +195,7 @@ export function OrderScreen({ orderId: orderIdProp }: { orderId: string }) {
   /** Après un encaissement réussi (saisi en caisse ou débité par le TPE). */
   const afterPayment = (paid: Order) => {
     setOrder(paid);
-    if (paid.status === "PAID") { setPayOpen(false); celebrate({ count: 45 }); toast("Commande soldée ✓", "success"); qc.invalidateQueries({ queryKey: ["floor"] }); qc.invalidateQueries({ queryKey: ["cash"] }); markOfflineOrderClosed(orderId).catch(() => {}); setReceipt({ afterPayment: true }); }
+    if (paid.status === "PAID") { setPayOpen(false); celebrate({ count: 45 }); toast(counter ? "Encaissé ✓ · envoyé en cuisine" : "Commande soldée ✓", "success"); if (counter) qc.invalidateQueries({ queryKey: ["takeaway"] }); qc.invalidateQueries({ queryKey: ["floor"] }); qc.invalidateQueries({ queryKey: ["cash"] }); markOfflineOrderClosed(orderId).catch(() => {}); setReceipt({ afterPayment: true }); }
     else toast("Paiement enregistré", "success");
   };
   const pay = async (payments: PaymentPayload[]) => {
@@ -271,7 +276,7 @@ export function OrderScreen({ orderId: orderIdProp }: { orderId: string }) {
     <div className="flex h-full flex-col md:flex-row">
       {/* Bandeau mobile : retour, table, recherche */}
       <div className="md:hidden flex shrink-0 items-center gap-2 px-2 pt-2">
-        <button onClick={() => router.push("/pos")} className="touch flex h-11 w-11 shrink-0 items-center justify-center rounded-xl card" aria-label="Retour à la salle"><ArrowLeft className="h-5 w-5" /></button>
+        {counter ? <button onClick={() => router.push("/pos/orders")} className="touch flex h-11 w-11 shrink-0 items-center justify-center rounded-xl card" aria-label="Commandes du jour"><ListOrdered className="h-5 w-5" /></button> : <button onClick={() => router.push("/pos")} className="touch flex h-11 w-11 shrink-0 items-center justify-center rounded-xl card" aria-label="Retour à la salle"><ArrowLeft className="h-5 w-5" /></button>}
         <button onClick={() => !closed && setDialog("covers")} className="touch min-w-0 flex-1 text-left">
           <p className="truncate text-base font-extrabold leading-tight">{o.isTab ? "Ardoise" : o.table ? `Table ${o.table.name}` : ORDER_TYPE_LABEL[o.type]}{o.customerName ? ` · ${o.customerName}` : ""}</p>
           <p className="truncate text-[11px] text-muted">{o.covers} couv. · {formatElapsed(o.openedAt)} · {o.number === "HORS-LIGNE" ? "hors ligne" : `n° ${o.number.split("-")[1]}`}{currentCourse && o.courses.length > 1 ? ` · ${currentCourse.name}` : ""}</p>
@@ -285,7 +290,7 @@ export function OrderScreen({ orderId: orderIdProp }: { orderId: string }) {
 
       {/* Catégories (tablette / ordinateur) */}
       <aside className="no-print hidden w-32 shrink-0 flex-col md:flex sm:w-40">
-        <button onClick={() => router.push("/pos")} className="touch mx-2 mt-2 flex h-11 items-center justify-center gap-1.5 rounded-xl text-sm font-bold text-muted hover:surface-2"><ArrowLeft className="h-4 w-4" /> Salle</button>
+        {counter ? <button onClick={() => router.push("/pos/orders")} className="touch mx-2 mt-2 flex h-11 items-center justify-center gap-1.5 rounded-xl text-sm font-bold text-muted hover:surface-2"><ListOrdered className="h-4 w-4" /> Commandes</button> : <button onClick={() => router.push("/pos")} className="touch mx-2 mt-2 flex h-11 items-center justify-center gap-1.5 rounded-xl text-sm font-bold text-muted hover:surface-2"><ArrowLeft className="h-4 w-4" /> Salle</button>}
         <div className="flex-1 space-y-1.5 overflow-y-auto no-scrollbar p-2">
           {rootCategories.map((c) => categoryButton(c, categoryId === c.id && !search, () => { setCategoryId(c.id); setSearch(""); }))}
           {showFormules ? categoryButton(formulesCat, categoryId === FORMULES && !search, () => { setCategoryId(FORMULES); setSearch(""); }) : null}
@@ -346,10 +351,11 @@ export function OrderScreen({ orderId: orderIdProp }: { orderId: string }) {
       <div className="md:hidden absolute inset-x-0 bottom-0 z-30 flex gap-2 p-2">
         <button onClick={() => setSheet(true)} aria-label="Voir la commande" className="touch glass flex h-14 min-w-0 flex-1 items-center gap-3 rounded-2xl border px-4 shadow-lift">
           <span className="relative"><ShoppingBasket className="h-6 w-6" />{itemCount > 0 ? <span className="absolute -right-2 -top-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-corail-500 px-1 text-[11px] font-extrabold text-white">{itemCount}</span> : null}</span>
-          <span className="min-w-0 flex-1 text-left"><span className="block truncate text-sm font-extrabold">Commande{pendingCount > 0 ? ` · ${pendingCount} à envoyer` : ""}</span><span className="block text-[11px] text-muted">{itemCount} article{itemCount > 1 ? "s" : ""}</span></span>
+          <span className="min-w-0 flex-1 text-left"><span className="block truncate text-sm font-extrabold">Commande{!counter && pendingCount > 0 ? ` · ${pendingCount} à envoyer` : ""}</span><span className="block text-[11px] text-muted">{itemCount} article{itemCount > 1 ? "s" : ""}</span></span>
           <Money amount={o.total} className="text-lg font-extrabold" />
         </button>
-        {!closed && pendingCount > 0 ? <Button size="lg" variant="accent" className="h-14 shrink-0 px-4" disabled={sending} aria-label="Envoyer en cuisine" onClick={() => send({ all: true })}><Send className="h-5 w-5" /></Button> : null}
+        {!closed && counter && activeItems.length > 0 ? <Button size="lg" className="h-14 shrink-0 px-4" aria-label="Encaisser" onClick={() => setPayOpen(true)}><CreditCard className="h-5 w-5" /></Button> : null}
+        {!closed && !counter && pendingCount > 0 ? <Button size="lg" variant="accent" className="h-14 shrink-0 px-4" disabled={sending} aria-label="Envoyer en cuisine" onClick={() => send({ all: true })}><Send className="h-5 w-5" /></Button> : null}
       </div>
 
       {/* Ticket : colonne fixe (tablette / ordinateur) ou panneau plein écran (téléphone) */}
@@ -422,7 +428,7 @@ export function OrderScreen({ orderId: orderIdProp }: { orderId: string }) {
                         {comps.map((cmp) => <span key={cmp.id} className="block text-xs text-muted">↳ {cmp.name}{cmp.modifiers.length ? ` (${cmp.modifiers.map((m) => m.name).join(", ")})` : ""}{cmp.unitPrice > 0 ? ` +${cmp.unitPrice}` : ""}</span>)}
                         {i.notes ? <span className="block text-xs italic text-corail-500">« {i.notes} »</span> : null}
                         {discountLabel(i) ? <span className={`mt-0.5 inline-block rounded-md px-1.5 text-[11px] font-bold ${i.discountKind === "OFFERED" ? "bg-fuchsia-500/12 text-fuchsia-700 dark:text-fuchsia-300" : "bg-amber-500/15 text-amber-700 dark:text-amber-300"}`} data-testid="line-discount">{discountLabel(i)}</span> : null}
-                        <span className="mt-0.5 flex gap-1 text-[10px] font-semibold uppercase text-muted">{i.seatNumber ? <span className="rounded bg-slate-500/15 px-1">Client {i.seatNumber}</span> : null}<span>{i.status === "PENDING" ? "à envoyer" : i.status === "SENT" ? "envoyé" : i.status === "PREPARING" ? "en préparation" : i.status === "READY" ? "prêt" : i.status === "SERVED" ? "servi" : "annulé"}</span></span>
+                        <span className="mt-0.5 flex gap-1 text-[10px] font-semibold uppercase text-muted">{i.seatNumber ? <span className="rounded bg-slate-500/15 px-1">Client {i.seatNumber}</span> : null}<span>{i.status === "PENDING" ? (counter ? "à encaisser" : "à envoyer") : i.status === "SENT" ? "envoyé" : i.status === "PREPARING" ? "en préparation" : i.status === "READY" ? "prêt" : i.status === "SERVED" ? "servi" : "annulé"}</span></span>
                       </span>
                       <span className="text-sm font-bold"><Money amount={i.lineTotal + comps.reduce((a, c) => a + c.lineTotal, 0)} /></span>
                     </button>
@@ -443,7 +449,21 @@ export function OrderScreen({ orderId: orderIdProp }: { orderId: string }) {
           {o.paidTotal > 0 && remaining > 0 ? <div className="flex justify-between font-bold text-corail-500"><span>Reste</span><Money amount={remaining} /></div> : null}
         </div>
 
-        {!closed ? (
+        {!closed && counter ? (
+          <div className="no-print space-y-2 p-3 pt-0">
+            {allOffered ? (
+              <Button size="xl" className="w-full" onClick={() => run(() => api.post<Order>(`/api/orders/${orderId}/close-offered`))} data-testid="close-offered"><Gift className="h-5 w-5 shrink-0" /><span className="truncate">Clôturer (offert) et envoyer en cuisine</span></Button>
+            ) : (
+              <Button size="xl" className="w-full" disabled={activeItems.length === 0} onClick={() => setPayOpen(true)} data-testid="counter-pay"><CreditCard className="h-6 w-6 shrink-0" /><span className="flex min-w-0 flex-1 items-center justify-between gap-2"><span className="truncate">Encaisser et envoyer en cuisine</span><Money amount={remaining} className="shrink-0" /></span></Button>
+            )}
+            <div className="grid grid-cols-4 gap-1">
+              <button onClick={() => setCustomerOpen(true)} className={`touch flex h-12 flex-col items-center justify-center gap-0.5 rounded-xl text-[10px] font-bold uppercase hover:surface-3 ${o.customerId ? "bg-lagon-500/15 text-lagon-700 dark:text-lagon-300" : "surface-2 text-muted"}`}><UserRound className="h-4 w-4" />Client</button>
+              <button onClick={() => setDialog("discount")} className="touch flex h-12 flex-col items-center justify-center gap-0.5 rounded-xl surface-2 text-[10px] font-bold uppercase text-muted hover:surface-3"><Percent className="h-4 w-4" />Remise</button>
+              <button onClick={() => setReceipt({ afterPayment: false })} className="touch flex h-12 flex-col items-center justify-center gap-0.5 rounded-xl surface-2 text-[10px] font-bold uppercase text-muted hover:surface-3"><Printer className="h-4 w-4" />Ticket</button>
+              <button onClick={() => setDialog("cancel")} disabled={activeItems.length === 0} className="touch flex h-12 flex-col items-center justify-center gap-0.5 rounded-xl bg-red-500/10 text-[10px] font-bold uppercase text-red-600 hover:bg-red-500/15 disabled:opacity-40"><XCircle className="h-4 w-4" />Vider</button>
+            </div>
+          </div>
+        ) : !closed ? (
           <div className="no-print space-y-2 p-3 pt-0">
             <div className="relative flex gap-2">
               <Button size="lg" variant={pendingCount > 0 ? "accent" : "secondary"} className="min-w-0 flex-1 px-2!" disabled={pendingCount === 0 || sending} onClick={() => (o.courses.length > 1 ? setSendMenu((s) => !s) : send({ all: true }))}>
@@ -471,7 +491,7 @@ export function OrderScreen({ orderId: orderIdProp }: { orderId: string }) {
         ) : (
           <div className="no-print flex gap-2 p-3">
             <Button size="lg" variant="secondary" className="flex-1" onClick={() => setReceipt({ afterPayment: false })}><Printer className="h-4 w-4" /> Reçu</Button>
-            <Button size="lg" variant="secondary" className="flex-1" onClick={() => router.push(o.isTab ? "/pos/bar" : "/pos")}>{o.isTab ? "Retour au bar" : "Retour salle"}</Button>
+            {counter && onNext ? <Button size="lg" className="flex-1" onClick={onNext} data-testid="counter-next"><Plus className="h-4 w-4" /> Commande suivante</Button> : <Button size="lg" variant="secondary" className="flex-1" onClick={() => router.push(o.isTab ? "/pos/bar" : "/pos")}>{o.isTab ? "Retour au bar" : "Retour salle"}</Button>}
           </div>
         )}
       </aside>
@@ -481,7 +501,7 @@ export function OrderScreen({ orderId: orderIdProp }: { orderId: string }) {
       {itemOpen ? <ItemModal order={o} item={o.items.find((i) => i.id === itemOpen.id) ?? itemOpen} onClose={() => setItemOpen(null)} onUpdate={updateItem} onRemove={removeItem} {...(hasOption("bar") ? { onOffer: offerItem, onUnoffer: unofferItem } : {})} /> : null}
       {payOpen ? <PaymentModal key={o.paidTotal} order={o} methods={catalog.data.paymentMethods} open onClose={() => setPayOpen(false)} onPay={pay} onPaid={afterPayment} /> : null}
       <CustomerDialog open={customerOpen} orderId={orderId} customerId={o.customerId} closed={closed} onClose={() => setCustomerOpen(false)} onChanged={() => { qc.invalidateQueries({ queryKey: ["order", orderId] }); qc.invalidateQueries({ queryKey: ["customer"] }); }} />
-      {receipt ? <ReceiptDialog order={o} printers={localPrinters} orderId={orderId} orderNumber={o.number} open afterPayment={receipt.afterPayment} onClose={() => { const after = receipt.afterPayment; setReceipt(null); if (after) router.push(o.tableId ? "/pos" : "/pos/orders"); }} /> : null}
+      {receipt ? <ReceiptDialog order={o} printers={localPrinters} orderId={orderId} orderNumber={o.number} open afterPayment={receipt.afterPayment} onClose={() => { const after = receipt.afterPayment; setReceipt(null); if (!after) return; if (counter && onNext) onNext(); else router.push(o.tableId ? "/pos" : "/pos/orders"); }} /> : null}
       <DiscountDialog open={dialog === "discount"} order={o} onClose={() => setDialog(null)} onApply={(body) => withPin(setPin, "pos.discount", (managerPin) => api.post<Order>(`/api/orders/${orderId}/discount`, { ...body, managerPin }).then(setOrder)).then(() => setDialog(null)).catch((e) => {
         onError(e);
         if (!isQueued(e)) return;
@@ -489,7 +509,7 @@ export function OrderScreen({ orderId: orderIdProp }: { orderId: string }) {
         patchLocal((x) => { const amount = body.percentBps !== undefined ? applyBps(x.subtotal, body.percentBps) : (body.amount ?? 0); return { ...x, discountTotal: amount, discountReason: amount > 0 ? body.reason : null }; });
         setDialog(null);
       })} />
-      <CancelDialog open={dialog === "cancel"} onClose={() => setDialog(null)} onConfirm={(reason) => withPin(setPin, "pos.cancel_order", (managerPin) => api.post<Order>(`/api/orders/${orderId}/cancel`, { reason, managerPin }).then(setOrder)).then(() => { setDialog(null); toast("Commande annulée"); router.push("/pos"); }).catch((e) => {
+      <CancelDialog open={dialog === "cancel"} onClose={() => setDialog(null)} onConfirm={(reason) => withPin(setPin, "pos.cancel_order", (managerPin) => api.post<Order>(`/api/orders/${orderId}/cancel`, { reason, managerPin }).then(setOrder)).then(() => { setDialog(null); toast("Commande annulée"); if (counter && onNext) onNext(); else router.push("/pos"); }).catch((e) => {
         onError(e);
         if (!isQueued(e)) return;
         // Hors ligne : commande annulée sur la tablette, table libérée sur le plan

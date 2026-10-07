@@ -12,6 +12,7 @@ import { Money } from "@/components/money";
 import { useToast } from "@/components/ui/toast";
 import { formatElapsed } from "@/lib/dates";
 import type { FloorTable, Order } from "@/components/pos/types";
+import { PushBanner, PushToggle } from "@/components/push-toggle";
 
 const LOOK: Record<FloorTable["status"], { label: string; emoji: string; ring: string; bg: string }> = {
   FREE: { label: "Libre", emoji: "🟢", ring: "ring-emerald-400/50", bg: "from-emerald-50 to-white dark:from-emerald-500/10 dark:to-transparent" },
@@ -56,10 +57,14 @@ export function WaiterTables() {
   if (floor.isLoading) return <div className="flex h-full items-center justify-center"><Spinner /></div>;
   return (
     <div className="mx-auto w-full max-w-xl px-4 pb-6 pt-4" data-testid="waiter-tables">
-      <div className="mb-4">
-        <p className="text-2xl font-extrabold">Bonjour {first} 👋</p>
-        <p className="text-sm text-muted">{mine ? `${mine} table${mine > 1 ? "s" : ""} à vous` : "Touchez une table pour prendre la commande"}</p>
+      <div className="mb-4 flex items-start gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="text-2xl font-extrabold">Bonjour {first} 👋</p>
+          <p className="text-sm text-muted">{mine ? `${mine} table${mine > 1 ? "s" : ""} à vous` : "Touchez une table pour prendre la commande"}</p>
+        </div>
+        <PushToggle compact />
       </div>
+      <PushBanner className="mb-4" />
 
       {ready.length ? (
         <section className="mb-4 rounded-3xl bg-gradient-to-br from-emerald-500 to-green-600 p-4 text-white shadow-lift" data-testid="ready-banner">

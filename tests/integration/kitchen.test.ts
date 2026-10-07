@@ -80,6 +80,21 @@ describe("Phase 3 — écran cuisine", () => {
     expect(logs.length).toBe(5);
   });
 
+  it("PRÊT directement depuis un bon nouveau (plus d'acceptation à valider) : horodatages complets, articles prêts", async () => {
+    const o = await createOrder(T.actor, { type: "COUNTER" });
+    await addItem(T.actor, o.id, { productId: T.eau.id, quantity: 2 });
+    await sendCourse(T.actor, o.id, { all: true });
+    const ticket = await prisma.kitchenTicket.findFirstOrThrow({ where: { orderId: o.id } });
+    expect(ticket.status).toBe("NEW");
+    const t = await setTicketStatus(T.actor, ticket.id, "READY");
+    expect(t.status).toBe("READY");
+    expect(t.acceptedAt).not.toBeNull();
+    expect(t.startedAt).not.toBeNull();
+    expect(t.readyAt).not.toBeNull();
+    expect(t.items.every((i) => i.status === "READY")).toBe(true);
+    await setTicketStatus(T.actor, ticket.id, "DONE");
+  });
+
   it("cocher chaque article prêt fait passer le ticket PRÊT ; décocher le ramène en préparation", async () => {
     const ticket = (await listKitchenTickets(T.est.id, { stationId: barId }))[0];
     expect(ticket.status).toBe("NEW");

@@ -117,7 +117,9 @@ export const isBusinessType = (k: string): k is BusinessType => k in BUSINESS_TY
  * de service à table (« À faire maintenant »), réactivables à tout moment dans les Paramètres.
  */
 export function businessTypeSettings(type: BusinessType): Record<string, unknown> {
-  return type === "restaurant" ? {} : { service: { enabled: false } };
+  if (type === "restaurant") return {};
+  // Snack / roulotte : tout se passe à la caisse, encaissement à la commande puis envoi en cuisine (mode roulotte)
+  return type === "snack" ? { service: { enabled: false }, payAtOrder: true } : { service: { enabled: false } };
 }
 
 /**

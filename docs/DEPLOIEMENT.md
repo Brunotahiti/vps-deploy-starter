@@ -80,6 +80,18 @@ SMTP_FROM="ManaResto <contact@manaresto.com>"
 
 Les réponses des restaurateurs arrivent sur `contact@manaresto.com` (en-tête « Répondre à »). La boîte de réception elle-même reste celle de votre hébergeur de messagerie (enregistrements MX inchangés). L'état apparaît dans *Administration → Paramètres → Reçus par e-mail* et en haut de la console plateforme.
 
+## Notifications push « plat prêt »
+
+Les serveurs peuvent recevoir une notification sur leur téléphone quand la cuisine passe un plat à « Prêt » (norme Web Push, aucun service tiers). Le serveur a besoin d'une paire de clés **VAPID** dans `/opt/manaresto/.env` :
+
+```
+VAPID_PUBLIC_KEY=…
+VAPID_PRIVATE_KEY=…
+VAPID_SUBJECT=mailto:contact@manaresto.com
+```
+
+`scripts/deploy-vps.sh` les génère automatiquement (openssl, courbe P-256) si le `.env` du VPS n'en a pas, puis redémarre l'application. À la main : `pnpm push:keys` (web-push) et copier les deux clés. **Ne changez pas les clés ensuite** : tous les appareils devraient se réabonner. Sans clés, le bouton « Alertes plat prêt » n'apparaît pas et tout le reste fonctionne normalement. Les notifications passent par le service push du navigateur (Apple, Google, Mozilla) et ne contiennent que la table et les plats à apporter.
+
 ## Assistant IA (Claude)
 
 L'option **Assistant IA** propose les prévisions de fréquentation (façon Bison Futé), la commande d'achats proposée, les **conseils de la semaine** et l'**analyse qualité inspirée de l'ISO 9001**. Les prévisions et la commande sont calculées par le programme ; les conseils et l'analyse qualité sont rédigés par **Claude** (Anthropic), à partir des seuls chiffres du restaurant.

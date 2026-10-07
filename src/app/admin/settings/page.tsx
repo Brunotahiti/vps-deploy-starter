@@ -33,17 +33,18 @@ function SettingsForm({ initial }: { initial: Est }) {
   const est = { data: initial };
   const stations = useList<KitchenStation[]>(["stations"], "/api/kitchen-stations");
   const e = initial;
-  const initSettings = (e.settings ?? {}) as { courses?: string[]; markTablesToClean?: boolean };
+  const initSettings = (e.settings ?? {}) as { courses?: string[]; markTablesToClean?: boolean; payAtOrder?: boolean };
   const initHours = (e.openingHours ?? {}) as Record<string, string[]>;
   const [f, setF] = useState<Record<string, string>>({ businessType: (e as { businessType?: string }).businessType ?? "restaurant", name: e.name, legalName: e.legalName ?? "", tahitiNumber: e.tahitiNumber ?? "", addressLine1: e.addressLine1 ?? "", city: e.city ?? "", postalCode: e.postalCode ?? "", island: e.island ?? "", phone: e.phone ?? "", email: e.email ?? "", currency: e.currency, timezone: e.timezone });
   const [courses, setCourses] = useState((initSettings.courses ?? ["APÉRITIFS", "ENTRÉES", "PLATS", "DESSERTS"]).join(", "));
   const [toClean, setToClean] = useState(!!initSettings.markTablesToClean);
+  const [payAtOrder, setPayAtOrder] = useState(initSettings.payAtOrder === true);
   const [hours, setHours] = useState<Record<string, string>>(Object.fromEntries(DAYS.map(([k]) => [k, (initHours[k] ?? []).join(", ")])));
   const [term, setTerm] = useState({ name: "", kind: "POS" });
   const [station, setStation] = useState({ name: "", warn: "600", alert: "900" });
 
   const save = async () => {
-    const body = { ...f, legalName: f.legalName || null, tahitiNumber: f.tahitiNumber || null, addressLine1: f.addressLine1 || null, city: f.city || null, postalCode: f.postalCode || null, island: f.island || null, phone: f.phone || null, email: f.email || null, settings: { ...((est.data?.settings as object) ?? {}), courses: courses.split(",").map((s) => s.trim()).filter(Boolean), markTablesToClean: toClean }, openingHours: Object.fromEntries(DAYS.map(([k]) => [k, (hours[k] ?? "").split(",").map((s) => s.trim()).filter(Boolean)])) };
+    const body = { ...f, legalName: f.legalName || null, tahitiNumber: f.tahitiNumber || null, addressLine1: f.addressLine1 || null, city: f.city || null, postalCode: f.postalCode || null, island: f.island || null, phone: f.phone || null, email: f.email || null, settings: { ...((est.data?.settings as object) ?? {}), courses: courses.split(",").map((s) => s.trim()).filter(Boolean), markTablesToClean: toClean, payAtOrder }, openingHours: Object.fromEntries(DAYS.map(([k]) => [k, (hours[k] ?? "").split(",").map((s) => s.trim()).filter(Boolean)])) };
     await act(() => api.patch(`/api/establishments/${id}`, body), { success: "Paramètres enregistrés", invalidate: [["establishment"], ["me"], ["pos-catalog"]] });
   };
   const s = (k: string) => ({ value: f[k] ?? "", onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setF({ ...f, [k]: e.target.value }) });
@@ -68,6 +69,10 @@ function SettingsForm({ initial }: { initial: Est }) {
           <div className="space-y-3">
             <Field label="Services (étapes de commande)" hint="ordre d'envoi en cuisine, séparés par des virgules"><Input value={courses} onChange={(e) => setCourses(e.target.value)} /></Field>
             <Toggle checked={toClean} onChange={setToClean} label="Passer la table « à nettoyer » après paiement (sinon libre immédiatement)" />
+            <div className="rounded-2xl border border-line p-3">
+              <Toggle checked={payAtOrder} onChange={setPayAtOrder} label="Mode roulotte : tout se passe à la caisse" />
+              <p className="mt-1.5 text-xs text-muted">Le client choisit sur l&apos;écran, on encaisse tout de suite, la commande part en cuisine. L&apos;accueil de la caisse devient l&apos;écran Comptoir (un seul bouton « Encaisser et envoyer en cuisine »), les commandes payées suivent leur cours sur l&apos;écran « À emporter » (prête → remise) et la cuisine prévient quand c&apos;est prêt. Activé d&apos;office pour un snack ou une roulotte à la création du compte.</p>
+            </div>
           </div>
         </Card>
         <SubscriptionCard />

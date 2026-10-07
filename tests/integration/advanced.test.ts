@@ -106,6 +106,12 @@ describe("Phase 7 — imprimantes, TPE, multi-sites, comptabilité", () => {
     expect(a.delivered).toBe(false);
     expect(a.agentUrl).toBe("http://192.168.1.20:9123/print");
     expect(Buffer.from(a.payloadBase64!, "base64")[0]).toBe(0x1b);
+    expect(a.agentTarget).toBeUndefined();
+    // Imprimante Wi-Fi servie par l'agent : son adresse voyage avec le ticket (un seul agent pour toutes les imprimantes)
+    const wifi = await upsertPrinter(T.managerActor, { name: "Wi-Fi bar", kind: "KITCHEN", driver: "agent", connection: { agentUrl: "http://192.168.1.20:9123/print", host: "192.168.1.51", port: 9100 } });
+    const w = await printDocument(T.est.id, wifi.id, { kind: "test" });
+    expect(w.agentUrl).toBe("http://192.168.1.20:9123/print");
+    expect(w.agentTarget).toEqual({ host: "192.168.1.51", port: 9100 });
     await expect(sendTcp("127.0.0.1", 1, new Uint8Array([0x1b]), 500)).rejects.toBeTruthy();
     await expect(upsertPrinter(T.managerActor, { name: "X", kind: "RECEIPT", driver: "escpos-network" })).rejects.toMatchObject({ code: "HOST_REQUIRED" });
   });

@@ -108,7 +108,7 @@ describe("programme de base et options payantes", () => {
 
 describe("type d'activité", () => {
   it("snack et bar : rappels de service à table coupés par défaut ; restaurant : réglages d'origine", () => {
-    expect(businessTypeSettings("snack")).toEqual({ service: { enabled: false } });
+    expect(businessTypeSettings("snack")).toEqual({ service: { enabled: false }, payAtOrder: true });
     expect(businessTypeSettings("bar")).toEqual({ service: { enabled: false } });
     expect(businessTypeSettings("restaurant")).toEqual({});
   });

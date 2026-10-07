@@ -93,5 +93,7 @@ export function useSession() {
   // Profil construit hors ligne (sans liste d'options) : rien n'est masqué
   const hasOption = (key: OptionKey) => !q.data?.options || q.data.options.includes(key);
   const businessType = ((q.data?.establishment as { businessType?: string } | null | undefined)?.businessType ?? "restaurant") as BusinessType;
-  return { ...q, me: q.data, can, hasOption, businessType, currency: q.data?.establishment?.currency ?? "XPF", timezone: q.data?.establishment?.timezone ?? "Pacific/Tahiti" };
+  // Mode roulotte : encaissement à la commande puis envoi en cuisine ; l'accueil de la caisse est le comptoir
+  const payAtOrder = ((q.data?.establishment?.settings ?? {}) as { payAtOrder?: boolean }).payAtOrder === true;
+  return { ...q, me: q.data, can, hasOption, businessType, payAtOrder, currency: q.data?.establishment?.currency ?? "XPF", timezone: q.data?.establishment?.timezone ?? "Pacific/Tahiti" };
 }

@@ -131,6 +131,16 @@ jobs:
             cd "$VPS_PATH"
             # Constater, ne jamais modifier : le réseau et le Traefik du serveur doivent exister (voir scripts/vps-bootstrap.sh)
             docker network inspect traefik >/dev/null 2>&1 || { echo "Réseau Docker « traefik » absent : déploiement interrompu"; exit 1; }
+            # Notifications push « plat prêt » : clés VAPID (courbe P-256) générées une fois si le .env n'en a pas
+            if [ -f .env ] && ! grep -q '^VAPID_PRIVATE_KEY=.\+' .env; then
+              K=$(mktemp) && openssl ecparam -genkey -name prime256v1 -noout -out "$K"
+              PUB=$(openssl ec -in "$K" -pubout -outform DER 2>/dev/null | tail -c 65 | base64 | tr -d '\n=' | tr '+/' '-_')
+              PRIV=$(openssl ec -in "$K" -outform DER 2>/dev/null | head -c 39 | tail -c 32 | base64 | tr -d '\n=' | tr '+/' '-_')
+              rm -f "$K"
+              sed -i '/^#\? \?VAPID_PUBLIC_KEY=/d; /^#\? \?VAPID_PRIVATE_KEY=/d; /^#\? \?VAPID_SUBJECT=/d' .env
+              printf '\nVAPID_PUBLIC_KEY=%s\nVAPID_PRIVATE_KEY=%s\nVAPID_SUBJECT=mailto:contact@manaresto.com\n' "$PUB" "$PRIV" >> .env
+              echo "Clés VAPID générées (notifications push)"
+            fi
             if [ -f .env ]; then set -a && . ./.env && set +a; fi
             export BUILD_ID
             # Version des styles/scripts du site vitrine = commit déployé

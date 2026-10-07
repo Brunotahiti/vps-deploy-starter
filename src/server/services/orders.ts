@@ -115,7 +115,7 @@ export async function settleAfterChange(tx: Tx, actor: Actor, orderId: string, o
   if (o.total < o.paidTotal) throw new ApiError(409, "BELOW_PAID", "Le total deviendrait inférieur au montant déjà encaissé : remboursez d'abord la différence");
   const settled = o._count.items > 0 && o.total === o.paidTotal && (o.paidTotal > 0 || opts.closeIfZero);
   if (!settled) return false;
-  const closed = await closeOrderIfPaid(tx, actor.establishmentId, orderId);
+  const closed = await closeOrderIfPaid(tx, actor.establishmentId, orderId, actor);
   if (closed.status === "PAID") {
     const { earnLoyalty } = await import("./customers");
     await earnLoyalty(tx, actor.establishmentId, orderId);
@@ -164,6 +164,23 @@ export async function createOrder(actor: Actor, input: CreateOrderInput) {
   publish("order.created", actor.establishmentId, { orderId: order.id, tableId: order.tableId });
   publish("table.updated", actor.establishmentId, { tableId: order.tableId });
   return order;
+}
+
+/** Réglage « mode roulotte » : encaissement à la commande, puis envoi en cuisine ; l'écran Comptoir remplace le plan de salle. */
+export const isPayAtOrder = (settings: unknown) => ((settings ?? {}) as { payAtOrder?: boolean }).payAtOrder === true;
+
+/**
+ * Mode roulotte : la commande comptoir en cours de saisie sur cet appareil (ouverte, jamais encaissée, de la même
+ * personne et du même terminal), ou une nouvelle. Recharger la page ramène la même commande ; une commande payée ou
+ * annulée laisse place à la suivante.
+ */
+export async function getOrCreateCounterDraft(actor: Actor) {
+  const draft = await prisma.order.findFirst({
+    where: { establishmentId: actor.establishmentId, type: "COUNTER", status: "OPEN", isTab: false, paidTotal: 0, serverId: actor.userId, terminalId: actor.terminalId ?? null },
+    orderBy: { openedAt: "desc" }, select: { id: true },
+  });
+  if (draft) return getOrder(actor.establishmentId, draft.id);
+  return createOrder(actor, { type: "COUNTER" });
 }
 
 export async function updateOrder(actor: Actor, orderId: string, input: { covers?: number; customerName?: string | null; customerPhone?: string | null; pickupAt?: string | null; notes?: string | null; type?: OrderType }) {
@@ -369,42 +386,59 @@ export function kitchenTicketId(itemIds: string[]) {
   return `${h.slice(0, 8)}-${h.slice(8, 12)}-5${h.slice(13, 16)}-${((parseInt(h[16], 16) & 3) | 8).toString(16)}${h.slice(17, 20)}-${h.slice(20, 32)}`;
 }
 
+/**
+ * Cœur de l'envoi en cuisine, SOUS VERROU de la commande : un ticket par (service, poste), articles PENDING → SENT,
+ * stock décrémenté, services marqués envoyés. Partagé par le bouton « Envoyer » et par l'encaissement en mode
+ * roulotte (payé d'abord, puis envoyé en cuisine). Retourne les tickets créés (vide s'il n'y avait rien à envoyer).
+ */
+export async function sendPendingItems(tx: Tx, actor: Actor, order: { id: string; courses: { id: string; name: string }[] }, scope: Prisma.OrderItemWhereInput, opts: { keepStatus?: boolean } = {}) {
+  const orderId = order.id;
+  const now = new Date();
+  const createdTicketIds: string[] = [];
+  const pending = await tx.orderItem.findMany({ where: { orderId, status: "PENDING", ...scope } });
+  if (pending.length === 0) return { createdTicketIds, pending };
+  // Regroupement par (service, poste)
+  const groups = new Map<string, typeof pending>();
+  for (const item of pending) {
+    if (item.menuId && !item.productId) continue; // le parent formule n'a pas de poste ; ses composants oui
+    const key = `${item.courseId ?? "none"}|${item.kitchenStationId ?? "none"}`;
+    groups.set(key, [...(groups.get(key) ?? []), item]);
+  }
+  for (const [key, items] of groups) {
+    const [courseId, stationId] = key.split("|");
+    const ticket = await tx.kitchenTicket.create({
+      data: { id: kitchenTicketId(items.map((i) => i.id)), orderId, courseId: courseId === "none" ? null : courseId, stationId: stationId === "none" ? null : stationId, isUrgent: items.some((i) => i.isUrgent) },
+    });
+    await tx.orderItem.updateMany({ where: { id: { in: items.map((i) => i.id) }, status: "PENDING" }, data: { status: "SENT", sentAt: now, kitchenTicketId: ticket.id } });
+    createdTicketIds.push(ticket.id);
+  }
+  await tx.orderItem.updateMany({ where: { id: { in: pending.map((i) => i.id) }, status: "PENDING" }, data: { status: "SENT", sentAt: now } });
+  // Stock (Phase 4) : décrémentation des ingrédients (recettes) et du stock produit à l'envoi
+  await consumeForItems(tx, actor.establishmentId, pending, -1, orderId, actor.userId);
+  const courseIds = [...new Set(pending.map((i) => i.courseId).filter(Boolean))] as string[];
+  await tx.course.updateMany({ where: { id: { in: courseIds } }, data: { status: "SENT", sentAt: now } });
+  if (!opts.keepStatus) {
+    const fresh = await tx.order.findUniqueOrThrow({ where: { id: orderId }, select: { status: true } });
+    await tx.order.update({ where: { id: orderId }, data: { status: fresh.status === "OPEN" ? "SENT" : fresh.status, version: { increment: 1 } } });
+  }
+  await onCoursesSent(tx, actor, orderId, order.courses.filter((c) => courseIds.includes(c.id)).map((c) => c.name));
+  return { createdTicketIds, pending };
+}
+
 /** Envoie en cuisine les articles en attente d'un service (ou de toute la commande). Crée un ticket par poste. */
 export async function sendCourse(actor: Actor, orderId: string, opts: { courseId?: string | null; all?: boolean; itemIds?: string[]; print?: boolean }) {
   const order = await getOrder(actor.establishmentId, orderId);
   assertOpen(order);
-  const now = new Date();
-  const createdTicketIds: string[] = [];
+  let createdTicketIds: string[] = [];
   await prisma.$transaction(async (tx) => {
     // Articles relus SOUS VERROU : un second envoi simultané (double appui) ne trouve plus rien à envoyer
     await lockOrder(tx, orderId);
     const fresh = await tx.order.findUniqueOrThrow({ where: { id: orderId }, select: { status: true } });
     assertOpen(fresh);
-    const scope = opts.itemIds ? { OR: [{ id: { in: opts.itemIds } }, { parentItemId: { in: opts.itemIds } }] } : opts.all ? {} : { courseId: opts.courseId ?? null };
-    const pending = await tx.orderItem.findMany({ where: { orderId, status: "PENDING", ...scope } });
-    if (pending.length === 0) throw new ApiError(400, "NOTHING_TO_SEND", "Aucun article à envoyer");
-    // Regroupement par (service, poste)
-    const groups = new Map<string, typeof pending>();
-    for (const item of pending) {
-      if (item.menuId && !item.productId) continue; // le parent formule n'a pas de poste ; ses composants oui
-      const key = `${item.courseId ?? "none"}|${item.kitchenStationId ?? "none"}`;
-      groups.set(key, [...(groups.get(key) ?? []), item]);
-    }
-    for (const [key, items] of groups) {
-      const [courseId, stationId] = key.split("|");
-      const ticket = await tx.kitchenTicket.create({
-        data: { id: kitchenTicketId(items.map((i) => i.id)), orderId, courseId: courseId === "none" ? null : courseId, stationId: stationId === "none" ? null : stationId, isUrgent: items.some((i) => i.isUrgent) },
-      });
-      await tx.orderItem.updateMany({ where: { id: { in: items.map((i) => i.id) }, status: "PENDING" }, data: { status: "SENT", sentAt: now, kitchenTicketId: ticket.id } });
-      createdTicketIds.push(ticket.id);
-    }
-    await tx.orderItem.updateMany({ where: { id: { in: pending.map((i) => i.id) }, status: "PENDING" }, data: { status: "SENT", sentAt: now } });
-    // Stock (Phase 4) : décrémentation des ingrédients (recettes) et du stock produit à l'envoi
-    await consumeForItems(tx, actor.establishmentId, pending, -1, orderId, actor.userId);
-    const courseIds = [...new Set(pending.map((i) => i.courseId).filter(Boolean))] as string[];
-    await tx.course.updateMany({ where: { id: { in: courseIds } }, data: { status: "SENT", sentAt: now } });
-    await tx.order.update({ where: { id: orderId }, data: { status: fresh.status === "OPEN" ? "SENT" : fresh.status, version: { increment: 1 } } });
-    await onCoursesSent(tx, actor, orderId, order.courses.filter((c) => courseIds.includes(c.id)).map((c) => c.name));
+    const scope: Prisma.OrderItemWhereInput = opts.itemIds ? { OR: [{ id: { in: opts.itemIds } }, { parentItemId: { in: opts.itemIds } }] } : opts.all ? {} : { courseId: opts.courseId ?? null };
+    const sent = await sendPendingItems(tx, actor, order, scope);
+    if (sent.pending.length === 0) throw new ApiError(400, "NOTHING_TO_SEND", "Aucun article à envoyer");
+    createdTicketIds = sent.createdTicketIds;
   });
   publish("service.updated", actor.establishmentId, { orderId, tableId: order.tableId });
   publish("order.updated", actor.establishmentId, { orderId, tableId: order.tableId });
@@ -518,14 +552,26 @@ export async function transferTable(actor: Actor, orderId: string, tableId: stri
 
 const PAY_FIRST_TYPES: OrderType[] = ["COUNTER", "TAKEAWAY", "ONLINE", "DELIVERY", "KIOSK"];
 
-/** Clôture technique (appelée par le paiement lorsque le solde est atteint). */
-export async function closeOrderIfPaid(tx: Tx, establishmentId: string, orderId: string) {
+export type ClosedOrder = Prisma.OrderGetPayload<Record<string, never>> & { sentTicketIds?: string[] };
+
+/**
+ * Clôture technique (appelée par le paiement lorsque le solde est atteint).
+ * Mode roulotte (`settings.payAtOrder`, voir isPayAtOrder) : les articles encaissés sans être passés par la cuisine
+ * y sont envoyés à cet instant (bons cuisine créés, retournés dans `sentTicketIds` pour l'impression et le temps réel).
+ */
+export async function closeOrderIfPaid(tx: Tx, establishmentId: string, orderId: string, actor?: Actor): Promise<ClosedOrder> {
   const order = await tx.order.findUniqueOrThrow({ where: { id: orderId } });
   if (order.status === "PAID" || order.status === "CANCELLED") return order;
   if (order.paidTotal < order.total) return order;
   const est = await tx.establishment.findUniqueOrThrow({ where: { id: establishmentId } });
-  const settings = (est.settings ?? {}) as { markTablesToClean?: boolean };
-  const closed = await tx.order.update({ where: { id: orderId }, data: { status: "PAID", closedAt: new Date(), version: { increment: 1 } } });
+  const settings = (est.settings ?? {}) as { markTablesToClean?: boolean; payAtOrder?: boolean };
+  const closed: ClosedOrder = await tx.order.update({ where: { id: orderId }, data: { status: "PAID", closedAt: new Date(), version: { increment: 1 } } });
+  if (settings.payAtOrder === true && PAY_FIRST_TYPES.includes(order.type)) {
+    // Roulotte / comptoir : payé d'abord, la cuisine reçoit ensuite les bons (la commande reste PAYÉE, les bons suivent leur cours)
+    const courses = await tx.course.findMany({ where: { orderId }, select: { id: true, name: true } });
+    const sent = await sendPendingItems(tx, actor ?? { organizationId: est.organizationId, establishmentId, userId: order.serverId ?? "" }, { id: orderId, courses }, {}, { keepStatus: true });
+    closed.sentTicketIds = sent.createdTicketIds;
+  }
   // Articles encaissés sans être passés par la cuisine (vente au comptoir, boissons servies directement) :
   // le stock n'a pas encore été décrémenté, il l'est ici, une seule fois
   const neverSent = await tx.orderItem.findMany({ where: { orderId, status: "PENDING" }, select: { id: true, productId: true, quantity: true } });

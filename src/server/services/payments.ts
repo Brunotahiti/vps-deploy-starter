@@ -4,6 +4,7 @@ import { audit } from "@/server/audit";
 import { publish } from "@/server/realtime/bus";
 import type { PaymentMethod } from "@/generated/prisma/client";
 import { closeOrderIfPaid, getOrder, lockOrder, recalcOrder, type Actor } from "./orders";
+import { autoPrintKitchenTickets } from "@/server/hardware/printers";
 import { findOpenSession } from "./cash";
 import { earnLoyalty } from "./customers";
 import { assertAccountCharge, assertAccountsOption } from "./accounts";
@@ -38,6 +39,7 @@ export async function addPayments(actor: Actor, orderId: string, inputs: Payment
   // Sans session ouverte, il reste « à rattacher » et rejoint la prochaine session ouverte (voir attachOfflineCashPayments).
   if (inputs.some((p) => p.method === "CASH") && !cashSession && !opts.offlineReplay) throw new ApiError(409, "NO_CASH_SESSION", "Ouvrez une session de caisse avant d'encaisser des espèces");
 
+  let sentTicketIds: string[] = [];
   const created = await prisma.$transaction(async (tx) => {
     // Contrôles SOUS VERROU : deux encaissements simultanés (deux tablettes, double appui) ne peuvent pas dépasser le reste dû
     await lockOrder(tx, orderId);
@@ -94,8 +96,9 @@ export async function addPayments(actor: Actor, orderId: string, inputs: Payment
       out.push(payment);
     }
     await recalcOrder(tx, orderId);
-    const closed = await closeOrderIfPaid(tx, actor.establishmentId, orderId);
+    const closed = await closeOrderIfPaid(tx, actor.establishmentId, orderId, actor);
     if (closed.status === "PAID") await earnLoyalty(tx, actor.establishmentId, orderId); // une seule fois : à la clôture faite ici
+    sentTicketIds = closed.sentTicketIds ?? [];
     return out;
   });
   const updated = await getOrder(actor.establishmentId, orderId);
@@ -103,6 +106,11 @@ export async function addPayments(actor: Actor, orderId: string, inputs: Payment
   if (updated.status === "PAID") {
     publish("order.closed", actor.establishmentId, { orderId, tableId: updated.tableId });
     publish("table.updated", actor.establishmentId, { tableId: updated.tableId });
+  }
+  if (sentTicketIds.length) {
+    // Mode roulotte : bons cuisine créés par l'encaissement → écran cuisine prévenu, bons imprimés (pas au rejeu d'une coupure)
+    publish("kitchen.updated", actor.establishmentId, { orderId });
+    if (!opts.offlineReplay) autoPrintKitchenTickets(actor.establishmentId, sentTicketIds).catch(() => {});
   }
   if (cashSession) publish("cash.updated", actor.establishmentId, { cashSessionId: cashSession.id });
   return { order: updated, payments: created };

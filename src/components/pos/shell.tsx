@@ -7,7 +7,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { LayoutGrid, ListOrdered, Wallet, Settings, Moon, Sun, LogOut, Wifi, WifiOff, RefreshCw, ChefHat, Download, X, ChevronRight, Clock, CalendarDays, ShoppingBag, ThermometerSnowflake, Gift, PartyPopper, Martini, Wine } from "lucide-react";
+import { LayoutGrid, ListOrdered, Wallet, Settings, Moon, Sun, LogOut, Wifi, WifiOff, RefreshCw, ChefHat, Download, X, ChevronRight, Clock, CalendarDays, ShoppingBag, ThermometerSnowflake, Gift, PartyPopper, Martini, Wine, Store, Sparkles } from "lucide-react";
 import { markLogoutPending, useSession } from "@/hooks/use-session";
 import { useRealtime } from "@/hooks/use-realtime";
 import { SupportBar } from "@/components/support-bar";
@@ -26,12 +26,13 @@ import { Money } from "@/components/money";
 import { TodoButton, TodoPanel, useServiceReminders } from "./service-todo";
 import { PendingReservationsAlert } from "@/components/reservations/pending-alert";
 import { MenuButton } from "@/components/ui/menu-button";
+import { PushToggle } from "@/components/push-toggle";
 
 export function PosShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const qc = useQueryClient();
-  const { me, can, hasOption, businessType } = useSession();
+  const { me, can, hasOption, businessType, payAtOrder } = useSession();
   const { toggle } = useTheme();
   const { online, pending, syncing, flush } = useOffline();
   const connected = useRealtime(!!me?.user);
@@ -95,7 +96,7 @@ export function PosShell({ children }: { children: React.ReactNode }) {
   const today = resaToday.data?.[0];
   const takeawayCount = (takeaway.data?.toAccept.length ?? 0) + (takeaway.data?.preparing.length ?? 0) + (takeaway.data?.ready.length ?? 0);
   const nav: { href: string; label: string; icon: typeof LayoutGrid; badge?: { count: number; alert: boolean } }[] = [
-    { href: "/pos", label: businessType === "snack" ? "Comptoir" : "Salle", icon: LayoutGrid },
+    { href: "/pos", label: payAtOrder || businessType === "snack" ? "Comptoir" : "Salle", icon: payAtOrder ? Store : LayoutGrid },
     { href: "/pos/orders", label: "Commandes", icon: ListOrdered },
     { href: "/pos/emporter", label: "À emporter", icon: ShoppingBag, badge: takeawayCount ? { count: takeawayCount, alert: (takeaway.data?.toAccept.length ?? 0) > 0 } : undefined },
     ...(hasOption("bar") && (can("bar.use") || can("bar.manage")) ? [{ href: "/pos/bar", label: "Bar", icon: Martini, badge: barTabs.data?.length ? { count: barTabs.data.length, alert: false } : undefined }] : []),
@@ -107,7 +108,7 @@ export function PosShell({ children }: { children: React.ReactNode }) {
   ];
   // Suivi de service coupé dans les réglages (conseillé pour un snack ou un bar) : pas de bouton « À faire »
   const serviceOn = ((me?.establishment?.settings as { service?: { enabled?: boolean } } | null | undefined)?.service?.enabled) !== false;
-  const isActive = (href: string) => (href === "/pos" ? pathname === "/pos" || pathname.startsWith("/pos/order/") : pathname.startsWith(href));
+  const isActive = (href: string) => (href === "/pos" ? pathname === "/pos" || pathname.startsWith("/pos/order/") : href === "/pos/cash" ? pathname.startsWith(href) || pathname.startsWith("/pos/recap") : pathname.startsWith(href));
 
   return (
     <div className="flex h-dvh flex-col">
@@ -180,7 +181,7 @@ export function PosShell({ children }: { children: React.ReactNode }) {
             </div>
           </div>
           <nav className="flex-1 overflow-y-auto p-3">
-            {[...nav, ...(can("kds.use") ? [{ href: "/kds", label: "Cuisine", icon: ChefHat }] : []), ...(hasOption("hygiene") && (can("hygiene.record") || can("hygiene.manage")) ? [{ href: "/admin/hygiene", label: "Hygiène", icon: ThermometerSnowflake }] : []), ...(hasOption("marketing") && can("giftcards.sell") ? [{ href: "/admin/marketing", label: "Cartes cadeaux", icon: Gift }] : []), ...(hasOption("catering") && (can("catering.view") || can("catering.manage")) ? [{ href: "/admin/catering", label: "Événements", icon: PartyPopper }] : []), ...(can("reports.view") || can("catalog.manage") ? [{ href: "/admin", label: "Gestion", icon: Settings }] : [])].map((n, i) => (
+            {[...nav, ...(can("reports.view") || can("cash.close") ? [{ href: "/pos/recap", label: "Fin de service", icon: Sparkles }] : []), ...(can("kds.use") ? [{ href: "/kds", label: "Cuisine", icon: ChefHat }] : []), ...(hasOption("hygiene") && (can("hygiene.record") || can("hygiene.manage")) ? [{ href: "/admin/hygiene", label: "Hygiène", icon: ThermometerSnowflake }] : []), ...(hasOption("marketing") && can("giftcards.sell") ? [{ href: "/admin/marketing", label: "Cartes cadeaux", icon: Gift }] : []), ...(hasOption("catering") && (can("catering.view") || can("catering.manage")) ? [{ href: "/admin/catering", label: "Événements", icon: PartyPopper }] : []), ...(can("reports.view") || can("catalog.manage") ? [{ href: "/admin", label: "Gestion", icon: Settings }] : [])].map((n, i) => (
               <Link key={n.href} href={n.href} style={{ transitionDelay: menu ? `${60 + i * 40}ms` : "0ms" }} className={`mb-1.5 flex h-14 items-center gap-3 rounded-2xl px-4 text-[15px] font-bold transition-all duration-300 ${menu ? "translate-x-0 opacity-100" : "-translate-x-6 opacity-0"} ${isActive(n.href) ? "bg-brand text-white shadow-glow" : "surface-2 text-[var(--text)]"}`}>
                 <span className={`flex h-9 w-9 items-center justify-center rounded-xl ${isActive(n.href) ? "bg-white/15" : "surface"}`}><n.icon className="h-5 w-5" /></span>{n.label}<ChevronRight className="ml-auto h-4 w-4 opacity-60" />
               </Link>
@@ -193,6 +194,8 @@ export function PosShell({ children }: { children: React.ReactNode }) {
             </div>
           </nav>
           <div className="space-y-2 border-t border-line p-3">
+            {/* Notifications push « plat prêt » sur cet appareil */}
+            <PushToggle />
             <div className="flex gap-2">
               <button onClick={toggle} className="touch flex h-12 flex-1 items-center justify-center gap-2 rounded-xl surface-2 text-sm font-semibold"><Sun className="h-4 w-4 dark:hidden" /><Moon className="hidden h-4 w-4 dark:block" />Thème</button>
               <InstallAppButton variant="accent" className="h-12 flex-1" label="Installer" compact />
