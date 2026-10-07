@@ -2,7 +2,7 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 import { resetDb } from "../setup/db";
 import { makeTenant } from "../setup/fixtures";
 import { prisma } from "@/server/db";
-import { addItem, createOrder, getOrCreateCounterDraft, getOrder, isPayAtOrder, cancelOrder, updateOrder } from "@/server/services/orders";
+import { addItem, createOrder, getOrCreateCounterDraft, getOrder, isPayAtOrder, cancelOrder, updateOrder, sendCourse } from "@/server/services/orders";
 import { sentPushes, subscribePush } from "@/server/push";
 import { renderKitchenTicketDoc } from "@/server/receipts/kitchen-ticket";
 import { encodeText } from "@/lib/escpos";
@@ -120,6 +120,33 @@ describe("Mode roulotte : encaissement à la commande puis envoi en cuisine", ()
     await expect(updateOrder(T.actor, o.id, { tableLabel: "15", customerName: "X" })).rejects.toMatchObject({ code: "ORDER_CLOSED" });
     await setTakeawayStep(T.actor, o.id, "picked_up"); // « Servi » dans le portail Salle
     expect([...(await takeawayBoard(T.est.id)).ready].map((c) => c.id)).not.toContain(o.id);
+  });
+
+  it("commande à table en mode roulotte : l'addition payée ne clôt pas le bon en préparation ; « Prêt » l'envoie dans Salle avec sa table", async () => {
+    await prisma.establishment.update({ where: { id: T.est.id }, data: { settings: { payAtOrder: true } } });
+    const o = await createOrder(T.actor, { type: "DINE_IN", tableId: T.t1.id, covers: 2 });
+    await addItem(T.actor, o.id, { productId: T.burger.id, modifiers: cuisson(), courseId: o.courses[2].id });
+    await addItem(T.actor, o.id, { productId: T.eau.id, courseId: o.courses[0].id });
+    await sendCourse(T.actor, o.id, { courseId: o.courses[2].id }); // le plat part en cuisine, l'eau reste à envoyer
+    const ticket = await prisma.kitchenTicket.findFirstOrThrow({ where: { orderId: o.id } });
+    await setTicketStatus(T.managerActor, ticket.id, "IN_PROGRESS");
+    // Le client paie l'addition : le bon reste en préparation, l'eau en attente part en cuisine
+    const { order } = await addPayments(T.actor, o.id, [{ method: "CARD", amount: (await getOrder(T.est.id, o.id)).total }]);
+    expect(order.status).toBe("PAID");
+    expect((await prisma.kitchenTicket.findUniqueOrThrow({ where: { id: ticket.id } })).status).toBe("IN_PROGRESS");
+    expect(order.items.find((i) => i.name === "Burger")!.status).toBe("PREPARING");
+    expect(order.items.find((i) => i.name === "Eau")!.status).toBe("SENT");
+    expect((await listKitchenTickets(T.est.id)).filter((t) => t.orderId === o.id).length).toBe(2);
+    // Portail Salle : la table est dans la file, en préparation ; l'écran « À emporter » ne la montre pas
+    let salle = await takeawayBoard(T.est.id, new Date(), { withTables: true });
+    expect(salle.preparing.find((c) => c.id === o.id)).toMatchObject({ tableLabel: "T01", channel: "DINE_IN" });
+    expect((await takeawayBoard(T.est.id)).preparing.map((c) => c.id)).not.toContain(o.id);
+    // « Prêt » sur les deux bons : la table passe « à apporter », puis « Servi » la retire
+    for (const t of await prisma.kitchenTicket.findMany({ where: { orderId: o.id } })) await setTicketStatus(T.managerActor, t.id, "READY");
+    salle = await takeawayBoard(T.est.id, new Date(), { withTables: true });
+    expect(salle.ready.map((c) => c.id)).toContain(o.id);
+    await setTakeawayStep(T.actor, o.id, "picked_up");
+    expect((await takeawayBoard(T.est.id, new Date(), { withTables: true })).ready.map((c) => c.id)).not.toContain(o.id);
   });
 
   it("hors mode roulotte, un comptoir payé sans envoi garde le comportement d'origine (articles servis, pas de bon)", async () => {

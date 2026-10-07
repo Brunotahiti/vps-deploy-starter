@@ -568,8 +568,10 @@ export async function closeOrderIfPaid(tx: Tx, establishmentId: string, orderId:
   const est = await tx.establishment.findUniqueOrThrow({ where: { id: establishmentId } });
   const settings = (est.settings ?? {}) as { markTablesToClean?: boolean; payAtOrder?: boolean };
   const closed: ClosedOrder = await tx.order.update({ where: { id: orderId }, data: { status: "PAID", closedAt: new Date(), version: { increment: 1 } } });
-  if (settings.payAtOrder === true && PAY_FIRST_TYPES.includes(order.type)) {
-    // Roulotte / comptoir : payé d'abord, la cuisine reçoit ensuite les bons (la commande reste PAYÉE, les bons suivent leur cours)
+  const roulotte = settings.payAtOrder === true;
+  if (roulotte) {
+    // Mode roulotte : payé d'abord (comptoir, à emporter ou à table), la cuisine reçoit ensuite les bons ; les bons déjà en
+    // préparation restent en cuisine jusqu'à « Prêt », puis la table passe dans Salle (« à apporter »)
     const courses = await tx.course.findMany({ where: { orderId }, select: { id: true, name: true } });
     const sent = await sendPendingItems(tx, actor ?? { organizationId: est.organizationId, establishmentId, userId: order.serverId ?? "" }, { id: orderId, courses }, {}, { keepStatus: true });
     closed.sentTicketIds = sent.createdTicketIds;
@@ -583,7 +585,7 @@ export async function closeOrderIfPaid(tx: Tx, establishmentId: string, orderId:
   }
   // Sur place : l'addition clôt le service. Comptoir, à emporter, en ligne, borne : souvent payés AVANT la préparation,
   // la cuisine garde ses tickets et la commande suit son cours (prête puis remise, écran « À emporter »)
-  if (!PAY_FIRST_TYPES.includes(order.type)) {
+  if (!PAY_FIRST_TYPES.includes(order.type) && !roulotte) {
     await tx.orderItem.updateMany({ where: { orderId, status: { in: ["SENT", "PREPARING", "READY"] } }, data: { status: "SERVED", servedAt: new Date() } });
     await tx.kitchenTicket.updateMany({ where: { orderId, status: { in: ["NEW", "ACCEPTED", "IN_PROGRESS", "READY"] } }, data: { status: "DONE", completedAt: new Date() } });
   }
