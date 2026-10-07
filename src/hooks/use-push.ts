@@ -50,10 +50,13 @@ export function usePush(enabled = true) {
     if (!supported() || !publicKey) return false;
     setBusy(true);
     try {
+      // La demande d'autorisation part EN PREMIER, dans le geste de l'utilisateur, avant tout autre appel asynchrone :
+      // sur iPhone (WebKit), une demande faite après une attente est refusée sans que la question soit posée,
+      // et l'application n'apparaît alors jamais dans Réglages → Notifications.
+      const permission = Notification.permission === "granted" ? "granted" : await Notification.requestPermission();
+      if (permission !== "granted") return false;
       const reg = await navigator.serviceWorker.getRegistration();
       if (!reg) return false;
-      const permission = await Notification.requestPermission();
-      if (permission !== "granted") return false;
       const existing = await reg.pushManager.getSubscription();
       const sub = existing ?? (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes(publicKey) }));
       await api.post("/api/push", sub.toJSON());

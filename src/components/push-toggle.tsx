@@ -39,7 +39,8 @@ function PushHelp({ state, standalone, open, onClose, onRetry, busy }: { state: 
           <>
             <li className="flex gap-2"><Settings className="mt-0.5 h-4 w-4 shrink-0 text-muted" /><span>Ouvrez <b>Réglages</b> de l&apos;iPhone, puis <b>Notifications</b>.</span></li>
             <li className="flex gap-2"><Smartphone className="mt-0.5 h-4 w-4 shrink-0 text-muted" /><span>Faites défiler jusqu&apos;à <b>ManaResto</b> et activez <b>Autoriser les notifications</b> (bannières et sons conseillés).</span></li>
-            <li className="flex gap-2"><BellRing className="mt-0.5 h-4 w-4 shrink-0 text-muted" /><span>Revenez dans ManaResto et touchez <b>Réessayer</b>. Si ManaResto n&apos;apparaît pas dans la liste, l&apos;application n&apos;est pas installée : voir ci-dessous.</span></li>
+            <li className="flex gap-2"><BellRing className="mt-0.5 h-4 w-4 shrink-0 text-muted" /><span>Revenez dans ManaResto et touchez <b>Réessayer</b>.</span></li>
+            <li className="rounded-xl bg-amber-500/10 p-2.5 text-xs text-amber-900 dark:text-amber-100"><b>ManaResto n&apos;apparaît pas dans la liste ?</b> Supprimez l&apos;icône ManaResto de l&apos;écran d&apos;accueil, puis réinstallez-la depuis Safari (Partager → Sur l&apos;écran d&apos;accueil), ouvrez-la depuis l&apos;icône et touchez la cloche : l&apos;iPhone pose alors la question, répondez <b>Autoriser</b>.</li>
             <li className="rounded-xl bg-lagon-500/10 p-2.5 text-xs text-muted">Il faut iOS 16.4 ou plus récent, et ouvrir ManaResto depuis son icône sur l&apos;écran d&apos;accueil (pas depuis Safari). Vérifiez aussi qu&apos;un mode <b>Concentration</b> ou <b>Ne pas déranger</b> ne masque pas les notifications.</li>
           </>
         ) : (
