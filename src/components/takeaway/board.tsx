@@ -118,7 +118,7 @@ function TakeawayTicket({ o, now, tz, currency }: { o: TakeawayCard; now: number
             <span className="rounded-full surface-2 px-2 py-0.5 text-[11px] font-bold">{ch.emoji} {ch.label}</span>
             {o.paid ? <span className="rounded-full bg-emerald-500/12 px-2 py-0.5 text-[11px] font-bold text-emerald-700 dark:text-emerald-300">Payée</span> : <span className="rounded-full bg-orange-500/12 px-2 py-0.5 text-[11px] font-bold text-orange-700 dark:text-orange-300">À encaisser · {formatMoney(o.total, currency)}</span>}
           </div>
-          <p className="mt-1 truncate text-base font-extrabold">{o.name ?? "Client"}</p>
+          <p className="mt-1 truncate text-base font-extrabold">{o.tableLabel ? `Table ${o.tableLabel}${o.name ? ` · ${o.name}` : ""}` : (o.name ?? "Client")}</p>
           <p className="flex flex-wrap items-center gap-x-3 text-xs text-muted">
             {o.phone ? <a href={`tel:${o.phone.replace(/[^+\d]/g, "")}`} className="inline-flex items-center gap-1 font-semibold text-lagon-600"><Phone className="h-3 w-3" />{o.phone}</a> : null}
             {o.pickupAt ? (

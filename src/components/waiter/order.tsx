@@ -127,6 +127,7 @@ export function WaiterOrder({ orderId }: { orderId: string }) {
   // Mode roulotte sur le téléphone : on prend la commande, le client paie, le serveur envoie alors la commande en cuisine
   const roulotte = payAtOrder && (o.type === "COUNTER" || o.type === "TAKEAWAY");
   const setType = async (type: "COUNTER" | "TAKEAWAY") => { if (o.type === type) return; try { await api.patch(`/api/orders/${orderId}`, { type }); refresh(); } catch (e) { fail(e); } };
+  const setTableLabel = async (tableLabel: string) => { try { await api.patch(`/api/orders/${orderId}`, { tableLabel: tableLabel.trim() || null }); refresh(); } catch (e) { fail(e); } };
   const setName = async (customerName: string) => { try { await api.patch(`/api/orders/${orderId}`, { customerName: customerName.trim() || null }); refresh(); } catch (e) { fail(e); } };
   const pay = async (payments: PaymentPayload[]) => {
     const body = payments.map((p) => ({ ...p, id: crypto.randomUUID() }));
@@ -156,7 +157,7 @@ export function WaiterOrder({ orderId }: { orderId: string }) {
       <div className="sticky top-0 z-10 flex items-center gap-3 border-b border-line surface px-3 py-2.5">
         <Link href="/pos/m" className="touch flex h-11 w-11 items-center justify-center rounded-2xl surface-2" aria-label="Mes tables"><ArrowLeft className="h-5 w-5" /></Link>
         <div className="min-w-0 flex-1">
-          <p className="text-lg font-extrabold leading-tight">{o.table ? `Table ${o.table.name}` : roulotte ? (o.type === "TAKEAWAY" ? "À emporter" : "Sur place") : "Commande"}{o.customerName ? ` · ${o.customerName}` : ""}</p>
+          <p className="text-lg font-extrabold leading-tight">{o.table ? `Table ${o.table.name}` : roulotte ? (o.type === "TAKEAWAY" ? "À emporter" : `Sur place${o.tableLabel ? ` · Table ${o.tableLabel}` : ""}`) : "Commande"}{o.customerName ? ` · ${o.customerName}` : ""}</p>
           <p className="text-xs text-muted">{roulotte ? (closed ? (o.status === "PAID" ? "Payée · en cuisine" : "Annulée") : "À encaisser") : `${o.covers} pers.`} · n° {o.number.split("-").pop()}</p>
         </div>
         <p className="text-lg font-extrabold"><Money amount={o.total} /></p>
@@ -166,7 +167,8 @@ export function WaiterOrder({ orderId }: { orderId: string }) {
           <div className="flex shrink-0 rounded-xl surface-2 p-0.5 text-xs font-bold" role="radiogroup" aria-label="Sur place ou à emporter" data-testid="waiter-type">
             {([["COUNTER", "Sur place"], ["TAKEAWAY", "À emporter"]] as const).map(([type, label]) => <button key={type} role="radio" aria-checked={o.type === type} onClick={() => setType(type)} className={`touch h-9 rounded-[10px] px-3 ${o.type === type ? "surface shadow-soft" : "text-muted"}`}>{label}</button>)}
           </div>
-          <input key={o.customerName ?? ""} defaultValue={o.customerName ?? ""} onBlur={(e) => e.target.value.trim() !== (o.customerName ?? "") && setName(e.target.value)} placeholder="Nom ou repère (facultatif)" aria-label="Nom du client" className="h-9 min-w-0 flex-1 rounded-xl border border-line surface px-3 text-sm outline-none focus:border-lagon-500" />
+          {o.type === "COUNTER" ? <label className={`flex h-10 w-24 shrink-0 items-center gap-1 rounded-xl border px-2 text-xs font-bold ${o.tableLabel ? "border-lagon-500 bg-lagon-500/10" : "border-corail-400 bg-corail-500/10"}`}><span className="text-muted">Table</span><input key={o.tableLabel ?? ""} defaultValue={o.tableLabel ?? ""} inputMode="numeric" maxLength={6} placeholder="n°" aria-label="Numéro de table" data-testid="waiter-table" onBlur={(e) => (e.target.value.trim() || null) !== (o.tableLabel ?? null) && setTableLabel(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }} className="h-full w-full min-w-0 bg-transparent text-base font-extrabold outline-none placeholder:text-muted" /></label> : null}
+          <input key={o.customerName ?? ""} defaultValue={o.customerName ?? ""} onBlur={(e) => e.target.value.trim() !== (o.customerName ?? "") && setName(e.target.value)} placeholder="Nom (facultatif)" aria-label="Nom du client" className="h-10 min-w-0 flex-1 rounded-xl border border-line surface px-3 text-sm outline-none focus:border-lagon-500" />
         </div>
       ) : null}
       <div className="flex gap-1 surface-2 p-1">

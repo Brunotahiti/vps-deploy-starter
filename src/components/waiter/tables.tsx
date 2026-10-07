@@ -13,7 +13,6 @@ import { useToast } from "@/components/ui/toast";
 import { formatElapsed } from "@/lib/dates";
 import type { FloorTable, Order } from "@/components/pos/types";
 import { PushBanner, PushToggle } from "@/components/push-toggle";
-import { ReadyBanner } from "@/components/pos/counter-home";
 import { useQuery } from "@tanstack/react-query";
 import { Plus, ShoppingBag } from "lucide-react";
 
@@ -71,20 +70,19 @@ export function WaiterTables() {
       <div className="mb-4 flex items-start gap-3">
         <div className="min-w-0 flex-1">
           <p className="text-2xl font-extrabold">Bonjour {first} 👋</p>
-          <p className="text-sm text-muted">{payAtOrder ? (myDrafts.length ? `${myDrafts.length} commande${myDrafts.length > 1 ? "s" : ""} en cours` : "Prenez la commande, encaissez, c'est parti en cuisine") : myTables ? `${myTables} table${myTables > 1 ? "s" : ""} à vous` : "Touchez une table pour prendre la commande"}</p>
+          <p className="text-sm text-muted">{payAtOrder ? (myDrafts.length ? `${myDrafts.length} commande${myDrafts.length > 1 ? "s" : ""} à encaisser · les plats prêts s'affichent dans Salle` : "Prenez la commande, encaissez, c'est parti en cuisine · les plats prêts s'affichent dans Salle") : myTables ? `${myTables} table${myTables > 1 ? "s" : ""} à vous` : "Touchez une table pour prendre la commande"}</p>
         </div>
         <PushToggle compact />
       </div>
       <PushBanner className="mb-4" />
       {payAtOrder ? (
         <>
-          <ReadyBanner className="mb-4" />
           <button onClick={newCounterOrder} disabled={busy} data-testid="waiter-new-order" className="touch mb-4 flex h-20 w-full items-center justify-center gap-3 rounded-3xl bg-gradient-to-r from-lagon-500 to-lagon-700 text-xl font-extrabold text-white shadow-lift active:scale-[0.98] disabled:opacity-60"><Plus className="h-7 w-7" />Nouvelle commande</button>
           {myDrafts.length ? (
             <section className="mb-4">
               <p className="mb-2 flex items-center gap-2 text-sm font-extrabold uppercase tracking-wide text-muted"><ShoppingBag className="h-4 w-4" />À encaisser</p>
               <div className="space-y-2">
-                {myDrafts.map((o) => <button key={o.id} onClick={() => router.push(`/pos/m/${o.id}`)} className="touch card flex w-full items-center gap-3 p-3 text-left active:scale-[0.98]"><span className="min-w-0 flex-1"><span className="block truncate font-extrabold">{o.type === "TAKEAWAY" ? "À emporter" : "Sur place"}{o.customerName ? ` · ${o.customerName}` : ""} <span className="font-normal text-muted">· n° {o.number.split("-").pop()}</span></span><span className="block text-xs text-muted">{o.items.filter((i) => i.status !== "VOIDED" && !i.parentItemId).reduce((a, i) => a + i.quantity, 0)} article(s) · {formatElapsed(o.openedAt)}</span></span><Money amount={o.total} className="font-extrabold" /></button>)}
+                {myDrafts.map((o) => <button key={o.id} onClick={() => router.push(`/pos/m/${o.id}`)} className="touch card flex w-full items-center gap-3 p-3 text-left active:scale-[0.98]"><span className="min-w-0 flex-1"><span className="block truncate font-extrabold">{o.type === "TAKEAWAY" ? "À emporter" : o.tableLabel ? `Table ${o.tableLabel}` : "Sur place"}{o.customerName ? ` · ${o.customerName}` : ""} <span className="font-normal text-muted">· n° {o.number.split("-").pop()}</span></span><span className="block text-xs text-muted">{o.items.filter((i) => i.status !== "VOIDED" && !i.parentItemId).reduce((a, i) => a + i.quantity, 0)} article(s) · {formatElapsed(o.openedAt)}</span></span><Money amount={o.total} className="font-extrabold" /></button>)}
               </div>
             </section>
           ) : null}

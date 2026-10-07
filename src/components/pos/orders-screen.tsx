@@ -16,7 +16,8 @@ import { ORDER_STATUS_LABEL, ORDER_TYPE_LABEL, type Order } from "./types";
 
 export function OrdersScreen() {
   const { timezone } = useSession();
-  const [tab, setTab] = useState<"open" | "today" | "online">("open");
+  // Ouvert sur « Aujourd'hui » : toutes les commandes de la journée (en cours et payées) ; « En cours » n'en montre que les ouvertes
+  const [tab, setTab] = useState<"open" | "today" | "online">("today");
   const qc = useQueryClient();
   const act = useAction();
   const online = useQuery({ queryKey: ["orders", "online"], queryFn: () => api.get<Awaited<ReturnType<typeof listOnlineOrders>>>("/api/online-orders"), refetchInterval: 15_000 });
@@ -52,7 +53,7 @@ export function OrdersScreen() {
                 {o.notes ? <p className="mt-1 text-sm italic text-corail-500">« {o.notes} »</p> : null}
                 <div className="mt-2 flex flex-wrap gap-2">
                   {o.awaiting ? <><Button size="sm" onClick={() => act(() => api.post(`/api/online-orders/${o.id}/accept`), { success: "Commande acceptée et envoyée en cuisine", invalidate: [["orders"], ["kitchen"]] })}>Accepter → cuisine</Button><Button size="sm" variant="danger" onClick={() => { const reason = prompt("Motif du refus (communiqué au client) ?"); if (reason) act(() => api.post(`/api/online-orders/${o.id}/reject`, { reason }), { success: "Commande refusée", invalidate: [["orders"]] }); }}>Refuser</Button></> : <Badge color="green">acceptée</Badge>}
-                  <Link href={`/pos/order/${o.id}`} className="touch inline-flex h-9 items-center rounded-xl surface-2 px-3 text-sm font-semibold">Ouvrir / encaisser</Link>
+                  <Link href={`/pos/order/${o.id}?ticket=1`} className="touch inline-flex h-9 items-center rounded-xl surface-2 px-3 text-sm font-semibold">Ouvrir / encaisser</Link>
                 </div>
               </div>
             );
@@ -63,7 +64,7 @@ export function OrdersScreen() {
       {tab !== "online" && !loading && list.length === 0 ? <p className="py-10 text-center text-sm text-muted">Aucune commande</p> : null}
       <div className={`space-y-2 ${tab === "online" ? "hidden" : ""}`}>
         {list.map((o) => (
-          <Link key={o.id} href={`/pos/order/${o.id}`} className="touch flex items-center gap-3 rounded-xl border border-line surface p-3 hover:surface-2">
+          <Link key={o.id} href={`/pos/order/${o.id}?ticket=1`} className="touch flex items-center gap-3 rounded-xl border border-line surface p-3 hover:surface-2">
             <div className="flex h-12 w-12 flex-col items-center justify-center rounded-lg surface-2 text-xs font-bold">{o.table ? o.table.name : ORDER_TYPE_LABEL[o.type].slice(0, 4)}</div>
             <div className="min-w-0 flex-1">
               <p className="font-bold">n° {o.number.split("-")[1]} · {o.table ? `Table ${o.table.name}` : ORDER_TYPE_LABEL[o.type]}{o.customerName ? ` · ${o.customerName}` : ""}</p>

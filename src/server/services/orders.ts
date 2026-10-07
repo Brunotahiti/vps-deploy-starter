@@ -124,7 +124,7 @@ export async function settleAfterChange(tx: Tx, actor: Actor, orderId: string, o
 }
 
 // ---------------------------------------------------------------- Création
-export type CreateOrderInput = { id?: string; type: OrderType; isTab?: boolean; tableId?: string | null; covers?: number; customerName?: string | null; customerPhone?: string | null; pickupAt?: string | null; notes?: string | null; courses?: { id: string; name: string }[]; openedAt?: string };
+export type CreateOrderInput = { id?: string; type: OrderType; isTab?: boolean; tableId?: string | null; covers?: number; customerName?: string | null; tableLabel?: string | null; customerPhone?: string | null; pickupAt?: string | null; notes?: string | null; courses?: { id: string; name: string }[]; openedAt?: string };
 
 export async function createOrder(actor: Actor, input: CreateOrderInput) {
   const est = await prisma.establishment.findUniqueOrThrow({ where: { id: actor.establishmentId } });
@@ -151,7 +151,7 @@ export async function createOrder(actor: Actor, input: CreateOrderInput) {
     const o = await tx.order.create({
       data: {
         id: input.id, establishmentId: actor.establishmentId, number, type: input.type, isTab: input.isTab ?? false, tableId: input.tableId ?? null, serverId: actor.userId,
-        terminalId: actor.terminalId ?? null, covers: input.covers ?? 1, customerName: input.customerName ?? null, notes: input.notes ?? null,
+        terminalId: actor.terminalId ?? null, covers: input.covers ?? 1, customerName: input.customerName ?? null, tableLabel: input.tableLabel?.trim() || null, notes: input.notes ?? null,
         customerPhone: input.customerPhone ?? null, pickupAt: input.pickupAt ? new Date(input.pickupAt) : null,
         openedAt: input.openedAt ? new Date(input.openedAt) : undefined,
         courses: { create: input.courses ? input.courses.map((c, i) => ({ id: c.id, name: c.name, sortOrder: i })) : courseNames.map((name, i) => ({ name, sortOrder: i })) },
@@ -183,10 +183,10 @@ export async function getOrCreateCounterDraft(actor: Actor) {
   return createOrder(actor, { type: "COUNTER" });
 }
 
-export async function updateOrder(actor: Actor, orderId: string, input: { covers?: number; customerName?: string | null; customerPhone?: string | null; pickupAt?: string | null; notes?: string | null; type?: OrderType }) {
+export async function updateOrder(actor: Actor, orderId: string, input: { covers?: number; customerName?: string | null; tableLabel?: string | null; customerPhone?: string | null; pickupAt?: string | null; notes?: string | null; type?: OrderType }) {
   const order = await getOrder(actor.establishmentId, orderId);
   assertOpen(order);
-  await prisma.order.update({ where: { id: orderId }, data: { covers: input.covers, customerName: input.customerName, customerPhone: input.customerPhone, pickupAt: input.pickupAt === undefined ? undefined : input.pickupAt ? new Date(input.pickupAt) : null, notes: input.notes, type: input.type, version: { increment: 1 } } });
+  await prisma.order.update({ where: { id: orderId }, data: { covers: input.covers, customerName: input.customerName, tableLabel: input.tableLabel === undefined ? undefined : input.tableLabel?.trim() || null, customerPhone: input.customerPhone, pickupAt: input.pickupAt === undefined ? undefined : input.pickupAt ? new Date(input.pickupAt) : null, notes: input.notes, type: input.type, version: { increment: 1 } } });
   publish("order.updated", actor.establishmentId, { orderId, tableId: order.tableId });
   return getOrder(actor.establishmentId, orderId);
 }
