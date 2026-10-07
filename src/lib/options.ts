@@ -9,7 +9,7 @@ export const OPTIONS = {
   stock: {
     label: "Stock et recettes",
     tagline: "Savoir ce qu'il reste et ce que coûte chaque plat",
-    includes: ["Ingrédients et recettes : le stock baisse à chaque vente", "Inventaires et alertes de stock bas", "Fournisseurs et bons de commande", "Coût matière de chaque plat"],
+    includes: ["Ingrédients et recettes : le stock baisse à chaque vente", "Préparations maison : plusieurs ingrédients donnent une sauce, produite par lot à son coût réel", "Inventaires et alertes de stock bas", "Fournisseurs et bons de commande", "Coût matière de chaque plat", "Export du stock (valorisation, mouvements)"],
     permissions: ["stock.view", "stock.manage"],
   },
   digital: {
@@ -27,7 +27,7 @@ export const OPTIONS = {
   stats: {
     label: "Statistiques & rapports",
     tagline: "Comprendre vos ventes et exporter vos chiffres",
-    includes: ["Statistiques : ventes par jour, par heure, par produit et par serveur", "Rapports sur la période de votre choix", "Exports tableur et exports comptables"],
+    includes: ["Statistiques : ventes par jour, par heure, par produit et par serveur", "Rapports sur la période de votre choix", "Comptabilité : dépenses, TVA à reverser, résultat estimé", "Exports tableur et export comptable complet (écritures prêtes pour le comptable)"],
     permissions: [],
   },
   continuity: {

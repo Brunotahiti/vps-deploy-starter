@@ -3,12 +3,14 @@ import { formatMoney } from "@/lib/money";
 import { endOfLocalDay, formatDate, formatDateTime, startOfLocalDay } from "@/lib/dates";
 import { getPeriodReport } from "@/server/services/reports";
 import { staffSummary } from "@/server/services/staff";
+import { getAccountingSummary, listExpenses } from "@/server/services/accounting";
+import { listIngredients, listMovements } from "@/server/services/stock";
 
 /**
  * Exports CSV / Excel / PDF (Phase 5) : rapport de période, ventes par produit,
  * liste des commandes, heures et coût du personnel.
  */
-export type ExportType = "period" | "products" | "orders" | "staff" | "accounting";
+export type ExportType = "period" | "products" | "orders" | "staff" | "accounting" | "expenses" | "stock";
 export type ExportFormat = "csv" | "xlsx" | "pdf";
 
 const METHOD: Record<string, string> = { CASH: "Espèces", CARD: "Carte bancaire", CHECK: "Chèque", TRANSFER: "Virement", MEAL_VOUCHER: "Ticket restaurant", COMPLIMENTARY: "Offert", OTHER: "Autre", ACCOUNT: "Sur compte", GIFT_CARD: "Carte cadeau" };
@@ -51,6 +53,18 @@ export async function buildExport(establishmentId: string, type: ExportType, fro
     return { title: `Commandes ${period}`, sheets: [{ name: "Commandes", head: ["N°", "Ouverte", "Clôturée", "Type", "Table", "Couverts", "Serveur", "Statut", "Sous-total", "Remise", "TVA", "Total TTC", "Pourboire", "Paiements", "Motif annulation"], rows }] };
   }
   if (type === "accounting") return buildAccountingExport(establishmentId, fromDay, toDay, timezone);
+  if (type === "expenses") {
+    const rows = await listExpenses(establishmentId, startOfLocalDay(fromDay, timezone), endOfLocalDay(toDay, timezone));
+    return { title: `Dépenses ${period}`, sheets: [{ name: "Dépenses", head: ["Date", "Libellé", "Catégorie", "Compte", "Fournisseur", "Référence", "TTC", "TVA déductible", "HT", "Paiement", "Payée le", "Notes"], rows: rows.map((e) => [formatDate(e.date, timezone), e.label, e.categoryLabel, e.account, e.supplierName ?? e.supplier?.name ?? "", e.reference ?? "", e.amountTtc, e.taxAmount, e.amountHt, e.method ? METHOD[e.method] ?? e.method : "À payer", e.paidAt ? formatDate(e.paidAt, timezone) : "", e.notes ?? ""]) }] };
+  }
+  if (type === "stock") {
+    const [ings, moves] = await Promise.all([listIngredients(establishmentId, { includeInactive: false }), listMovements(establishmentId, { from: startOfLocalDay(fromDay, timezone), to: endOfLocalDay(toDay, timezone), take: 5000 })]);
+    const MOVE: Record<string, string> = { SALE: "Vente", PURCHASE: "Achat", ADJUSTMENT: "Ajustement", LOSS: "Perte", BREAKAGE: "Casse", INTERNAL_USE: "Usage interne", INVENTORY: "Inventaire", PRODUCTION: "Production" };
+    const valuation: Sheet = { name: "Valorisation du stock", head: ["Ingrédient", "Type", "Unité", "Stock", "Seuil", "Coût moyen", "Valeur", "Dernier coût"], rows: ings.map((i) => [i.name, i.isPreparation ? "Préparation" : "Ingrédient", i.unit, i.stockQty, i.stockMin, i.avgCost, i.value, i.lastCost]) };
+    valuation.rows.push(["TOTAL", "", "", "", "", "", ings.reduce((a, i) => a + i.value, 0), ""]);
+    const journal: Sheet = { name: "Mouvements", head: ["Date", "Ingrédient", "Unité", "Type", "Quantité", "Coût unit.", "Valeur", "Motif", "Par"], rows: moves.map((m) => [formatDateTime(m.createdAt, timezone), m.ingredient.name, m.ingredient.unit, MOVE[m.kind] ?? m.kind, m.quantity, m.unitCost ?? "", m.value ?? "", m.reason ?? "", m.user?.displayName || m.user?.firstName || ""]) };
+    return { title: `Stock ${period}`, sheets: [valuation, journal] };
+  }
   const s = await staffSummary(establishmentId, fromDay, toDay, timezone);
   const rows = s.rows.map((r) => [`${r.firstName} ${r.lastName}`, r.jobTitle ?? "", r.hours, r.breakHours, r.plannedHours, r.variance, r.hourlyCost ?? "", r.cost]);
   rows.push(["TOTAL", "", s.totalHours, "", s.totalPlannedHours, "", "", s.totalCost]);
@@ -98,7 +112,7 @@ export async function toPdf(sheets: Sheet[], title: string, establishmentName: s
   doc.font("Helvetica").fontSize(10).text(strip(title), 36, 44);
   doc.fillColor("#0f172a");
   let y = 90;
-  const moneyCols = new Set(["CA TTC", "CA HT", "TVA", "Montant", "Coût matière", "Coût", "Sous-total", "Remise", "Total TTC", "Pourboire", "Panier moyen", "CA / couvert", "Remises", "Remboursements", "Coût horaire"]);
+  const moneyCols = new Set(["CA TTC", "CA HT", "TVA", "Montant", "Coût matière", "Coût", "Sous-total", "Remise", "Total TTC", "Pourboire", "Panier moyen", "CA / couvert", "Remises", "Remboursements", "Coût horaire", "TTC", "HT", "TVA déductible", "Débit", "Crédit", "Valeur", "Coût moyen", "Dernier coût", "Coût unit.", "Encaissé", "Remboursé", "Net"]);
   for (const sh of sheets) {
     const rows = sh.rows.slice(0, 45);
     const cols = sh.head.length;
@@ -110,7 +124,7 @@ export async function toPdf(sheets: Sheet[], title: string, establishmentName: s
     y += 18; doc.font("Helvetica").fontSize(7.5);
     for (const r of rows) {
       if (y > 780) { doc.addPage(); y = 50; }
-      r.forEach((v, i) => { const isMoney = typeof v === "number" && (sh.name === "Synthèse" ? v > 100 : moneyCols.has(sh.head[i])); doc.text(strip(v === null ? "" : typeof v === "number" && isMoney ? formatMoney(v, currency) : String(v)), 40 + i * colW, y, { width: colW - 6, align: i === 0 ? "left" : "right" }); });
+      r.forEach((v, i) => { const isMoney = typeof v === "number" && (sh.name === "Synthèse" || sh.name === "Résultat" ? Math.abs(v) > 100 : moneyCols.has(sh.head[i])); doc.text(strip(v === null ? "" : typeof v === "number" && isMoney ? formatMoney(v, currency) : String(v)), 40 + i * colW, y, { width: colW - 6, align: i === 0 ? "left" : "right" }); });
       y += 12;
       doc.moveTo(36, y - 1).lineTo(36 + W, y - 1).strokeColor("#e4e9ef").lineWidth(0.4).stroke();
     }
@@ -238,7 +252,40 @@ export async function buildAccountingExport(establishmentId: string, fromDay: st
     ].sort((a, b) => a.at.getTime() - b.at.getTime()).map((x) => x.row),
   };
 
+  // Dépenses saisies (Comptabilité) : débit du compte de charge (HT) et de la TVA déductible (445660),
+  // crédit du fournisseur (401) ; une dépense payée solde le 401 par le compte d'encaissement utilisé
+  const expenses = await listExpenses(establishmentId, startOfLocalDay(fromDay, timezone), endOfLocalDay(toDay, timezone));
+  for (const e of [...expenses].sort((a, b) => a.date.getTime() - b.date.getTime())) {
+    const day = dayFmt.format(e.date);
+    const who = e.supplierName ?? e.supplier?.name ?? e.categoryLabel;
+    const text = `${e.label}${e.reference ? ` (${e.reference})` : ""} — ${who}`;
+    entries.rows.push([day, "AC", e.account, text, e.amountHt, 0]);
+    if (e.taxAmount) entries.rows.push([day, "AC", "445660", `TVA déductible — ${text}`, e.taxAmount, 0]);
+    entries.rows.push([day, "AC", "401000", `Fournisseur ${who}`, 0, e.amountTtc]);
+    if (e.method && e.paidAt) {
+      const payDay = dayFmt.format(e.paidAt);
+      const [acc, label] = ACCOUNTS[e.method] ?? ["471000", e.method];
+      entries.rows.push([payDay, "BQ", "401000", `Règlement ${who} — ${e.label}`, e.amountTtc, 0]);
+      entries.rows.push([payDay, "BQ", acc, `${label} — ${e.label}`, 0, e.amountTtc]);
+    }
+  }
+  const expenseSheet: Sheet = { name: "Dépenses", head: ["Date", "Libellé", "Catégorie", "Compte", "Fournisseur", "Référence", "TTC", "TVA", "HT", "Paiement"], rows: expenses.map((e) => [formatDate(e.date, timezone), e.label, e.categoryLabel, e.account, e.supplierName ?? e.supplier?.name ?? "", e.reference ?? "", e.amountTtc, e.taxAmount, e.amountHt, e.method ? METHOD[e.method] ?? e.method : "À payer"]) };
+
+  // Achats de matières entrés en stock (réceptions de bons de commande, achats directs) : 601 / 401, au coût d'entrée (prix fournisseur, sans TVA distincte)
+  const purchases = await prisma.inventoryMovement.findMany({ where: { establishmentId, kind: "PURCHASE", createdAt: range }, orderBy: { createdAt: "asc" }, include: { ingredient: { select: { name: true, unit: true } } } });
+  const purchaseByDay = new Map<string, number>();
+  for (const m of purchases) { const day = dayFmt.format(m.createdAt); purchaseByDay.set(day, (purchaseByDay.get(day) ?? 0) + Math.round(Math.abs(Number(m.quantity)) * (m.unitCost ?? 0))); }
+  for (const [day, amount] of [...purchaseByDay.entries()].sort()) { if (!amount) continue; entries.rows.push([day, "AC", "601000", `Achats matières entrés en stock ${day}`, amount, 0]); entries.rows.push([day, "AC", "401000", `Fournisseurs — achats stock ${day}`, 0, amount]); }
+  const purchaseSheet: Sheet = { name: "Achats stock", head: ["Date", "Ingrédient", "Quantité", "Unité", "Coût unit.", "Montant", "Motif"], rows: purchases.map((m) => [formatDateTime(m.createdAt, timezone), m.ingredient.name, Number(m.quantity), m.ingredient.unit, m.unitCost ?? "", Math.round(Math.abs(Number(m.quantity)) * (m.unitCost ?? 0)), m.reason ?? ""]) };
+
+  // Compte de résultat simplifié de la période
+  const sum = await getAccountingSummary(establishmentId, fromDay, toDay, timezone, { withStaff: true });
+  const result: Sheet = { name: "Résultat", head: ["Poste", "Montant"], rows: [
+    ["Ventes HT (net des remboursements)", sum.result.revenueHt], ["TVA collectée", sum.vat.collected], ["Achats matières (stock)", -sum.result.purchases], ["Dépenses HT saisies", -sum.result.expensesHt], ["Personnel pointé", -sum.result.laborCost],
+    ["Résultat d'exploitation estimé", sum.result.result], ["Marge %", sum.result.marginPct ?? ""], ["TVA déductible (dépenses)", sum.vat.deductible], ["TVA à reverser (estimation)", sum.vat.due], ["Dépenses à payer", sum.expenses.unpaid],
+  ] };
+
   const period = `${fromDay} → ${toDay}`;
   const header: Sheet = { name: "Entête", head: ["Champ", "Valeur"], rows: [["Établissement", est.name], ["Raison sociale", est.legalName ?? ""], ["N° Tahiti", est.tahitiNumber ?? ""], ["Période", period], ["Devise", "XPF (F CFP), sans décimales"], ["Généré le", new Date().toISOString()]] };
-  return { title: `Export comptable ${period}`, sheets: [header, days, sales, receipts, refundSheet, ...(settlements.length ? [settlementSheet] : []), ...(giftCards.length ? [giftSheet] : []), ...(cateringSheet.rows.length ? [cateringSheet] : []), entries] };
+  return { title: `Export comptable ${period}`, sheets: [header, result, days, sales, receipts, refundSheet, ...(settlements.length ? [settlementSheet] : []), ...(giftCards.length ? [giftSheet] : []), ...(cateringSheet.rows.length ? [cateringSheet] : []), ...(expenses.length ? [expenseSheet] : []), ...(purchases.length ? [purchaseSheet] : []), entries] };
 }

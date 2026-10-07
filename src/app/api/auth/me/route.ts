@@ -30,7 +30,7 @@ export const GET = route(async () => {
     publicSitePath: establishment && ctx.options.includes("digital") ? shareUrl(establishment.shareSlug ?? (await ensureShareSlug(establishment.id))) : null,
     options: ctx.options,
     demoVisit: back ? { returnTo: { firstName: back.session.user.firstName, establishmentName: backEst?.name ?? null } } : null,
-    user: { id: user.id, email: user.email, firstName: user.firstName, lastName: user.lastName, displayName: user.displayName, color: user.color, isOwner: user.isOwner, hasPin: !!user.pinHash },
+    user: { id: user.id, email: user.pinOnly ? "" : user.email, pinOnly: user.pinOnly, firstName: user.firstName, lastName: user.lastName, displayName: user.displayName, color: user.color, isOwner: user.isOwner, hasPin: !!user.pinHash },
     organizationId: ctx.organizationId,
     establishment: establishment ? publicEstablishment(establishment) : null,
     establishments: ctx.establishments,

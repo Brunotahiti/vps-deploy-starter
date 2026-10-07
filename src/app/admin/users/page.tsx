@@ -13,9 +13,12 @@ import type { listRoles } from "@/server/services/roles";
 import { ProfileBadge, ProfilePicker, ProfilesGuide } from "@/components/admin/profile-picker";
 
 type U = Awaited<ReturnType<typeof listUsers>>[number];
+/** Couleurs proposées pour reconnaître chacun d'un coup d'œil sur l'écran PIN et les tickets. */
+const COLORS = ["#0EA5A4", "#3B82F6", "#8B5CF6", "#EC4899", "#F97316", "#EAB308", "#22C55E", "#EF4444", "#64748B", "#A16207"];
 type R = Awaited<ReturnType<typeof listRoles>>[number];
 type Perm = { key: string; group: string; description: string };
-type Form = { id?: string; email: string; password: string; currentPassword?: string; firstName: string; lastName: string; displayName: string; color: string; pin: string; isActive: boolean; memberships: { establishmentId: string; roleId: string }[] };
+type PinForm = { firstName: string; lastName: string; displayName: string; color: string; pin: string; memberships: { establishmentId: string; roleId: string }[] };
+type Form = { id?: string; pinOnly?: boolean; email: string; password: string; currentPassword?: string; firstName: string; lastName: string; displayName: string; color: string; pin: string; isActive: boolean; memberships: { establishmentId: string; roleId: string }[] };
 
 export default function UsersPage() {
   const { me, hasOption } = useSession();
@@ -27,6 +30,7 @@ export default function UsersPage() {
   const roles = useList<R[]>(["roles"], "/api/roles");
   const perms = useList<Perm[]>(["permissions"], "/api/permissions");
   const [edit, setEdit] = useState<Form | null>(null);
+  const [pinNew, setPinNew] = useState<PinForm | null>(null);
   const [roleEdit, setRoleEdit] = useState<{ id?: string; name: string; permissions: string[]; isSystem: boolean } | null>(null);
   const [invite, setInvite] = useState<{ email: string; firstName: string; lastName: string; memberships: { establishmentId: string; roleId: string }[] } | null>(null);
   const [sent, setSent] = useState<{ email: string; inviteUrl: string; emailSent: boolean } | null>(null);
@@ -38,9 +42,15 @@ export default function UsersPage() {
   const canGiveAdmin = !!me?.user?.isOwner || me?.roleKey === "admin";
   const defaultRole = assignable.find((r) => r.key === "server")?.id ?? "";
 
+  const savePinUser = async () => {
+    if (!pinNew) return;
+    const r = await act(() => api.post("/api/users/pin", { firstName: pinNew.firstName, lastName: pinNew.lastName, displayName: pinNew.displayName || null, color: pinNew.color || null, pin: pinNew.pin, memberships: pinNew.memberships }), { success: `${pinNew.firstName} peut se connecter avec son PIN`, invalidate: [["users"], ["pin-team"]] });
+    if (r) setPinNew(null);
+  };
   const save = async () => {
     if (!edit) return;
-    const body = { email: edit.email, firstName: edit.firstName, lastName: edit.lastName, displayName: edit.displayName || null, color: edit.color || null, isActive: edit.isActive, memberships: edit.memberships, ...(edit.password ? { password: edit.password, ...(edit.id === me?.user?.id ? { currentPassword: edit.currentPassword ?? "" } : {}) } : {}), ...(edit.pin ? { pin: edit.pin } : {}) };
+    // Compte « PIN seul » : pas d'adresse (sauf si on lui en donne une avec un mot de passe : il devient un compte complet)
+    const body = { ...(edit.email ? { email: edit.email } : {}), firstName: edit.firstName, lastName: edit.lastName, displayName: edit.displayName || null, color: edit.color || null, isActive: edit.isActive, memberships: edit.memberships, ...(edit.password ? { password: edit.password, ...(edit.id === me?.user?.id ? { currentPassword: edit.currentPassword ?? "" } : {}) } : {}), ...(edit.pin ? { pin: edit.pin } : {}) };
     const r = await act(() => (edit.id ? api.patch(`/api/users/${edit.id}`, body) : api.post("/api/users", body)), { success: "Utilisateur enregistré", invalidate: [["users"]] });
     if (r) setEdit(null);
   };
@@ -65,7 +75,7 @@ export default function UsersPage() {
 
   return (
     <div>
-      <PageHeader title={customRoles ? "Utilisateurs & rôles" : "Accès & PIN"} subtitle={customRoles ? "Comptes du personnel, PIN de caisse, profils et permissions détaillées" : "Un compte et un PIN par personne, avec un profil : Admin, Gérant, Chef en cuisine, Équipe en salle"} action={tab === "users" || !customRoles ? <div className="flex flex-wrap gap-2"><Button variant="secondary" disabled={!roles.data || !me} onClick={() => setInvite({ email: "", firstName: "", lastName: "", memberships: me?.establishment ? [{ establishmentId: me.establishment.id, roleId: defaultRole }] : [] })}>Inviter par e-mail</Button><Button disabled={!roles.data || !me} onClick={() => setEdit({ email: "", password: "", firstName: "", lastName: "", displayName: "", color: "#0EA5A4", pin: "", isActive: true, memberships: me?.establishment ? [{ establishmentId: me.establishment.id, roleId: defaultRole }] : [] })}>Nouvel utilisateur</Button></div> : <Button onClick={() => setRoleEdit({ name: "", permissions: [], isSystem: false })}>Nouveau rôle</Button>} />
+      <PageHeader title={customRoles ? "Utilisateurs & rôles" : "Accès & PIN"} subtitle={customRoles ? "Un compte par personne : connexion par PIN sur les terminaux (le plus rapide), ou avec e-mail et mot de passe ; profils et permissions détaillées" : "Un compte et un PIN par personne, avec un profil : Admin, Gérant, Chef en cuisine, Équipe en salle. Connexion par PIN sur les terminaux."} action={tab === "users" || !customRoles ? <div className="flex flex-wrap gap-2"><Button disabled={!roles.data || !me} onClick={() => setPinNew({ firstName: "", lastName: "", displayName: "", color: COLORS[(users.data?.length ?? 0) % COLORS.length], pin: "", memberships: me?.establishment ? [{ establishmentId: me.establishment.id, roleId: defaultRole }] : [] })} data-testid="user-new-pin">Ajouter un employé (PIN)</Button><Button variant="secondary" disabled={!roles.data || !me} onClick={() => setInvite({ email: "", firstName: "", lastName: "", memberships: me?.establishment ? [{ establishmentId: me.establishment.id, roleId: defaultRole }] : [] })}>Inviter par e-mail</Button><Button variant="secondary" disabled={!roles.data || !me} onClick={() => setEdit({ email: "", password: "", firstName: "", lastName: "", displayName: "", color: "#0EA5A4", pin: "", isActive: true, memberships: me?.establishment ? [{ establishmentId: me.establishment.id, roleId: defaultRole }] : [] })}>Compte avec e-mail</Button></div> : <Button onClick={() => setRoleEdit({ name: "", permissions: [], isSystem: false })}>Nouveau rôle</Button>} />
       {customRoles ? <div className="mb-4 flex gap-1 border-b border-line">{(["users", "roles"] as const).map((t) => <button key={t} onClick={() => setTab(t)} className={`border-b-2 px-3 py-2 text-sm font-semibold ${tab === t ? "border-lagon-500 text-lagon-600" : "border-transparent text-muted"}`}>{t === "users" ? "Utilisateurs" : "Rôles & permissions"}</button>)}</div> : null}
       {(tab === "users" || !customRoles) && guide ? <ProfilesGuide onClose={() => setGuide(false)} /> : null}
       {(tab === "users" || !customRoles) && !guide ? <button onClick={() => setGuide(true)} className="mb-3 text-xs font-semibold text-lagon-600">Qui peut faire quoi ?</button> : null}
@@ -73,10 +83,10 @@ export default function UsersPage() {
         <Table head={["Nom", "Email", "Profil", "PIN", "Statut", "Dernière connexion", ""]}>
           {users.data?.map((u) => (
             <Tr key={u.id}>
-              <Td><span className="mr-2 inline-flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold text-white" style={{ background: u.color ?? "#0ea5a4" }}>{u.firstName.slice(0, 1)}</span><span className="font-semibold">{u.firstName} {u.lastName}</span>{u.displayName ? <span className="text-muted"> ({u.displayName})</span> : null}</Td><Td>{u.email}</Td>
+              <Td><span className="mr-2 inline-flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold text-white" style={{ background: u.color ?? "#0ea5a4" }}>{u.firstName.slice(0, 1)}</span><span className="font-semibold">{u.firstName} {u.lastName}</span>{u.displayName ? <span className="text-muted"> ({u.displayName})</span> : null}</Td><Td>{u.pinOnly ? <Badge color="teal">PIN seul</Badge> : u.email}</Td>
               <Td>{u.isOwner ? <Badge color="purple">👑 Admin · propriétaire</Badge> : u.memberships.map((m) => <ProfileBadge key={m.establishmentId} roleKey={m.role.key} name={m.role.name} suffix={ests.length > 1 ? ` · ${m.establishment.name}` : undefined} />)}</Td>
               <Td>{u.hasPin ? <Badge color="green">défini</Badge> : <Badge color="orange">aucun</Badge>}</Td><Td>{!u.isActive ? <Badge color="red">désactivé</Badge> : u.invitePending ? <span className="inline-flex flex-wrap items-center gap-1.5"><Badge color={u.inviteExpired ? "red" : "orange"}>{u.inviteExpired ? "invitation expirée" : "invitation en attente"}</Badge><button onClick={() => resend(u)} className="text-xs font-semibold text-lagon-600">Renvoyer</button></span> : "Actif"}</Td><Td className="text-xs text-muted">{u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleString("fr-FR") : "—"}</Td>
-              <Td><button onClick={() => setEdit({ id: u.id, email: u.email, password: "", firstName: u.firstName, lastName: u.lastName, displayName: u.displayName ?? "", color: u.color ?? "", pin: "", isActive: u.isActive, memberships: u.memberships.map((m) => ({ establishmentId: m.establishmentId, roleId: m.roleId })) })} className="text-xs font-semibold text-lagon-600">Modifier</button></Td>
+              <Td><button onClick={() => setEdit({ id: u.id, pinOnly: u.pinOnly, email: u.email, password: "", firstName: u.firstName, lastName: u.lastName, displayName: u.displayName ?? "", color: u.color ?? "", pin: "", isActive: u.isActive, memberships: u.memberships.map((m) => ({ establishmentId: m.establishmentId, roleId: m.roleId })) })} className="text-xs font-semibold text-lagon-600">Modifier</button></Td>
             </Tr>
           ))}
         </Table>
@@ -89,6 +99,33 @@ export default function UsersPage() {
         </Table>
       ))}
 
+      <Modal open={!!pinNew} onClose={() => setPinNew(null)} title="Ajouter un employé (connexion par PIN)" size="lg" footer={<Button className="w-full" disabled={!pinNew?.firstName || !pinNew?.lastName || !/^\d{4,6}$/.test(pinNew?.pin ?? "") || !pinNew?.memberships.length || pinNew.memberships.some((m) => !m.roleId)} onClick={savePinUser} data-testid="pin-user-save">Créer le compte</Button>}>
+        {pinNew ? (
+          <div className="space-y-3">
+            <p className="rounded-xl bg-lagon-500/10 px-3 py-2.5 text-sm text-lagon-800 dark:text-lagon-200">Le plus rapide pour l&apos;équipe : <b>pas d&apos;e-mail ni de mot de passe</b>. Sur la tablette, la personne touche son nom puis tape son PIN. Le profil fixe ce qu&apos;elle peut faire.</p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label="Prénom"><Input value={pinNew.firstName} onChange={(e) => setPinNew({ ...pinNew, firstName: e.target.value })} autoFocus data-testid="pin-user-first" /></Field>
+              <Field label="Nom"><Input value={pinNew.lastName} onChange={(e) => setPinNew({ ...pinNew, lastName: e.target.value })} data-testid="pin-user-last" /></Field>
+              <Field label="PIN (4 à 6 chiffres)" hint="Unique dans l'établissement : c'est ce qui identifie la personne"><Input inputMode="numeric" value={pinNew.pin} onChange={(e) => setPinNew({ ...pinNew, pin: e.target.value.replace(/\D/g, "").slice(0, 6) })} placeholder="1234" data-testid="pin-user-pin" /></Field>
+              <Field label="Nom affiché en caisse (facultatif)"><Input value={pinNew.displayName} onChange={(e) => setPinNew({ ...pinNew, displayName: e.target.value })} placeholder={pinNew.firstName || "Prénom"} /></Field>
+            </div>
+            <Field label="Couleur"><div className="flex flex-wrap gap-2">{COLORS.map((c) => <button key={c} type="button" onClick={() => setPinNew({ ...pinNew, color: c })} aria-label={`Couleur ${c}`} className={`touch h-9 w-9 rounded-full ring-offset-2 ring-offset-[var(--bg)] ${pinNew.color === c ? "ring-2 ring-lagon-500" : ""}`} style={{ background: c }} />)}</div></Field>
+            <div>
+              <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted">Profil</p>
+              {pinNew.memberships.map((m, i) => (
+                <div key={i} className="mb-3 space-y-2 rounded-2xl border border-line p-3">
+                  <div className="flex items-center gap-2">
+                    {ests.length > 1 ? <Select value={m.establishmentId} onChange={(e) => setPinNew({ ...pinNew, memberships: pinNew.memberships.map((x, j) => (j === i ? { ...x, establishmentId: e.target.value } : x)) })} className="flex-1">{ests.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}</Select> : <span className="flex-1 text-sm font-semibold">{ests.find((e) => e.id === m.establishmentId)?.name}</span>}
+                    {pinNew.memberships.length > 1 ? <button onClick={() => setPinNew({ ...pinNew, memberships: pinNew.memberships.filter((_, j) => j !== i) })} className="text-xs font-semibold text-red-600">Retirer</button> : null}
+                  </div>
+                  <ProfilePicker roles={assignable} value={m.roleId} canGiveAdmin={canGiveAdmin} onChange={(roleId) => setPinNew({ ...pinNew, memberships: pinNew.memberships.map((x, j) => (j === i ? { ...x, roleId } : x)) })} />
+                </div>
+              ))}
+              {ests.length > pinNew.memberships.length ? <button onClick={() => setPinNew({ ...pinNew, memberships: [...pinNew.memberships, { establishmentId: ests.find((e) => !pinNew.memberships.some((m) => m.establishmentId === e.id))?.id ?? ests[0].id, roleId: "" }] })} className="text-xs font-semibold text-lagon-600">+ Ajouter un établissement</button> : null}
+            </div>
+          </div>
+        ) : null}
+      </Modal>
       <Modal open={!!invite} onClose={() => setInvite(null)} title="Inviter un membre de l'équipe" size="lg" footer={<Button className="w-full" disabled={inviting || !invite?.email.includes("@") || !invite?.firstName || !invite?.lastName || !invite?.memberships.length || invite.memberships.some((m) => !m.roleId)} onClick={sendInvite}>{inviting ? "Envoi…" : "Envoyer l'invitation"}</Button>}>
         {invite ? (
           <div className="space-y-3">
@@ -119,11 +156,11 @@ export default function UsersPage() {
           </div>
         ) : null}
       </Modal>
-      <Modal open={!!edit} onClose={() => setEdit(null)} title={edit?.id ? "Modifier l'utilisateur" : "Nouvel utilisateur"} size="lg" footer={<Button className="w-full" disabled={!edit?.email || !edit.firstName || !edit.lastName || (!edit.id && edit.password.length < 8) || edit.memberships.some((m) => !m.roleId)} onClick={save}>Enregistrer</Button>}>
+      <Modal open={!!edit} onClose={() => setEdit(null)} title={edit?.id ? "Modifier l'utilisateur" : "Nouvel utilisateur"} size="lg" footer={<Button className="w-full" disabled={(!edit?.email && !edit?.pinOnly) || !edit?.firstName || !edit.lastName || (!edit.id && edit.password.length < 8) || edit.memberships.some((m) => !m.roleId)} onClick={save}>Enregistrer</Button>}>
         {edit ? <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Prénom"><Input value={edit.firstName} onChange={(e) => setEdit({ ...edit, firstName: e.target.value })} /></Field><Field label="Nom"><Input value={edit.lastName} onChange={(e) => setEdit({ ...edit, lastName: e.target.value })} /></Field>
-          <Field label="Email"><Input type="email" value={edit.email} onChange={(e) => setEdit({ ...edit, email: e.target.value })} /></Field><Field label="Nom affiché en caisse"><Input value={edit.displayName} onChange={(e) => setEdit({ ...edit, displayName: e.target.value })} /></Field>
-          <Field label={edit.id ? "Nouveau mot de passe (laisser vide)" : "Mot de passe (8 car. min.)"}><Input type="password" value={edit.password} onChange={(e) => setEdit({ ...edit, password: e.target.value })} /></Field>{edit.id && edit.id === me?.user?.id && edit.password ? <Field label="Mot de passe actuel"><Input type="password" autoComplete="current-password" value={edit.currentPassword ?? ""} onChange={(e) => setEdit({ ...edit, currentPassword: e.target.value })} /></Field> : null}<Field label={edit.id ? "Nouveau PIN (laisser vide)" : "PIN caisse (4 à 6 chiffres)"}><Input inputMode="numeric" value={edit.pin} onChange={(e) => setEdit({ ...edit, pin: e.target.value.replace(/\D/g, "").slice(0, 6) })} /></Field>
+          <Field label={edit.pinOnly ? "Email (facultatif : le compte devient alors complet, avec un mot de passe)" : "Email"}><Input type="email" value={edit.email} onChange={(e) => setEdit({ ...edit, email: e.target.value })} placeholder={edit.pinOnly ? "Compte PIN seul, sans e-mail" : undefined} /></Field><Field label="Nom affiché en caisse"><Input value={edit.displayName} onChange={(e) => setEdit({ ...edit, displayName: e.target.value })} /></Field>
+          <Field label={edit.id ? (edit.pinOnly ? "Mot de passe (facultatif, 8 car. min.)" : "Nouveau mot de passe (laisser vide)") : "Mot de passe (8 car. min.)"}><Input type="password" value={edit.password} onChange={(e) => setEdit({ ...edit, password: e.target.value })} /></Field>{edit.id && edit.id === me?.user?.id && edit.password ? <Field label="Mot de passe actuel"><Input type="password" autoComplete="current-password" value={edit.currentPassword ?? ""} onChange={(e) => setEdit({ ...edit, currentPassword: e.target.value })} /></Field> : null}<Field label={edit.id ? "Nouveau PIN (laisser vide)" : "PIN caisse (4 à 6 chiffres)"}><Input inputMode="numeric" value={edit.pin} onChange={(e) => setEdit({ ...edit, pin: e.target.value.replace(/\D/g, "").slice(0, 6) })} /></Field>
           <Field label="Couleur"><Input type="color" value={edit.color || "#0ea5a4"} onChange={(e) => setEdit({ ...edit, color: e.target.value })} className="h-11 p-1" /></Field>
           <div className="flex items-end"><Toggle checked={edit.isActive} onChange={(v) => setEdit({ ...edit, isActive: v })} label="Compte actif" /></div>
           <div className="sm:col-span-2"><p className="mb-1 text-xs font-semibold uppercase text-muted">Profil par établissement</p>
