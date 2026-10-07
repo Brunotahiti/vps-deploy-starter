@@ -2,12 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Settings, type LucideProps } from "lucide-react";
+import { Settings, Store, ConciergeBell, type LucideProps } from "lucide-react";
 import type { ComponentType } from "react";
 import { useSession } from "@/hooks/use-session";
 import { PORTALS, rememberPortal, type PortalMode } from "./portals";
 
-type Entry = { key: PortalMode | "gestion"; label: string; href: string; title: string; icon: ComponentType<LucideProps>; tile: string };
+type Entry = { key: PortalMode | "gestion" | "service"; label: string; href: string; title: string; icon: ComponentType<LucideProps>; tile: string };
 
 /** Gestion : carte, rapports, équipe, réglages (pas d'écran de connexion par PIN, c'est l'espace du responsable) */
 const GESTION: Entry = { key: "gestion", label: "Gestion", href: "/admin", title: "Gestion : carte, rapports, équipe, réglages", icon: Settings, tile: "from-indigo-500 to-violet-600 shadow-[0_10px_30px_-10px_rgb(99_102_241/0.8)]" };
@@ -15,6 +15,7 @@ const GESTION: Entry = { key: "gestion", label: "Gestion", href: "/admin", title
 /** Portail de la page affichée (mis en évidence dans la barre) */
 function activeKey(pathname: string): Entry["key"] | null {
   if (pathname.startsWith("/admin")) return "gestion";
+  if (pathname.startsWith("/pos/salle")) return "service";
   if (pathname.startsWith("/kds")) return "cuisine";
   if (pathname.startsWith("/pos/m") || pathname.startsWith("/commande")) return "commande";
   if (pathname.startsWith("/pos/orders") || pathname.startsWith("/pos/cash")) return "caisse";
@@ -32,8 +33,15 @@ export function PortalButtons({ onNavigate, className = "" }: { onNavigate?: () 
   const { can, businessType, payAtOrder } = useSession();
   const pathname = usePathname();
   // Snack : pas de portail Commande (service à table)… sauf en mode roulotte, où le serveur prend la commande, encaisse et envoie en cuisine depuis son téléphone
+  // Mode roulotte : le portail « Salle » (plats prêts à apporter aux tables) s'ajoute à côté du Comptoir
+  const SERVICE: Entry = { key: "service", label: "Salle", href: "/pos/salle", title: "Salle : les plats prêts en cuisine, à apporter aux tables", icon: ConciergeBell, tile: PORTALS.salle.tile };
   const entries: Entry[] = [
-    ...(Object.keys(PORTALS) as PortalMode[]).filter((m) => can(PORTALS[m].permission) && !(m === "commande" && businessType === "snack" && !payAtOrder)).map((m) => ({ key: m, label: m === "salle" && (businessType === "snack" || payAtOrder) ? "Comptoir" : PORTALS[m].label, href: PORTALS[m].next, title: PORTALS[m].title, icon: PORTALS[m].icon, tile: PORTALS[m].tile })),
+    ...(Object.keys(PORTALS) as PortalMode[]).filter((m) => can(PORTALS[m].permission) && !(m === "commande" && businessType === "snack" && !payAtOrder)).flatMap((m): Entry[] => {
+      const base: Entry = { key: m, label: PORTALS[m].label, href: PORTALS[m].next, title: PORTALS[m].title, icon: PORTALS[m].icon, tile: PORTALS[m].tile };
+      if (m !== "salle") return [base];
+      if (payAtOrder) return [{ ...base, label: "Comptoir", icon: Store, title: "Comptoir : le client choisit, paie, la commande part en cuisine" }, SERVICE];
+      return [{ ...base, label: businessType === "snack" ? "Comptoir" : base.label }];
+    }),
     ...(can("reports.view") || can("catalog.manage") || can("settings.manage") ? [GESTION] : []),
   ];
   // Un seul espace accessible : c'est l'écran où l'on se trouve déjà, la barre n'apporterait rien
@@ -46,7 +54,7 @@ export function PortalButtons({ onNavigate, className = "" }: { onNavigate?: () 
           const on = e.key === active;
           return (
             <Link key={e.key} href={e.href} title={e.title} aria-current={on ? "page" : undefined}
-              onClick={() => { if (e.key !== "gestion") rememberPortal(e.key); onNavigate?.(); }}
+              onClick={() => { if (e.key !== "gestion" && e.key !== "service") rememberPortal(e.key); onNavigate?.(); }}
               className={`touch flex h-14 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-2xl bg-gradient-to-br text-white transition active:scale-[0.97] ${e.tile} ${on ? "ring-2 ring-white ring-offset-2 ring-offset-nuit-950" : active ? "opacity-75 hover:opacity-100" : ""}`}>
               <e.icon className="h-5 w-5" /><span className="max-w-full truncate text-[10px] font-extrabold min-[400px]:text-[11px] sm:text-xs sm:tracking-wide">{e.label}</span>
             </Link>

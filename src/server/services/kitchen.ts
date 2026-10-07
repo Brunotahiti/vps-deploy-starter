@@ -24,7 +24,7 @@ export const ticketInclude = {
   course: { select: { id: true, name: true, sortOrder: true, status: true } },
   order: {
     select: {
-      id: true, number: true, type: true, covers: true, customerName: true, notes: true, status: true, openedAt: true, serverId: true,
+      id: true, number: true, type: true, covers: true, customerName: true, tableLabel: true, notes: true, status: true, openedAt: true, serverId: true,
       table: { select: { id: true, name: true } },
       server: { select: { id: true, firstName: true, displayName: true } },
     },
@@ -121,7 +121,7 @@ export async function setTicketStatus(actor: Actor, ticketId: string, status: Ki
   const after = await loadTicket(actor.establishmentId, ticketId);
   if (tracking && (status === "READY" || status === "DONE")) await onTicketReady(actor, { id: after.id, orderId: after.orderId, items: after.items, order: { tableId: after.order.table?.id ?? null, serverId: after.order.serverId, type: after.order.type } });
   // Notification push « plat prêt » sur le téléphone du serveur (une fois : au passage à PRÊT, ou TERMINÉ sans être passé par PRÊT)
-  if (status === "READY" || (status === "DONE" && ticket.status !== "READY")) notifyDishReady(actor, { orderId: after.orderId, items: after.items, course: after.course, order: { number: after.order.number, type: after.order.type, serverId: after.order.serverId, customerName: after.order.customerName, table: after.order.table } }).catch((e) => console.warn("[push] plat prêt non notifié", e));
+  if (status === "READY" || (status === "DONE" && ticket.status !== "READY")) notifyDishReady(actor, { orderId: after.orderId, items: after.items, course: after.course, order: { number: after.order.number, type: after.order.type, serverId: after.order.serverId, customerName: after.order.customerName, tableLabel: after.order.tableLabel, table: after.order.table } }).catch((e) => console.warn("[push] plat prêt non notifié", e));
   return after;
 }
 

@@ -2,7 +2,7 @@
 
 import { Photo } from "@/components/ui/photo";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Search, Send, Receipt, CreditCard, Percent, XCircle, ArrowRightLeft, Printer, Flame, PauseCircle, CheckCircle2, AlertTriangle, ChevronDown, Plus, X, ShoppingBasket, UserRound, Gift, ListOrdered } from "lucide-react";
 import { api, ApiClientError } from "@/lib/api-client";
@@ -87,7 +87,10 @@ export function OrderScreen({ orderId: orderIdProp, counter = false, onNext }: {
   const [dialog, setDialog] = useState<"discount" | "cancel" | "transfer" | "covers" | null>(null);
   const [receipt, setReceipt] = useState<{ afterPayment: boolean } | null>(null);
   const [sendMenu, setSendMenu] = useState(false);
-  const [sheet, setSheet] = useState(false); // panneau « commande » sur téléphone
+  // Panneau « commande » sur téléphone : ouvert d'emblée quand on vient de la liste des commandes pour encaisser (?ticket=1),
+  // la carte reste accessible par le bouton « Ajouter » pour compléter la commande
+  const searchParams = useSearchParams();
+  const [sheet, setSheet] = useState(() => searchParams.get("ticket") === "1");
   const [panel, setPanel] = useState<"ticket" | "service">("ticket"); // Phase 9 : onglet suivi de service
   const [customerOpen, setCustomerOpen] = useState(false);
 
@@ -278,7 +281,7 @@ export function OrderScreen({ orderId: orderIdProp, counter = false, onNext }: {
       <div className="md:hidden flex shrink-0 items-center gap-2 px-2 pt-2">
         {counter ? <button onClick={() => router.push("/pos/orders")} className="touch flex h-11 w-11 shrink-0 items-center justify-center rounded-xl card" aria-label="Commandes du jour"><ListOrdered className="h-5 w-5" /></button> : <button onClick={() => router.push("/pos")} className="touch flex h-11 w-11 shrink-0 items-center justify-center rounded-xl card" aria-label="Retour à la salle"><ArrowLeft className="h-5 w-5" /></button>}
         <button onClick={() => !closed && setDialog("covers")} className="touch min-w-0 flex-1 text-left">
-          <p className="truncate text-base font-extrabold leading-tight">{o.isTab ? "Ardoise" : o.table ? `Table ${o.table.name}` : counter && o.type === "COUNTER" ? "Sur place" : ORDER_TYPE_LABEL[o.type]}{o.customerName ? ` · ${o.customerName}` : ""}</p>
+          <p className="truncate text-base font-extrabold leading-tight">{o.isTab ? "Ardoise" : o.table ? `Table ${o.table.name}` : counter && o.type === "COUNTER" ? `Sur place${o.tableLabel ? ` · Table ${o.tableLabel}` : ""}` : ORDER_TYPE_LABEL[o.type]}{o.customerName ? ` · ${o.customerName}` : ""}</p>
           <p className="truncate text-[11px] text-muted">{o.covers} couv. · {formatElapsed(o.openedAt)} · {o.number === "HORS-LIGNE" ? "hors ligne" : `n° ${o.number.split("-")[1]}`}{currentCourse && o.courses.length > 1 ? ` · ${currentCourse.name}` : ""}</p>
         </button>
         {!closed && o.type === "DINE_IN" ? <button onClick={() => setSeat(seat === null ? 1 : seat >= o.covers ? null : seat + 1)} className="touch h-9 shrink-0 rounded-full surface-2 px-3 text-xs font-bold text-muted">{seat === null ? "Table" : `C${seat}`}</button> : null}
@@ -362,18 +365,22 @@ export function OrderScreen({ orderId: orderIdProp, counter = false, onNext }: {
       <aside data-testid="ticket" className={`card flex shrink-0 flex-col overflow-hidden ${sheet ? "fixed inset-0 z-40 m-0 w-full rounded-none rise" : "hidden"} md:static md:z-auto md:m-2 md:ml-0 md:flex md:w-[340px] md:rounded-[20px] xl:w-[400px]`} style={sheet ? { paddingBottom: "env(safe-area-inset-bottom)" } : undefined}>
         <div className="border-b border-line px-4 py-3">
           <div className="flex items-center justify-between">
-            <button onClick={() => setSheet(false)} className="md:hidden touch -ml-1 mr-2 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl surface-2" aria-label="Fermer la commande"><X className="h-5 w-5" /></button>
+            {!closed ? <button onClick={() => setSheet(false)} className="md:hidden touch -ml-1 mr-2 flex h-10 shrink-0 items-center gap-1 rounded-xl bg-lagon-500/15 px-2.5 text-xs font-extrabold text-brand" aria-label="Ajouter des plats : ouvrir la carte" data-testid="sheet-add"><Plus className="h-4 w-4" />Ajouter</button> : <button onClick={() => setSheet(false)} className="md:hidden touch -ml-1 mr-2 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl surface-2" aria-label="Fermer la commande"><X className="h-5 w-5" /></button>}
             <button onClick={() => !closed && setDialog("covers")} className="touch min-w-0 flex-1 text-left">
-              <p className="truncate text-lg font-extrabold leading-tight">{o.isTab ? "Ardoise" : o.table ? `Table ${o.table.name}` : counter && o.type === "COUNTER" ? "Sur place" : ORDER_TYPE_LABEL[o.type]}{o.customerName ? ` · ${o.customerName}` : ""}</p>
+              <p className="truncate text-lg font-extrabold leading-tight">{o.isTab ? "Ardoise" : o.table ? `Table ${o.table.name}` : counter && o.type === "COUNTER" ? `Sur place${o.tableLabel ? ` · Table ${o.tableLabel}` : ""}` : ORDER_TYPE_LABEL[o.type]}{o.customerName ? ` · ${o.customerName}` : ""}</p>
               <p className="text-xs text-muted">{o.covers} couvert{o.covers > 1 ? "s" : ""} · {formatElapsed(o.openedAt)} · {o.server?.displayName || o.server?.firstName} · {o.number === "HORS-LIGNE" ? <span className="font-bold text-orange-500">hors ligne</span> : `n° ${o.number.split("-")[1]}`}</p>
             </button>
             {closed ? <span className={`rounded-lg px-2 py-1 text-xs font-bold ${o.status === "PAID" ? "bg-green-500/15 text-green-600" : "bg-red-500/15 text-red-600"}`}>{o.status === "PAID" ? "PAYÉE" : "ANNULÉE"}</span> : null}
           </div>
           {counter && !closed ? (
-            <div className="mt-2 flex rounded-xl surface-2 p-0.5 text-xs font-bold" role="radiogroup" aria-label="Sur place ou à emporter" data-testid="counter-type">
-              {([["COUNTER", "Sur place"], ["TAKEAWAY", "À emporter"]] as const).map(([type, label]) => (
-                <button key={type} role="radio" aria-checked={o.type === type} onClick={() => o.type !== type && run(() => api.patch<Order>(`/api/orders/${orderId}`, { type }, { queueIfOffline: true }), (x) => ({ ...x, type }))} className={`touch h-9 flex-1 rounded-[10px] ${o.type === type ? "surface shadow-soft" : "text-muted"}`}>{label}</button>
-              ))}
+            <div className="mt-2 flex items-center gap-2">
+              <div className="flex flex-1 rounded-xl surface-2 p-0.5 text-xs font-bold" role="radiogroup" aria-label="Sur place ou à emporter" data-testid="counter-type">
+                {([["COUNTER", "Sur place"], ["TAKEAWAY", "À emporter"]] as const).map(([type, label]) => (
+                  <button key={type} role="radio" aria-checked={o.type === type} onClick={() => o.type !== type && run(() => api.patch<Order>(`/api/orders/${orderId}`, { type }, { queueIfOffline: true }), (x) => ({ ...x, type }))} className={`touch h-9 flex-1 rounded-[10px] ${o.type === type ? "surface shadow-soft" : "text-muted"}`}>{label}</button>
+                ))}
+              </div>
+              {/* Sur place : la table où apporter les plats (reprise sur le bon cuisine, la notification et le portail Salle) */}
+              {o.type === "COUNTER" ? <label className={`flex h-10 w-28 shrink-0 items-center gap-1.5 rounded-xl border px-2.5 text-xs font-bold ${o.tableLabel ? "border-lagon-500 bg-lagon-500/10" : "border-corail-400 bg-corail-500/10"}`}><span className="shrink-0 text-muted">Table</span><input key={o.tableLabel ?? ""} defaultValue={o.tableLabel ?? ""} inputMode="numeric" maxLength={6} placeholder="n°" aria-label="Numéro de table" data-testid="counter-table" onBlur={(e) => (e.target.value.trim() || null) !== (o.tableLabel ?? null) && run(() => api.patch<Order>(`/api/orders/${orderId}`, { tableLabel: e.target.value.trim() || null }, { queueIfOffline: true }), (x) => ({ ...x, tableLabel: e.target.value.trim() || null }))} onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }} className="h-full w-full min-w-0 bg-transparent text-base font-extrabold outline-none placeholder:text-muted" /></label> : null}
             </div>
           ) : null}
           {!closed && o.type === "DINE_IN" ? (

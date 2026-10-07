@@ -15,7 +15,7 @@ type Mod = { name: string };
 type Item = { id: string; name: string; quantity: number; unitPrice: number; modifiersTotal: number; discountAmount: number; discountKind?: string | null; discountBps?: number | null; discountNote?: string | null; lineTotal: number; taxRateBps: number; taxRateName: string | null; status: string; parentItemId: string | null; courseId: string | null; kitchenStationId: string | null; notes: string | null; seatNumber: number | null; isUrgent: boolean; modifiers: Mod[] };
 type Pay = { method: string; amount: number; status: string };
 export type LocalOrder = {
-  number: string; type: string; status: string; covers: number; discountTotal: number; total: number; paidTotal: number; customerName: string | null; notes: string | null;
+  number: string; type: string; status: string; covers: number; discountTotal: number; total: number; paidTotal: number; customerName: string | null; tableLabel?: string | null; notes: string | null;
   openedAt: Date | string; closedAt: Date | string | null; table: { name: string } | null; server: { firstName: string; displayName: string | null } | null;
   items: Item[]; payments: Pay[]; courses: { id: string; name: string }[];
 };
@@ -80,7 +80,7 @@ export function kitchenTickets(order: LocalOrder, sentItemIds: string[], station
     const course = order.courses.find((c) => c.id === courseId) ?? null;
     const b = new EscPosBuilder(cols);
     if (items.some((i) => i.isUrgent)) b.align("center").bold(true).size(2, 1).line("!! URGENT !!").size(1, 1).bold(false);
-    b.align("center").bold(true).size(2, 2).line(order.table ? `TABLE ${order.table.name}` : (TYPE[order.type] ?? order.type).toUpperCase()).size(1, 2).line(`${station?.name ?? "CUISINE"}${course ? ` - ${course.name}` : ""}`).size(1, 1).bold(false);
+    b.align("center").bold(true).size(2, 2).line(order.table ? `TABLE ${order.table.name}` : order.tableLabel ? `TABLE ${order.tableLabel}` : (TYPE[order.type] ?? order.type).toUpperCase()).size(1, 2).line(`${station?.name ?? "CUISINE"}${course ? ` - ${course.name}` : ""}`).size(1, 1).bold(false);
     b.align("left").line(`n° ${shortNumber(order.number)} · ${order.covers} couv. · ${order.server?.displayName || order.server?.firstName || ""} · ${formatTime(new Date(), timezone)}`);
     b.line("(envoye sans internet)");
     if (order.customerName) b.line(`Client : ${order.customerName}`);

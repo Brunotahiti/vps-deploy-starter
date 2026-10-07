@@ -7,7 +7,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { LayoutGrid, ListOrdered, Wallet, Settings, Moon, Sun, LogOut, Wifi, WifiOff, RefreshCw, ChefHat, Download, X, ChevronRight, Clock, CalendarDays, ShoppingBag, ThermometerSnowflake, Gift, PartyPopper, Martini, Wine, Store, Sparkles } from "lucide-react";
+import { LayoutGrid, ListOrdered, Wallet, Settings, Moon, Sun, LogOut, Wifi, WifiOff, RefreshCw, ChefHat, Download, X, ChevronRight, Clock, CalendarDays, ShoppingBag, ThermometerSnowflake, Gift, PartyPopper, Martini, Wine, Store, Sparkles, ConciergeBell } from "lucide-react";
 import { markLogoutPending, useSession } from "@/hooks/use-session";
 import { useRealtime } from "@/hooks/use-realtime";
 import { SupportBar } from "@/components/support-bar";
@@ -97,6 +97,8 @@ export function PosShell({ children }: { children: React.ReactNode }) {
   const takeawayCount = (takeaway.data?.toAccept.length ?? 0) + (takeaway.data?.preparing.length ?? 0) + (takeaway.data?.ready.length ?? 0);
   const nav: { href: string; label: string; icon: typeof LayoutGrid; badge?: { count: number; alert: boolean } }[] = [
     { href: "/pos", label: payAtOrder || businessType === "snack" ? "Comptoir" : "Salle", icon: payAtOrder ? Store : LayoutGrid },
+    // Mode roulotte : les plats prêts en cuisine, avec la table où les apporter
+    ...(payAtOrder ? [{ href: "/pos/salle", label: "Salle", icon: ConciergeBell, badge: takeaway.data?.ready.length ? { count: takeaway.data.ready.length, alert: true } : undefined }] : []),
     { href: "/pos/orders", label: "Commandes", icon: ListOrdered },
     { href: "/pos/emporter", label: "À emporter", icon: ShoppingBag, badge: takeawayCount ? { count: takeawayCount, alert: (takeaway.data?.toAccept.length ?? 0) > 0 } : undefined },
     ...(hasOption("bar") && (can("bar.use") || can("bar.manage")) ? [{ href: "/pos/bar", label: "Bar", icon: Martini, badge: barTabs.data?.length ? { count: barTabs.data.length, alert: false } : undefined }] : []),

@@ -875,6 +875,7 @@ model Order {
   channelMeta     Json?       @map("channel_meta") // retrait / livraison / contact (Phase 6)
   acceptedAt      DateTime?   @map("accepted_at") // acceptation d'une commande en ligne par le restaurant
   customerName    String?     @map("customer_name")
+  tableLabel      String?     @map("table_label") // mode roulotte : numéro ou repère de table saisi à la commande (sans plan de salle)
   customerPhone   String?     @map("customer_phone") // à emporter : pour prévenir le client
   pickupAt        DateTime?   @map("pickup_at") // à emporter : heure de retrait souhaitée
   readyAt         DateTime?   @map("ready_at") // à emporter : commande prête (appel du numéro)

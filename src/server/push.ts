@@ -90,20 +90,23 @@ export async function sendPush(establishmentId: string, target: { userId: string
 }
 
 /** Plat(s) prêt(s) en cuisine : le serveur de la commande est prévenu (ou l'équipe si la commande n'a pas de serveur abonné). */
-export async function notifyDishReady(actor: Actor, ticket: { orderId: string; items: { name: string; quantity: number; status: string }[]; course?: { name: string } | null; order: { number: string; type: string; serverId: string | null; customerName: string | null; table: { name: string } | null } }) {
+export async function notifyDishReady(actor: Actor, ticket: { orderId: string; items: { name: string; quantity: number; status: string }[]; course?: { name: string } | null; order: { number: string; type: string; serverId: string | null; customerName: string | null; tableLabel?: string | null; table: { name: string } | null } }) {
   if (!isPushConfigured()) return { sent: 0 };
   const live = ticket.items.filter((i) => i.status !== "VOIDED");
   if (live.length === 0) return { sent: 0 };
-  const where = ticket.order.table ? `Table ${ticket.order.table.name}` : `${typeLabel(ticket.order.type)} n° ${ticket.order.number.split("-").pop()}${ticket.order.customerName ? ` · ${ticket.order.customerName}` : ""}`;
+  // Mode roulotte : la notification ouvre le portail Salle, où les plats prêts s'affichent avec leur table
+  const est = await prisma.establishment.findUnique({ where: { id: actor.establishmentId }, select: { settings: true } });
+  const roulotte = ((est?.settings ?? {}) as { payAtOrder?: boolean }).payAtOrder === true;
+  const where = ticket.order.table ? `Table ${ticket.order.table.name}` : ticket.order.tableLabel ? `Table ${ticket.order.tableLabel}${ticket.order.customerName ? ` · ${ticket.order.customerName}` : ""}` : `${typeLabel(ticket.order.type)} n° ${ticket.order.number.split("-").pop()}${ticket.order.customerName ? ` · ${ticket.order.customerName}` : ""}`;
   const dishes = live.map((i) => `${i.quantity > 1 ? `${i.quantity} × ` : ""}${i.name}`).join(", ");
   const total = live.reduce((a, i) => a + i.quantity, 0);
   // Sans table (comptoir, roulotte, à emporter) : le serveur va chercher le plat en cuisine et le remet au client ;
   // la notification ouvre la file des commandes (« À emporter »), où « Remise au client » clôt le parcours
-  const todo = ticket.order.table ? "à apporter" : ticket.order.type === "TAKEAWAY" || ticket.order.type === "ONLINE" ? "à remettre au client (n° appelé)" : ticket.order.type === "DELIVERY" ? "à remettre au livreur" : "à apporter au client";
+  const todo = ticket.order.table || ticket.order.tableLabel ? "à apporter" : ticket.order.type === "TAKEAWAY" || ticket.order.type === "ONLINE" ? "à remettre au client (n° appelé)" : ticket.order.type === "DELIVERY" ? "à remettre au livreur" : "à apporter au client";
   return sendPush(actor.establishmentId, { userId: ticket.order.serverId, excludeUserId: actor.userId }, {
     title: `${total > 1 ? "Plats prêts" : "Plat prêt"} · ${where}`,
     body: `${dishes}${ticket.course?.name && ticket.course.name !== "COMMANDE" ? ` (${ticket.course.name.toLowerCase()})` : ""} — ${todo}`.slice(0, 180),
-    url: ticket.order.table ? `/pos/order/${ticket.orderId}` : "/pos/emporter",
+    url: ticket.order.table ? `/pos/order/${ticket.orderId}` : roulotte ? "/pos/salle" : "/pos/emporter",
     tag: `ready-${ticket.orderId}`,
     renotify: true,
   });

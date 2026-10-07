@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import { useSession } from "@/hooks/use-session";
 import { Spinner } from "@/components/ui/misc";
 import { FloorPlan } from "./floor";
@@ -9,5 +10,5 @@ import { CounterHome } from "./counter-home";
 export function PosHome() {
   const { me, isLoading, payAtOrder } = useSession();
   if (isLoading && !me) return <div className="flex h-full items-center justify-center"><Spinner /></div>;
-  return payAtOrder ? <CounterHome /> : <FloorPlan />;
+  return payAtOrder ? <Suspense fallback={<div className="flex h-full items-center justify-center"><Spinner /></div>}><CounterHome /></Suspense> : <FloorPlan />;
 }
