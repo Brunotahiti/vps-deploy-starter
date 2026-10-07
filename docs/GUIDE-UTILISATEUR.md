@@ -37,7 +37,7 @@ Dans une commande, l'onglet **Service** montre la prochaine action, le serveur r
 
 ## 4. Cuisine
 
-**Écran cuisine** `/kds` par poste (cuisine, bar…) : accepter, en préparation, prêt, terminé, article par article, temps écoulé avec alertes, rappel d'un ticket, bip à l'arrivée. Les statuts remontent sur la salle (« plats prêts »). Les bons cuisine s'impriment aussi (navigateur ou imprimante configurée).
+**Écran cuisine** `/kds` par poste (cuisine, bar…) : un seul geste par bon, **Prêt** quand le plat est fait (rien à valider à la réception), puis **Terminé** quand il est parti ; articles cochables un à un (le dernier coché passe le bon à Prêt), retour en préparation possible, temps écoulé avec alertes, rappel d'un ticket, bip à l'arrivée. Les statuts remontent sur la salle (« plats prêts »). Les bons cuisine s'impriment aussi (navigateur ou imprimante configurée).
 
 **Alerte « plat prêt » sur le téléphone** : chaque serveur peut activer les notifications push sur son appareil (bouton cloche en haut du portail Commande, ou « Alertes plat prêt » dans le menu de la caisse). Dès que la cuisine passe un ticket à **Prêt**, le serveur de la table reçoit une notification (table, plats à apporter), même l'écran éteint ou l'application en arrière-plan ; une commande comptoir ou à emporter sans serveur abonné prévient toute l'équipe abonnée. La cuisine n'est jamais notifiée de son propre geste, et un écran ManaResto déjà au premier plan affiche son bandeau « Prêt à servir » au lieu d'une notification. Sur iPhone et iPad, l'application doit être installée (Partager → Sur l'écran d'accueil) et ouverte depuis l'écran d'accueil. Un appui sur la notification ouvre la commande. Cette fonction nécessite les clés VAPID sur le serveur (voir `docs/DEPLOIEMENT.md`).
 

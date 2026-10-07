@@ -21,10 +21,8 @@ test("écran cuisine : accepter → en préparation → prêt → terminé", asy
   const card = page.locator("article", { hasText: "Test KDS" }).filter({ hasText: `n° ${num}` }).first();
   await expect(card).toBeVisible();
   await expect(card.getByText("2 × Eau minérale 50 cl")).toBeVisible();
-  await card.getByRole("button", { name: /^ACCEPTER/ }).click();
-  await expect(card.getByRole("button", { name: /^EN PRÉPARATION/ })).toBeVisible();
-  await card.getByRole("button", { name: /^EN PRÉPARATION/ }).click();
-  await expect(card.getByRole("button", { name: /^PRÊT/ })).toBeVisible();
+  // Plus d'acceptation à valider : un seul bouton, PRÊT, dès la réception du bon
+  await expect(card.getByRole("button", { name: /^ACCEPTER/ })).toHaveCount(0);
   await card.getByRole("button", { name: /^PRÊT/ }).click();
 
   // Le ticket passe dans « Prêts » ; la commande voit l'article prêt

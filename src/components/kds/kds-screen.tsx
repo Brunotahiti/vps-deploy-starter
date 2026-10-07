@@ -208,10 +208,10 @@ function TicketCard({ ticket: t, now, onStatus, onItem, busy, changedItems }: { 
   const live = t.items.filter((i) => i.status !== "VOIDED");
   const readyCount = live.filter((i) => i.status === "READY" || i.status === "SERVED").length;
   const where = t.order.table ? `T${t.order.table.name.replace(/^T/i, "")}` : ORDER_TYPE_LABEL[t.order.type];
+  // Un seul geste en cuisine : « PRÊT » quand le plat est fait (pas d'acceptation à valider à la réception).
+  // Les articles restent cochables un à un ; le dernier coché passe aussi le ticket à PRÊT.
   const action: { label: string; status: KitchenTicket["status"]; variant: string } | null =
-    t.status === "NEW" ? { label: "ACCEPTER", status: "ACCEPTED", variant: "bg-nuit-800 text-white dark:bg-lagon-500 dark:text-nuit-950" }
-    : t.status === "ACCEPTED" ? { label: "EN PRÉPARATION", status: "IN_PROGRESS", variant: "bg-accent text-white" }
-    : t.status === "IN_PROGRESS" ? { label: "PRÊT", status: "READY", variant: "bg-green-600 text-white" }
+    t.status === "NEW" || t.status === "ACCEPTED" || t.status === "IN_PROGRESS" ? { label: "PRÊT", status: "READY", variant: "bg-green-600 text-white" }
     : t.status === "READY" ? { label: "TERMINÉ", status: "DONE", variant: "bg-brand text-white" }
     : t.status === "DONE" ? { label: "RAPPELER", status: "READY", variant: "surface-2 text-[var(--text)] border border-line" } : null;
 
