@@ -344,7 +344,7 @@ export async function getPosCatalog(establishmentId: string) {
     stations,
     paymentMethods,
     // Imprimantes, pour imprimer sans internet depuis la tablette (agent local) : aucune donnée secrète
-    printers: printerRows.map(({ connection, ...p }) => ({ ...p, agentUrl: p.driver === "agent" ? ((connection as { agentUrl?: string } | null)?.agentUrl ?? null) : null })),
+    printers: printerRows.map(({ connection, ...p }) => { const c = (connection ?? {}) as { agentUrl?: string; host?: string; port?: number }; return { ...p, agentUrl: p.driver === "agent" ? (c.agentUrl ?? null) : null, agentTarget: p.driver === "agent" && c.host ? { host: c.host, port: c.port ?? 9100 } : null }; }),
   };
 }
 

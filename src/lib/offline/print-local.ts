@@ -9,7 +9,7 @@ import { computeOrderTotals, discountLabel } from "@/lib/order-calc";
 import { formatBps, formatMoney } from "@/lib/money";
 import { formatDateTime, formatTime } from "@/lib/dates";
 
-export type LocalPrinter = { id: string; name: string; kind: "RECEIPT" | "KITCHEN"; driver: string; agentUrl: string | null; paperWidthMm: number; stationId: string | null; terminalId: string | null; hasDrawer: boolean; drawerPin: number };
+export type LocalPrinter = { id: string; name: string; kind: "RECEIPT" | "KITCHEN"; driver: string; agentUrl: string | null; agentTarget?: { host: string; port: number } | null; paperWidthMm: number; stationId: string | null; terminalId: string | null; hasDrawer: boolean; drawerPin: number };
 type Est = { name: string; addressLine1?: string | null; city?: string | null; postalCode?: string | null; tahitiNumber?: string | null; timezone?: string; currency?: string };
 type Mod = { name: string };
 type Item = { id: string; name: string; quantity: number; unitPrice: number; modifiersTotal: number; discountAmount: number; discountKind?: string | null; discountBps?: number | null; discountNote?: string | null; lineTotal: number; taxRateBps: number; taxRateName: string | null; status: string; parentItemId: string | null; courseId: string | null; kitchenStationId: string | null; notes: string | null; seatNumber: number | null; isUrgent: boolean; modifiers: Mod[] };
@@ -102,9 +102,9 @@ export function kitchenTickets(order: LocalOrder, sentItemIds: string[], station
 
 const toBase64 = (bytes: Uint8Array) => { let s = ""; for (const x of bytes) s += String.fromCharCode(x); return btoa(s); };
 
-/** Envoie un document à l'agent d'impression du réseau local. */
-export async function sendToAgent(agentUrl: string, ops: PrintOp[]) {
-  const res = await fetch(agentUrl, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ payloadBase64: toBase64(encodeEscPos(ops)) }), signal: AbortSignal.timeout?.(8000) });
+/** Envoie un document à l'agent d'impression du réseau local, vers l'imprimante Wi-Fi visée (sinon celle par défaut de l'agent). */
+export async function sendToAgent(agentUrl: string, ops: PrintOp[], target?: { host: string; port: number } | null) {
+  const res = await fetch(agentUrl, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ payloadBase64: toBase64(encodeEscPos(ops)), ...(target ?? {}) }), signal: AbortSignal.timeout?.(8000) });
   if (!res.ok) throw new Error(`Agent d'impression : ${res.status}`);
 }
 
@@ -129,7 +129,7 @@ export function pickReceiptPrinter(printers: LocalPrinter[], terminalId: string 
 
 /** Imprime sur une imprimante joignable sans internet. Retourne le moyen utilisé, ou null si elle ne l'est pas. */
 export async function printLocal(printer: LocalPrinter | null, ops: PrintOp[], title: string): Promise<"agent" | "browser" | null> {
-  if (printer?.driver === "agent" && printer.agentUrl) { await sendToAgent(printer.agentUrl, ops); return "agent"; }
+  if (printer?.driver === "agent" && printer.agentUrl) { await sendToAgent(printer.agentUrl, ops, printer.agentTarget); return "agent"; }
   if (!printer || printer.driver === "browser") { printInBrowser(ops, title); return "browser"; }
   return null; // imprimante pilotée par le serveur : injoignable sans internet
 }
@@ -138,6 +138,6 @@ export async function printLocal(printer: LocalPrinter | null, ops: PrintOp[], t
 export async function openDrawerLocal(printers: LocalPrinter[], terminalId: string | null | undefined) {
   const p = printers.filter((x) => x.hasDrawer && x.driver === "agent" && x.agentUrl && (!x.terminalId || x.terminalId === terminalId)).sort((a, b) => Number(b.terminalId === terminalId) - Number(a.terminalId === terminalId))[0];
   if (!p) return false;
-  await sendToAgent(p.agentUrl!, [{ t: "drawer", pin: p.drawerPin === 5 ? 5 : 2 }]);
+  await sendToAgent(p.agentUrl!, [{ t: "drawer", pin: p.drawerPin === 5 ? 5 : 2 }], p.agentTarget);
   return true;
 }

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Archive, CheckCircle2, Cloud, Copy, Globe, Laptop, Pencil, Printer as PrinterIcon, RefreshCw, Router, Trash2, Wifi, WifiOff, Zap } from "lucide-react";
+import { Archive, CheckCircle2, Cloud, Copy, Globe, Pencil, Printer as PrinterIcon, RefreshCw, Router, Trash2, Wifi, WifiOff, Zap } from "lucide-react";
 import { api } from "@/lib/api-client";
 import { useSession } from "@/hooks/use-session";
 import { Button } from "@/components/ui/button";
@@ -24,7 +24,7 @@ const CLOUD_OFFLINE_MS = 2 * 60_000;
 const DRIVERS: { value: PrinterDriver; title: string; text: string; icon: typeof Cloud; badge?: string }[] = [
   { value: "cloud-epson", title: "Imprimante Epson connectée", text: "Compatible « Server Direct Print » (par exemple la gamme TM-m30). Elle vient chercher ses tickets sur ManaResto : rien à installer.", icon: Cloud, badge: "Recommandé" },
   { value: "cloud-star", title: "Imprimante Star connectée", text: "Compatible « CloudPRNT » (par exemple mC-Print3 ou TSP143IV). Même principe, rien à installer.", icon: Cloud },
-  { value: "agent", title: "Agent sur l'ordinateur de la caisse", text: "Un petit programme sur un ordinateur du restaurant transmet les tickets à une imprimante réseau.", icon: Laptop },
+  { value: "agent", title: "Imprimante Wi-Fi ou réseau du restaurant", text: "Imprimante thermique sur le Wi-Fi ou la box du restaurant (Epson, Xprinter, Bixolon, Star…). Un petit programme gratuit, l'agent d'impression, tourne sur un ordinateur du restaurant et lui transmet les tickets.", icon: Wifi, badge: "Wi-Fi" },
   { value: "escpos-network", title: "Réseau local direct", text: "Seulement si ManaResto est installé sur un ordinateur du restaurant (pas avec la version en ligne).", icon: Router },
   { value: "browser", title: "Impression par le navigateur", text: "AirPrint, imprimante de bureau… Le ticket s'ouvre dans la fenêtre d'impression. Pas de tiroir-caisse.", icon: Globe },
 ];
@@ -89,6 +89,25 @@ function CloudSetup({ info, onClose }: { info: { url: string; driver: string } |
   );
 }
 
+/** Marche à suivre pour une imprimante Wi-Fi : la relier au réseau, fixer son adresse, installer l'agent. */
+function WifiGuide({ className = "" }: { className?: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className={`rounded-2xl bg-lagon-500/10 p-3 text-xs text-lagon-900 dark:text-lagon-100 ${className}`} data-testid="wifi-guide">
+      <button type="button" onClick={() => setOpen((o) => !o)} className="flex w-full items-center justify-between text-left font-bold"><span className="flex items-center gap-2"><Wifi className="h-4 w-4" />Comment relier une imprimante Wi-Fi ?</span><span>{open ? "−" : "+"}</span></button>
+      {open ? (
+        <ol className="mt-2 list-decimal space-y-1.5 pl-5">
+          <li><b>Connectez l&apos;imprimante au Wi-Fi du restaurant</b> : bouton WPS de la box puis de l&apos;imprimante, ou l&apos;utilitaire du fabricant (Epson TM Utility, Xprinter Tool, Star Quick Setup…) depuis un téléphone ou un ordinateur. Une imprimante branchée par câble sur la box fonctionne de la même façon.</li>
+          <li><b>Notez son adresse IP</b> : imprimez sa page d&apos;état (bouton « Feed » maintenu à l&apos;allumage), ou lisez-la dans l&apos;utilitaire. Dans la box, réservez-lui cette adresse (bail DHCP fixe) pour qu&apos;elle ne change plus.</li>
+          <li><b>Lancez l&apos;agent d&apos;impression</b> sur un ordinateur ou un Raspberry Pi du restaurant, allumé pendant le service (dossier <code>tools/print-agent</code> : <code>node print-agent.mjs --port 9123 --printer 192.168.1.50</code>). Un seul agent sert toutes vos imprimantes Wi-Fi.</li>
+          <li>Saisissez ci-dessus l&apos;adresse IP de l&apos;imprimante et celle de l&apos;agent, enregistrez, puis <b>Tester</b>. La caisse envoie le ticket à l&apos;agent, qui le transmet à l&apos;imprimante ; sans internet, la tablette imprime toujours par ce chemin.</li>
+        </ol>
+      ) : null}
+      <p className="mt-2 text-[11px] opacity-80">Vous préférez ne rien installer ? Une imprimante Epson ou Star « connectée » (choix du dessus) se branche aussi en Wi-Fi et vient chercher ses tickets toute seule sur ManaResto.</p>
+    </div>
+  );
+}
+
 export function HardwareSettings() {
   const act = useAction();
   const { toast } = useToast();
@@ -112,7 +131,7 @@ export function HardwareSettings() {
     if (!form) return;
     const body = {
       name: form.name, kind: form.kind, driver: form.driver, isActive: form.isActive,
-      connection: { host: form.host || undefined, port: form.port ? Number(form.port) : undefined, agentUrl: form.agentUrl || undefined },
+      connection: { host: form.driver === "agent" || form.driver === "escpos-network" ? form.host || undefined : undefined, port: form.host && form.port ? Number(form.port) : undefined, agentUrl: form.driver === "agent" ? form.agentUrl || undefined : undefined },
       paperWidthMm: Number(form.paperWidthMm || 80), stationId: form.kind === "KITCHEN" ? form.stationId || null : null, terminalId: form.kind === "RECEIPT" ? form.terminalId || null : null,
       hasDrawer: form.kind === "RECEIPT" && canDrawer(form.driver) && form.hasDrawer, drawerPin: Number(form.drawerPin) as 2 | 5,
     };
@@ -158,7 +177,7 @@ export function HardwareSettings() {
                 <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-white ${p.kind === "KITCHEN" ? "bg-gradient-to-br from-corail-400 to-corail-600" : "bg-gradient-to-br from-lagon-400 to-lagon-600"}`}><PrinterIcon className="h-5 w-5" /></span>
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2"><h3 className="truncate text-base font-extrabold">{p.name}</h3><Badge color={p.kind === "KITCHEN" ? "orange" : "teal"}>{p.kind === "KITCHEN" ? "Bons cuisine" : "Tickets de caisse"}</Badge></div>
-                  <p className="mt-0.5 text-xs text-muted">{driverLabel(p.driver)} · {p.paperWidthMm} mm{p.station ? ` · poste ${p.station.name}` : ""}{p.terminal ? ` · caisse ${p.terminal.name}` : ""}</p>
+                  <p className="mt-0.5 text-xs text-muted">{driverLabel(p.driver)}{(p.driver === "agent" || p.driver === "escpos-network") && (p.connection as { host?: string }).host ? ` · ${(p.connection as { host?: string }).host}` : ""} · {p.paperWidthMm} mm{p.station ? ` · poste ${p.station.name}` : ""}{p.terminal ? ` · caisse ${p.terminal.name}` : ""}</p>
                   <div className="mt-1"><Status p={p} now={now} /></div>
                 </div>
               </div>
@@ -214,7 +233,12 @@ export function HardwareSettings() {
               {form.kind === "KITCHEN" ? <Field label="Poste cuisine" hint="Les bons de ce poste s'impriment à l'envoi en cuisine"><Select value={form.stationId} onChange={(e) => setForm({ ...form, stationId: e.target.value })}><option value="">Tous les postes</option>{stations.data?.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</Select></Field> : null}
               {form.kind === "RECEIPT" && terminals.length ? <Field label="Caisse servie" hint="Utile avec plusieurs caisses"><Select value={form.terminalId} onChange={(e) => setForm({ ...form, terminalId: e.target.value })}><option value="">Toutes les caisses</option>{terminals.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}</Select></Field> : null}
               {form.driver === "escpos-network" ? <><Field label="Adresse IP"><Input value={form.host} onChange={(e) => setForm({ ...form, host: e.target.value })} placeholder="192.168.1.50" /></Field><Field label="Port"><Input type="number" value={form.port} onChange={(e) => setForm({ ...form, port: e.target.value })} /></Field></> : null}
-              {form.driver === "agent" ? <Field label="Adresse de l'agent" className="sm:col-span-2" hint="Ex. http://localhost:9123/print sur l'ordinateur de la caisse (voir tools/print-agent)"><Input value={form.agentUrl} onChange={(e) => setForm({ ...form, agentUrl: e.target.value })} /></Field> : null}
+              {form.driver === "agent" ? <>
+                <Field label="Adresse IP de l'imprimante Wi-Fi" hint="Sur sa page d'état (bouton Feed maintenu à l'allumage). Vide : l'imprimante par défaut de l'agent"><Input value={form.host} onChange={(e) => setForm({ ...form, host: e.target.value })} placeholder="192.168.1.50" /></Field>
+                <Field label="Port" hint="9100 pour presque toutes les imprimantes"><Input type="number" value={form.port} onChange={(e) => setForm({ ...form, port: e.target.value })} /></Field>
+                <Field label="Adresse de l'agent d'impression" className="sm:col-span-2" hint="http://<adresse-du-pc>:9123/print, ou http://localhost:9123/print si l'agent tourne sur l'ordinateur de la caisse"><Input value={form.agentUrl} onChange={(e) => setForm({ ...form, agentUrl: e.target.value })} placeholder="http://192.168.1.20:9123/print" /></Field>
+                <WifiGuide className="sm:col-span-2" />
+              </> : null}
             </div>
             {form.kind === "RECEIPT" && canDrawer(form.driver) ? (
               <div className="rounded-2xl border border-line p-3">

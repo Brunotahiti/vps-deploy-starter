@@ -71,14 +71,15 @@ Dans une commande, l'onglet **Service** montre la prochaine action, le serveur r
 
 **Imprimantes & tiroir-caisse** (`/admin/hardware`) :
 
-- **Imprimantes connectées** Epson (Server Direct Print) ou Star (CloudPRNT) : l'imprimante vient chercher ses tickets sur ManaResto toutes les quelques secondes ; rien à installer, fonctionne avec la version en ligne. ManaResto donne l'adresse à saisir dans la page de configuration de l'imprimante ; l'état « En ligne » s'affiche ensuite.
+- **Imprimantes connectées** Epson (Server Direct Print) ou Star (CloudPRNT) : l'imprimante vient chercher ses tickets sur ManaResto toutes les quelques secondes ; rien à installer, fonctionne avec la version en ligne et en Wi-Fi. ManaResto donne l'adresse à saisir dans la page de configuration de l'imprimante ; l'état « En ligne » s'affiche ensuite.
+- **Imprimante Wi-Fi ou réseau du restaurant** (toute imprimante thermique ESC/POS : Epson, Xprinter, Bixolon, Star…) : on la relie au Wi-Fi ou à la box (WPS ou utilitaire du fabricant), on note son adresse IP (page d'état), et un petit programme gratuit, l'**agent d'impression** (`tools/print-agent`), tourne sur un ordinateur ou un Raspberry Pi du restaurant : la caisse lui envoie les tickets, il les transmet à l'imprimante. Un seul agent sert toutes les imprimantes Wi-Fi ; l'assistant « Ajouter une imprimante » détaille la marche à suivre. Sans internet, la tablette imprime toujours par ce chemin.
 - **Tiroir-caisse** : branché (câble RJ11) sur l'imprimante de caisse. Il s'ouvre à chaque encaissement d'un moyen de paiement qui le demande (espèces par défaut, réglable dans Paramètres), à l'ouverture et à la clôture de caisse, et par le bouton « Ouvrir le tiroir » de l'écran Caisse (permission « Ouvrir le tiroir-caisse sans vente », motif enregistré dans le journal d'audit). Un ticket réimprimé n'ouvre jamais le tiroir.
 - Avec plusieurs caisses, chaque imprimante peut être attribuée à une caisse.
 
 **Intégrations : API, webhooks, imprimantes, TPE** :
 - **Clés API** pour vos partenaires (comptable, site, automatisations) : voir `docs/API-PUBLIQUE.md`.
 - **Webhooks** : notification signée à chaque événement (commande clôturée…), test et journal.
-- **Imprimantes** : réseau ESC/POS (serveur sur place), agent d'impression local (`tools/print-agent`) ou navigateur ; bons cuisine auto-imprimés par poste.
+- **Imprimantes** : connectées Epson / Star, Wi-Fi ou réseau via l'agent d'impression (`tools/print-agent`), réseau ESC/POS direct (serveur ou boîtier sur place) ou navigateur ; bons cuisine auto-imprimés par poste.
 - **TPE** : mode manuel ou passerelle HTTP (bouton « Envoyer au TPE »).
 
 **Multi-sites** : vue consolidée de tous vos établissements, comparaison, copie de catalogue.

@@ -25,7 +25,7 @@ export type PrinterDriver = (typeof PRINTER_DRIVERS)[number];
 export const isCloudDriver = (d: string) => d === "cloud-epson" || d === "cloud-star";
 
 export type PrinterConnection = { host?: string; port?: number; agentUrl?: string; timeoutMs?: number };
-export type PrintJob = { printerId: string; driver: string; name: string; paperWidthMm: number; delivered: boolean; queued?: boolean; jobId?: string; warning?: string; agentUrl?: string; payloadBase64?: string; error?: string };
+export type PrintJob = { printerId: string; driver: string; name: string; paperWidthMm: number; delivered: boolean; queued?: boolean; jobId?: string; warning?: string; agentUrl?: string; agentTarget?: { host: string; port: number }; payloadBase64?: string; error?: string };
 export type PrintDoc = { kind: "receipt"; orderId: string } | { kind: "kitchen"; ticketId: string } | { kind: "change"; changeId: string } | { kind: "test" } | { kind: "drawer" } | { kind: "recap"; day: string; withMargin: boolean; withStaff: boolean };
 
 /** Au-delà, une imprimante connectée qui ne s'est pas manifestée est considérée hors ligne. */
@@ -64,6 +64,8 @@ export async function upsertPrinter(actor: Actor, input: PrinterInput): Promise<
   if (input.driver === "escpos-network" && !input.connection?.host) throw new ApiError(400, "HOST_REQUIRED", "Adresse IP de l'imprimante requise");
   if (input.driver === "escpos-network") assertLanPrinter(input.connection?.host, input.connection?.port);
   if (input.driver === "agent" && !input.connection?.agentUrl) throw new ApiError(400, "AGENT_REQUIRED", "URL de l'agent d'impression requise");
+  // Imprimante Wi-Fi / réseau servie par l'agent : son adresse (facultative) doit être celle du réseau du restaurant
+  if (input.driver === "agent" && input.connection?.host) assertLanPrinter(input.connection.host, input.connection.port);
   if (input.hasDrawer && input.driver === "browser") throw new ApiError(400, "DRAWER_UNSUPPORTED", "Le tiroir-caisse s'ouvre par l'imprimante : choisissez une imprimante connectée, réseau ou un agent local");
   if (input.stationId && !(await prisma.kitchenStation.findFirst({ where: { id: input.stationId, establishmentId: actor.establishmentId } }))) throw new ApiError(400, "BAD_STATION", "Poste inconnu");
   if (input.terminalId && !(await prisma.terminal.findFirst({ where: { id: input.terminalId, establishmentId: actor.establishmentId } }))) throw new ApiError(400, "BAD_TERMINAL", "Caisse inconnue");
@@ -153,7 +155,7 @@ async function dispatch(establishmentId: string, printer: Printer, kind: PrintDo
       return { ...base, delivered: false, error: "Imprimante injoignable : vérifiez qu'elle est allumée et branchée sur le réseau du restaurant" };
     }
   }
-  if (printer.driver === "agent") return { ...base, delivered: false, agentUrl: conn.agentUrl, payloadBase64: Buffer.from(encodeEscPos(ops)).toString("base64") };
+  if (printer.driver === "agent") return { ...base, delivered: false, agentUrl: conn.agentUrl, ...(conn.host ? { agentTarget: { host: conn.host, port: conn.port ?? 9100 } } : {}), payloadBase64: Buffer.from(encodeEscPos(ops)).toString("base64") };
   return { ...base, delivered: false, error: "Pilote navigateur : utilisez l'impression HTML" };
 }
 
