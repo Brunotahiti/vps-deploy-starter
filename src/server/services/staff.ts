@@ -18,8 +18,9 @@ export type ClockState = "OUT" | "IN" | "BREAK";
 
 // ------------------------------------------------------------------ Employés
 export async function listEmployees(establishmentId: string, includeInactive = false) {
-  const rows = await prisma.employee.findMany({ where: { establishmentId, ...(includeInactive ? {} : { isActive: true }) }, orderBy: [{ lastName: "asc" }, { firstName: "asc" }], include: { user: { select: { id: true, email: true, color: true, displayName: true } } } });
-  return rows.map(({ pinHash, ...e }) => ({ ...e, hasPin: !!pinHash }));
+  const rows = await prisma.employee.findMany({ where: { establishmentId, ...(includeInactive ? {} : { isActive: true }) }, orderBy: [{ lastName: "asc" }, { firstName: "asc" }], include: { user: { select: { id: true, email: true, color: true, displayName: true, pinOnly: true } } } });
+  // Compte « PIN seul » : son adresse interne n'est jamais montrée
+  return rows.map(({ pinHash, ...e }) => ({ ...e, user: e.user ? { ...e.user, email: e.user.pinOnly ? "" : e.user.email } : null, hasPin: !!pinHash }));
 }
 
 export async function upsertEmployee(actor: Actor, input: { id?: string; userId?: string | null; firstName: string; lastName: string; jobTitle?: string | null; hourlyCost?: number | null; pin?: string | null; isActive?: boolean }) {

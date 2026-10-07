@@ -3,6 +3,7 @@ import { PrismaClient } from "../src/generated/prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { hashPassword } from "../src/server/auth/password";
 import { ensureSystemRoles } from "../src/server/services/roles";
+import { PIN_ONLY_DOMAIN } from "../src/server/services/users";
 import { resetOfflineKeys } from "../src/server/services/offline-pass";
 import { createEstablishmentDefaults } from "../src/server/services/establishments";
 import { addDays, localDay } from "../src/lib/dates";
@@ -131,6 +132,9 @@ async function main() {
   await mkUser("cuisine@manaresto.pf", "Rai", "Cuisine", "kitchen", "3000", "#EF4444");
   await mkUser("bar@manaresto.pf", "Manu", "Bar", "bartender", "4000", "#06B6D4");
   await mkUser("compta@manaresto.pf", "Léa", "Comptable", "accountant", "5000", "#64748B");
+  // Compte « PIN seul » : un extra sans e-mail ni mot de passe, qui se connecte en touchant son nom puis son PIN
+  const extra = await prisma.user.create({ data: { organizationId: org.id, email: `extra-demo@${PIN_ONLY_DOMAIN}`, passwordHash: await hashPassword("pin-only-no-password"), pinOnly: true, pinHash: await hashPassword("1006"), firstName: "Tehotu", lastName: "Extra", color: "#A16207", displayName: "Tehotu", memberships: { create: { establishmentId: est.id, roleId: roles.server } } } });
+  await resetOfflineKeys(extra.id, "1006");
 
   console.log("→ Personnel : fiches, planning, pointages…");
   const staffRows: { userId: string; first: string; last: string; job: string; cost: number }[] = [
@@ -240,6 +244,13 @@ async function main() {
     if (!prod) continue;
     await prisma.recipeLine.createMany({ data: lines.filter(([ing]) => ings[ing]).map(([ing, qty]) => ({ productId: prod.id, ingredientId: ings[ing].id, quantity: qty })) });
   }
+  // Préparation maison : la sauce burger (plusieurs ingrédients → une sauce), utilisée dans les burgers
+  await prisma.ingredient.create({ data: { establishmentId: est.id, name: "Mayonnaise", unit: "g", stockQty: 3000, stockMin: 1000, avgCost: 1, lastCost: 1 } }).then((r) => { ings["Mayonnaise"] = { id: r.id, unit: "g" }; });
+  await prisma.ingredient.create({ data: { establishmentId: est.id, name: "Ketchup", unit: "g", stockQty: 2000, stockMin: 500, avgCost: 1, lastCost: 1 } }).then((r) => { ings["Ketchup"] = { id: r.id, unit: "g" }; });
+  await prisma.ingredient.create({ data: { establishmentId: est.id, name: "Oignon", unit: "g", stockQty: 1500, stockMin: 500, avgCost: 1, lastCost: 1 } }).then((r) => { ings["Oignon"] = { id: r.id, unit: "g" }; });
+  const sauce = await prisma.ingredient.create({ data: { establishmentId: est.id, name: "Sauce burger maison", unit: "l", isPreparation: true, yieldQty: 0.75, stockQty: 1.5, stockMin: 0.5, avgCost: 1000, lastCost: 1000, composition: { create: [{ ingredientId: ings["Mayonnaise"].id, quantity: 500 }, { ingredientId: ings["Ketchup"].id, quantity: 200 }, { ingredientId: ings["Oignon"].id, quantity: 50 }] } } });
+  ings["Sauce burger maison"] = { id: sauce.id, unit: "l" };
+  for (const name of ["Burger Bacon", "Cheeseburger", "Burger Mana (double steak)"]) { const prod = byName(name); if (prod) await prisma.recipeLine.create({ data: { productId: prod.id, ingredientId: sauce.id, quantity: 0.03 } }); }
   const marchePapeete = await prisma.supplier.create({ data: { establishmentId: est.id, name: "Marché de Papeete — Poissonnerie Teva", contactName: "Teva", phone: "+689 87 12 34 56", email: "teva.poissons@mail.pf" } });
   const brasserie = await prisma.supplier.create({ data: { establishmentId: est.id, name: "Brasserie de Tahiti", contactName: "Service pro", phone: "+689 40 55 66 77", email: "pro@brasseriedetahiti.pf" } });
   const wingChong = await prisma.supplier.create({ data: { establishmentId: est.id, name: "Wing Chong — Gros alimentaire", phone: "+689 40 42 12 12" } });
@@ -263,6 +274,17 @@ async function main() {
   await prisma.inventoryMovement.create({ data: { establishmentId: est.id, ingredientId: ings["Coca-Cola 33 cl"].id, userId: manager.id, kind: "PURCHASE", quantity: 72, unitCost: 150, reason: `Réception BC-${poDay}-001`, createdAt: daysAgo(2) } });
   await prisma.inventoryMovement.create({ data: { establishmentId: est.id, ingredientId: ings["Thon rouge"].id, userId: manager.id, kind: "LOSS", quantity: -400, unitCost: 2, reason: "Périmé (DLC dépassée)", createdAt: daysAgo(4) } });
   await prisma.inventoryMovement.create({ data: { establishmentId: est.id, ingredientId: ings["Pain burger"].id, userId: manager.id, kind: "BREAKAGE", quantity: -6, unitCost: 90, reason: "Pains écrasés à la livraison", createdAt: daysAgo(1) } });
+  // Deux lots de sauce produits hier : les composants sortent, la sauce entre à son coût réel
+  for (const [ing, qty] of [["Mayonnaise", -1000], ["Ketchup", -400], ["Oignon", -100]] as const) await prisma.inventoryMovement.create({ data: { establishmentId: est.id, ingredientId: ings[ing].id, userId: manager.id, kind: "PRODUCTION", quantity: qty, unitCost: 1, reason: "Production Sauce burger maison", referenceId: sauce.id, createdAt: daysAgo(1) } });
+  await prisma.inventoryMovement.create({ data: { establishmentId: est.id, ingredientId: sauce.id, userId: manager.id, kind: "PRODUCTION", quantity: 1.5, unitCost: 1000, reason: "2 lots produits", referenceId: sauce.id, createdAt: daysAgo(1) } });
+
+  console.log("→ Comptabilité : dépenses du mois…");
+  const EXPENSES: [number, string, string, number, number, "CASH" | "CARD" | "TRANSFER" | "CHECK" | null, string | null][] = [
+    [28, "Loyer et charges", "RENT", 180000, 0, "TRANSFER", "SCI Tiare Beach"], [20, "Électricité", "ENERGY", 46400, 6400, "TRANSFER", "EDT"], [18, "Eau", "ENERGY", 9280, 1280, "TRANSFER", "Polynésienne des Eaux"],
+    [12, "Bouteilles de gaz (× 4)", "ENERGY", 23200, 3200, "CASH", "Station Faa'a"], [9, "Barquettes et serviettes", "SUPPLIES", 17400, 2400, "CARD", "Wing Chong"], [7, "Internet et téléphone", "TELECOM", 11600, 1600, "TRANSFER", "Vini"],
+    [5, "Commissions carte bancaire", "BANK", 14350, 0, "TRANSFER", "Banque de Tahiti"], [3, "Réparation chambre froide", "MAINTENANCE", 34800, 4800, null, "Froid Pacifique"], [1, "Flyers happy hour", "MARKETING", 8700, 1200, "CARD", "Imprimerie du Lagon"],
+  ];
+  for (const [d, label, category, ttc, tax, method, supplier] of EXPENSES) await prisma.expense.create({ data: { establishmentId: est.id, userId: manager.id, date: daysAgo(d), label, category, supplierName: supplier, amountTtc: ttc, taxAmount: tax, method, paidAt: method ? daysAgo(d) : null } });
   // Un ingrédient critique en rupture pour illustrer l'indisponibilité automatique
   await prisma.ingredient.update({ where: { id: ings["Pâte à pizza"].id }, data: { stockQty: 0 } });
   await prisma.product.updateMany({ where: { id: byName("Pizza Reine")?.id ?? "" }, data: { autoUnavailable: true } });

@@ -2,8 +2,12 @@ import { resetOfflineKeys, revokeOfflinePasses } from "./offline-pass";
 import { prisma } from "@/server/db";
 import { assertPinAvailable, pinEstablishmentsOfUser } from "./pin-unique";
 import { ApiError } from "@/server/errors";
-import { hashPassword, hashPin } from "@/server/auth/password";
+import { hashPassword, hashPin, randomToken } from "@/server/auth/password";
 import { audit } from "@/server/audit";
+
+/** Domaine interne des comptes « PIN seul » : l'adresse n'existe pas, elle n'est jamais affichée ni utilisée pour se connecter. */
+export const PIN_ONLY_DOMAIN = "pin.manaresto.local";
+export const isPinOnlyEmail = (email: string) => email.toLowerCase().endsWith(`@${PIN_ONLY_DOMAIN}`);
 
 export async function listUsers(organizationId: string, establishmentId?: string) {
   return prisma.user.findMany({
@@ -12,12 +16,48 @@ export async function listUsers(organizationId: string, establishmentId?: string
       ...(establishmentId ? { OR: [{ isOwner: true }, { memberships: { some: { establishmentId } } }] } : {}),
     },
     select: {
-      id: true, email: true, firstName: true, lastName: true, displayName: true, color: true, isOwner: true, isActive: true,
+      id: true, email: true, firstName: true, lastName: true, displayName: true, color: true, isOwner: true, isActive: true, pinOnly: true,
       lastLoginAt: true, createdAt: true, pinHash: true, inviteToken: true, inviteExpiresAt: true, invitedAt: true,
       memberships: { include: { role: { select: { id: true, key: true, name: true } }, establishment: { select: { id: true, name: true } } } },
     },
     orderBy: [{ isOwner: "desc" }, { lastName: "asc" }],
-  }).then((users) => users.map(({ pinHash, inviteToken, ...u }) => ({ ...u, hasPin: !!pinHash, invitePending: !!inviteToken, inviteExpired: !!inviteToken && !!u.inviteExpiresAt && u.inviteExpiresAt.getTime() < Date.now() })));
+  }).then((users) => users.map(({ pinHash, inviteToken, ...u }) => ({ ...u, email: u.pinOnly ? "" : u.email, hasPin: !!pinHash, invitePending: !!inviteToken, inviteExpired: !!inviteToken && !!u.inviteExpiresAt && u.inviteExpiresAt.getTime() < Date.now() })));
+}
+
+export type CreatePinUserInput = { firstName: string; lastName: string; displayName?: string | null; color?: string | null; pin: string; memberships: { establishmentId: string; roleId: string }[] };
+
+/**
+ * Compte employé « PIN seul » : prénom, nom, profil et PIN, c'est tout. Pas d'e-mail ni de mot de passe à retenir :
+ * la personne se connecte en touchant son nom puis son PIN sur les terminaux de l'établissement.
+ * (Une adresse interne inutilisable et un mot de passe aléatoire sont posés pour respecter le modèle de compte.)
+ */
+export async function createPinUser(organizationId: string, actorId: string, input: CreatePinUserInput) {
+  await assertMembershipsInOrg(organizationId, input.memberships);
+  if (!/^\d{4,6}$/.test(input.pin)) throw new ApiError(400, "INVALID_PIN", "Le PIN doit contenir 4 à 6 chiffres");
+  await assertPinAvailable(input.pin, { establishmentIds: input.memberships.map((m) => m.establishmentId), guardKey: actorId });
+  const email = `${randomToken(12)}@${PIN_ONLY_DOMAIN}`;
+  const user = await prisma.user.create({
+    data: {
+      organizationId, email, passwordHash: await hashPassword(randomToken(24)), pinOnly: true, firstName: input.firstName, lastName: input.lastName,
+      displayName: input.displayName ?? null, color: input.color ?? null, pinHash: await hashPin(input.pin), memberships: { create: input.memberships },
+    },
+  });
+  await resetOfflineKeys(user.id, input.pin);
+  await audit({ organizationId, userId: actorId, action: "user.create", entityType: "user", entityId: user.id, newValue: { pinOnly: true, memberships: input.memberships } });
+  return user;
+}
+
+/**
+ * Équipe d'un établissement pour l'écran PIN d'un terminal : prénoms, couleurs et profil des personnes qui ont un PIN.
+ * Public (la tablette n'est pas encore connectée) : aucune adresse ni donnée sensible.
+ */
+export async function pinTeam(establishmentId: string) {
+  const users = await prisma.user.findMany({
+    where: { isActive: true, pinHash: { not: null }, OR: [{ memberships: { some: { establishmentId } } }, { isOwner: true, organization: { establishments: { some: { id: establishmentId } } } }] },
+    select: { id: true, firstName: true, lastName: true, displayName: true, color: true, isOwner: true, lastLoginAt: true, memberships: { where: { establishmentId }, select: { role: { select: { key: true, name: true } } } } },
+    orderBy: [{ lastLoginAt: { sort: "desc", nulls: "last" } }, { firstName: "asc" }],
+  });
+  return users.map((u) => ({ id: u.id, name: u.displayName || u.firstName, initials: `${u.firstName.slice(0, 1)}${u.lastName.slice(0, 1)}`.toUpperCase(), color: u.color, roleKey: u.isOwner ? "owner" : u.memberships[0]?.role.key ?? null, roleName: u.isOwner ? "Propriétaire" : u.memberships[0]?.role.name ?? null }));
 }
 
 export type CreateUserInput = {
@@ -65,6 +105,8 @@ export async function updateUser(organizationId: string, actorId: string, userId
       data: {
         email: input.email?.toLowerCase(), firstName: input.firstName, lastName: input.lastName, displayName: input.displayName,
         color: input.color, isActive: input.isActive,
+        // Un compte « PIN seul » qui reçoit une vraie adresse devient un compte complet (mot de passe à définir pour l'utiliser)
+        ...(before.pinOnly && input.email ? { pinOnly: false } : {}),
         ...(input.password ? { passwordHash: await hashPassword(input.password) } : {}),
         ...(input.pin ? { pinHash: await hashPin(input.pin) } : {}),
       },

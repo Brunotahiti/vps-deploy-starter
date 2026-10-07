@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useQueryClient } from "@tanstack/react-query";
-import { Delete, Mail } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { ChevronLeft, Delete, Mail } from "lucide-react";
 import { api, ApiClientError } from "@/lib/api-client";
 import { safeNext } from "@/lib/safe-next";
 import { useSession } from "@/hooks/use-session";
@@ -15,6 +15,8 @@ import { PORTALS, rememberPortal, type PortalMode } from "./portals";
 import { setActivePass, syncOfflinePasses, unlockWithPin } from "@/lib/offline/passes";
 
 const KEYS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "C", "0", "⌫"] as const;
+type Member = { id: string; name: string; initials: string; color: string | null; roleKey: string | null; roleName: string | null };
+const ROLE_SHORT: Record<string, string> = { owner: "Propriétaire", admin: "Admin", manager: "Gérant", kitchen: "Cuisine", server: "Salle", cashier: "Caisse", bartender: "Bar", accountant: "Compta" };
 
 /** Horloge rendue après le montage pour éviter tout écart entre serveur et navigateur. */
 function useClock() {
@@ -44,6 +46,10 @@ export function StaffPortal({ mode }: { mode: PortalMode }) {
   const [shake, setShake] = useState(0);
   const [loading, setLoading] = useState(false);
   const [welcome, setWelcome] = useState<string | null>(null);
+  // Équipe de l'établissement : on touche son nom, puis on tape son PIN (plus rapide, et jamais d'ambiguïté de PIN)
+  const [member, setMember] = useState<Member | null>(null);
+  const team = useQuery({ queryKey: ["pin-team"], queryFn: () => api.get<Member[]>("/api/auth/pin/team"), enabled: !!me?.terminal, staleTime: 60_000, retry: false });
+  const members = team.data ?? [];
   const next = safeNext(params.get("next"), cfg.next);
 
   // Laissez-passer à jour pour une prochaine coupure
@@ -61,7 +67,7 @@ export function StaffPortal({ mode }: { mode: PortalMode }) {
     try {
       let u: { firstName: string; displayName?: string | null };
       try {
-        u = await api.post<{ firstName: string; displayName?: string | null }>("/api/auth/pin", { pin });
+        u = await api.post<{ firstName: string; displayName?: string | null }>("/api/auth/pin", { pin, ...(member ? { userId: member.id } : {}) });
         // Laissez-passer de l'employé (opérations hors ligne signées à son nom), sans retarder l'entrée
         syncOfflinePasses(true).then(() => unlockWithPin(pin)).then((p) => setActivePass(p ? { ...p, mode: "online" } : null)).catch(() => {});
       } catch (err) {
@@ -82,7 +88,7 @@ export function StaffPortal({ mode }: { mode: PortalMode }) {
       setPin("");
       setLoading(false);
     }
-  }, [pin, loading, mode, next, qc, router]);
+  }, [pin, loading, mode, next, qc, router, member]);
 
   const press = useCallback((k: string) => {
     if (loading) return;
@@ -167,13 +173,35 @@ export function StaffPortal({ mode }: { mode: PortalMode }) {
           ) : (
             <div key={shake} className={`rounded-[28px] bg-white/[0.06] p-5 ring-1 ring-white/10 backdrop-blur-xl sm:p-7 ${shake ? "shake" : ""}`}>
               <div className="flex items-center gap-3">
-                <span className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br ${cfg.tile}`}><Icon className="h-6 w-6" /></span>
-                <div className="min-w-0">
-                  <h2 className="text-lg font-extrabold leading-tight">{cfg.title}</h2>
-                  <p className="truncate text-sm text-white/60">{me?.terminal ? `Terminal · ${me.terminal.name}` : "Saisissez votre PIN"}</p>
-                </div>
+                {member ? (
+                  <>
+                    <button type="button" onClick={() => { setMember(null); setPin(""); setError(null); }} className="touch flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/[0.07] ring-1 ring-white/10" aria-label="Choisir une autre personne"><ChevronLeft className="h-6 w-6" /></button>
+                    <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-base font-extrabold text-white shadow-lg" style={{ background: member.color ?? "#0ea5a4" }}>{member.initials}</span>
+                    <div className="min-w-0">
+                      <h2 className="truncate text-lg font-extrabold leading-tight" data-testid="pin-member-name">{member.name}</h2>
+                      <p className="truncate text-sm text-white/60">Votre PIN, puis {cfg.submit.toLowerCase()}</p>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <span className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br ${cfg.tile}`}><Icon className="h-6 w-6" /></span>
+                    <div className="min-w-0">
+                      <h2 className="text-lg font-extrabold leading-tight">{cfg.title}</h2>
+                      <p className="truncate text-sm text-white/60">{members.length > 1 ? "Touchez votre nom, puis votre PIN" : me?.terminal ? `Terminal · ${me.terminal.name}` : "Saisissez votre PIN"}</p>
+                    </div>
+                  </>
+                )}
               </div>
-
+              {members.length > 1 && !member ? (
+                <div className="-mx-1 mt-4 flex gap-2 overflow-x-auto px-1 pb-1" data-testid="pin-team">
+                  {members.map((m) => (
+                    <button key={m.id} type="button" onClick={() => { setMember(m); setPin(""); setError(null); }} className="touch flex w-[4.75rem] shrink-0 flex-col items-center gap-1.5 rounded-2xl bg-white/[0.07] px-1 py-2.5 ring-1 ring-white/10 transition hover:bg-white/[0.12] active:scale-95" data-testid="pin-member" title={m.roleKey ? ROLE_SHORT[m.roleKey] ?? m.roleName ?? undefined : undefined}>
+                      <span className="flex h-11 w-11 items-center justify-center rounded-full text-sm font-extrabold text-white shadow-lg" style={{ background: m.color ?? "#0ea5a4" }}>{m.initials}</span>
+                      <span className="w-full truncate text-center text-xs font-bold">{m.name}</span>
+                    </button>
+                  ))}
+                </div>
+              ) : null}
               <div className="mt-6 flex justify-center gap-3" aria-label={`${pin.length} chiffre${pin.length > 1 ? "s" : ""} saisi${pin.length > 1 ? "s" : ""}`} role="status">
                 {[0, 1, 2, 3, 4, 5].map((i) => (
                   <span key={i} className={`h-4 w-4 rounded-full transition-all duration-200 ${i < pin.length ? `scale-110 ${cfg.dot}` : i < 4 ? "bg-white/25" : "bg-white/10"}`} />

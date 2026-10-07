@@ -19,22 +19,115 @@ export const UNITS = ["pce", "g", "kg", "ml", "l", "cl", "portion"] as const;
 
 // ------------------------------------------------------------------ Ingrédients
 export async function listIngredients(establishmentId: string, opts: { includeInactive?: boolean } = {}) {
-  const rows = await prisma.ingredient.findMany({ where: { establishmentId, ...(opts.includeInactive ? {} : { isActive: true }) }, orderBy: { name: "asc" }, include: { _count: { select: { recipeLines: true, supplierProducts: true } } } });
-  return rows.map((i) => ({ ...i, stockQty: n(i.stockQty), stockMin: n(i.stockMin), belowMin: n(i.stockQty) <= n(i.stockMin), value: Math.round(n(i.stockQty) * i.avgCost) }));
+  const rows = await prisma.ingredient.findMany({ where: { establishmentId, ...(opts.includeInactive ? {} : { isActive: true }) }, orderBy: { name: "asc" }, include: { _count: { select: { recipeLines: true, supplierProducts: true, composition: true, usedIn: true } } } });
+  return rows.map((i) => ({ ...i, stockQty: n(i.stockQty), stockMin: n(i.stockMin), yieldQty: n(i.yieldQty), belowMin: n(i.stockQty) <= n(i.stockMin), value: Math.round(n(i.stockQty) * i.avgCost) }));
 }
 
-export async function upsertIngredient(actor: Actor, input: { id?: string; name: string; unit?: string; stockMin?: number; avgCost?: number; isCritical?: boolean; isActive?: boolean }) {
+export async function upsertIngredient(actor: Actor, input: { id?: string; name: string; unit?: string; stockMin?: number; avgCost?: number; isCritical?: boolean; isActive?: boolean; isPreparation?: boolean; yieldQty?: number }) {
+  if (input.yieldQty !== undefined && input.yieldQty <= 0) throw new ApiError(400, "BAD_YIELD", "La quantité obtenue par lot doit être positive");
   if (input.id) {
     const existing = await prisma.ingredient.findFirst({ where: { id: input.id, establishmentId: actor.establishmentId } });
     if (!existing) throw new ApiError(404, "NOT_FOUND", "Ingrédient introuvable");
-    const row = await prisma.ingredient.update({ where: { id: input.id }, data: { name: input.name, unit: input.unit, stockMin: input.stockMin, avgCost: input.avgCost, isCritical: input.isCritical, isActive: input.isActive } });
-    await audit({ ...actor, action: "ingredient.update", entityType: "ingredient", entityId: row.id, oldValue: { name: existing.name, stockMin: n(existing.stockMin), avgCost: existing.avgCost }, newValue: { name: row.name, stockMin: n(row.stockMin), avgCost: row.avgCost } });
+    const row = await prisma.ingredient.update({ where: { id: input.id }, data: { name: input.name, unit: input.unit, stockMin: input.stockMin, avgCost: input.avgCost, isCritical: input.isCritical, isActive: input.isActive, isPreparation: input.isPreparation, yieldQty: input.yieldQty } });
+    await audit({ ...actor, action: "ingredient.update", entityType: "ingredient", entityId: row.id, oldValue: { name: existing.name, stockMin: n(existing.stockMin), avgCost: existing.avgCost }, newValue: { name: row.name, stockMin: n(row.stockMin), avgCost: row.avgCost, isPreparation: row.isPreparation } });
     await prisma.$transaction((tx) => refreshAvailability(tx, actor.establishmentId, [row.id]));
     return row;
   }
-  const row = await prisma.ingredient.create({ data: { establishmentId: actor.establishmentId, name: input.name, unit: input.unit ?? "pce", stockMin: input.stockMin ?? 0, avgCost: input.avgCost ?? 0, lastCost: input.avgCost ?? 0, isCritical: input.isCritical ?? false } });
-  await audit({ ...actor, action: "ingredient.create", entityType: "ingredient", entityId: row.id, newValue: { name: row.name, unit: row.unit } });
+  const row = await prisma.ingredient.create({ data: { establishmentId: actor.establishmentId, name: input.name, unit: input.unit ?? "pce", stockMin: input.stockMin ?? 0, avgCost: input.avgCost ?? 0, lastCost: input.avgCost ?? 0, isCritical: input.isCritical ?? false, isPreparation: input.isPreparation ?? false, yieldQty: input.yieldQty ?? 1 } });
+  await audit({ ...actor, action: "ingredient.create", entityType: "ingredient", entityId: row.id, newValue: { name: row.name, unit: row.unit, isPreparation: row.isPreparation } });
   return row;
+}
+
+// ------------------------------------------------------------------ Préparations maison (sous-recettes)
+/*
+ * Une préparation (sauce, marinade, fond, pâte…) est un ingrédient fabriqué à partir d'autres ingrédients :
+ * sa composition donne les quantités pour un lot, qui produit `yieldQty` unités de la préparation.
+ * « Produire » consomme les composants et entre la préparation en stock à son coût réel (coût des composants / quantité
+ * obtenue), avec un coût moyen pondéré. Les recettes des plats l'utilisent ensuite comme n'importe quel ingrédient.
+ * Une préparation peut entrer dans une autre préparation (fond → sauce), sans boucle.
+ */
+const prepInclude = { composition: { include: { ingredient: { select: { id: true, name: true, unit: true, avgCost: true, stockQty: true, isPreparation: true, isActive: true } } }, orderBy: { ingredient: { name: "asc" } } } } satisfies Prisma.IngredientInclude;
+
+function mapPreparation(p: Prisma.IngredientGetPayload<{ include: typeof prepInclude }>) {
+  const yieldQty = n(p.yieldQty) || 1;
+  const lines = p.composition.map((l) => ({ ingredientId: l.ingredientId, name: l.ingredient.name, unit: l.ingredient.unit, quantity: n(l.quantity), avgCost: l.ingredient.avgCost, cost: Math.round(n(l.quantity) * l.ingredient.avgCost), stockQty: n(l.ingredient.stockQty), isPreparation: l.ingredient.isPreparation, batchesAvailable: n(l.quantity) > 0 ? Math.floor(n(l.ingredient.stockQty) / n(l.quantity) + 1e-9) : Infinity }));
+  const batchCost = lines.reduce((a, l) => a + l.cost, 0);
+  const producible = lines.length ? Math.max(0, Math.min(...lines.map((l) => l.batchesAvailable))) : 0;
+  return {
+    id: p.id, name: p.name, unit: p.unit, isPreparation: p.isPreparation, yieldQty, stockQty: n(p.stockQty), stockMin: n(p.stockMin), avgCost: p.avgCost, lastCost: p.lastCost, isCritical: p.isCritical, isActive: p.isActive,
+    lines, batchCost, unitCost: Math.round(batchCost / yieldQty), producibleBatches: Number.isFinite(producible) ? producible : 0,
+  };
+}
+export type Preparation = ReturnType<typeof mapPreparation>;
+
+export async function listPreparations(establishmentId: string) {
+  const rows = await prisma.ingredient.findMany({ where: { establishmentId, isActive: true, isPreparation: true }, orderBy: { name: "asc" }, include: prepInclude });
+  return rows.map(mapPreparation);
+}
+
+export async function getPreparation(establishmentId: string, id: string) {
+  const p = await prisma.ingredient.findFirst({ where: { id, establishmentId }, include: prepInclude });
+  if (!p) throw new ApiError(404, "NOT_FOUND", "Préparation introuvable");
+  return mapPreparation(p);
+}
+
+/** Refuse une composition qui ferait tourner en rond (une sauce qui contient une préparation qui contient la sauce…). */
+async function assertNoPreparationCycle(tx: Tx, preparationId: string, componentIds: string[]) {
+  const seen = new Set<string>();
+  let frontier = componentIds.filter((id) => !seen.has(id));
+  while (frontier.length) {
+    if (frontier.includes(preparationId)) throw new ApiError(400, "PREPARATION_CYCLE", "Une préparation ne peut pas se contenir elle-même, même indirectement");
+    frontier.forEach((id) => seen.add(id));
+    const next = await tx.preparationLine.findMany({ where: { preparationId: { in: frontier } }, select: { ingredientId: true } });
+    frontier = [...new Set(next.map((l) => l.ingredientId))].filter((id) => !seen.has(id));
+  }
+}
+
+export async function setPreparation(actor: Actor, id: string, input: { lines: { ingredientId: string; quantity: number }[]; yieldQty?: number }) {
+  const prep = await prisma.ingredient.findFirst({ where: { id, establishmentId: actor.establishmentId } });
+  if (!prep) throw new ApiError(404, "NOT_FOUND", "Préparation introuvable");
+  if (input.yieldQty !== undefined && input.yieldQty <= 0) throw new ApiError(400, "BAD_YIELD", "La quantité obtenue par lot doit être positive");
+  const lines = input.lines.filter((l) => l.quantity > 0);
+  const ids = [...new Set(lines.map((l) => l.ingredientId))];
+  if (ids.includes(id)) throw new ApiError(400, "PREPARATION_CYCLE", "Une préparation ne peut pas se contenir elle-même");
+  if (ids.length !== lines.length) throw new ApiError(400, "DUPLICATE_LINE", "Un même ingrédient apparaît deux fois");
+  const comps = await prisma.ingredient.findMany({ where: { id: { in: ids }, establishmentId: actor.establishmentId }, select: { id: true } });
+  if (comps.length !== ids.length) throw new ApiError(400, "BAD_INGREDIENT", "Ingrédient inconnu");
+  await prisma.$transaction(async (tx) => {
+    await assertNoPreparationCycle(tx, id, ids);
+    await tx.preparationLine.deleteMany({ where: { preparationId: id } });
+    if (lines.length) await tx.preparationLine.createMany({ data: lines.map((l) => ({ preparationId: id, ingredientId: l.ingredientId, quantity: l.quantity })) });
+    await tx.ingredient.update({ where: { id }, data: { isPreparation: true, ...(input.yieldQty !== undefined ? { yieldQty: input.yieldQty } : {}) } });
+    await audit({ ...actor, action: "preparation.update", entityType: "ingredient", entityId: id, newValue: { lines: lines.length, yieldQty: input.yieldQty ?? n(prep.yieldQty) } }, tx);
+  });
+  publish("catalog.updated", actor.establishmentId, { stock: true });
+  return getPreparation(actor.establishmentId, id);
+}
+
+/**
+ * Produit `batches` lots de la préparation : les composants sortent du stock (mouvement PRODUCTION, −),
+ * la préparation y entre (PRODUCTION, +) au coût réel du lot ; son coût moyen est pondéré avec le stock existant.
+ * Un composant manquant n'empêche pas de produire (le stock devient négatif et le signale) : la cuisine a bien fait la sauce.
+ */
+export async function producePreparation(actor: Actor, id: string, input: { batches: number; reason?: string | null }) {
+  if (!(input.batches > 0)) throw new ApiError(400, "BAD_QUANTITY", "Indiquez le nombre de lots à produire");
+  const prep = await getPreparation(actor.establishmentId, id);
+  if (!prep.isPreparation || prep.lines.length === 0) throw new ApiError(400, "NO_COMPOSITION", "Définissez d'abord la composition de la préparation");
+  const produced = round3(prep.yieldQty * input.batches);
+  const result = await prisma.$transaction(async (tx) => {
+    let cost = 0;
+    for (const l of prep.lines) {
+      const r = await applyMovement(tx, { establishmentId: actor.establishmentId, ingredientId: l.ingredientId, userId: actor.userId, kind: "PRODUCTION", quantity: -round3(l.quantity * input.batches), reason: `Production ${prep.name}`, referenceId: id });
+      cost += Math.round(l.quantity * input.batches * (r.movement?.unitCost ?? l.avgCost));
+    }
+    const unitCost = produced > 0 ? Math.round(cost / produced) : 0;
+    const r = await applyMovement(tx, { establishmentId: actor.establishmentId, ingredientId: id, userId: actor.userId, kind: "PRODUCTION", quantity: produced, unitCost, reason: input.reason?.trim() || `${input.batches} lot${input.batches > 1 ? "s" : ""} produit${input.batches > 1 ? "s" : ""}`, referenceId: id });
+    await refreshAvailability(tx, actor.establishmentId, [id, ...prep.lines.map((l) => l.ingredientId)]);
+    await audit({ ...actor, action: "preparation.produce", entityType: "ingredient", entityId: id, newValue: { batches: input.batches, produced, cost, unitCost, stockAfter: n(r.ingredient.stockQty) }, reason: input.reason }, tx);
+    return { produced, cost, unitCost, stockAfter: n(r.ingredient.stockQty) };
+  });
+  publish("catalog.updated", actor.establishmentId, { stock: true });
+  return { ...result, preparation: await getPreparation(actor.establishmentId, id) };
 }
 
 export async function archiveIngredient(actor: Actor, id: string) {
@@ -65,8 +158,8 @@ async function applyMovement(tx: Tx, input: { establishmentId: string; ingredien
   const after = round3(before + qty);
   const data: Prisma.IngredientUpdateInput = { stockQty: after };
   let unitCost = input.unitCost ?? ing.avgCost;
-  if (input.kind === "PURCHASE" && qty > 0 && input.unitCost !== null && input.unitCost !== undefined) {
-    // Coût moyen pondéré sur le stock positif existant
+  if ((input.kind === "PURCHASE" || input.kind === "PRODUCTION") && qty > 0 && input.unitCost !== null && input.unitCost !== undefined) {
+    // Coût moyen pondéré sur le stock positif existant (achat reçu, ou lot de préparation produit)
     const base = Math.max(0, before);
     data.avgCost = base + qty > 0 ? Math.round((base * ing.avgCost + qty * input.unitCost) / (base + qty)) : input.unitCost;
     data.lastCost = input.unitCost;

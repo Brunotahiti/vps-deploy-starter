@@ -47,13 +47,17 @@ export function assertNotBlocked(blockedAt: Date | null) {
   if (blockedAt) throw new ApiError(403, "ACCOUNT_BLOCKED", `Ce compte est suspendu. Contactez ${OFFER.contactEmail} pour le réactiver.`);
 }
 
-/** Connexion rapide par PIN sur un terminal enregistré (établissement lié au terminal). */
-export async function loginWithPin(establishmentId: string, pin: string, terminalId: string | null) {
+/**
+ * Connexion rapide par PIN sur un terminal enregistré (établissement lié au terminal).
+ * `userId` : la personne a touché son nom sur l'écran ; seul son PIN est alors accepté.
+ */
+export async function loginWithPin(establishmentId: string, pin: string, terminalId: string | null, userId?: string | null) {
   const release = await reserveAttempt(`pin:${establishmentId}`, PIN_LIMIT, WINDOW, "Trop de PIN erronés sur cet établissement, réessayez dans quelques minutes");
   const candidates = await prisma.user.findMany({
     where: {
       isActive: true,
       pinHash: { not: null },
+      ...(userId ? { id: userId } : {}),
       OR: [
         { memberships: { some: { establishmentId } } },
         { isOwner: true, organization: { establishments: { some: { id: establishmentId } } } },

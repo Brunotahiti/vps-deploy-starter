@@ -40,6 +40,7 @@ const HELP: [string, string][] = [
   ["/admin/cash", "Les sessions de caisse : ouverture, entrées et sorties d'espèces, clôture et écart. Le rapport Z s'imprime d'ici."],
   ["/admin/stats", "Vos ventes en graphiques : par jour, par heure, par produit et par serveur."],
   ["/admin/reports", "Les chiffres de la période choisie et leurs exports (tableur, comptabilité)."],
+  ["/admin/accounting", "Votre comptabilité en un endroit : ventes et TVA (depuis la caisse), achats (depuis le stock), dépenses à saisir (loyer, énergie, factures), personnel, résultat estimé. Tout s'exporte en CSV, Excel ou PDF pour votre comptable."],
   ["/admin/catalog", "Votre carte : catégories, produits, prix, options (cuisson, suppléments) et formules. Ce qui est ici s'affiche à la caisse."],
   ["/admin/stock", "Le stock des ingrédients baisse à chaque vente selon les recettes. Inventaires, fournisseurs et commandes d'achat."],
   ["/admin/floor", "Dessinez vos salles et glissez vos tables à leur vraie place : c'est le plan que l'équipe voit à la caisse. Une table libre se touche pour ouvrir une commande ; la couleur de chaque table montre où en est le service (libre, en commande, servie, addition, réservée)."],

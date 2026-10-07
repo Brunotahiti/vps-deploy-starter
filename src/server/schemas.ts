@@ -30,6 +30,8 @@ export const userCreateSchema = z.object({
   email: z.string().email(), password: z.string().min(8).max(128), firstName: z.string().min(1).max(60), lastName: z.string().min(1).max(60),
   displayName: z.string().max(40).nullable().optional(), color: z.string().max(20).nullable().optional(), pin: pin.nullable().optional(), memberships: z.array(membershipSchema).min(1),
 });
+export const pinUserCreateSchema = z.object({ firstName: z.string().min(1).max(60), lastName: z.string().min(1).max(60), displayName: z.string().max(40).nullable().optional(), color: z.string().max(20).nullable().optional(), pin, memberships: z.array(membershipSchema).min(1) });
+export const pinLoginByUserSchema = z.object({ pin, userId: uuid.optional() });
 export const userUpdateSchema = userCreateSchema.partial().extend({ isActive: z.boolean().optional(), currentPassword: z.string().max(200).optional() });
 export const inviteSchema = z.object({ email: z.string().email(), firstName: z.string().min(1).max(60), lastName: z.string().min(1).max(60), color: z.string().max(20).nullable().optional(), memberships: z.array(membershipSchema).min(1) });
 export const acceptInviteSchema = z.object({ password: z.string().min(8).max(128), pin: pin.nullable().optional() });
@@ -107,9 +109,11 @@ export const daySchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 
 // Stock (Phase 4)
 const qty = z.number().min(0).max(1_000_000);
-export const ingredientSchema = z.object({ name: z.string().min(1).max(120), unit: z.string().min(1).max(12).optional(), stockMin: qty.optional(), avgCost: money.optional(), isCritical: z.boolean().optional(), isActive: z.boolean().optional() });
+export const ingredientSchema = z.object({ name: z.string().min(1).max(120), unit: z.string().min(1).max(12).optional(), stockMin: qty.optional(), avgCost: money.optional(), isCritical: z.boolean().optional(), isActive: z.boolean().optional(), isPreparation: z.boolean().optional(), yieldQty: z.number().positive().max(1_000_000).optional() });
+export const preparationSchema = z.object({ lines: z.array(z.object({ ingredientId: uuid, quantity: z.number().min(0).max(1_000_000) })).max(60), yieldQty: z.number().positive().max(1_000_000).optional() });
+export const produceSchema = z.object({ batches: z.number().positive().max(10_000), reason: z.string().max(200).nullable().optional() });
 export const movementSchema = z.object({ ingredientId: uuid, kind: z.enum(["PURCHASE", "ADJUSTMENT", "LOSS", "BREAKAGE", "INTERNAL_USE"]), quantity: z.number().min(-1_000_000).max(1_000_000), unitCost: money.nullable().optional(), reason: z.string().max(200).nullable().optional() });
-export const movementsQuery = z.object({ ingredientId: uuid.optional(), kind: z.enum(["SALE", "PURCHASE", "ADJUSTMENT", "LOSS", "BREAKAGE", "INTERNAL_USE", "INVENTORY"]).optional(), from: z.string().optional(), to: z.string().optional(), take: z.coerce.number().int().min(1).max(1000).optional() });
+export const movementsQuery = z.object({ ingredientId: uuid.optional(), kind: z.enum(["SALE", "PURCHASE", "ADJUSTMENT", "LOSS", "BREAKAGE", "INTERNAL_USE", "INVENTORY", "PRODUCTION"]).optional(), from: z.string().optional(), to: z.string().optional(), take: z.coerce.number().int().min(1).max(1000).optional() });
 export const inventorySchema = z.object({ lines: z.array(z.object({ ingredientId: uuid, countedQty: qty })).min(1).max(500), reason: z.string().max(200).nullable().optional() });
 export const recipeSchema = z.object({ lines: z.array(z.object({ ingredientId: uuid, quantity: z.number().min(0).max(100000) })).max(100), applyCost: z.boolean().optional() });
 export const supplierSchema = z.object({ name: z.string().min(1).max(120), contactName: z.string().max(120).nullable().optional(), phone: z.string().max(40).nullable().optional(), email: z.string().email().max(160).nullable().optional().or(z.literal("")), address: z.string().max(300).nullable().optional(), notes: z.string().max(1000).nullable().optional(), isActive: z.boolean().optional() });
@@ -128,7 +132,11 @@ export const clockIdentifySchema = z.object({ pin: z.string().regex(/^\d{4,6}$/)
 export const timeEntrySchema = z.object({ employeeId: uuid.optional(), kind: z.enum(["CLOCK_IN", "BREAK_START", "BREAK_END", "CLOCK_OUT"]).optional(), at: z.string().datetime({ offset: true }), reason: z.string().min(1).max(200) });
 // Période de rapport : début ≤ fin et au plus 13 mois (évite de charger tout l'historique d'un coup)
 export const periodQuery = z.object({ from: daySchema, to: daySchema }).refine((q) => q.from <= q.to, { message: "La date de début doit précéder la date de fin", path: ["from"] }).refine((q) => (Date.parse(q.to) - Date.parse(q.from)) / 86_400_000 <= 400, { message: "Période trop longue (13 mois au plus)", path: ["to"] });
-export const exportQuery = z.object({ type: z.enum(["period", "products", "orders", "staff", "accounting"]), format: z.enum(["csv", "xlsx", "pdf"]), from: daySchema, to: daySchema }).refine((q) => q.from <= q.to, { message: "La date de début doit précéder la date de fin", path: ["from"] }).refine((q) => (Date.parse(q.to) - Date.parse(q.from)) / 86_400_000 <= 400, { message: "Période trop longue (13 mois au plus)", path: ["to"] });
+export const exportQuery = z.object({ type: z.enum(["period", "products", "orders", "staff", "accounting", "expenses", "stock"]), format: z.enum(["csv", "xlsx", "pdf"]), from: daySchema, to: daySchema }).refine((q) => q.from <= q.to, { message: "La date de début doit précéder la date de fin", path: ["from"] }).refine((q) => (Date.parse(q.to) - Date.parse(q.from)) / 86_400_000 <= 400, { message: "Période trop longue (13 mois au plus)", path: ["to"] });
+
+// Comptabilité : dépenses saisies
+export const expenseSchema = z.object({ date: z.string().min(8).max(40), label: z.string().min(1).max(160), category: z.string().min(1).max(40), supplierId: uuid.nullable().optional(), supplierName: z.string().max(120).nullable().optional(), reference: z.string().max(60).nullable().optional(), amountTtc: z.number().int().min(1), taxAmount: z.number().int().min(0).optional(), method: z.enum(["CASH", "CARD", "TRANSFER", "CHECK"]).nullable().optional(), paidAt: z.string().max(40).nullable().optional(), notes: z.string().max(500).nullable().optional() });
+export const accountingQuery = periodQuery;
 
 // Digital (Phase 6)
 const modSel = z.array(z.object({ modifierId: uuid, quantity: z.number().int().min(1).max(20).optional() })).optional();

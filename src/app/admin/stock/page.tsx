@@ -48,7 +48,7 @@ export default function StockPage() {
 
   return (
     <div>
-      <PageHeader title="Stocks & achats" subtitle="Ingrédients, seuils d'alerte, pertes et coût matière" action={manage ? <Button onClick={() => setEdit({ name: "", unit: "pce", stockMin: "0", avgCost: "0", isCritical: false })}>Nouvel ingrédient</Button> : null} />
+      <PageHeader title="Stocks & achats" subtitle="Ingrédients et préparations maison, seuils d'alerte, pertes et coût matière" action={manage ? <Button onClick={() => setEdit({ name: "", unit: "pce", stockMin: "0", avgCost: "0", isCritical: false })}>Nouvel ingrédient</Button> : null} />
       <StockTabs />
       <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
         <Stat label="Valeur du stock" value={<Money amount={stockValue} />} hint="au coût moyen" />
@@ -65,9 +65,9 @@ export default function StockPage() {
         <Table head={["Ingrédient", "Stock", "Seuil", "Coût moyen", "Valeur", "Recettes", ""]}>
           {rows.map((i) => (
             <Tr key={i.id}>
-              <Td><span className="font-semibold">{i.name}</span>{i.isCritical ? <Badge color="purple">critique</Badge> : null}<span className="block text-xs text-muted">{i.unit}</span></Td>
+              <Td><span className="font-semibold">{i.name}</span>{i.isCritical ? <Badge color="purple">critique</Badge> : null}{i.isPreparation ? <Badge color="teal">préparation</Badge> : null}<span className="block text-xs text-muted">{i.unit}</span></Td>
               <Td><span className={`font-bold tabular-nums ${i.stockQty <= 0 ? "text-red-600" : i.belowMin ? "text-orange-600" : ""}`}>{fmtQty(i.stockQty, i.unit)}</span>{i.stockQty <= 0 ? <Badge color="red">rupture</Badge> : i.belowMin ? <Badge color="orange">à commander</Badge> : null}</Td>
-              <Td className="tabular-nums">{fmtQty(i.stockMin, i.unit)}</Td><Td><Money amount={i.avgCost} /> / {i.unit}</Td><Td className="font-semibold"><Money amount={i.value} /></Td><Td>{i._count.recipeLines}</Td>
+              <Td className="tabular-nums">{fmtQty(i.stockMin, i.unit)}</Td><Td><Money amount={i.avgCost} /> / {i.unit}</Td><Td className="font-semibold"><Money amount={i.value} /></Td><Td>{i._count.recipeLines}{i._count.usedIn ? <span className="block text-[11px] text-muted">+ {i._count.usedIn} prépa.</span> : null}</Td>
               <Td className="space-x-3 whitespace-nowrap">
                 <button onClick={() => setHistory(i)} className="text-xs font-semibold text-lagon-600">Historique</button>
                 {manage ? <><button onClick={() => setMove({ ingredient: i, kind: "LOSS", quantity: "", unitCost: "", reason: "" })} className="text-xs font-semibold text-corail-500">Perte / ajust.</button><button onClick={() => setEdit({ id: i.id, name: i.name, unit: i.unit, stockMin: String(i.stockMin), avgCost: String(i.avgCost), isCritical: i.isCritical })} className="text-xs font-semibold text-lagon-600">Modifier</button><button onClick={() => confirm(`Archiver « ${i.name} » ?`) && act(() => api.delete(`/api/stock/ingredients/${i.id}`), { success: "Archivé", invalidate: [inv] })} className="text-xs font-semibold text-red-600">Archiver</button></> : null}
@@ -103,7 +103,7 @@ export default function StockPage() {
       <Modal open={!!history} onClose={() => setHistory(null)} title={history ? `Mouvements — ${history.name}` : ""} size="lg">
         {hist.isLoading ? <div className="flex justify-center py-6"><Spinner /></div> : (
           <Table head={["Date", "Type", "Quantité", "Coût unit.", "Motif", "Par"]}>
-            {hist.data?.map((m) => <Tr key={m.id}><Td className="whitespace-nowrap text-xs">{formatDateTime(m.createdAt, timezone)}</Td><Td><Badge color={m.kind === "SALE" ? "blue" : m.kind === "PURCHASE" ? "green" : m.kind === "INVENTORY" ? "purple" : m.kind === "ADJUSTMENT" ? "gray" : "red"}>{MOVEMENT_LABEL[m.kind]}</Badge></Td><Td className={`font-semibold tabular-nums ${m.quantity < 0 ? "text-red-600" : "text-green-600"}`}>{m.quantity > 0 ? "+" : ""}{fmtQty(m.quantity, m.ingredient.unit)}</Td><Td>{m.unitCost !== null ? <Money amount={m.unitCost} /> : "—"}</Td><Td className="text-xs">{m.reason ?? ""}</Td><Td className="text-xs">{m.user?.displayName || m.user?.firstName || "système"}</Td></Tr>)}
+            {hist.data?.map((m) => <Tr key={m.id}><Td className="whitespace-nowrap text-xs">{formatDateTime(m.createdAt, timezone)}</Td><Td><Badge color={m.kind === "SALE" ? "blue" : m.kind === "PURCHASE" ? "green" : m.kind === "PRODUCTION" ? "teal" : m.kind === "INVENTORY" ? "purple" : m.kind === "ADJUSTMENT" ? "gray" : "red"}>{MOVEMENT_LABEL[m.kind]}</Badge></Td><Td className={`font-semibold tabular-nums ${m.quantity < 0 ? "text-red-600" : "text-green-600"}`}>{m.quantity > 0 ? "+" : ""}{fmtQty(m.quantity, m.ingredient.unit)}</Td><Td>{m.unitCost !== null ? <Money amount={m.unitCost} /> : "—"}</Td><Td className="text-xs">{m.reason ?? ""}</Td><Td className="text-xs">{m.user?.displayName || m.user?.firstName || "système"}</Td></Tr>)}
             {hist.data?.length === 0 ? <Tr><Td className="py-6 text-center text-muted">Aucun mouvement</Td></Tr> : null}
           </Table>
         )}

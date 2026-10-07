@@ -5,7 +5,7 @@ ManaResto est une caisse et un back-office pour les restaurants de Polynésie fr
 ## 1. Premiers pas
 
 1. **Créer votre entreprise** : `/onboarding` (nom, N° Tahiti, premier établissement, compte propriétaire).
-2. **Se connecter** : `/login` avec e-mail et mot de passe. Sur une tablette de caisse, enregistrez l'appareil (**Paramètres → Terminaux**) : l'équipe se connecte ensuite par **PIN** sur `/pos/login`.
+2. **Se connecter** : `/login` avec e-mail et mot de passe. Sur une tablette de caisse, enregistrez l'appareil (**Paramètres → Terminaux**) : l'équipe se connecte ensuite par **PIN** sur `/pos/login`, en touchant son prénom dans la liste puis en tapant son PIN.
 3. **Installer l'application** : bouton « Installer l'application » dans le menu (ou « Sur l'écran d'accueil » depuis Safari sur iPhone / iPad).
 4. **Mettre à jour** : après chaque déploiement, un bandeau « Nouvelle version disponible » apparaît en bas de l'écran (au retour au premier plan ou dans la demi-heure). Touchez **Mettre à jour** : l'application se recharge avec la nouvelle version. Le numéro de version installé est affiché en bas du menu d'administration.
 
@@ -44,7 +44,9 @@ Dans une commande, l'onglet **Service** montre la prochaine action, le serveur r
 
 ## 5. Stocks et achats
 
-**Stocks & achats** : ingrédients (unité, seuil, coût moyen), recettes par produit (coût matière, marge), **décrémentation automatique à l'envoi en cuisine**, inventaires (écart valorisé), pertes et casse tracées, fournisseurs et bons de commande (envoi, réception partielle ou totale, entrées en stock), suggestions de commande, **rupture automatique** en caisse quand un ingrédient critique est épuisé, rapport (consommation, achats, pertes, food cost).
+**Stocks & achats** : ingrédients (unité, seuil, coût moyen), recettes par produit (coût matière, marge), **décrémentation automatique à l'envoi en cuisine**, inventaires (écart valorisé), pertes et casse tracées, fournisseurs et bons de commande (envoi, réception partielle ou totale, entrées en stock), suggestions de commande, **rupture automatique** en caisse quand un ingrédient critique est épuisé, rapport (consommation, achats, pertes, food cost), **export du stock** (valorisation et mouvements en CSV, Excel, PDF).
+
+**Préparations maison** (onglet Préparations) : une sauce, une marinade, un fond… fabriqués à partir de plusieurs ingrédients. Créez la préparation (nom, unité, quantité obtenue par lot), définissez sa composition (par exemple 500 g de mayonnaise + 200 g de ketchup + 50 g d'oignon → 0,75 l de sauce burger) : le coût du lot et le coût par unité se calculent, et le nombre de lots réalisables avec le stock actuel s'affiche. **Produire** sort les composants du stock et entre la préparation à son coût réel (coût moyen pondéré). La préparation s'utilise ensuite dans les recettes des plats comme n'importe quel ingrédient, et une préparation peut entrer dans une autre (un fond dans une sauce), sans boucle possible.
 
 ## 6. Personnel
 
@@ -56,6 +58,8 @@ Dans une commande, l'onglet **Service** montre la prochaine action, le serveur r
 
 
 **Tableau de bord** (jour) et **Rapports & exports** (période) : synthèse et comparaison, par jour, heure, catégorie, produit, serveur, moyen de paiement, type de vente. Exports **CSV, Excel, PDF** : rapport, ventes par produit, commandes, personnel, **export comptable** (journal de caisse, ventes par taux de TVA, encaissements, écritures).
+
+**Comptabilité** (`Ventes → Comptabilité`) : tout ce dont votre comptable a besoin, sur la période de votre choix. Les **ventes et la TVA collectée** viennent de la caisse (par taux), les **achats matières** des réceptions et achats entrés dans le stock, le **personnel** du pointage ; vous **saisissez les dépenses** (loyer, électricité, assurances, fournitures, factures hors bons de commande…) avec leur catégorie, leur TVA déductible, le fournisseur et le moyen de paiement (ou « à payer »). L'écran donne la **TVA à reverser** (collectée − déductible), un **compte de résultat estimé** et la liste des dépenses ; l'**export comptable complet** (CSV, Excel, PDF) contient le résultat, les ventes par TVA, les encaissements, les remboursements, les dépenses, les achats et les **écritures équilibrées** (707 / 4457 / 53 / 512 / 401 / 6xx / 44566) prêtes à importer dans un logiciel comptable.
 
 ## 8. Digital
 
@@ -87,7 +91,7 @@ Dans une commande, l'onglet **Service** montre la prochaine action, le serveur r
 
 ## 10. Utilisateurs, rôles et audit
 
-**Utilisateurs** : comptes, rôles (propriétaire, manager, serveur, cuisine, bar, caissier… personnalisables par permission), PIN. **Inviter par e-mail** : saisissez l'adresse, le prénom, le nom et le rôle ; la personne reçoit un lien (valable 7 jours) pour choisir son mot de passe et son PIN, puis entre directement dans l'application. Le lien peut aussi être copié et transmis à la main (WhatsApp, SMS) si l'envoi d'e-mail n'est pas configuré ; « Renvoyer » génère un nouveau lien. **Journal d'audit** : toute action sensible (remise, annulation, correction, paramètres, clés API) est tracée avec l'auteur et le motif.
+**Utilisateurs** : comptes, rôles (propriétaire, manager, serveur, cuisine, bar, caissier… personnalisables par permission), PIN. **Ajouter un employé (PIN)** : le plus rapide pour l'équipe, un compte avec prénom, nom, profil, couleur et PIN, **sans e-mail ni mot de passe** ; sur les tablettes et téléphones enregistrés, l'écran PIN affiche les **prénoms de l'équipe** : chacun touche son nom puis tape son PIN. Un tel compte peut plus tard recevoir une adresse e-mail et un mot de passe (il devient un compte complet). **Inviter par e-mail** : saisissez l'adresse, le prénom, le nom et le rôle ; la personne reçoit un lien (valable 7 jours) pour choisir son mot de passe et son PIN, puis entre directement dans l'application. Le lien peut aussi être copié et transmis à la main (WhatsApp, SMS) si l'envoi d'e-mail n'est pas configuré ; « Renvoyer » génère un nouveau lien. **Journal d'audit** : toute action sensible (remise, annulation, correction, paramètres, clés API) est tracée avec l'auteur et le motif.
 
 ## 11. Sécurité
 

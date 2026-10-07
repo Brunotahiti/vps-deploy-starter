@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { BrainCircuit, LayoutDashboard, UtensilsCrossed, Map, Receipt, Wallet, Users, Settings, ScrollText, Building2, Moon, Sun, LogOut, X, Boxes, CalendarDays, Heart, QrCode, BarChart3, Clock, Plug, Network, TrendingUp, ShieldCheck, Printer, ChevronDown, Store, BookOpen, UsersRound, SlidersHorizontal, Globe, ExternalLink, type LucideIcon, Sparkles, ThermometerSnowflake, BookUser, Megaphone, Tv, PartyPopper, Martini, Wine } from "lucide-react";
+import { Calculator, BrainCircuit, LayoutDashboard, UtensilsCrossed, Map, Receipt, Wallet, Users, Settings, ScrollText, Building2, Moon, Sun, LogOut, X, Boxes, CalendarDays, Heart, QrCode, BarChart3, Clock, Plug, Network, TrendingUp, ShieldCheck, Printer, ChevronDown, Store, BookOpen, UsersRound, SlidersHorizontal, Globe, ExternalLink, type LucideIcon, Sparkles, ThermometerSnowflake, BookUser, Megaphone, Tv, PartyPopper, Martini, Wine } from "lucide-react";
 import { markLogoutPending, useSession } from "@/hooks/use-session";
 import { useRealtime } from "@/hooks/use-realtime";
 import { useTheme } from "@/hooks/use-theme";
@@ -54,6 +54,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
       { href: "/admin/cash", label: "Caisse", icon: Wallet, show: can("reports.view") },
       { href: "/admin/stats", label: "Statistiques", icon: TrendingUp, show: can("reports.view") && hasOption("stats") },
       { href: "/admin/reports", label: "Rapports & exports", icon: BarChart3, show: can("reports.view") && hasOption("stats") },
+      { href: "/admin/accounting", label: "Comptabilité", icon: Calculator, show: can("reports.view") && hasOption("stats") },
     ] },
     { key: "carte", label: "Carte & stocks", icon: BookOpen, items: [
       { href: "/admin/catalog/products", label: "Catalogue", icon: UtensilsCrossed, show: can("catalog.view"), match: "/admin/catalog" },
