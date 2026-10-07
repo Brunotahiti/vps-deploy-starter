@@ -75,7 +75,7 @@ export function CounterHome() {
  * Plats prêts en cuisine (commandes de ce comptoir) : le serveur va les chercher, les apporte au client, puis
  * appuie sur « Remis » ; la commande quitte la file. Rafraîchi en temps réel (kitchen.updated / order.updated).
  */
-function ReadyBanner() {
+export function ReadyBanner({ className = "" }: { className?: string } = {}) {
   const qc = useQueryClient();
   const { toast } = useToast();
   const board = useQuery({ queryKey: ["takeaway"], queryFn: () => api.get<{ toAccept: TakeawayCard[]; preparing: TakeawayCard[]; ready: TakeawayCard[] }>("/api/takeaway"), refetchInterval: 20_000 });
@@ -89,7 +89,7 @@ function ReadyBanner() {
     finally { setBusy(null); }
   };
   return (
-    <section className="no-print mx-2 mt-2 shrink-0 rounded-2xl bg-gradient-to-br from-emerald-500 to-green-600 p-3 text-white shadow-lift" data-testid="counter-ready">
+    <section className={`no-print shrink-0 rounded-2xl bg-gradient-to-br from-emerald-500 to-green-600 p-3 text-white shadow-lift ${className || "mx-2 mt-2"}`} data-testid="counter-ready">
       <p className="mb-2 flex items-center gap-2 text-sm font-extrabold"><BellRing className="h-4 w-4 animate-bounce" />Prêt en cuisine : à aller chercher et apporter au client</p>
       <div className="flex gap-2 overflow-x-auto no-scrollbar">
         {ready.map((c) => (

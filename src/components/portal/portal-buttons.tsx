@@ -29,10 +29,11 @@ function activeKey(pathname: string): Entry["key"] | null {
  * La barre occupe sa propre place sous le contenu (elle ne le recouvre jamais) et tient compte de la barre d'accueil de l'iPhone.
  */
 export function PortalButtons({ onNavigate, className = "" }: { onNavigate?: () => void; className?: string }) {
-  const { can, businessType } = useSession();
+  const { can, businessType, payAtOrder } = useSession();
   const pathname = usePathname();
+  // Snack : pas de portail Commande (service à table)… sauf en mode roulotte, où le serveur prend la commande, encaisse et envoie en cuisine depuis son téléphone
   const entries: Entry[] = [
-    ...(Object.keys(PORTALS) as PortalMode[]).filter((m) => can(PORTALS[m].permission) && !(m === "commande" && businessType === "snack")).map((m) => ({ key: m, label: m === "salle" && businessType === "snack" ? "Comptoir" : PORTALS[m].label, href: PORTALS[m].next, title: PORTALS[m].title, icon: PORTALS[m].icon, tile: PORTALS[m].tile })),
+    ...(Object.keys(PORTALS) as PortalMode[]).filter((m) => can(PORTALS[m].permission) && !(m === "commande" && businessType === "snack" && !payAtOrder)).map((m) => ({ key: m, label: m === "salle" && (businessType === "snack" || payAtOrder) ? "Comptoir" : PORTALS[m].label, href: PORTALS[m].next, title: PORTALS[m].title, icon: PORTALS[m].icon, tile: PORTALS[m].tile })),
     ...(can("reports.view") || can("catalog.manage") || can("settings.manage") ? [GESTION] : []),
   ];
   // Un seul espace accessible : c'est l'écran où l'on se trouve déjà, la barre n'apporterait rien
