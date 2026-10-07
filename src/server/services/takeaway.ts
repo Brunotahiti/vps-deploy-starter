@@ -23,7 +23,7 @@ export type TakeawayStage = "to_accept" | "preparing" | "ready";
 export const callNumber = (number: string) => String(Number(number.split("-")[1] ?? number) || number);
 
 const boardSelect = {
-  id: true, number: true, type: true, status: true, isTab: true, customerName: true, tableLabel: true, customerPhone: true, pickupAt: true, readyAt: true, pickedUpAt: true,
+  id: true, number: true, type: true, status: true, isTab: true, customerName: true, tableLabel: true, table: { select: { name: true } }, customerPhone: true, pickupAt: true, readyAt: true, pickedUpAt: true,
   openedAt: true, acceptedAt: true, closedAt: true, total: true, paidTotal: true, channelMeta: true,
   items: { where: { status: { not: "VOIDED" as const }, parentItemId: null }, select: { quantity: true, status: true, name: true } },
 } satisfies Prisma.OrderSelect;
@@ -43,7 +43,7 @@ function cardOf(o: Row) {
     id: o.id, number: o.number, call: callNumber(o.number), type: o.type, channel, stage, paid, total: o.total,
     name: o.customerName ?? (typeof meta.name === "string" ? meta.name : null),
     // Mode roulotte : numéro ou repère de table où apporter les plats
-    tableLabel: o.tableLabel ?? null,
+    tableLabel: o.tableLabel ?? o.table?.name ?? null,
     isTab: o.isTab, // ardoise du bar : servie au comptoir du bar, pas une table de la salle
     itemNames: o.items.map((i) => `${i.quantity > 1 ? `${i.quantity} × ` : ""}${i.name}`),
     phone: o.customerPhone ?? (typeof meta.phone === "string" ? meta.phone : null),
@@ -57,13 +57,13 @@ function cardOf(o: Row) {
 export type TakeawayCard = ReturnType<typeof cardOf>;
 
 /** Commandes à emporter du jour, pas encore remises (les commandes vides ou annulées n'apparaissent pas). */
-async function openTakeaway(establishmentId: string, timezone: string, now = new Date()) {
+async function openTakeaway(establishmentId: string, timezone: string, now = new Date(), types: OrderType[] = TAKEAWAY_TYPES) {
   const today = localDay(now, timezone);
   const dayStart = startOfLocalDay(today, timezone);
   const dayEnd = startOfLocalDay(addDays(today, 1), timezone);
   const rows = await prisma.order.findMany({
     where: {
-      establishmentId, type: { in: TAKEAWAY_TYPES }, status: { not: "CANCELLED" }, pickedUpAt: null,
+      establishmentId, type: { in: types }, status: { not: "CANCELLED" }, pickedUpAt: null,
       OR: [{ openedAt: { gte: dayStart } }, { pickupAt: { gte: dayStart, lt: dayEnd } }],
       items: { some: { status: { not: "VOIDED" } } },
     },
@@ -76,10 +76,16 @@ async function openTakeaway(establishmentId: string, timezone: string, now = new
   return rows.filter((o) => !handedOver(o)).map(cardOf).sort((a, b) => (a.pickupAt ?? a.openedAt).localeCompare(b.pickupAt ?? b.openedAt));
 }
 
-/** Tableau « À emporter » de la caisse. */
-export async function takeawayBoard(establishmentId: string, now = new Date()) {
-  const est = await prisma.establishment.findUniqueOrThrow({ where: { id: establishmentId }, select: { timezone: true } });
-  const cards = await openTakeaway(establishmentId, est.timezone, now);
+/** Mode roulotte (settings.payAtOrder) : les commandes à table, payées d'abord, suivent aussi la file (portail Salle). */
+async function roulotteTypes(establishmentId: string, settings: unknown): Promise<OrderType[]> {
+  void establishmentId;
+  return ((settings ?? {}) as { payAtOrder?: boolean }).payAtOrder === true ? [...TAKEAWAY_TYPES, "DINE_IN"] : TAKEAWAY_TYPES;
+}
+
+/** Tableau « À emporter » de la caisse ; `withTables` (portail Salle, mode roulotte) : aussi les commandes à table en cuisine. */
+export async function takeawayBoard(establishmentId: string, now = new Date(), opts: { withTables?: boolean } = {}) {
+  const est = await prisma.establishment.findUniqueOrThrow({ where: { id: establishmentId }, select: { timezone: true, settings: true } });
+  const cards = await openTakeaway(establishmentId, est.timezone, now, opts.withTables ? await roulotteTypes(establishmentId, est.settings) : TAKEAWAY_TYPES);
   return {
     toAccept: cards.filter((c) => c.stage === "to_accept"),
     preparing: cards.filter((c) => c.stage === "preparing"),
@@ -100,9 +106,10 @@ export async function callDisplay(establishmentId: string, now = new Date()) {
 
 /** Prête (le numéro s'affiche à l'écran d'appel, le client est prévenu s'il a laissé son e-mail), pas encore prête, ou remise. */
 export async function setTakeawayStep(actor: Actor, orderId: string, step: "ready" | "not_ready" | "picked_up") {
-  const order = await prisma.order.findFirst({ where: { id: orderId, establishmentId: actor.establishmentId }, select: { ...boardSelect, publicToken: true, establishment: { select: { name: true, phone: true } } } });
+  const order = await prisma.order.findFirst({ where: { id: orderId, establishmentId: actor.establishmentId }, select: { ...boardSelect, publicToken: true, establishment: { select: { name: true, phone: true, settings: true } } } });
   if (!order) throw new ApiError(404, "NOT_FOUND", "Commande introuvable");
-  if (!TAKEAWAY_TYPES.includes(order.type)) throw new ApiError(400, "NOT_TAKEAWAY", "Cette commande n'est pas à emporter");
+  // Mode roulotte : « Servi » depuis le portail Salle vaut aussi pour une commande à table
+  if (!(await roulotteTypes(actor.establishmentId, order.establishment.settings)).includes(order.type)) throw new ApiError(400, "NOT_TAKEAWAY", "Cette commande n'est pas à emporter");
   if (order.status === "CANCELLED") throw new ApiError(409, "CANCELLED", "Cette commande est annulée");
   const card = cardOf(order);
   if (step === "picked_up") {

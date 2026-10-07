@@ -106,7 +106,7 @@ export async function notifyDishReady(actor: Actor, ticket: { orderId: string; i
   return sendPush(actor.establishmentId, { userId: ticket.order.serverId, excludeUserId: actor.userId }, {
     title: `${total > 1 ? "Plats prêts" : "Plat prêt"} · ${where}`,
     body: `${dishes}${ticket.course?.name && ticket.course.name !== "COMMANDE" ? ` (${ticket.course.name.toLowerCase()})` : ""} — ${todo}`.slice(0, 180),
-    url: ticket.order.table ? `/pos/order/${ticket.orderId}` : roulotte ? "/pos/salle" : "/pos/emporter",
+    url: roulotte ? "/pos/salle" : ticket.order.table ? `/pos/order/${ticket.orderId}` : "/pos/emporter",
     tag: `ready-${ticket.orderId}`,
     renotify: true,
   });

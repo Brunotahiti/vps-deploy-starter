@@ -13,7 +13,7 @@ import type { TakeawayCard } from "@/server/services/takeaway";
 
 type Board = { toAccept: TakeawayCard[]; preparing: TakeawayCard[]; ready: TakeawayCard[] };
 
-const CHANNEL: Record<string, string> = { COUNTER: "Sur place", TAKEAWAY: "À emporter", PICKUP: "En ligne", KIOSK: "Borne", DELIVERY: "Livraison" };
+const CHANNEL: Record<string, string> = { COUNTER: "Sur place", DINE_IN: "À table", TAKEAWAY: "À emporter", PICKUP: "En ligne", KIOSK: "Borne", DELIVERY: "Livraison" };
 /** Où apporter : la table saisie à la commande ; à emporter / borne : le numéro d'appel. Sur place sans table : « Table ? », à renseigner. */
 function whereOf(c: TakeawayCard) {
   const channel = CHANNEL[c.channel] ?? c.channel;
@@ -61,7 +61,7 @@ export function RoulotteFloor() {
   const qc = useQueryClient();
   const { toast } = useToast();
   const { me } = useSession();
-  const board = useQuery({ queryKey: ["takeaway"], queryFn: () => api.get<Board>("/api/takeaway"), refetchInterval: 15_000 });
+  const board = useQuery({ queryKey: ["takeaway", "salle"], queryFn: () => api.get<Board>("/api/takeaway?tables=1"), refetchInterval: 15_000 });
   const [busy, setBusy] = useState<string | null>(null);
   // Les livraisons partent avec le livreur et les ardoises du bar se servent au bar : ni l'une ni l'autre n'est une table à servir
   const ready = (board.data?.ready ?? []).filter((c) => c.channel !== "DELIVERY" && !c.isTab);
