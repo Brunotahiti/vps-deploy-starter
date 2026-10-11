@@ -23,18 +23,33 @@ export async function listIngredients(establishmentId: string, opts: { includeIn
   return rows.map((i) => ({ ...i, stockQty: n(i.stockQty), stockMin: n(i.stockMin), yieldQty: n(i.yieldQty), belowMin: n(i.stockQty) <= n(i.stockMin), value: Math.round(n(i.stockQty) * i.avgCost) }));
 }
 
-export async function upsertIngredient(actor: Actor, input: { id?: string; name: string; unit?: string; stockMin?: number; avgCost?: number; isCritical?: boolean; isActive?: boolean; isPreparation?: boolean; yieldQty?: number }) {
+/**
+ * Fiche ingrédient. `stockQty` : la quantité en stock saisie directement dans la fiche (stock de départ à la
+ * création, correction ensuite) ; l'écart est tracé comme un mouvement d'inventaire, au coût moyen.
+ */
+export async function upsertIngredient(actor: Actor, input: { id?: string; name: string; unit?: string; stockMin?: number; stockQty?: number; avgCost?: number; isCritical?: boolean; isActive?: boolean; isPreparation?: boolean; yieldQty?: number }) {
   if (input.yieldQty !== undefined && input.yieldQty <= 0) throw new ApiError(400, "BAD_YIELD", "La quantité obtenue par lot doit être positive");
   if (input.id) {
     const existing = await prisma.ingredient.findFirst({ where: { id: input.id, establishmentId: actor.establishmentId } });
     if (!existing) throw new ApiError(404, "NOT_FOUND", "Ingrédient introuvable");
-    const row = await prisma.ingredient.update({ where: { id: input.id }, data: { name: input.name, unit: input.unit, stockMin: input.stockMin, avgCost: input.avgCost, isCritical: input.isCritical, isActive: input.isActive, isPreparation: input.isPreparation, yieldQty: input.yieldQty } });
-    await audit({ ...actor, action: "ingredient.update", entityType: "ingredient", entityId: row.id, oldValue: { name: existing.name, stockMin: n(existing.stockMin), avgCost: existing.avgCost }, newValue: { name: row.name, stockMin: n(row.stockMin), avgCost: row.avgCost, isPreparation: row.isPreparation } });
-    await prisma.$transaction((tx) => refreshAvailability(tx, actor.establishmentId, [row.id]));
+    const row = await prisma.$transaction(async (tx) => {
+      const updated = await tx.ingredient.update({ where: { id: input.id }, data: { name: input.name, unit: input.unit, stockMin: input.stockMin, avgCost: input.avgCost, isCritical: input.isCritical, isActive: input.isActive, isPreparation: input.isPreparation, yieldQty: input.yieldQty } });
+      const diff = input.stockQty === undefined ? 0 : round3(input.stockQty - n(existing.stockQty));
+      const r = diff !== 0 ? await applyMovement(tx, { establishmentId: actor.establishmentId, ingredientId: updated.id, userId: actor.userId, kind: "INVENTORY", quantity: diff, reason: "Stock corrigé depuis la fiche" }) : null;
+      await audit({ ...actor, action: "ingredient.update", entityType: "ingredient", entityId: updated.id, oldValue: { name: existing.name, stockMin: n(existing.stockMin), avgCost: existing.avgCost, stockQty: n(existing.stockQty) }, newValue: { name: updated.name, stockMin: n(updated.stockMin), avgCost: updated.avgCost, isPreparation: updated.isPreparation, stockQty: r ? n(r.ingredient.stockQty) : n(existing.stockQty) } }, tx);
+      await refreshAvailability(tx, actor.establishmentId, [updated.id]);
+      return r?.ingredient ?? updated;
+    });
+    if (input.stockQty !== undefined) publish("catalog.updated", actor.establishmentId, { stock: true });
     return row;
   }
-  const row = await prisma.ingredient.create({ data: { establishmentId: actor.establishmentId, name: input.name, unit: input.unit ?? "pce", stockMin: input.stockMin ?? 0, avgCost: input.avgCost ?? 0, lastCost: input.avgCost ?? 0, isCritical: input.isCritical ?? false, isPreparation: input.isPreparation ?? false, yieldQty: input.yieldQty ?? 1 } });
-  await audit({ ...actor, action: "ingredient.create", entityType: "ingredient", entityId: row.id, newValue: { name: row.name, unit: row.unit, isPreparation: row.isPreparation } });
+  const row = await prisma.$transaction(async (tx) => {
+    const created = await tx.ingredient.create({ data: { establishmentId: actor.establishmentId, name: input.name, unit: input.unit ?? "pce", stockMin: input.stockMin ?? 0, avgCost: input.avgCost ?? 0, lastCost: input.avgCost ?? 0, isCritical: input.isCritical ?? false, isPreparation: input.isPreparation ?? false, yieldQty: input.yieldQty ?? 1 } });
+    // Stock de départ : entré comme un inventaire au coût indiqué, pour que la fiche ne reste pas à zéro
+    const r = input.stockQty ? await applyMovement(tx, { establishmentId: actor.establishmentId, ingredientId: created.id, userId: actor.userId, kind: "INVENTORY", quantity: input.stockQty, reason: "Stock de départ" }) : null;
+    await audit({ ...actor, action: "ingredient.create", entityType: "ingredient", entityId: created.id, newValue: { name: created.name, unit: created.unit, isPreparation: created.isPreparation, stockQty: input.stockQty ?? 0 } }, tx);
+    return r?.ingredient ?? created;
+  });
   return row;
 }
 

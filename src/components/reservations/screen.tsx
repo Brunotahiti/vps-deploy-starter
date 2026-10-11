@@ -52,6 +52,8 @@ export function ReservationsScreen() {
   const settings = settingsQ.data ?? DEFAULT_RESERVATION_SETTINGS;
   const floor = useFloor();
   const tables = useMemo(() => (floor.data?.rooms ?? []).flatMap((r) => r.tables.map((t) => ({ id: t.id, name: t.name, seats: t.seats, room: r.name, busy: !!t.order }))), [floor.data]);
+  // Plusieurs salles : la table se dit avec sa salle (« Table 1 · Terrasse »), car le même numéro existe souvent dans chaque salle
+  const multiRoom = (floor.data?.rooms ?? []).length > 1;
 
   const list = q.data ?? [];
   const active = list.filter(counts);
@@ -194,7 +196,7 @@ export function ReservationsScreen() {
         </div>
       ) : null}
 
-      <BookingModal open={!!booking} onClose={() => setBooking(null)} editing={booking?.editing ?? null} prefill={booking?.prefill ?? null} timezone={timezone} settings={settings} tables={tables} onSaved={(d) => setDay(d)} advanced={advanced} />
+      <BookingModal open={!!booking} onClose={() => setBooking(null)} editing={booking?.editing ?? null} prefill={booking?.prefill ?? null} timezone={timezone} settings={settings} tables={tables} multiRoom={multiRoom} onSaved={(d) => setDay(d)} advanced={advanced} />
       <ReservationSettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} settings={settings} />
       <Modal open={!!seat} onClose={() => setSeat(null)} title={seat ? `Installer ${seat.name} · ${seat.partySize} pers.` : ""} size="lg">
         <p className="mb-3 text-sm text-muted">Choisissez la table : la commande s&apos;ouvre avec {seat?.partySize} couvert{(seat?.partySize ?? 0) > 1 ? "s" : ""}, le client rattaché{seat?.allergies ? " et ses allergies notées" : ""}.</p>
@@ -221,7 +223,7 @@ export function ReservationsScreen() {
           <p className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <span className="text-base font-extrabold">{r.name}</span>
             <span className="inline-flex items-center gap-1 rounded-full surface-2 px-2 py-0.5 text-xs font-extrabold"><Users className="h-3 w-3" />{r.partySize}</span>
-            {r.table ? <span className="rounded-full bg-lagon-500/15 px-2 py-0.5 text-xs font-bold text-lagon-700 dark:text-lagon-300">Table {r.table.name}</span> : counts(r) ? <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-xs font-bold text-amber-700 dark:text-amber-300">À placer</span> : null}
+            {r.table ? <span className="rounded-full bg-lagon-500/15 px-2 py-0.5 text-xs font-bold text-lagon-700 dark:text-lagon-300">Table {r.table.name}{multiRoom && r.table.room ? ` · ${r.table.room.name}` : ""}</span> : counts(r) ? <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-xs font-bold text-amber-700 dark:text-amber-300">À placer</span> : null}
             {r.customer && r.customer.visitCount > 0 ? <span className="text-xs font-bold text-lagon-700 dark:text-lagon-300">⭐ {r.customer.visitCount} visite{r.customer.visitCount > 1 ? "s" : ""}</span> : null}
             {tags.map((t) => <span key={t.key} title={t.label} className="text-sm">{t.emoji}</span>)}
           </p>

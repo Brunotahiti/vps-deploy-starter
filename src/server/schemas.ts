@@ -109,7 +109,7 @@ export const daySchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 
 // Stock (Phase 4)
 const qty = z.number().min(0).max(1_000_000);
-export const ingredientSchema = z.object({ name: z.string().min(1).max(120), unit: z.string().min(1).max(12).optional(), stockMin: qty.optional(), avgCost: money.optional(), isCritical: z.boolean().optional(), isActive: z.boolean().optional(), isPreparation: z.boolean().optional(), yieldQty: z.number().positive().max(1_000_000).optional() });
+export const ingredientSchema = z.object({ name: z.string().min(1).max(120), unit: z.string().min(1).max(12).optional(), stockMin: qty.optional(), stockQty: z.number().min(-1_000_000).max(1_000_000).optional(), avgCost: money.optional(), isCritical: z.boolean().optional(), isActive: z.boolean().optional(), isPreparation: z.boolean().optional(), yieldQty: z.number().positive().max(1_000_000).optional() });
 export const preparationSchema = z.object({ lines: z.array(z.object({ ingredientId: uuid, quantity: z.number().min(0).max(1_000_000) })).max(60), yieldQty: z.number().positive().max(1_000_000).optional() });
 export const produceSchema = z.object({ batches: z.number().positive().max(10_000), reason: z.string().max(200).nullable().optional() });
 export const movementSchema = z.object({ ingredientId: uuid, kind: z.enum(["PURCHASE", "ADJUSTMENT", "LOSS", "BREAKAGE", "INTERNAL_USE"]), quantity: z.number().min(-1_000_000).max(1_000_000), unitCost: money.nullable().optional(), reason: z.string().max(200).nullable().optional() });

@@ -24,7 +24,7 @@ const chip = (on: boolean) => `touch rounded-xl border px-3 text-sm font-bold tr
  */
 type Props = {
   open: boolean; onClose: () => void; editing: Resa | null; prefill: BookingPrefill | null; timezone: string;
-  settings: ReservationSettings; tables: Table[]; onSaved: (day: string) => void;
+  settings: ReservationSettings; tables: Table[]; multiRoom?: boolean; onSaved: (day: string) => void;
   /** Réservations avancées (option Digital) : client reconnu, table, repères, e-mail de confirmation */
   advanced: boolean;
 };
@@ -34,7 +34,7 @@ export function BookingModal(props: Props) {
   return props.open ? <BookingForm {...props} /> : null;
 }
 
-function BookingForm({ open, onClose, editing, prefill, timezone, settings, tables, onSaved, advanced }: Props) {
+function BookingForm({ open, onClose, editing, prefill, timezone, settings, tables, multiRoom = false, onSaved, advanced }: Props) {
   const act = useAction();
   const today = localDay(new Date(), timezone);
   const blank = () => ({
@@ -132,7 +132,7 @@ function BookingForm({ open, onClose, editing, prefill, timezone, settings, tabl
   return (
     <Modal open={open} onClose={onClose} size="lg" title={editing ? "Modifier la réservation" : "Nouvelle réservation"} footer={
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-        <p className="min-w-0 flex-1 text-sm" data-testid="booking-summary">{ready ? <><CalendarCheck className="mr-1 inline h-4 w-4 text-lagon-600" /><b>{longDay(f.day)}</b> à <b>{f.time}</b> · {f.partySize} pers.{table ? ` · table ${table.name}` : ""}</> : <span className="text-muted">Nom, jour et heure suffisent pour enregistrer.</span>}</p>
+        <p className="min-w-0 flex-1 text-sm" data-testid="booking-summary">{ready ? <><CalendarCheck className="mr-1 inline h-4 w-4 text-lagon-600" /><b>{longDay(f.day)}</b> à <b>{f.time}</b> · {f.partySize} pers.{table ? ` · table ${table.name}${multiRoom ? ` (${table.room})` : ""}` : ""}</> : <span className="text-muted">Nom, jour et heure suffisent pour enregistrer.</span>}</p>
         <Button size="lg" disabled={!ready} loading={busy} onClick={save}>{editing ? "Enregistrer" : "Enregistrer la réservation"}</Button>
       </div>
     }>
@@ -217,8 +217,8 @@ function BookingForm({ open, onClose, editing, prefill, timezone, settings, tabl
             {!f.time ? <p className="text-sm text-muted">Choisissez l&apos;heure pour voir les tables libres.</p> : (
               <div className="flex flex-wrap gap-1.5">
                 <button onClick={() => set("tableId", "")} aria-pressed={!tableId} className={`${chip(!tableId)} h-12`}>À placer plus tard</button>
-                {suggested.map((t) => <button key={t.id} onClick={() => set("tableId", t.id)} aria-pressed={tableId === t.id} title={t.room} className={`${chip(tableId === t.id)} flex h-12 min-w-[64px] flex-col items-center justify-center leading-none ${t.seats < f.partySize ? "opacity-60" : ""}`}><span>{t.name}</span><span className={`mt-1 text-[10px] font-semibold ${tableId === t.id ? "opacity-90" : "text-muted"}`}>{t.seats} pl.</span></button>)}
-                {busyTables.size ? <p className="w-full text-xs text-muted">Déjà réservées sur ce créneau : {[...busyTables.entries()].map(([id, r]) => `${tables.find((t) => t.id === id)?.name ?? "?"} (${r.name.split(" ")[0]} ${hhmmOf(r.startsAt, timezone)})`).join(", ")}</p> : null}
+                {suggested.map((t) => <button key={t.id} onClick={() => set("tableId", t.id)} aria-pressed={tableId === t.id} title={t.room} className={`${chip(tableId === t.id)} flex h-12 min-w-[64px] flex-col items-center justify-center leading-none ${t.seats < f.partySize ? "opacity-60" : ""}`}><span>{t.name}</span><span className={`mt-1 text-[10px] font-semibold ${tableId === t.id ? "opacity-90" : "text-muted"}`}>{multiRoom ? `${t.room} · ` : ""}{t.seats} pl.</span></button>)}
+                {busyTables.size ? <p className="w-full text-xs text-muted">Déjà réservées sur ce créneau : {[...busyTables.entries()].map(([id, r]) => `${tables.find((t) => t.id === id)?.name ?? "?"}${multiRoom ? ` (${tables.find((t) => t.id === id)?.room})` : ""} (${r.name.split(" ")[0]} ${hhmmOf(r.startsAt, timezone)})`).join(", ")}</p> : null}
               </div>
             )}
           </section>
