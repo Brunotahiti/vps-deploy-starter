@@ -14,7 +14,7 @@ import { Stat } from "@/components/admin/charts";
 import { StockTabs } from "@/components/admin/stock-tabs";
 import { MOVEMENT_LABEL, UNIT_OPTIONS, fmtQty, type Ingredient, type Movement, type StockAlerts } from "@/components/admin/stock-types";
 
-type Form = { id?: string; name: string; unit: string; stockMin: string; avgCost: string; isCritical: boolean };
+type Form = { id?: string; name: string; unit: string; stockQty: string; stockMin: string; avgCost: string; isCritical: boolean };
 type MoveForm = { ingredient: Ingredient; kind: "LOSS" | "BREAKAGE" | "INTERNAL_USE" | "ADJUSTMENT" | "PURCHASE"; quantity: string; unitCost: string; reason: string };
 
 export default function StockPage() {
@@ -36,7 +36,7 @@ export default function StockPage() {
 
   const save = async () => {
     if (!edit) return;
-    const body = { name: edit.name, unit: edit.unit, stockMin: Number(edit.stockMin || 0), avgCost: Number(edit.avgCost || 0), isCritical: edit.isCritical };
+    const body = { name: edit.name, unit: edit.unit, stockMin: Number(edit.stockMin || 0), stockQty: Number(edit.stockQty || 0), avgCost: Number(edit.avgCost || 0), isCritical: edit.isCritical };
     const r = await act(() => (edit.id ? api.patch(`/api/stock/ingredients/${edit.id}`, body) : api.post("/api/stock/ingredients", body)), { success: "Ingrédient enregistré", invalidate: [inv] });
     if (r) setEdit(null);
   };
@@ -48,7 +48,7 @@ export default function StockPage() {
 
   return (
     <div>
-      <PageHeader title="Stocks & achats" subtitle="Ingrédients et préparations maison, seuils d'alerte, pertes et coût matière" action={manage ? <Button onClick={() => setEdit({ name: "", unit: "pce", stockMin: "0", avgCost: "0", isCritical: false })}>Nouvel ingrédient</Button> : null} />
+      <PageHeader title="Stocks & achats" subtitle="Ingrédients et préparations maison, seuils d'alerte, pertes et coût matière" action={manage ? <Button onClick={() => setEdit({ name: "", unit: "pce", stockQty: "0", stockMin: "0", avgCost: "0", isCritical: false })}>Nouvel ingrédient</Button> : null} />
       <StockTabs />
       <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
         <Stat label="Valeur du stock" value={<Money amount={stockValue} />} hint="au coût moyen" />
@@ -70,7 +70,7 @@ export default function StockPage() {
               <Td className="tabular-nums">{fmtQty(i.stockMin, i.unit)}</Td><Td><Money amount={i.avgCost} /> / {i.unit}</Td><Td className="font-semibold"><Money amount={i.value} /></Td><Td>{i._count.recipeLines}{i._count.usedIn ? <span className="block text-[11px] text-muted">+ {i._count.usedIn} prépa.</span> : null}</Td>
               <Td className="space-x-3 whitespace-nowrap">
                 <button onClick={() => setHistory(i)} className="text-xs font-semibold text-lagon-600">Historique</button>
-                {manage ? <><button onClick={() => setMove({ ingredient: i, kind: "LOSS", quantity: "", unitCost: "", reason: "" })} className="text-xs font-semibold text-corail-500">Perte / ajust.</button><button onClick={() => setEdit({ id: i.id, name: i.name, unit: i.unit, stockMin: String(i.stockMin), avgCost: String(i.avgCost), isCritical: i.isCritical })} className="text-xs font-semibold text-lagon-600">Modifier</button><button onClick={() => confirm(`Archiver « ${i.name} » ?`) && act(() => api.delete(`/api/stock/ingredients/${i.id}`), { success: "Archivé", invalidate: [inv] })} className="text-xs font-semibold text-red-600">Archiver</button></> : null}
+                {manage ? <><button onClick={() => setMove({ ingredient: i, kind: "LOSS", quantity: "", unitCost: "", reason: "" })} className="text-xs font-semibold text-corail-500">Perte / ajust.</button><button onClick={() => setEdit({ id: i.id, name: i.name, unit: i.unit, stockQty: String(i.stockQty), stockMin: String(i.stockMin), avgCost: String(i.avgCost), isCritical: i.isCritical })} className="text-xs font-semibold text-lagon-600">Modifier</button><button onClick={() => confirm(`Archiver « ${i.name} » ?`) && act(() => api.delete(`/api/stock/ingredients/${i.id}`), { success: "Archivé", invalidate: [inv] })} className="text-xs font-semibold text-red-600">Archiver</button></> : null}
               </Td>
             </Tr>
           ))}
@@ -82,9 +82,10 @@ export default function StockPage() {
         {edit ? <div className="space-y-3">
           <Field label="Nom"><Input value={edit.name} onChange={(e) => setEdit({ ...edit, name: e.target.value })} placeholder="Thon rouge, Pain burger, Hinano 33 cl…" /></Field>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Unité"><Select value={edit.unit} onChange={(e) => setEdit({ ...edit, unit: e.target.value })}>{UNIT_OPTIONS.map((u) => <option key={u} value={u}>{u}</option>)}</Select></Field>
-            <Field label="Seuil d'alerte"><Input type="number" step="0.001" value={edit.stockMin} onChange={(e) => setEdit({ ...edit, stockMin: e.target.value })} /></Field>
+            <Field label="Unité de mesure" hint="pce, g, kg, ml, cl, l…"><Select value={edit.unit} onChange={(e) => setEdit({ ...edit, unit: e.target.value })}>{UNIT_OPTIONS.map((u) => <option key={u} value={u}>{u}</option>)}</Select></Field>
+            <Field label={`Quantité en stock (${edit.unit})`} hint={edit.id ? "Modifier ici corrige le stock (tracé en inventaire)" : "Ce que vous avez aujourd'hui"}><Input type="number" step="0.001" inputMode="decimal" value={edit.stockQty} onChange={(e) => setEdit({ ...edit, stockQty: e.target.value })} data-testid="ingredient-stock" /></Field>
           </div>
+          <Field label={`Seuil d'alerte (${edit.unit})`} hint="En dessous, l'ingrédient passe « à commander »"><Input type="number" step="0.001" inputMode="decimal" value={edit.stockMin} onChange={(e) => setEdit({ ...edit, stockMin: e.target.value })} /></Field>
           <Field label="Coût moyen par unité (F)" hint="Mis à jour automatiquement à chaque réception d'achat"><Input type="number" value={edit.avgCost} onChange={(e) => setEdit({ ...edit, avgCost: e.target.value })} /></Field>
           <Toggle checked={edit.isCritical} onChange={(v) => setEdit({ ...edit, isCritical: v })} label="Critique : à zéro, les produits qui l'utilisent passent indisponibles en caisse" />
         </div> : null}

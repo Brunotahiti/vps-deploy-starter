@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { api } from "@/lib/api-client";
+import { api, ApiClientError } from "@/lib/api-client";
 import { useSession } from "@/hooks/use-session";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
@@ -24,11 +24,21 @@ export default function StaffPage() {
   const users = useList<U[]>(["users"], "/api/users");
   const present = useList<Present[]>(["staff", "present"], "/api/staff/present");
   const [edit, setEdit] = useState<Form | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  // PIN de pointage : vide (facultatif) ou 4 à 6 chiffres
+  const pinOk = !edit?.pin || /^\d{4,6}$/.test(edit.pin);
   const save = async () => {
-    if (!edit) return;
+    if (!edit || !pinOk) return;
+    setError(null);
     const body = { userId: edit.userId || null, firstName: edit.firstName, lastName: edit.lastName, jobTitle: edit.jobTitle || null, hourlyCost: edit.hourlyCost ? Number(edit.hourlyCost) : null, pin: edit.pin || null, isActive: edit.isActive };
-    const r = await act(() => (edit.id ? api.patch(`/api/staff/employees/${edit.id}`, body) : api.post("/api/staff/employees", body)), { success: "Employé enregistré", invalidate: [["staff"]] });
-    if (r) setEdit(null);
+    try {
+      await (edit.id ? api.patch(`/api/staff/employees/${edit.id}`, body) : api.post("/api/staff/employees", body));
+      await act(async () => null, { success: "Employé enregistré", invalidate: [["staff"]] });
+      setEdit(null);
+    } catch (e) {
+      // L'erreur reste affichée dans la fenêtre (PIN déjà pris par quelqu'un d'autre, trop d'essais…)
+      setError(e instanceof ApiClientError ? e.message : "Enregistrement impossible");
+    }
   };
   return (
     <div>
@@ -47,14 +57,15 @@ export default function StaffPage() {
           {q.data?.length === 0 ? <Tr><Td className="py-8 text-center text-muted">Aucun employé : créez les fiches depuis vos utilisateurs ou manuellement (extras, plonge…).</Td></Tr> : null}
         </Table>
       )}
-      <Modal open={!!edit} onClose={() => setEdit(null)} title={edit?.id ? "Modifier l'employé" : "Nouvel employé"} size="md" footer={<Button className="w-full" disabled={!edit?.firstName || !edit.lastName} onClick={save}>Enregistrer</Button>}>
+      <Modal open={!!edit} onClose={() => { setEdit(null); setError(null); }} title={edit?.id ? "Modifier l'employé" : "Nouvel employé"} size="md" footer={<Button className="w-full" disabled={!edit?.firstName || !edit.lastName || !pinOk} onClick={save} data-testid="employee-save">Enregistrer</Button>}>
         {edit ? <div className="grid gap-3 sm:grid-cols-2">
+          {error ? <p role="alert" className="rounded-xl bg-red-500/10 px-3 py-2 text-sm font-semibold text-red-600 sm:col-span-2 dark:text-red-400" data-testid="employee-error">{error}</p> : null}
           <Field label="Prénom"><Input value={edit.firstName} onChange={(e) => setEdit({ ...edit, firstName: e.target.value })} /></Field>
           <Field label="Nom"><Input value={edit.lastName} onChange={(e) => setEdit({ ...edit, lastName: e.target.value })} /></Field>
           <Field label="Poste"><Input value={edit.jobTitle} onChange={(e) => setEdit({ ...edit, jobTitle: e.target.value })} placeholder="Serveur, Chef, Plonge…" /></Field>
           <Field label="Coût horaire chargé (F)" hint="Sert au calcul du coût du personnel"><Input type="number" value={edit.hourlyCost} onChange={(e) => setEdit({ ...edit, hourlyCost: e.target.value })} /></Field>
           <Field label="Compte utilisateur lié" hint="Permet de pointer avec le PIN du compte" className="sm:col-span-2"><Select value={edit.userId} onChange={(e) => { const u = users.data?.find((x) => x.id === e.target.value); setEdit({ ...edit, userId: e.target.value, ...(u && !edit.firstName ? { firstName: u.firstName, lastName: u.lastName } : {}) }); }}><option value="">— aucun (extra, sans accès à l&apos;application) —</option>{users.data?.map((u) => <option key={u.id} value={u.id}>{u.firstName} {u.lastName} · {u.email}</option>)}</Select></Field>
-          <Field label={edit.id ? "Nouveau PIN de pointage (laisser vide)" : "PIN de pointage (4 à 6 chiffres)"} hint="Facultatif si un compte est lié"><Input inputMode="numeric" value={edit.pin} onChange={(e) => setEdit({ ...edit, pin: e.target.value.replace(/\D/g, "").slice(0, 6) })} /></Field>
+          <Field label={edit.id ? "Nouveau PIN de pointage (laisser vide pour garder)" : "PIN de pointage (4 à 6 chiffres)"} hint={edit.pin && !pinOk ? `Encore ${4 - edit.pin.length} chiffre${4 - edit.pin.length > 1 ? "s" : ""} au minimum` : "Unique dans l'établissement ; facultatif si un compte est lié (son PIN sert alors au pointage)"}><Input inputMode="numeric" pattern="[0-9]*" maxLength={6} value={edit.pin} onChange={(e) => setEdit({ ...edit, pin: e.target.value.replace(/\D/g, "").slice(0, 6) })} placeholder="ex. 4521" data-testid="employee-pin" /></Field>
           <div className="flex items-end"><Toggle checked={edit.isActive} onChange={(v) => setEdit({ ...edit, isActive: v })} label="Employé actif" /></div>
         </div> : null}
       </Modal>

@@ -16,7 +16,7 @@ import type { Prisma, ReservationStatus } from "@/generated/prisma/client";
  * Réservations : prise au téléphone (programme de base) ou en ligne (option Digital), confirmation, arrivée,
  * installation (ouvre la commande), no-show. Une table n'est jamais donnée deux fois sur le même créneau.
  */
-const include = { table: { select: { id: true, name: true, roomId: true, seats: true } }, customer: { select: { id: true, firstName: true, lastName: true, phone: true, visitCount: true, allergies: true } } };
+const include = { table: { select: { id: true, name: true, roomId: true, seats: true, room: { select: { name: true } } } }, customer: { select: { id: true, firstName: true, lastName: true, phone: true, visitCount: true, allergies: true } } };
 
 export async function listReservations(establishmentId: string, day: string, timezone: string) {
   return prisma.reservation.findMany({ where: { establishmentId, startsAt: { gte: startOfLocalDay(day, timezone), lt: endOfLocalDay(day, timezone) } }, orderBy: { startsAt: "asc" }, include });
@@ -48,8 +48,8 @@ export async function upsertReservation(actor: Actor, input: ReservationInput) {
   if (finalTable) {
     const clash = await tableConflict(actor.establishmentId, finalTable, startsAt, durationMinutes, input.id);
     if (clash) {
-      const t = await prisma.table.findUniqueOrThrow({ where: { id: finalTable }, select: { name: true } });
-      throw new ApiError(409, "TABLE_TAKEN", `La table ${t.name} est déjà réservée à ${formatTime(clash.startsAt, await timezoneOf(actor.establishmentId))} (${clash.name}) : choisissez une autre table`);
+      const t = await prisma.table.findUniqueOrThrow({ where: { id: finalTable }, select: { name: true, room: { select: { name: true } } } });
+      throw new ApiError(409, "TABLE_TAKEN", `La table ${t.name} (${t.room.name}) est déjà réservée à ${formatTime(clash.startsAt, await timezoneOf(actor.establishmentId))} (${clash.name}) : choisissez une autre table`);
     }
   }
   if (input.customerId && !(await prisma.customer.findFirst({ where: { id: input.customerId, organizationId: actor.organizationId } }))) throw new ApiError(400, "BAD_CUSTOMER", "Client invalide");

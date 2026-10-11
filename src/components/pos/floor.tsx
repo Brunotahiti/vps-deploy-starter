@@ -228,7 +228,9 @@ export function FloorPlan() {
 function TodayReservations() {
   const { timezone } = useSession();
   const day = localDay(new Date(), timezone);
-  const q = useQuery({ queryKey: ["reservations", day], queryFn: () => api.get<{ id: string; name: string; partySize: number; startsAt: string; status: string; table: { name: string } | null }[]>(`/api/reservations?day=${day}`), refetchInterval: 60_000 });
+  const q = useQuery({ queryKey: ["reservations", day], queryFn: () => api.get<{ id: string; name: string; partySize: number; startsAt: string; status: string; table: { name: string; room?: { name: string } | null } | null }[]>(`/api/reservations?day=${day}`), refetchInterval: 60_000 });
+  const floor = useFloor();
+  const multiRoom = (floor.data?.rooms ?? []).length > 1; // plusieurs salles : la salle de la table est dite
   const list = (q.data ?? []).filter((r) => ["PENDING", "CONFIRMED", "ARRIVED"].includes(r.status));
   const next = list.find((r) => new Date(r.startsAt).getTime() > q.dataUpdatedAt - 30 * 60_000); // heure du dernier rafraîchissement (chaque minute)
   const pending = list.filter((r) => r.status === "PENDING").length;
@@ -236,7 +238,7 @@ function TodayReservations() {
     <Link href="/pos/reservations" data-testid="floor-reservations" className={`touch flex h-11 min-w-0 items-center gap-2 rounded-full px-4 text-sm font-bold transition ${pending ? "bg-amber-500/15 text-amber-800 dark:text-amber-200" : "card hover:surface-2"}`}>
       <CalendarClock className="h-4 w-4 shrink-0 text-lagon-600" />
       <span className="shrink-0">{list.length ? `${list.length} réservation${list.length > 1 ? "s" : ""}` : "Réservations"}</span>
-      {next ? <span className="truncate font-semibold text-muted">· prochaine {formatTime(next.startsAt, timezone)} {next.name.split(" ")[0]} ({next.partySize}){next.table ? ` · ${next.table.name}` : ""}</span> : list.length ? null : <span className="hidden font-semibold text-muted sm:inline">· aucune aujourd&apos;hui</span>}
+      {next ? <span className="truncate font-semibold text-muted">· prochaine {formatTime(next.startsAt, timezone)} {next.name.split(" ")[0]} ({next.partySize}){next.table ? ` · table ${next.table.name}${multiRoom && next.table.room ? ` (${next.table.room.name})` : ""}` : ""}</span> : list.length ? null : <span className="hidden font-semibold text-muted sm:inline">· aucune aujourd&apos;hui</span>}
       {pending ? <span className="shrink-0 rounded-full bg-amber-500 px-2 text-[11px] font-extrabold text-white">{pending} à confirmer</span> : null}
     </Link>
   );
