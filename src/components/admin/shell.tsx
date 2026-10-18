@@ -2,6 +2,8 @@
 
 import { VersionBadge } from "@/components/version-badge";
 import Link from "next/link";
+import { usePrefetch } from "@/components/prefetch";
+import { localDay } from "@/lib/dates";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -40,6 +42,14 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   // undefined : la rubrique de la page ouverte est dépliée ; sinon la rubrique choisie (null : toutes repliées)
   const [openGroup, setOpenGroup] = useState<string | null | undefined>(undefined);
   useRealtime(!!me?.user);
+  // Préchargement : les pages de la gestion (et les chiffres du jour) sont prêtes avant d'ouvrir le menu, surtout sur téléphone où il est replié
+  const today = localDay(new Date(), me?.establishment?.timezone ?? "Pacific/Tahiti");
+  usePrefetch({
+    enabled: !!me?.user,
+    delay: 1500,
+    routes: ["/admin", "/admin/orders", "/admin/cash", "/admin/catalog/products", "/admin/users", "/admin/settings", "/admin/hardware", "/admin/customers", "/admin/staff", "/pos", ...(hasOption("stats") ? ["/admin/stats", "/admin/reports", "/admin/accounting"] : []), ...(hasOption("stock") ? ["/admin/stock"] : [])],
+    warm: can("reports.view") ? [{ key: ["reports", "daily", today], fn: () => api.get(`/api/reports/daily?day=${today}`), staleTime: 30_000 }] : [],
+  });
 
   if (isLoading) return <div className="flex h-screen items-center justify-center"><Spinner /></div>;
   // Options à découvrir (pastille du menu) et écran d'une option non débloquée (présenté au lieu d'une erreur)

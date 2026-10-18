@@ -29,6 +29,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="fr" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        {/* Police de l'application demandée dès la première ligne de la page : le texte s'affiche sans attendre le CSS */}
+        <link rel="preload" href="/fonts/PlusJakartaSans-latin.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
       </head>
       <body className="min-h-full">
         <Providers>{children}</Providers>

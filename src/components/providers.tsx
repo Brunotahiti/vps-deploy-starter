@@ -13,7 +13,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
         defaultOptions: {
           // networkMode « always » : sans internet, les requêtes s'exécutent quand même et lisent les copies locales
           // (catalogue, salle, commandes, caisse) ; en mode par défaut elles seraient mises en pause pendant la coupure
-          queries: { staleTime: 5_000, retry: (count, err) => !(err instanceof Object && "status" in err && (err as { status: number }).status < 500) && count < 2, refetchOnWindowFocus: true, networkMode: "always" },
+          // gcTime : les données d'un écran quitté restent 15 min en mémoire, l'écran rouvre instantanément puis se rafraîchit
+          queries: { staleTime: 5_000, gcTime: 15 * 60_000, retry: (count, err) => !(err instanceof Object && "status" in err && (err as { status: number }).status < 500) && count < 2, refetchOnWindowFocus: true, networkMode: "always" },
           mutations: { networkMode: "always" },
         },
       }),
