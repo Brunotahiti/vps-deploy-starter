@@ -15,6 +15,7 @@ function keyBytes(b64url: string) {
 }
 
 const supported = () => typeof window !== "undefined" && "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+const noSubscribe = () => () => {};
 
 /** État de cet appareil : service worker enregistré, permission, abonnement push existant. */
 async function readLocal() {
@@ -30,14 +31,18 @@ async function readLocal() {
  */
 export function usePush(enabled = true) {
   const qc = useQueryClient();
-  const on = enabled && supported();
+  // Prise en charge lue hors rendu serveur : null au rendu initial (serveur et navigateur rendent la même chose,
+  // « en chargement »), puis la vraie valeur — sinon le serveur affichait « non pris en charge » et le navigateur rien
+  const supportedNow = useSyncExternalStore(noSubscribe, supported, () => null);
+  const on = enabled && supportedNow === true;
   const info = useQuery({ queryKey: ["push"], queryFn: () => api.get<PushInfo>("/api/push"), enabled: on, staleTime: 60_000 });
   // Relu à chaque retour au premier plan : la personne revient souvent des Réglages du téléphone après avoir réautorisé
   const local = useQuery({ queryKey: ["push", "device"], queryFn: readLocal, enabled: on, staleTime: 0, refetchOnWindowFocus: true, refetchOnMount: "always" });
   const [busy, setBusy] = useState(false);
   const refresh = () => qc.invalidateQueries({ queryKey: ["push"] });
 
-  const state: PushState = !supported() || (local.data && !local.data.ready) ? "unsupported"
+  const state: PushState = supportedNow === null ? "loading"
+    : !supportedNow || (local.data && !local.data.ready) ? "unsupported"
     : info.isLoading || local.isLoading ? "loading"
     : !info.data?.enabled ? "disabled"
     : local.data?.permission === "denied" ? "denied"

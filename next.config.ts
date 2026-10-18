@@ -9,6 +9,13 @@ const nextConfig: NextConfig = {
   env: { NEXT_PUBLIC_BUILD_ID: buildId, NEXT_PUBLIC_SENTRY_DSN: process.env.SENTRY_DSN ?? "", NEXT_PUBLIC_SENTRY_ENVIRONMENT: process.env.SENTRY_ENVIRONMENT ?? "production" },
   reactStrictMode: true,
   poweredByHeader: false,
+  experimental: {
+    // Navigation : une page déjà visitée est réaffichée tout de suite depuis le cache du navigateur
+    // (30 s pour les écrans dynamiques comme une commande, 5 min pour les autres), puis rafraîchie
+    staleTimes: { dynamic: 30, static: 300 },
+    // Icônes : seules celles utilisées entrent dans le paquet envoyé aux appareils
+    optimizePackageImports: ["lucide-react"],
+  },
   serverExternalPackages: ["pdfkit", "pg", "sharp"],
   // Polices AFM de pdfkit (tickets PDF) à embarquer dans le build standalone (Docker)
   // Police des images d'aperçu des liens partagés (site des restaurants)

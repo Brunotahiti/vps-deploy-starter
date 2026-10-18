@@ -27,12 +27,14 @@ import { TodoButton, TodoPanel, useServiceReminders } from "./service-todo";
 import { PendingReservationsAlert } from "@/components/reservations/pending-alert";
 import { MenuButton } from "@/components/ui/menu-button";
 import { PushToggle } from "@/components/push-toggle";
+import { usePrefetch } from "@/components/prefetch";
+import { localDay } from "@/lib/dates";
 
 export function PosShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const qc = useQueryClient();
-  const { me, can, hasOption, businessType, payAtOrder } = useSession();
+  const { me, can, hasOption, businessType, payAtOrder, timezone } = useSession();
   const { toggle } = useTheme();
   const { online, pending, syncing, flush } = useOffline();
   const connected = useRealtime(!!me?.user);
@@ -65,6 +67,17 @@ export function PosShell({ children }: { children: React.ReactNode }) {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [menu, pathname]);
+
+  // Préchargement : les écrans de la caisse et leurs données sont prêts avant qu'on les ouvre (passage immédiat)
+  usePrefetch({
+    enabled: posAllowed && pathname !== "/pos/login",
+    routes: ["/pos", "/pos/orders", "/pos/emporter", "/pos/cash", "/pos/recap", ...(payAtOrder ? ["/pos/salle"] : []), ...(businessType !== "snack" ? ["/pos/reservations"] : []), ...(hasOption("team") ? ["/pos/clock"] : []), ...(hasOption("bar") && (can("bar.use") || can("bar.manage")) ? ["/pos/bar"] : []), ...(hasOption("wine") && (can("wine.use") || can("wine.manage")) ? ["/pos/wine"] : []), "/kds"],
+    warm: [
+      { key: ["pos-catalog"], fn: () => api.get("/api/pos/catalog"), staleTime: 30_000 },
+      { key: ["orders", "open"], fn: () => api.get("/api/orders?open=1"), staleTime: 15_000 },
+      { key: ["orders", "today"], fn: () => api.get(`/api/orders?day=${localDay(new Date(), timezone)}&take=100`), staleTime: 15_000 },
+    ],
+  });
 
   if (pathname === "/pos/login") return <>{children}</>;
   if (me?.user && !can("pos.use")) return <div className="flex h-dvh items-center justify-center p-6 text-center text-sm text-muted">Ce compte n&apos;a pas accès à la caisse. Redirection…</div>;

@@ -93,6 +93,10 @@ Dans une commande, l'onglet **Service** montre la prochaine action, le serveur r
 
 **Utilisateurs** : comptes, rôles (propriétaire, manager, serveur, cuisine, bar, caissier… personnalisables par permission), PIN. **Ajouter un employé (PIN)** : le plus rapide pour l'équipe, un compte avec prénom, nom, profil, couleur et PIN, **sans e-mail ni mot de passe** ; sur les tablettes et téléphones enregistrés, l'écran PIN affiche les **prénoms de l'équipe** : chacun touche son nom puis tape son PIN. Un tel compte peut plus tard recevoir une adresse e-mail et un mot de passe (il devient un compte complet). **Inviter par e-mail** : saisissez l'adresse, le prénom, le nom et le rôle ; la personne reçoit un lien (valable 7 jours) pour choisir son mot de passe et son PIN, puis entre directement dans l'application. Le lien peut aussi être copié et transmis à la main (WhatsApp, SMS) si l'envoi d'e-mail n'est pas configuré ; « Renvoyer » génère un nouveau lien. **Journal d'audit** : toute action sensible (remise, annulation, correction, paramètres, clés API) est tracée avec l'auteur et le motif.
 
+## 10 bis. Rapidité
+
+Dès qu'un écran de la caisse ou de la gestion est ouvert, l'application **précharge en arrière-plan** les écrans voisins et leurs données (carte, commandes du jour, chiffres du jour) : le passage d'un écran à l'autre est immédiat, même avec une connexion lente. Une page déjà visitée se rouvre sans attendre puis se rafraîchit. Rien n'est préchargé hors ligne.
+
 ## 11. Sécurité
 
 Sessions chiffrées par cookie, PIN et mots de passe hachés, tentatives limitées (connexion, PIN, formulaires publics, API), en-têtes de sécurité HTTP, permissions vérifiées côté serveur sur chaque route, isolation stricte par établissement.
