@@ -3,7 +3,8 @@ import { prisma, type Tx } from "@/server/db";
 import { ApiError } from "@/server/errors";
 import { audit } from "@/server/audit";
 import { publish } from "@/server/realtime/bus";
-import { formatMoney } from "@/lib/money";
+import { formatMoney, splitTtc } from "@/lib/money";
+import { attachFacturX, buildFacturXml, createEInvoiceDocument, type EInvoice, type EInvoiceLine } from "@/server/einvoice/facturx";
 import { addDays, endOfLocalDay, formatDate, formatTime, localDay, startOfLocalDay } from "@/lib/dates";
 import { CATERING_METHODS, EVENT_KINDS, eventTotals, paidOf, type CateringMethod, type EventKind, type EventLine, type EventStatus, type EventTaxRow } from "@/lib/catering";
 import { findOpenSession } from "./cash";
@@ -337,9 +338,9 @@ export async function renderEventPdf(establishmentId: string, id: string, doc: "
   const strip = (ch: string) => ch.normalize("NFD").replace(/[̀-ͯ]/g, "");
   const safe = (s: string) => [...s].map((ch) => (ch.charCodeAt(0) <= 0xff ? ch : /^[\x20-\x7e\xa0-\xff]$/.test(strip(ch)) ? strip(ch) : "")).join("");
   const money = (n: number) => safe(formatMoney(n, e.currency));
-  const PDFDocument = (await import("pdfkit")).default;
   const title = doc === "invoice" ? `Facture ${number}` : number ? `Devis ${number}` : "Devis (brouillon)";
-  const pdf = new PDFDocument({ size: "A4", margins: { top: 40, bottom: 40, left: 40, right: 40 }, info: { Title: title, Author: e.legalName || e.name } });
+  // Facture : PDF/A-3 avec XML Factur-X incorporé (facture électronique) ; devis : PDF ordinaire
+  const pdf = doc === "invoice" ? await createEInvoiceDocument({ title, author: e.legalName || e.name }) : new (await import("pdfkit")).default({ size: "A4", margins: { top: 40, bottom: 40, left: 40, right: 40 }, info: { Title: title, Author: e.legalName || e.name } });
   const chunks: Buffer[] = [];
   pdf.on("data", (c: Buffer) => chunks.push(c));
   const done = new Promise<Buffer>((resolve) => pdf.on("end", () => resolve(Buffer.concat(chunks))));
@@ -418,8 +419,49 @@ export async function renderEventPdf(establishmentId: string, id: string, doc: "
   } else {
     pdf.font("Helvetica").fontSize(8).fillColor(MUTED).text(safe(`Facture à régler ${ev.invoiceDueAt && ev.invoicedAt && ev.invoiceDueAt.getTime() - ev.invoicedAt.getTime() > 86_400_000 ? `avant le ${formatDate(ev.invoiceDueAt, tz)}` : "à réception"}. Merci de rappeler le numéro ${number} avec votre règlement.`), L, 760, { width: W, align: "center" });
   }
+  if (doc === "invoice") attachFacturX(pdf as Parameters<typeof attachFacturX>[0], buildFacturXml(eventEInvoice(ev, e, lines, t, buyer, paid)));
   pdf.end();
   return { pdf: await done, filename: `${doc === "invoice" ? "facture" : "devis"}-${number ?? "brouillon"}.pdf` };
+}
+
+type SellerFields = { name: string; legalName: string | null; addressLine1: string | null; addressLine2: string | null; postalCode: string | null; city: string | null; island: string | null; email: string | null; tahitiNumber: string | null; timezone: string; currency: string };
+
+/**
+ * Données Factur-X d'une facture d'événement : lignes HT par taux (la somme des lignes d'un taux est calée sur la
+ * base HT de ce taux, calculée sur le TTC cumulé), acomptes reçus déduits.
+ */
+function eventEInvoice(ev: { invoiceNumber: string | null; invoicedAt: Date | null; invoiceDueAt: Date | null; title: string; totalTtc: number }, e: SellerFields, lines: EventLine[], t: ReturnType<typeof eventTotals>, buyer: Snapshot["buyer"], paid: number): EInvoice {
+  const out: EInvoiceLine[] = [];
+  const byRate = new Map<number, EInvoiceLine[]>();
+  lines.forEach((l, i) => {
+    const ttc = Math.round(l.quantity * l.unitPrice);
+    const line: EInvoiceLine = { id: String(i + 1), name: l.label, quantity: l.quantity, unitPriceHt: 0, totalHt: splitTtc(ttc, l.taxRateBps).ht, rateBps: l.taxRateBps };
+    byRate.set(l.taxRateBps, [...(byRate.get(l.taxRateBps) ?? []), line]);
+    out.push(line);
+  });
+  for (const r of t.taxes) {
+    const group = byRate.get(r.rateBps) ?? [];
+    const diff = r.ht - group.reduce((s, l) => s + l.totalHt, 0);
+    if (group.length && diff) group[group.length - 1].totalHt += diff; // écart d'arrondi porté par la dernière ligne du taux
+    for (const l of group) l.unitPriceHt = l.quantity > 0 ? l.totalHt / l.quantity : l.totalHt;
+  }
+  const prepaid = Math.min(paid, t.totalTtc);
+  return {
+    number: ev.invoiceNumber ?? "", issuedAt: ev.invoicedAt ?? new Date(), dueAt: ev.invoiceDueAt, currency: e.currency,
+    seller: { name: e.name, legalName: e.legalName, addressLines: [e.addressLine1, e.addressLine2, e.island], postalCode: e.postalCode, city: e.city, countryCode: "PF", taxId: e.tahitiNumber, email: e.email },
+    buyer: { name: buyer.company || buyer.name, addressLines: [buyer.address], countryCode: "PF", taxId: buyer.tahitiNumber, email: buyer.email, contactName: buyer.company ? buyer.name : null },
+    buyerReference: ev.title, lines: out, taxes: t.taxes.map((r) => ({ rateBps: r.rateBps, ht: r.ht, tax: r.tax })),
+    totals: { ht: t.totalHt, tax: t.totalTax, ttc: t.totalTtc, prepaid, due: t.totalTtc - prepaid },
+  };
+}
+
+/** XML Factur-X (EN 16931) de la facture d'un événement. */
+export async function renderEventInvoiceXml(establishmentId: string, id: string): Promise<{ xml: string; number: string }> {
+  const ev = await findEvent(establishmentId, id);
+  if (!ev.invoiceNumber) throw new ApiError(409, "NOT_INVOICED", "Cet événement n'est pas encore facturé");
+  const e = await prisma.establishment.findUniqueOrThrow({ where: { id: establishmentId }, select: { name: true, legalName: true, addressLine1: true, addressLine2: true, postalCode: true, city: true, island: true, email: true, tahitiNumber: true, timezone: true, currency: true } });
+  const snap = ev.invoice as unknown as Snapshot;
+  return { xml: buildFacturXml(eventEInvoice(ev, e, snap.lines, eventTotals(snap.lines), snap.buyer, paidOf(ev.payments))), number: ev.invoiceNumber };
 }
 
 // ─── Privatisation et réservations ───

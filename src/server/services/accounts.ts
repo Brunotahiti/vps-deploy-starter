@@ -2,7 +2,8 @@ import { prisma, type Tx } from "@/server/db";
 import { ApiError } from "@/server/errors";
 import { audit } from "@/server/audit";
 import { publish } from "@/server/realtime/bus";
-import { formatMoney } from "@/lib/money";
+import { formatMoney, splitTtc } from "@/lib/money";
+import { attachFacturX, buildFacturXml, createEInvoiceDocument, linesByRate, normalizeEInvoice, type EInvoice } from "@/server/einvoice/facturx";
 import { endOfLocalDay, formatDate, localDay } from "@/lib/dates";
 import { findOpenSession } from "./cash";
 import { assertNotDemoEmail } from "./demo";
@@ -179,7 +180,8 @@ export async function createInvoice(actor: Actor, accountId: string, opts: { upT
       const r = taxMap.get(t.rateBps) ?? { rateBps: t.rateBps, name: t.name, ht: 0, tax: 0, ttc: 0 };
       r.ht += t.ht; r.tax += t.tax; r.ttc += t.ttc; taxMap.set(t.rateBps, r);
     }
-    const taxes = [...taxMap.values()].sort((a, b) => a.rateBps - b.rateBps);
+    // Par taux : TTC cumulé exact, base HT recalculée depuis ce TTC (même règle que la facture électronique, norme EN 16931)
+    const taxes = [...taxMap.values()].sort((a, b) => a.rateBps - b.rateBps).map((r) => ({ ...r, ...splitTtc(r.ttc, r.rateBps) }));
     const year = Number(localDay(now, tz).slice(0, 4));
     const last = await tx.accountInvoice.findFirst({ where: { establishmentId: actor.establishmentId, year }, orderBy: { seq: "desc" }, select: { seq: true } });
     const seq = (last?.seq ?? 0) + 1;
@@ -229,15 +231,37 @@ export async function getInvoice(establishmentId: string, id: string) {
   return { ...inv, lines: inv.lines as unknown as InvoiceLine[], taxes: inv.taxes as unknown as TaxRow[], buyer: inv.buyer as { name: string; tahitiNumber: string | null; contactName: string | null; address: string | null; email: string | null }, paid: st.paid, remaining: st.remaining, status: st.status };
 }
 
-/** Facture au format PDF (A4), pour le téléchargement et l'envoi par e-mail. */
+/** Données Factur-X d'une facture de compte client : vendeur, acheteur, une ligne par consommation et par taux, TVA, totaux. */
+function invoiceEInvoice(inv: Awaited<ReturnType<typeof getInvoice>>): EInvoice {
+  const e = inv.establishment;
+  return {
+    number: inv.number, issuedAt: inv.issuedAt, dueAt: inv.dueAt, currency: e.currency,
+    seller: { name: e.name, legalName: e.legalName, addressLines: [e.addressLine1, e.addressLine2, e.island], postalCode: e.postalCode, city: e.city, countryCode: "PF", taxId: e.tahitiNumber, email: e.email },
+    buyer: { name: inv.buyer.name, addressLines: [inv.buyer.address], countryCode: "PF", taxId: inv.buyer.tahitiNumber, email: inv.buyer.email, contactName: inv.buyer.contactName },
+    lines: linesByRate(inv.lines.map((l) => ({ id: l.orderNumber, label: `${formatDate(l.date, e.timezone)} · ${l.label}`, taxes: l.taxes }))),
+    taxes: inv.taxes.map((t) => ({ rateBps: t.rateBps, name: t.name, ht: t.ht, tax: t.tax })),
+    totals: { ht: inv.totalTtc - inv.totalTax, tax: inv.totalTax, ttc: inv.totalTtc, prepaid: inv.paid, due: inv.remaining },
+    deliveredAt: inv.lines.length ? new Date(inv.lines[inv.lines.length - 1].date) : inv.issuedAt,
+    paymentTerms: `Facture à régler avant le ${formatDate(inv.dueAt, e.timezone)}`,
+  };
+}
+
+/** XML Factur-X (EN 16931) seul, pour un logiciel comptable. */
+export async function renderInvoiceXml(establishmentId: string, id: string): Promise<{ xml: string; number: string }> {
+  const inv = await getInvoice(establishmentId, id);
+  return { xml: buildFacturXml(invoiceEInvoice(inv)), number: inv.number };
+}
+
+/** Facture au format PDF/A-3 avec son XML Factur-X incorporé (facture électronique), pour le téléchargement et l'envoi par e-mail. */
 export async function renderInvoicePdf(establishmentId: string, id: string): Promise<{ pdf: Buffer; number: string }> {
   const inv = await getInvoice(establishmentId, id);
   const e = inv.establishment, tz = e.timezone;
   const strip = (ch: string) => ch.normalize("NFD").replace(/[̀-ͯ]/g, "");
   const safe = (s: string) => [...s].map((ch) => (ch.charCodeAt(0) <= 0xff ? ch : /^[\x20-\x7e\xa0-\xff]$/.test(strip(ch)) ? strip(ch) : "")).join("");
   const money = (n: number) => safe(formatMoney(n, e.currency));
-  const PDFDocument = (await import("pdfkit")).default;
-  const doc = new PDFDocument({ size: "A4", margins: { top: 40, bottom: 40, left: 40, right: 40 }, info: { Title: `Facture ${inv.number}`, Author: e.legalName || e.name } });
+  const doc = await createEInvoiceDocument({ title: `Facture ${inv.number}`, author: e.legalName || e.name });
+  // Le PDF affiche exactement les bases HT et TVA du XML (même arrondi par taux), le TTC étant inchangé
+  const fx = normalizeEInvoice(invoiceEInvoice(inv));
   const chunks: Buffer[] = [];
   doc.on("data", (c: Buffer) => chunks.push(c));
   const done = new Promise<Buffer>((resolve) => doc.on("end", () => resolve(Buffer.concat(chunks))));
@@ -283,15 +307,16 @@ export async function renderInvoicePdf(establishmentId: string, id: string): Pro
   doc.font("Helvetica-Bold").fontSize(8.5).fillColor(MUTED).text("TVA", L, y);
   y += 14;
   doc.font("Helvetica").fillColor(INK);
-  for (const t of inv.taxes) { doc.text(safe(`${t.name} : base HT ${formatMoney(t.ht, e.currency)} · TVA ${formatMoney(t.tax, e.currency)}`), L, y, { width: 280 }); y += 13; }
-  const totalHt = inv.totalTtc - inv.totalTax;
-  let ty = y - inv.taxes.length * 13 - 14;
+  for (const t of fx.taxes) { doc.text(safe(`${t.name ?? `${t.rateBps / 100} %`} : base HT ${formatMoney(t.ht, e.currency)} · TVA ${formatMoney(t.tax, e.currency)}`), L, y, { width: 280 }); y += 13; }
+  const totalHt = fx.totals.ht;
+  let ty = y - fx.taxes.length * 13 - 14;
   const row = (label: string, value: string, bold = false) => { doc.font(bold ? "Helvetica-Bold" : "Helvetica").fontSize(bold ? 12 : 9).fillColor(bold ? BRAND : INK).text(safe(label), L + 300, ty, { width: 110 }).text(value, L + 410, ty, { width: 97, align: "right" }); ty += bold ? 20 : 14; };
   row("Total HT", money(totalHt));
-  row("TVA", money(inv.totalTax));
+  row("TVA", money(fx.totals.tax));
   row("Total TTC", money(inv.totalTtc), true);
   if (inv.paid > 0) { row("Déjà réglé", money(inv.paid)); row("Reste à payer", money(inv.remaining), true); }
   doc.font("Helvetica").fontSize(8).fillColor(MUTED).text(safe(`Facture à régler avant le ${formatDate(inv.dueAt, tz)}. Merci de rappeler le numéro ${inv.number} avec votre règlement.`), L, 760, { width: W, align: "center" });
+  attachFacturX(doc, buildFacturXml(fx));
   doc.end();
   return { pdf: await done, number: inv.number };
 }

@@ -93,6 +93,12 @@ Dans une commande, l'onglet **Service** montre la prochaine action, le serveur r
 
 **Utilisateurs** : comptes, rôles (propriétaire, manager, serveur, cuisine, bar, caissier… personnalisables par permission), PIN. **Ajouter un employé (PIN)** : le plus rapide pour l'équipe, un compte avec prénom, nom, profil, couleur et PIN, **sans e-mail ni mot de passe** ; sur les tablettes et téléphones enregistrés, l'écran PIN affiche les **prénoms de l'équipe** : chacun touche son nom puis tape son PIN. Un tel compte peut plus tard recevoir une adresse e-mail et un mot de passe (il devient un compte complet). **Inviter par e-mail** : saisissez l'adresse, le prénom, le nom et le rôle ; la personne reçoit un lien (valable 7 jours) pour choisir son mot de passe et son PIN, puis entre directement dans l'application. Le lien peut aussi être copié et transmis à la main (WhatsApp, SMS) si l'envoi d'e-mail n'est pas configuré ; « Renvoyer » génère un nouveau lien. **Journal d'audit** : toute action sensible (remise, annulation, correction, paramètres, clés API) est tracée avec l'auteur et le motif.
 
+## 7 bis. Factures électroniques (Factur-X)
+
+Les factures émises par ManaResto (comptes clients pro, événements traiteur) sont des **factures électroniques** au format **Factur-X** : un PDF d'archivage (PDF/A-3) qui contient aussi les données de la facture en XML selon la **norme européenne EN 16931** (vendeur, acheteur, lignes, TVA par taux, totaux, échéance). Un logiciel comptable qui lit le Factur-X y récupère tout sans ressaisie ; le PDF reste lisible comme avant. Le bouton **XML** à côté de la facture donne le fichier de données seul.
+
+Pour que la facture soit valide au sens de la norme, renseignez dans **Paramètres** la raison sociale, l'adresse et le **N° Tahiti** de l'établissement, et le N° Tahiti du client sur son compte. Les factures passent le contrôle du validateur officiel Mustang (voir `docs/DEPLOIEMENT.md`). L'obligation française de facturation électronique ne s'applique pas en Polynésie française : ce format sert vos clients et comptables qui le demandent.
+
 ## 10 bis. Rapidité
 
 Dès qu'un écran de la caisse ou de la gestion est ouvert, l'application **précharge en arrière-plan** les écrans voisins et leurs données (carte, commandes du jour, chiffres du jour) : le passage d'un écran à l'autre est immédiat, même avec une connexion lente. Une page déjà visitée se rouvre sans attendre puis se rafraîchit. Rien n'est préchargé hors ligne.
