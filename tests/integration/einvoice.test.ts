@@ -89,7 +89,7 @@ describe("Factures électroniques Factur-X (EN 16931)", () => {
       await addItem(T.actor, o.id, { productId: T.eau.id }); // TVA 0 %
       await addPayments(T.actor, o.id, [{ method: "ACCOUNT", amount: 3300, customerAccountId: mairie.id }]);
     }
-    const inv = await createInvoice(T.managerActor, mairie.id, {}, new Date("2026-10-19T20:00:00Z"));
+    const inv = await createInvoice(T.managerActor, mairie.id);
     const full = await getInvoice(T.est.id, inv.id);
     // Bases HT stockées : recalculées depuis le TTC de chaque taux, comme dans le XML
     for (const t of full.taxes) expect(Math.abs(t.tax - Math.round((t.ht * t.rateBps) / 10000))).toBeLessThanOrEqual(1);

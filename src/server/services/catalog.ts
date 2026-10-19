@@ -367,6 +367,41 @@ export async function setProductsTaxRate(actor: Actor, input: { taxRateId: strin
   return { updated: count };
 }
 
+/**
+ * Nouveau taux pour toute la carte, sauf les catégories à garder (ex. TVA des îles à 1 % hors sucré et alcool).
+ * Le taux est créé s'il n'existe pas (ou réutilisé), devient le taux par défaut si demandé, puis s'applique aux
+ * produits actifs et aux formules. Les produits exonérés (0 %) et les commandes déjà passées ne bougent pas.
+ */
+export async function switchCatalogTaxRate(actor: Actor, input: { name: string; rateBps: number; keepCategoryIds: string[]; makeDefault?: boolean }) {
+  const name = input.name.trim();
+  if (!name) throw new ApiError(400, "BAD_NAME", "Donnez un nom au taux");
+  const keep = input.keepCategoryIds.length ? await prisma.category.findMany({ where: { id: { in: input.keepCategoryIds }, establishmentId: actor.establishmentId }, select: { id: true, name: true } }) : [];
+  if (keep.length !== new Set(input.keepCategoryIds).size) throw new ApiError(400, "BAD_CATEGORY", "Catégorie invalide");
+  const keepIds = keep.map((c) => c.id);
+  const result = await prisma.$transaction(async (tx) => {
+    const zero = await tx.taxRate.findMany({ where: { establishmentId: actor.establishmentId, rateBps: 0 }, select: { id: true } });
+    let rate = await tx.taxRate.findFirst({ where: { establishmentId: actor.establishmentId, rateBps: input.rateBps }, orderBy: [{ isActive: "desc" }, { isDefault: "desc" }] });
+    if (input.makeDefault ?? true) await tx.taxRate.updateMany({ where: { establishmentId: actor.establishmentId }, data: { isDefault: false } });
+    rate = rate
+      ? await tx.taxRate.update({ where: { id: rate.id }, data: { isActive: true, ...(input.makeDefault ?? true ? { isDefault: true } : {}) } })
+      : await tx.taxRate.create({ data: { establishmentId: actor.establishmentId, name, rateBps: input.rateBps, isDefault: input.makeDefault ?? true } });
+    const target = {
+      establishmentId: actor.establishmentId, isActive: true,
+      // Sans catégorie : basculé aussi ; exonérés (0 % ou sans taux) : laissés tels quels
+      ...(keepIds.length ? { OR: [{ categoryId: null }, { categoryId: { notIn: keepIds } }] } : {}),
+      taxRateId: { not: null, notIn: [rate.id, ...zero.map((z) => z.id)] },
+    };
+    const before = await tx.product.findMany({ where: target, select: { name: true, taxRateId: true } });
+    const products = await tx.product.updateMany({ where: target, data: { taxRateId: rate.id } });
+    const menus = await tx.menu.updateMany({ where: { establishmentId: actor.establishmentId, isActive: true, taxRateId: { not: null, notIn: [rate.id, ...zero.map((z) => z.id)] } }, data: { taxRateId: rate.id } });
+    const kept = keepIds.length ? await tx.product.count({ where: { establishmentId: actor.establishmentId, isActive: true, categoryId: { in: keepIds } } }) : 0;
+    return { rate, products: products.count, menus: menus.count, kept, before };
+  });
+  await audit({ ...actor, action: "catalog.tax_rate.switch", entityType: "tax_rate", entityId: result.rate.id, oldValue: { products: result.before }, newValue: { rate: `${result.rate.name} ${result.rate.rateBps / 100} %`, products: result.products, menus: result.menus, keptCategories: keep.map((c) => c.name) } });
+  publish("catalog.updated", actor.establishmentId, {});
+  return { taxRate: result.rate, products: result.products, menus: result.menus, keptProducts: result.kept };
+}
+
 // ---------------------------------------------------------------- Import CSV
 export type ImportRow = { category: string; name: string; description?: string; priceTtc: number; taxRateBps?: number | null; costPrice?: number; sku?: string; isAvailable?: boolean };
 

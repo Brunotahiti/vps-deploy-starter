@@ -21,7 +21,7 @@ export const OPTIONS = {
   team: {
     label: "Équipe",
     tagline: "Plannings, pointage et coût du personnel",
-    includes: ["Fiches du personnel et plannings", "Pointage des arrivées et départs", "Heures travaillées et coût de la main d'œuvre"],
+    includes: ["Fiches du personnel et plannings", "Planning saisi une seule fois : semaine type reportée chaque semaine, congés et remplacements en un geste", "Pointage des arrivées et départs", "Heures travaillées et coût de la main d'œuvre"],
     permissions: ["staff.manage"],
   },
   stats: {
