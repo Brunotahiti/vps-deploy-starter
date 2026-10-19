@@ -18,6 +18,7 @@
     "db:seed": "tsx prisma/seed.ts",
     "db:reset": "prisma migrate reset --force",
     "db:studio": "prisma studio",
+    "facturx:check": "scripts/mustang.sh",
     "push:keys": "web-push generate-vapid-keys",
     "postinstall": "prisma generate"
   },

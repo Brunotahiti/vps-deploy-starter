@@ -19,7 +19,14 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ["pdfkit", "pg", "sharp"],
   // Polices AFM de pdfkit (tickets PDF) à embarquer dans le build standalone (Docker)
   // Police des images d'aperçu des liens partagés (site des restaurants)
-  outputFileTracingIncludes: { "/api/orders/[id]/receipt": ["./node_modules/pdfkit/js/data/**", "./node_modules/.pnpm/pdfkit@*/node_modules/pdfkit/js/data/**"], "/api/public/share-card/[slug]": ["./src/server/fonts/**"] },
+  // Factures électroniques (PDF/A-3 + Factur-X) : polices embarquées et profil de couleur de pdfkit
+  outputFileTracingIncludes: {
+    "/api/orders/[id]/receipt": ["./node_modules/pdfkit/js/data/**", "./node_modules/.pnpm/pdfkit@*/node_modules/pdfkit/js/data/**"],
+    "/api/public/share-card/[slug]": ["./src/server/fonts/**"],
+    "/api/accounts/invoices/[id]/pdf": ["./src/server/fonts/**", "./node_modules/pdfkit/js/data/**", "./node_modules/.pnpm/pdfkit@*/node_modules/pdfkit/js/data/**"],
+    "/api/accounts/invoices/[id]/remind": ["./src/server/fonts/**", "./node_modules/pdfkit/js/data/**", "./node_modules/.pnpm/pdfkit@*/node_modules/pdfkit/js/data/**"],
+    "/api/catering/[id]/pdf": ["./src/server/fonts/**", "./node_modules/pdfkit/js/data/**", "./node_modules/.pnpm/pdfkit@*/node_modules/pdfkit/js/data/**"],
+  },
   async headers() {
     return [
       {

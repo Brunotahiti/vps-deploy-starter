@@ -80,6 +80,17 @@ SMTP_FROM="ManaResto <contact@manaresto.com>"
 
 Les réponses des restaurateurs arrivent sur `contact@manaresto.com` (en-tête « Répondre à »). La boîte de réception elle-même reste celle de votre hébergeur de messagerie (enregistrements MX inchangés). L'état apparaît dans *Administration → Paramètres → Reçus par e-mail* et en haut de la console plateforme.
 
+## Factures électroniques (Factur-X) et validateur Mustang
+
+Les factures des comptes clients pro et du traiteur sont produites en **PDF/A-3 avec données Factur-X (EN 16931)** par le serveur lui-même (aucun service ni programme supplémentaire sur le VPS). Pour **contrôler** une facture avec le validateur officiel Mustang (Java) sur votre poste ou en intégration continue :
+
+```bash
+pnpm facturx:check facture.pdf        # télécharge Mustang CLI une fois dans ~/.cache/mustang, puis valide (code 0 si valide)
+scripts/mustang.sh --action extract --source facture.pdf --out facture.xml   # autres actions Mustang
+```
+
+Les tests `tests/integration/einvoice.test.ts` lancent ce validateur s'il est présent (`~/.cache/mustang`, `/opt/mustang` ou variable `MUSTANG_JAR`) et vérifient que les factures sont valides ; sans Java ni Mustang, ce contrôle est sauté.
+
 ## Notifications push « plat prêt »
 
 Les serveurs peuvent recevoir une notification sur leur téléphone quand la cuisine passe un plat à « Prêt » (norme Web Push, aucun service tiers). Le serveur a besoin d'une paire de clés **VAPID** dans `/opt/manaresto/.env` :

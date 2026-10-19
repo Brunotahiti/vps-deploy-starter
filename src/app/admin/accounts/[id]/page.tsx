@@ -75,7 +75,8 @@ export default function AccountPage({ params }: { params: Promise<{ id: string }
                 </div>
                 <div className="text-right text-sm"><p className="font-extrabold"><Money amount={i.totalTtc} /></p>{i.remaining && i.paid ? <p className="text-xs text-muted">reste <Money amount={i.remaining} /></p> : null}</div>
                 <div className="flex gap-1.5">
-                  <a href={`/api/accounts/invoices/${i.id}/pdf`} target="_blank" rel="noopener" className="touch inline-flex h-9 items-center gap-1.5 rounded-xl border border-line px-3 text-sm font-semibold hover:surface-2"><FileText className="h-4 w-4" />PDF</a>
+                  <a href={`/api/accounts/invoices/${i.id}/pdf`} target="_blank" rel="noopener" title="Facture électronique : PDF/A-3 avec données Factur-X (EN 16931) incorporées" className="touch inline-flex h-9 items-center gap-1.5 rounded-xl border border-line px-3 text-sm font-semibold hover:surface-2"><FileText className="h-4 w-4" />PDF</a>
+                  <a href={`/api/accounts/invoices/${i.id}/pdf?xml=1`} title="Données Factur-X (XML EN 16931) seules, pour un logiciel comptable" className="touch inline-flex h-9 items-center gap-1.5 rounded-xl border border-line px-3 text-sm font-semibold hover:surface-2" data-testid="invoice-xml">XML</a>
                   {i.status !== "PAID" && a.email ? <Button size="sm" variant="secondary" onClick={() => remind(i)} aria-label={`Relancer ${i.number}`}><Mail className="h-4 w-4" />Relancer</Button> : null}
                 </div>
               </li>
