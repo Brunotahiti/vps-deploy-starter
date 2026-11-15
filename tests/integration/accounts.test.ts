@@ -9,9 +9,14 @@ import { addItem, createOrder } from "@/server/services/orders";
 import { addPayments, refundPayment } from "@/server/services/payments";
 import { openSession } from "@/server/services/cash";
 import { buildAccountingExport } from "@/server/reports/export";
+import { localDay } from "@/lib/dates";
 import { accountsForPos, createInvoice, getAccount, getInvoice, listAccounts, recordSettlement, remindInvoice, renderInvoicePdf, upsertAccount } from "@/server/services/accounts";
 
 let T: Awaited<ReturnType<typeof makeTenant>>;
+// Dates du scénario calées sur l'heure courante : le test reste valable quel que soit le jour où il tourne
+const ISSUED = new Date(Date.now() + 10 * 60_000);
+const YEAR = localDay(ISSUED, "Pacific/Tahiti").slice(0, 4);
+const DAY = 86_400_000;
 let mairie: Awaited<ReturnType<typeof upsertAccount>>;
 
 /** Commande de 2 salades (TVA 13 %) et 1 bière (TVA 16 %) : 3 000 F */
@@ -76,9 +81,9 @@ describe("Comptes clients & factures pro", () => {
   });
 
   it("facture : numérotation continue, consommations reprises une seule fois, TVA par taux", async () => {
-    const issued = new Date("2026-10-31T20:00:00Z");
+    const issued = ISSUED;
     const inv = await createInvoice(T.managerActor, mairie.id, {}, issued);
-    const year = 2026;
+    const year = YEAR;
     expect(inv.number).toBe(`FA-${year}-0001`);
     expect(inv.totalTtc).toBe(8000); // 3 000 + 3 000 + 2 000 (la consommation remboursée n'est pas facturée)
     const full = await getInvoice(T.est.id, inv.id);
@@ -94,7 +99,7 @@ describe("Comptes clients & factures pro", () => {
     const o = await createOrder(T.actor, { type: "COUNTER" });
     await addItem(T.actor, o.id, { productId: T.eau.id });
     await addPayments(T.actor, o.id, [{ method: "ACCOUNT", amount: 300, customerAccountId: mairie.id }]);
-    const inv2 = await createInvoice(T.managerActor, mairie.id, {}, new Date(issued.getTime() + 86_400_000));
+    const inv2 = await createInvoice(T.managerActor, mairie.id, {}, new Date(issued.getTime() + DAY));
     expect(inv2.number).toBe(`FA-${year}-0002`);
     expect((await renderInvoicePdf(T.est.id, inv.id)).pdf.subarray(0, 4).toString()).toBe("%PDF");
   });
@@ -102,18 +107,18 @@ describe("Comptes clients & factures pro", () => {
   it("règlements : les plus anciennes factures d'abord, retard, relance par e-mail, espèces en caisse", async () => {
     const [inv1] = await prisma.accountInvoice.findMany({ where: { accountId: mairie.id }, orderBy: { seq: "asc" } });
     await recordSettlement(T.managerActor, mairie.id, { amount: 5000, method: "CHECK", reference: "Chèque 0012345" });
-    let a = await getAccount(T.est.id, mairie.id, new Date("2026-11-15T00:00:00Z"));
+    let a = await getAccount(T.est.id, mairie.id, new Date(ISSUED.getTime() + 2 * DAY));
     expect(a.balance).toBe(3300);
-    expect(a.invoices.map((i) => [i.number, i.paid, i.status])).toEqual([["FA-2026-0002", 0, "ISSUED"], ["FA-2026-0001", 5000, "ISSUED"]]);
+    expect(a.invoices.map((i) => [i.number, i.paid, i.status])).toEqual([[`FA-${YEAR}-0002`, 0, "ISSUED"], [`FA-${YEAR}-0001`, 5000, "ISSUED"]]);
     // Après l'échéance : en retard
-    a = await getAccount(T.est.id, mairie.id, new Date("2026-12-15T00:00:00Z"));
-    expect(a.invoices.find((i) => i.number === "FA-2026-0001")).toMatchObject({ status: "OVERDUE", remaining: 3000 });
+    a = await getAccount(T.est.id, mairie.id, new Date(ISSUED.getTime() + 45 * DAY)); // échéance à 30 jours dépassée
+    expect(a.invoices.find((i) => i.number === `FA-${YEAR}-0001`)).toMatchObject({ status: "OVERDUE", remaining: 3000 });
 
     sentMails.length = 0;
     expect(await remindInvoice(T.managerActor, inv1.id)).toEqual({ sentTo: "compta@mairie.pf" });
-    expect(sentMails[0].subject).toContain("FA-2026-0001");
+    expect(sentMails[0].subject).toContain(`FA-${YEAR}-0001`);
     expect(sentMails[0].text.replace(/\s/g, " ")).toContain("Reste à régler : 3 000");
-    expect(sentMails[0].attachments?.[0].filename).toBe("facture-FA-2026-0001.pdf");
+    expect(sentMails[0].attachments?.[0].filename).toBe(`facture-FA-${YEAR}-0001.pdf`);
     expect((await prisma.accountInvoice.findUniqueOrThrow({ where: { id: inv1.id } })).reminderCount).toBe(1);
 
     // Espèces : il faut une caisse ouverte, et le règlement entre dans le tiroir
