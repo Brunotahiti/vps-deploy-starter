@@ -122,7 +122,7 @@ struct TableReservation: Decodable, Equatable {
 // MARK: Catalogue
 
 struct Catalog: Decodable {
-    let categories: [Category]
+    let categories: [MenuCategory]
     let products: [Product]
     let menus: [Formula]
     let paymentMethods: [PaymentMethodConfig]
@@ -131,7 +131,7 @@ struct Catalog: Decodable {
     func product(_ id: String) -> Product? { products.first { $0.id == id } }
 }
 
-struct Category: Decodable, Identifiable, Equatable, Hashable {
+struct MenuCategory: Decodable, Identifiable, Equatable, Hashable {
     let id: String
     let name: String
     let color: String?

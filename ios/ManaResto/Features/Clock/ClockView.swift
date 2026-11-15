@@ -23,7 +23,7 @@ struct ClockView: View {
                                 Label(ClockStatus.label(for: kind), systemImage: icon(kind)).frame(maxWidth: .infinity)
                             }
                             .buttonStyle(.borderedProminent)
-                            .tint(kind == "CLOCK_OUT" ? .orange : .lagon)
+                            .tint(kind == "CLOCK_OUT" ? Color.orange : Color.lagon)
                             .controlSize(.large)
                             .disabled(busy)
                         }

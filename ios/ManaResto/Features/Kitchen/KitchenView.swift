@@ -127,7 +127,7 @@ struct TicketCard: View {
             if let step = ticket.nextStep {
                 Button { onAdvance(ticket) } label: { Text(step.label).frame(maxWidth: .infinity) }
                     .buttonStyle(.borderedProminent)
-                    .tint(step.status == "READY" ? .green : .lagon)
+                    .tint(step.status == "READY" ? Color.green : Color.lagon)
                     .controlSize(.large)
             }
         }

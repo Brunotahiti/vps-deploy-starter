@@ -2,10 +2,8 @@ name: iOS
 
 # Compile l'app iOS et lance ses tests sur un simulateur, dès que le dossier ios/ change.
 on:
+  # Une seule exécution par modification (les Mac de GitHub coûtent plus cher que Linux) : sur la pull request
   pull_request:
-    paths: ["ios/**", ".github/workflows/ios.yml"]
-  push:
-    branches-ignore: [main]
     paths: ["ios/**", ".github/workflows/ios.yml"]
   workflow_dispatch:
 

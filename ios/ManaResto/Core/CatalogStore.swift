@@ -15,7 +15,7 @@ final class CatalogStore {
         self.api = api
     }
 
-    var categories: [Category] {
+    var categories: [MenuCategory] {
         (catalog?.categories ?? []).sorted { ($0.sortOrder ?? 0, $0.name) < ($1.sortOrder ?? 0, $1.name) }
     }
 
