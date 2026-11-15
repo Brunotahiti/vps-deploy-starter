@@ -10,6 +10,8 @@ export const metadata: Metadata = {
 /** Date de la dernière mise à jour du texte : à changer à chaque modification. */
 const UPDATED = "15 novembre 2026";
 const CONTACT = OFFER.contactEmail;
+/** Société qui édite ManaResto */
+const COMPANY = { name: "ManaProcess", address: "Faa'a, Tahiti, Polynésie française" };
 
 /**
  * Politique de confidentialité de ManaResto (site, caisse, gestion, app iOS).
@@ -29,9 +31,9 @@ export default function PrivacyPage() {
         </p>
 
         <Section title="1. Qui est responsable de vos données">
-          <p>Deux situations sont à distinguer.</p>
+          <p>ManaResto est édité par la société <b>{COMPANY.name}</b>, {COMPANY.address}. Deux situations sont à distinguer.</p>
           <ul>
-            <li><b>Les comptes des restaurants</b> (le restaurateur, ses utilisateurs, l&apos;abonnement) : ManaResto en est responsable.</li>
+            <li><b>Les comptes des restaurants</b> (le restaurateur, ses utilisateurs, l&apos;abonnement) : {COMPANY.name} en est responsable.</li>
             <li><b>Les données que le restaurant saisit sur ses clients et son personnel</b> (commandes, réservations, fiches clients, plannings, pointage) : le restaurant en est responsable. ManaResto les traite pour son compte, uniquement pour faire fonctionner le logiciel, et sur ses instructions.</li>
           </ul>
           <p>Pour toute question : <a href={`mailto:${CONTACT}`}>{CONTACT}</a>.</p>
@@ -114,7 +116,7 @@ export default function PrivacyPage() {
         </Section>
 
         <p className="mt-10 border-t border-line pt-6 text-sm text-muted">
-          Contact : <a href={`mailto:${CONTACT}`}>{CONTACT}</a> · <Link href="/login">Retour à ManaResto</Link>
+          {COMPANY.name} · {COMPANY.address} · <a href={`mailto:${CONTACT}`}>{CONTACT}</a> · <Link href="/login">Retour à ManaResto</Link>
         </p>
       </article>
     </main>
