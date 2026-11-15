@@ -94,6 +94,7 @@ function LoginForm() {
       </div>
 
       <p className="mt-8 rounded-2xl bg-lagon-500/10 px-4 py-3.5 text-center text-sm text-lagon-800 dark:text-lagon-200">Pas encore de compte ? <Link href="/signup" className="font-extrabold underline-offset-2 hover:underline">Créer mon compte gratuit</Link><span className="block text-xs opacity-80">15 jours d&apos;essai · sans carte bancaire · 0 % de commission</span></p>
+      <p className="mt-4 text-center text-xs text-muted"><Link href="/confidentialite" className="underline-offset-2 hover:underline">Politique de confidentialité</Link></p>
     </form>
   );
 }

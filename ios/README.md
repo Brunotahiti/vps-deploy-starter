@@ -54,7 +54,7 @@ Les tests (lecture des vraies réponses du serveur, options, montants) se lancen
 - **Catégorie** : Économie et entreprise (déjà déclarée dans l'app).
 - **Captures d'écran** : iPhone 6,9 pouces (1320 × 2868) et iPad 13 pouces (2064 × 2752). Faites-les sur le simulateur avec ⌘S, sur le restaurant de démonstration : salle, commande, encaissement, cuisine.
 - **Confidentialité** : l'app ne fait aucun pistage et n'utilise aucun outil de publicité ou de statistiques. Dans « Confidentialité de l'app », déclarez les données liées au compte : nom et e-mail de l'utilisateur, et e-mail du client si vous lui envoyez son reçu. Ces données servent au fonctionnement de l'app et ne servent pas au pistage. Le manifeste `PrivacyInfo.xcprivacy` est déjà inclus.
-- **Adresse de la politique de confidentialité** : obligatoire. Il faut une page publique qui décrit les données collectées et leur usage. Ce dépôt n'en contient pas encore : publiez-la sur manaresto.com avant la soumission.
+- **Adresse de la politique de confidentialité** : `https://app.manaresto.com/confidentialite`. La page est publique et accessible aussi depuis l'app (écran de connexion et onglet Plus).
 - **Chiffrement** : l'app n'utilise que le HTTPS standard. C'est déjà déclaré dans l'app, donc aucune question à l'envoi.
 
 ### 4. Notes pour l'équipe de vérification d'Apple

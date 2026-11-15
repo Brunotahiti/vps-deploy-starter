@@ -53,6 +53,9 @@ struct MoreView: View {
 
                 Section {
                     Button("Recharger la carte", systemImage: "arrow.clockwise") { Task { await catalog.load(force: true) } }
+                    if let privacy = APIClient.shared.url("/confidentialite") {
+                        Link(destination: privacy) { Label("Politique de confidentialité", systemImage: "hand.raised") }
+                    }
                     Button("Se déconnecter", systemImage: "rectangle.portrait.and.arrow.right", role: .destructive) { confirmSignOut = true }
                 } footer: {
                     Text("ManaResto \(Bundle.main.appVersion) · \(APIClient.shared.baseURL.host() ?? "")")

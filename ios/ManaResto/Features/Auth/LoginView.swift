@@ -73,6 +73,11 @@ struct LoginView: View {
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
 
+                if let privacy = APIClient.shared.url("/confidentialite") {
+                    Link("Politique de confidentialité", destination: privacy)
+                        .font(.footnote)
+                }
+
                 DisclosureGroup("Avancé", isExpanded: $showServer) {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Adresse du serveur, si votre restaurant a sa propre installation.")
