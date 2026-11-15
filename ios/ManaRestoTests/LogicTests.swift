@@ -62,3 +62,23 @@ final class ModifierSelectionTests: XCTestCase {
         XCTAssertTrue(sel.payload(for: [sauce]).isEmpty)
     }
 }
+
+final class PushTests: XCTestCase {
+    func testTokenHex() {
+        XCTAssertEqual(PushManager.hex(Data([0x00, 0x0f, 0xab, 0xff])), "000fabff")
+        XCTAssertEqual(PushManager.hex(Data(repeating: 0x1a, count: 32)).count, 64)
+    }
+
+    func testOrderFromNotification() {
+        // Charge utile envoyée par le serveur ManaResto pour un plat prêt
+        let userInfo: [AnyHashable: Any] = ["aps": ["alert": ["title": "Plat prêt · Table T01", "body": "Burger — à apporter"], "sound": "default"], "url": "/pos/order/abc", "orderId": "abc"]
+        XCTAssertEqual(PushManager.orderId(from: userInfo), "abc")
+        XCTAssertNil(PushManager.orderId(from: ["aps": [:]]))
+        XCTAssertNil(PushManager.orderId(from: ["orderId": ""]))
+    }
+
+    func testEnvironmentForDebugBuildIsSandbox() {
+        // Les tests tournent en Debug : jeton de développement (sandbox)
+        XCTAssertEqual(PushManager.environment, "sandbox")
+    }
+}

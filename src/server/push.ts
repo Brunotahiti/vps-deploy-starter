@@ -1,6 +1,7 @@
 import { prisma } from "@/server/db";
 import { ApiError } from "@/server/errors";
 import type { Actor } from "@/server/services/orders";
+import { apnsPayload, isApnsConfigured, sendToApnsDevice } from "@/server/apns";
 
 /**
  * Notifications push (Web Push, norme VAPID) : « Plat prêt ! » sur le téléphone ou la tablette du serveur, même
@@ -10,7 +11,7 @@ import type { Actor } from "@/server/services/orders";
  * commande sans serveur abonné (comptoir, à emporter) prévient toute l'équipe abonnée. La cuisine n'est jamais
  * notifiée de son propre geste.
  */
-export type PushPayload = { title: string; body: string; url: string; tag: string; renotify?: boolean };
+export type PushPayload = { title: string; body: string; url: string; tag: string; renotify?: boolean; orderId?: string | null };
 type Subscription = { endpoint: string; keys: { p256dh: string; auth: string } };
 type SendResult = { ok: true } | { ok: false; gone: boolean; error: string };
 type Transport = (sub: Subscription, payload: string) => Promise<SendResult>;
@@ -27,6 +28,8 @@ export function pushConfig() {
   return { enabled: !!publicKey && !!privateKey, publicKey: publicKey ?? "", privateKey: privateKey ?? "", subject };
 }
 export const isPushConfigured = () => pushConfig().enabled;
+/** Au moins un canal disponible : Web Push (site) ou APNs (app iOS). */
+export const isAnyPushConfigured = () => isPushConfigured() || isApnsConfigured();
 
 const webPushTransport: Transport = async (sub, payload) => {
   const cfg = pushConfig();
@@ -71,14 +74,20 @@ export async function listMyPushSubscriptions(actor: Actor) {
  * abonnée de l'établissement. La personne à l'origine du geste (la cuisine) est exclue.
  */
 export async function sendPush(establishmentId: string, target: { userId: string | null; excludeUserId?: string | null }, payload: PushPayload) {
-  if (!isPushConfigured()) return { sent: 0 };
-  const all = await prisma.pushSubscription.findMany({ where: { establishmentId, ...(target.excludeUserId ? { userId: { not: target.excludeUserId } } : {}) } });
-  const mine = target.userId ? all.filter((s) => s.userId === target.userId) : [];
-  const recipients = mine.length ? mine : all;
-  if (recipients.length === 0) return { sent: 0 };
+  if (!isAnyPushConfigured()) return { sent: 0 };
+  const notMe = target.excludeUserId ? { userId: { not: target.excludeUserId } } : {};
+  const [webAll, iosAll] = await Promise.all([
+    isPushConfigured() ? prisma.pushSubscription.findMany({ where: { establishmentId, ...notMe } }) : Promise.resolve([]),
+    isApnsConfigured() ? prisma.apnsDevice.findMany({ where: { establishmentId, ...notMe } }) : Promise.resolve([]),
+  ]);
+  // Les appareils du serveur de la commande (navigateur ou app iOS) s'il en a, sinon toute l'équipe abonnée
+  const hasMine = !!target.userId && (webAll.some((s) => s.userId === target.userId) || iosAll.some((d) => d.userId === target.userId));
+  const web = hasMine ? webAll.filter((s) => s.userId === target.userId) : webAll;
+  const ios = hasMine ? iosAll.filter((d) => d.userId === target.userId) : iosAll;
+  if (web.length + ios.length === 0) return { sent: 0 };
   const body = JSON.stringify(payload);
   let sent = 0;
-  await Promise.all(recipients.map(async (s) => {
+  await Promise.all(web.map(async (s) => {
     const r = await transport({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, body).catch((e): SendResult => ({ ok: false, gone: false, error: String((e as Error).message ?? e).slice(0, 200) }));
     if (r.ok) { sent++; await prisma.pushSubscription.update({ where: { id: s.id }, data: { lastUsedAt: new Date(), failures: 0 } }).catch(() => {}); return; }
     // Abonnement expiré (appareil réinitialisé, notifications coupées) : retiré ; autre erreur : comptée, retiré après 10 échecs d'affilée
@@ -86,12 +95,14 @@ export async function sendPush(establishmentId: string, target: { userId: string
     else await prisma.pushSubscription.update({ where: { id: s.id }, data: { failures: { increment: 1 } } }).catch(() => {});
     console.warn("[push] envoi refusé", r.error);
   }));
+  const ap = apnsPayload(payload);
+  await Promise.all(ios.map(async (d) => { if (await sendToApnsDevice(d, ap, payload.tag)) sent++; }));
   return { sent };
 }
 
 /** Plat(s) prêt(s) en cuisine : le serveur de la commande est prévenu (ou l'équipe si la commande n'a pas de serveur abonné). */
 export async function notifyDishReady(actor: Actor, ticket: { orderId: string; items: { name: string; quantity: number; status: string }[]; course?: { name: string } | null; order: { number: string; type: string; serverId: string | null; customerName: string | null; tableLabel?: string | null; table: { name: string } | null } }) {
-  if (!isPushConfigured()) return { sent: 0 };
+  if (!isAnyPushConfigured()) return { sent: 0 };
   const live = ticket.items.filter((i) => i.status !== "VOIDED");
   if (live.length === 0) return { sent: 0 };
   // Mode roulotte : la notification ouvre le portail Salle, où les plats prêts s'affichent avec leur table
@@ -109,6 +120,7 @@ export async function notifyDishReady(actor: Actor, ticket: { orderId: string; i
     url: roulotte ? "/pos/salle" : ticket.order.table ? `/pos/order/${ticket.orderId}` : "/pos/emporter",
     tag: `ready-${ticket.orderId}`,
     renotify: true,
+    orderId: ticket.orderId,
   });
 }
 

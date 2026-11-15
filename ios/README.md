@@ -11,6 +11,7 @@ Application native SwiftUI de ManaResto, pour iPhone et iPad (iOS 17 ou plus ré
 - **Prise de commande** : la carte avec photos, catégories et recherche. Les options se choisissent avant l'ajout (cuisson, accompagnement, suppléments, format), avec les règles obligatoire ou facultatif. Formules, quantités, notes pour la cuisine, envoi en cuisine.
 - **Encaissement** : espèces, carte, chèque, virement, titre-restaurant, offert. Paiement en plusieurs fois, par personne, monnaie à rendre. **Reçu par e-mail** au client, sans imprimante. Le tiroir-caisse s'ouvre tout seul pour les espèces, par l'imprimante du restaurant.
 - **Comptoir** : nouvelle vente en un geste, ventes en cours.
+- **Plat prêt** : notification sur l'iPhone du serveur de la table quand la cuisine a fini, un toucher ouvre la commande.
 - **Cuisine** : les bons à préparer avec leur temps d'attente (vert, orange, rouge), article par article, puis « Commencer », « Prêt », « Servi ».
 - **Journée** : chiffre d'affaires, tickets, couverts, ticket moyen, ventes par heure, plats les plus vendus, encaissements.
 - **Pointeuse** : arrivée, pause, reprise, départ par code PIN.
@@ -83,6 +84,13 @@ ios/
 
 Serveur par défaut : `https://app.manaresto.com`. Une autre adresse se règle dans « Avancé » sur l'écran de connexion, pour une installation sur votre propre serveur.
 
+## Notifications « plat prêt »
+Quand la cuisine passe un plat à « Prêt », le serveur de la table reçoit une notification sur son iPhone, même l'écran éteint. Toucher la notification ouvre la commande. Sans serveur attitré (comptoir, à emporter), toute l'équipe équipée de l'app est prévenue, comme sur le site.
+
+- **Dans l'app** : une invitation « Activer » apparaît sur l'onglet Salle, et le réglage se trouve dans Plus → Plats prêts. L'appareil est rattaché à la personne connectée : en changeant d'utilisateur, il passe au suivant.
+- **Dans Xcode** : la capacité **Push Notifications** est déjà déclarée (`ManaResto.entitlements`). Avec la signature automatique, Xcode l'ajoute à l'identifiant de l'app.
+- **Sur le serveur** : il faut une clé APNs du compte Apple Developer. Les étapes sont dans `docs/DEPLOIEMENT.md`, section « App iOS : notifications par le service d'Apple ». Sans elle, l'option n'apparaît pas dans l'app.
+- **Pour tester** : il faut un vrai iPhone ou iPad, le simulateur ne reçoit pas de notifications APNs. Une app lancée depuis Xcode utilise l'environnement de développement d'Apple, une app TestFlight ou App Store celui de production. Le serveur choisit le bon.
+
 ## Pour plus tard
-- **Notifications « plat prêt »** sur le téléphone du serveur, par le service de notifications d'Apple. Le site les envoie déjà en Web Push. Pour l'app, il faudra une clé APNs dans le compte développeur et un petit ajout côté serveur.
 - Encaissement **sur compte client** et **carte cadeau**, aujourd'hui disponibles dans la caisse web (Plus → Caisse complète).

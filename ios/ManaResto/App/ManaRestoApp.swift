@@ -2,6 +2,7 @@ import SwiftUI
 
 @main
 struct ManaRestoApp: App {
+    @UIApplicationDelegateAdaptor(AppDelegate.self) private var delegate
     @State private var app = AppState()
     @State private var catalog = CatalogStore()
 
@@ -10,6 +11,7 @@ struct ManaRestoApp: App {
             RootView()
                 .environment(app)
                 .environment(catalog)
+                .environment(PushManager.shared)
                 .tint(.lagon)
         }
     }
@@ -38,6 +40,8 @@ struct RootView: View {
         .animation(.default, value: app.phase)
         .task { await app.bootstrap() }
         .onChange(of: app.user?.id) { _, _ in catalog.reset() }
+        // À chaque connexion : l'appareil reçoit les plats prêts de la personne connectée
+        .task(id: app.user?.id) { await PushManager.shared.sync(userId: app.user?.id) }
     }
 }
 
