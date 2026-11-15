@@ -4,6 +4,7 @@ import SwiftUI
 struct MainTabView: View {
     @Environment(AppState.self) private var app
     @Environment(CatalogStore.self) private var catalog
+    @Environment(PushManager.self) private var push
 
     var body: some View {
         TabView {
@@ -25,5 +26,17 @@ struct MainTabView: View {
                 .tabItem { Label("Plus", systemImage: "ellipsis.circle.fill") }
         }
         .task { await catalog.load() }
+        // Notification « plat prêt » touchée : la commande s'ouvre par-dessus l'onglet en cours
+        .sheet(item: Binding(get: { app.can("pos.use") ? push.openOrderId.map(OrderRef.init) : nil }, set: { push.openOrderId = $0?.id })) { ref in
+            NavigationStack {
+                OrderView(orderId: ref.id, onClosed: { push.openOrderId = nil })
+                    .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Fermer") { push.openOrderId = nil } } }
+            }
+        }
     }
+}
+
+/// Commande à ouvrir depuis une notification.
+struct OrderRef: Identifiable, Equatable {
+    let id: String
 }

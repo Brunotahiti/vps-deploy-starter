@@ -96,6 +96,7 @@ final class AppState {
 
     /// « Changer d'utilisateur » : ferme la session, l'appareil reste une caisse (retour à l'écran PIN).
     func lock() async {
+        await PushManager.shared.unregisterFromServer()
         _ = try? await api.post("/api/auth/logout", NoBody()) as Ignored
         api.clearCookies(keepTerminal: true)
         await refresh()
@@ -104,6 +105,7 @@ final class AppState {
 
     /// Déconnexion complète : l'appareil n'est plus une caisse.
     func signOutCompletely() async {
+        await PushManager.shared.unregisterFromServer()
         if isDeviceRegistered { _ = try? await api.post("/api/auth/terminal/unregister", NoBody()) as Ignored }
         _ = try? await api.post("/api/auth/logout", NoBody()) as Ignored
         api.clearCookies(keepTerminal: false)

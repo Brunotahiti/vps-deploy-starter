@@ -3,6 +3,7 @@ import SwiftUI
 struct MoreView: View {
     @Environment(AppState.self) private var app
     @Environment(CatalogStore.self) private var catalog
+    @Environment(PushManager.self) private var push
     @State private var confirmSignOut = false
 
     var body: some View {
@@ -19,6 +20,10 @@ struct MoreView: View {
                     if let label = app.me?.subscription?.label {
                         Label(label, systemImage: "calendar.badge.clock").font(.subheadline)
                     }
+                }
+
+                if push.serverEnabled == true && app.can("pos.use") {
+                    NotificationsSection()
                 }
 
                 Section("Équipe") {
@@ -67,6 +72,35 @@ struct MoreView: View {
             } message: {
                 Text(app.isDeviceRegistered ? "L'appareil ne sera plus une caisse : il faudra se reconnecter avec un e-mail." : "Vous devrez saisir à nouveau votre e-mail et votre mot de passe.")
             }
+        }
+    }
+}
+
+/// « Plats prêts sur cet appareil » : état et activation des notifications.
+struct NotificationsSection: View {
+    @Environment(PushManager.self) private var push
+    @Environment(\.openURL) private var openURL
+
+    var body: some View {
+        Section {
+            switch push.status {
+            case .authorized:
+                Label(push.isRegistered ? "Activées sur cet appareil" : "Activation en cours…", systemImage: push.isRegistered ? "bell.badge.fill" : "bell")
+                    .foregroundStyle(push.isRegistered ? Color.green : Color.secondary)
+            case .denied:
+                Label("Refusées dans les réglages de l'appareil", systemImage: "bell.slash")
+                    .foregroundStyle(.orange)
+                Button("Ouvrir les réglages", systemImage: "gear") {
+                    if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) }
+                }
+            default:
+                Button("Activer les notifications", systemImage: "bell.badge") { Task { await push.enable() } }
+            }
+            if let error = push.lastError { Text(error).font(.footnote).foregroundStyle(.red) }
+        } header: {
+            Text("Plats prêts")
+        } footer: {
+            Text("Quand la cuisine passe un plat à « Prêt », le serveur de la table est prévenu sur son téléphone, même l'écran éteint. Toucher la notification ouvre la commande.")
         }
     }
 }

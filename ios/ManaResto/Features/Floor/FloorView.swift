@@ -3,6 +3,8 @@ import SwiftUI
 /// Plan de salle : chaque table avec son état (libre, commande en cours, en cuisine, addition…).
 struct FloorView: View {
     @Environment(AppState.self) private var app
+    @Environment(PushManager.self) private var push
+    @AppStorage("pushPromptDismissed") private var pushPromptDismissed = false
     @State private var rooms: [Room] = []
     @State private var roomId: String?
     @State private var path: [String] = []
@@ -17,6 +19,9 @@ struct FloorView: View {
         NavigationStack(path: $path) {
             VStack(spacing: 0) {
                 ErrorBanner(message: $error)
+                if push.status == .notDetermined && push.serverEnabled == true && !pushPromptDismissed {
+                    PushPrompt(onEnable: { Task { await push.enable() } }, onDismiss: { pushPromptDismissed = true })
+                }
                 if rooms.count > 1 {
                     Picker("Salle", selection: Binding(get: { room?.id ?? "" }, set: { roomId = $0 })) {
                         ForEach(rooms) { Text($0.name).tag($0.id) }
@@ -204,5 +209,31 @@ struct CoversSheet: View {
             .disabled(busy)
         }
         .padding(24)
+    }
+}
+
+/// Invitation discrète à activer « plat prêt » sur l'appareil.
+struct PushPrompt: View {
+    let onEnable: () -> Void
+    let onDismiss: () -> Void
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "bell.badge.fill").font(.title2).foregroundStyle(Color.lagon)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Plats prêts sur ce téléphone").font(.subheadline.weight(.semibold))
+                Text("Soyez prévenu dès que la cuisine a fini un plat de vos tables.").font(.caption).foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 4)
+            Button("Activer", action: onEnable).buttonStyle(.borderedProminent).controlSize(.small)
+            Button(action: onDismiss) { Image(systemName: "xmark") }
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
+                .accessibilityLabel("Plus tard")
+        }
+        .padding(12)
+        .background(Color.lagon.opacity(0.10), in: RoundedRectangle(cornerRadius: 14))
+        .padding(.horizontal)
+        .padding(.top, 8)
     }
 }

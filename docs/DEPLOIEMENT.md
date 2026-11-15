@@ -103,6 +103,25 @@ VAPID_SUBJECT=mailto:contact@manaresto.com
 
 `scripts/deploy-vps.sh` les génère automatiquement (openssl, courbe P-256) si le `.env` du VPS n'en a pas, puis redémarre l'application. À la main : `pnpm push:keys` (web-push) et copier les deux clés. **Ne changez pas les clés ensuite** : tous les appareils devraient se réabonner. Sans clés, le bouton « Alertes plat prêt » n'apparaît pas et tout le reste fonctionne normalement. Les notifications passent par le service push du navigateur (Apple, Google, Mozilla) et ne contiennent que la table et les plats à apporter.
 
+### App iOS : notifications par le service d'Apple (APNs)
+
+Sur iPhone et iPad, l'app ManaResto reçoit « plat prêt » par le service de notifications d'Apple, avec le même déclencheur que le site. Il faut une **clé APNs**, à créer une fois dans le compte Apple Developer :
+
+1. developer.apple.com → Certificates, Identifiers & Profiles → **Keys** → « + » → cochez **Apple Push Notifications service (APNs)** → téléchargez le fichier `AuthKey_XXXXXXXXXX.p8`. Il ne se télécharge qu'une fois : gardez-le en lieu sûr.
+2. Notez le **Key ID** (10 caractères, dans le nom du fichier) et le **Team ID** (en haut à droite du compte développeur).
+3. Sur le VPS, ajoutez dans `/opt/manaresto/.env`, la clé sur une seule ligne avec les retours à la ligne écrits `\n` :
+
+```
+APNS_KEY_ID=XXXXXXXXXX
+APNS_TEAM_ID=YYYYYYYYYY
+APNS_PRIVATE_KEY=-----BEGIN PRIVATE KEY-----\nMIGT…\n-----END PRIVATE KEY-----
+APNS_BUNDLE_ID=com.manaresto.caisse
+```
+
+Commande pour obtenir cette ligne depuis le fichier : `awk 'NF {printf "%s\\n", $0}' AuthKey_XXXXXXXXXX.p8`.
+
+4. Redéployez, ou redémarrez l'application. La même clé sert à l'app installée depuis Xcode (environnement de développement) et à celle de TestFlight et de l'App Store (production) : l'app indique son environnement au serveur. Sans ces variables, l'option n'apparaît pas dans l'app et tout le reste fonctionne.
+
 ## Assistant IA (Claude)
 
 L'option **Assistant IA** propose les prévisions de fréquentation (façon Bison Futé), la commande d'achats proposée, les **conseils de la semaine** et l'**analyse qualité inspirée de l'ISO 9001**. Les prévisions et la commande sont calculées par le programme ; les conseils et l'analyse qualité sont rédigés par **Claude** (Anthropic), à partir des seuls chiffres du restaurant.

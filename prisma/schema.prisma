@@ -140,6 +140,7 @@ model Establishment {
   wines               Wine[]
   wineOpenBottles     WineOpenBottle[]
   pushSubscriptions   PushSubscription[]
+  apnsDevices         ApnsDevice[]
 
   @@unique([organizationId, slug])
   @@index([organizationId])
@@ -190,6 +191,7 @@ model User {
   cleaningLogs        CleaningLog[]
   traceRecords        TraceRecord[]
   pushSubscriptions   PushSubscription[]
+  apnsDevices         ApnsDevice[]
   expenses            Expense[]
 
   @@index([organizationId])
@@ -359,6 +361,27 @@ model Terminal {
 
 /// Notifications push (Web Push) : un abonnement par navigateur / appareil, au nom de la personne connectée.
 /// Prévient le serveur quand un plat est prêt en cuisine, même l'écran éteint (application installée).
+/**
+ * iPhone / iPad avec l'app ManaResto : jeton du service de notifications d'Apple (APNs), au nom de la personne connectée.
+ */
+model ApnsDevice {
+  id              String    @id @default(uuid()) @db.Uuid
+  establishmentId String    @map("establishment_id") @db.Uuid
+  userId          String    @map("user_id") @db.Uuid
+  token           String    @unique
+  environment     String    @default("production") // production (App Store, TestFlight) | sandbox (Xcode)
+  deviceName      String?   @map("device_name")
+  failures        Int       @default(0)
+  createdAt       DateTime  @default(now()) @map("created_at")
+  lastUsedAt      DateTime? @map("last_used_at")
+
+  establishment Establishment @relation(fields: [establishmentId], references: [id], onDelete: Cascade)
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([establishmentId])
+  @@map("apns_devices")
+}
+
 model PushSubscription {
   id              String    @id @default(uuid()) @db.Uuid
   establishmentId String    @map("establishment_id") @db.Uuid
