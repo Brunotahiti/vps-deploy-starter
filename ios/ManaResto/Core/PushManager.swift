@@ -29,7 +29,7 @@ final class PushManager {
     }
 
     /// Environnement APNs du jeton : Xcode (Debug) = sandbox, TestFlight et App Store (Release) = production.
-    static var environment: String {
+    nonisolated static var environment: String {
         #if DEBUG
         return "sandbox"
         #else
@@ -38,10 +38,10 @@ final class PushManager {
     }
 
     /// Jeton binaire → texte hexadécimal attendu par le serveur.
-    static func hex(_ data: Data) -> String { data.map { String(format: "%02x", $0) }.joined() }
+    nonisolated static func hex(_ data: Data) -> String { data.map { String(format: "%02x", $0) }.joined() }
 
     /// Commande indiquée dans la notification (champ `orderId` envoyé par le serveur).
-    static func orderId(from userInfo: [AnyHashable: Any]) -> String? {
+    nonisolated static func orderId(from userInfo: [AnyHashable: Any]) -> String? {
         guard let id = userInfo["orderId"] as? String, !id.isEmpty else { return nil }
         return id
     }

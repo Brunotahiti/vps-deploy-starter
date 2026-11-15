@@ -77,7 +77,6 @@ final class PushTests: XCTestCase {
         XCTAssertNil(PushManager.orderId(from: ["orderId": ""]))
     }
 
-    @MainActor
     func testEnvironmentForDebugBuildIsSandbox() {
         // Les tests tournent en Debug : jeton de développement (sandbox)
         XCTAssertEqual(PushManager.environment, "sandbox")
