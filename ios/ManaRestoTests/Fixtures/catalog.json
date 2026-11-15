@@ -1,0 +1,771 @@
+{
+ "data": {
+  "generatedAt": "2026-11-15T00:18:45.554Z",
+  "categories": [
+   {
+    "id": "a3a2f290-1092-4f52-9859-f9355387dbcf",
+    "name": "Entrées",
+    "color": "#22C55E",
+    "parentId": null,
+    "sortOrder": 0,
+    "imageUrl": null
+   },
+   {
+    "id": "203fb900-ae7f-4acc-b1fb-185fae7d6c1a",
+    "name": "Plats",
+    "color": "#F97316",
+    "parentId": null,
+    "sortOrder": 1,
+    "imageUrl": null
+   },
+   {
+    "id": "318f0d2f-5097-40b2-8dea-cfa9b2f7b1ae",
+    "name": "Desserts",
+    "color": "#EC4899",
+    "parentId": null,
+    "sortOrder": 2,
+    "imageUrl": null
+   },
+   {
+    "id": "eb92c10d-ad8f-4031-b705-a3f21d5adabe",
+    "name": "Boissons",
+    "color": "#3B82F6",
+    "parentId": null,
+    "sortOrder": 3,
+    "imageUrl": null
+   },
+   {
+    "id": "c2d4130b-b47f-4540-8ff5-d8271ca07e8e",
+    "name": "Vins",
+    "color": "#9f1239",
+    "parentId": null,
+    "sortOrder": 4,
+    "imageUrl": null
+   }
+  ],
+  "products": [
+   {
+    "id": "4b6c8ce8-b684-4b1e-944c-378a2a6019d8",
+    "name": "Burger Bacon",
+    "description": null,
+    "categoryId": "203fb900-ae7f-4acc-b1fb-185fae7d6c1a",
+    "priceTtc": 2100,
+    "costPrice": 630,
+    "color": null,
+    "imageUrl": "/demo/photos/burger-bacon.webp",
+    "isAvailable": true,
+    "autoUnavailable": false,
+    "availability": null,
+    "sku": "PLA-001",
+    "barcode": null,
+    "kitchenStationId": "2a4e2c03-3fff-420e-8a9a-bd37df86d9de",
+    "trackStock": false,
+    "stockQty": 0,
+    "taxRate": {
+     "id": "84ddd3ae-3b89-44a6-a588-fd047dcbb6dd",
+     "name": "TVA restauration",
+     "rateBps": 1300
+    },
+    "variants": [],
+    "modifierGroups": [
+     {
+      "id": "83f31ba4-a6ce-4f2e-a3d9-529bcbeb3b7f",
+      "name": "Cuisson",
+      "minSelect": 1,
+      "maxSelect": 1,
+      "isActive": true,
+      "modifiers": [
+       {
+        "id": "8a8968c6-03dd-48f8-b131-fafdce2e3f0d",
+        "name": "Bleu",
+        "priceDelta": 0,
+        "isDefault": false,
+        "isAvailable": true
+       },
+       {
+        "id": "7d052bbd-058d-4dba-b3e2-6e5474053ded",
+        "name": "Saignant",
+        "priceDelta": 0,
+        "isDefault": false,
+        "isAvailable": true
+       },
+       {
+        "id": "03cdf68a-6c61-44b1-b7d9-32297a9fa91a",
+        "name": "À point",
+        "priceDelta": 0,
+        "isDefault": true,
+        "isAvailable": true
+       },
+       {
+        "id": "273986fa-4832-414f-8d2c-6c079ab40318",
+        "name": "Bien cuit",
+        "priceDelta": 0,
+        "isDefault": false,
+        "isAvailable": true
+       }
+      ]
+     },
+     {
+      "id": "df0f63f1-d8fe-4c9b-9621-9faafca4c5cf",
+      "name": "Accompagnement",
+      "minSelect": 1,
+      "maxSelect": 1,
+      "isActive": true,
+      "modifiers": [
+       {
+        "id": "457a3938-753a-47df-ab0f-c324b431c7d9",
+        "name": "Frites",
+        "priceDelta": 0,
+        "isDefault": true,
+        "isAvailable": true
+       },
+       {
+        "id": "9799f589-c836-4bc5-9241-641f57ab56b9",
+        "name": "Salade",
+        "priceDelta": 0,
+        "isDefault": false,
+        "isAvailable": true
+       },
+       {
+        "id": "33d7fbbe-c35f-495e-b464-0670483600c8",
+        "name": "Légumes",
+        "priceDelta": 0,
+        "isDefault": false,
+        "isAvailable": true
+       },
+       {
+        "id": "77e6e795-4813-4f0d-885d-02e4a45bf9a3",
+        "name": "Riz",
+        "priceDelta": 0,
+        "isDefault": false,
+        "isAvailable": true
+       }
+      ]
+     },
+     {
+      "id": "0bd87247-b394-4bfe-b065-8270f2daf9e1",
+      "name": "Suppléments burger",
+      "minSelect": 0,
+      "maxSelect": null,
+      "isActive": true,
+      "modifiers": [
+       {
+        "id": "af516cd0-6711-41ba-b2e3-b8b87fdf7a57",
+        "name": "Bacon",
+        "priceDelta": 250,
+        "isDefault": false,
+        "isAvailable": true
+       },
+       {
+        "id": "1f7d88d1-34f0-4423-97c2-2033fe490289",
+        "name": "Fromage",
+        "priceDelta": 150,
+        "isDefault": false,
+        "isAvailable": true
+       },
+       {
+        "id": "7da68186-ed4d-4fe7-a8bf-16f17e019111",
+        "name": "Avocat",
+        "priceDelta": 300,
+        "isDefault": false,
+        "isAvailable": true
+       },
+       {
+        "id": "c31d210c-51d1-4f38-ba36-20bcfe6080b2",
+        "name": "Œuf",
+        "priceDelta": 150,
+        "isDefault": false,
+        "isAvailable": true
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "id": "6c1e29ae-5316-49cc-89bc-d9726ac90ea3",
+    "name": "Cheeseburger",
+    "description": null,
+    "categoryId": "203fb900-ae7f-4acc-b1fb-185fae7d6c1a",
+    "priceTtc": 1900,
+    "costPrice": 560,
+    "color": null,
+    "imageUrl": "/demo/photos/cheeseburger.webp",
+    "isAvailable": true,
+    "autoUnavailable": false,
+    "availability": null,
+    "sku": "PLA-002",
+    "barcode": null,
+    "kitchenStationId": "2a4e2c03-3fff-420e-8a9a-bd37df86d9de",
+    "trackStock": false,
+    "stockQty": 0,
+    "taxRate": {
+     "id": "84ddd3ae-3b89-44a6-a588-fd047dcbb6dd",
+     "name": "TVA restauration",
+     "rateBps": 1300
+    },
+    "variants": [],
+    "modifierGroups": [
+     {
+      "id": "83f31ba4-a6ce-4f2e-a3d9-529bcbeb3b7f",
+      "name": "Cuisson",
+      "minSelect": 1,
+      "maxSelect": 1,
+      "isActive": true,
+      "modifiers": [
+       {
+        "id": "8a8968c6-03dd-48f8-b131-fafdce2e3f0d",
+        "name": "Bleu",
+        "priceDelta": 0,
+        "isDefault": false,
+        "isAvailable": true
+       },
+       {
+        "id": "7d052bbd-058d-4dba-b3e2-6e5474053ded",
+        "name": "Saignant",
+        "priceDelta": 0,
+        "isDefault": false,
+        "isAvailable": true
+       },
+       {
+        "id": "03cdf68a-6c61-44b1-b7d9-32297a9fa91a",
+        "name": "À point",
+        "priceDelta": 0,
+        "isDefault": true,
+        "isAvailable": true
+       },
+       {
+        "id": "273986fa-4832-414f-8d2c-6c079ab40318",
+        "name": "Bien cuit",
+        "priceDelta": 0,
+        "isDefault": false,
+        "isAvailable": true
+       }
+      ]
+     },
+     {
+      "id": "df0f63f1-d8fe-4c9b-9621-9faafca4c5cf",
+      "name": "Accompagnement",
+      "minSelect": 1,
+      "maxSelect": 1,
+      "isActive": true,
+      "modifiers": [
+       {
+        "id": "457a3938-753a-47df-ab0f-c324b431c7d9",
+        "name": "Frites",
+        "priceDelta": 0,
+        "isDefault": true,
+        "isAvailable": true
+       },
+       {
+        "id": "9799f589-c836-4bc5-9241-641f57ab56b9",
+        "name": "Salade",
+        "priceDelta": 0,
+        "isDefault": false,
+        "isAvailable": true
+       },
+       {
+        "id": "33d7fbbe-c35f-495e-b464-0670483600c8",
+        "name": "Légumes",
+        "priceDelta": 0,
+        "isDefault": false,
+        "isAvailable": true
+       },
+       {
+        "id": "77e6e795-4813-4f0d-885d-02e4a45bf9a3",
+        "name": "Riz",
+        "priceDelta": 0,
+        "isDefault": false,
+        "isAvailable": true
+       }
+      ]
+     },
+     {
+      "id": "0bd87247-b394-4bfe-b065-8270f2daf9e1",
+      "name": "Suppléments burger",
+      "minSelect": 0,
+      "maxSelect": null,
+      "isActive": true,
+      "modifiers": [
+       {
+        "id": "af516cd0-6711-41ba-b2e3-b8b87fdf7a57",
+        "name": "Bacon",
+        "priceDelta": 250,
+        "isDefault": false,
+        "isAvailable": true
+       },
+       {
+        "id": "1f7d88d1-34f0-4423-97c2-2033fe490289",
+        "name": "Fromage",
+        "priceDelta": 150,
+        "isDefault": false,
+        "isAvailable": true
+       },
+       {
+        "id": "7da68186-ed4d-4fe7-a8bf-16f17e019111",
+        "name": "Avocat",
+        "priceDelta": 300,
+        "isDefault": false,
+        "isAvailable": true
+       },
+       {
+        "id": "c31d210c-51d1-4f38-ba36-20bcfe6080b2",
+        "name": "Œuf",
+        "priceDelta": 150,
+        "isDefault": false,
+        "isAvailable": true
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "id": "9e2db78e-0a55-433a-9d3c-08ce85d7083e",
+    "name": "Domaine du Lagon — Les Coraux 2022",
+    "description": "Nez d'agrumes et de fleurs blanches. Bouche tendue et minérale, finale saline : parfait avec le poisson cru.",
+    "categoryId": "c2d4130b-b47f-4540-8ff5-d8271ca07e8e",
+    "priceTtc": 6900,
+    "costPrice": 2400,
+    "color": null,
+    "imageUrl": null,
+    "isAvailable": true,
+    "autoUnavailable": false,
+    "availability": null,
+    "sku": null,
+    "barcode": null,
+    "kitchenStationId": "1e1aa4dd-b52f-47af-b844-6a87d8e13bbb",
+    "trackStock": false,
+    "stockQty": 0,
+    "taxRate": {
+     "id": "c96a96bc-53b2-477f-94e8-327b2f0aef92",
+     "name": "TVA taux normal",
+     "rateBps": 1600
+    },
+    "variants": [],
+    "modifierGroups": []
+   },
+   {
+    "id": "852bfae8-c826-4dcc-bd03-d75e8d837263",
+    "name": "Eau minérale 50 cl",
+    "description": null,
+    "categoryId": "eb92c10d-ad8f-4031-b705-a3f21d5adabe",
+    "priceTtc": 350,
+    "costPrice": 90,
+    "color": null,
+    "imageUrl": "/demo/photos/eau-minerale-50-cl.webp",
+    "isAvailable": true,
+    "autoUnavailable": false,
+    "availability": null,
+    "sku": "BOI-001",
+    "barcode": null,
+    "kitchenStationId": "1e1aa4dd-b52f-47af-b844-6a87d8e13bbb",
+    "trackStock": false,
+    "stockQty": 0,
+    "taxRate": {
+     "id": "84ddd3ae-3b89-44a6-a588-fd047dcbb6dd",
+     "name": "TVA restauration",
+     "rateBps": 1300
+    },
+    "variants": [],
+    "modifierGroups": []
+   },
+   {
+    "id": "8f20dce8-7c46-405a-a60a-ace55784668c",
+    "name": "Po'e banane",
+    "description": null,
+    "categoryId": "318f0d2f-5097-40b2-8dea-cfa9b2f7b1ae",
+    "priceTtc": 900,
+    "costPrice": 220,
+    "color": null,
+    "imageUrl": "/demo/photos/po-e-banane.webp",
+    "isAvailable": true,
+    "autoUnavailable": false,
+    "availability": null,
+    "sku": "DES-001",
+    "barcode": null,
+    "kitchenStationId": "2a4e2c03-3fff-420e-8a9a-bd37df86d9de",
+    "trackStock": false,
+    "stockQty": 0,
+    "taxRate": {
+     "id": "84ddd3ae-3b89-44a6-a588-fd047dcbb6dd",
+     "name": "TVA restauration",
+     "rateBps": 1300
+    },
+    "variants": [],
+    "modifierGroups": []
+   }
+  ],
+  "menus": [
+   {
+    "id": "cd84ef24-ff39-48ff-8b03-bd5272622ae9",
+    "establishmentId": "e9fc9c9d-8361-405a-943c-9401ff2c7bae",
+    "taxRateId": "84ddd3ae-3b89-44a6-a588-fd047dcbb6dd",
+    "name": "Menu déjeuner",
+    "description": "Entrée + plat + dessert",
+    "priceTtc": 3500,
+    "color": "#0EA5A4",
+    "imageUrl": null,
+    "availability": null,
+    "sortOrder": 0,
+    "isActive": true,
+    "createdAt": "2026-11-15T00:17:29.705Z",
+    "updatedAt": "2026-11-15T00:17:29.705Z",
+    "taxRate": {
+     "id": "84ddd3ae-3b89-44a6-a588-fd047dcbb6dd",
+     "establishmentId": "e9fc9c9d-8361-405a-943c-9401ff2c7bae",
+     "name": "TVA restauration",
+     "rateBps": 1300,
+     "isDefault": true,
+     "isActive": true,
+     "createdAt": "2026-11-15T00:17:28.278Z",
+     "updatedAt": "2026-11-15T00:17:28.278Z"
+    },
+    "sections": [
+     {
+      "id": "b6c15d39-4ba6-4c61-bffc-656b60d80883",
+      "menuId": "cd84ef24-ff39-48ff-8b03-bd5272622ae9",
+      "name": "Entrée",
+      "minSelect": 1,
+      "maxSelect": 1,
+      "sortOrder": 0,
+      "items": [
+       {
+        "id": "0901b8a8-aea0-4700-a2ed-ee0611925c6c",
+        "sectionId": "b6c15d39-4ba6-4c61-bffc-656b60d80883",
+        "productId": "4470b81a-1dde-4097-92d4-240f93f2651f",
+        "supplement": 0,
+        "sortOrder": 0,
+        "product": {
+         "id": "4470b81a-1dde-4097-92d4-240f93f2651f",
+         "name": "Poisson cru au lait de coco",
+         "priceTtc": 1900,
+         "isAvailable": true,
+         "isActive": true,
+         "kitchenStationId": "2a4e2c03-3fff-420e-8a9a-bd37df86d9de",
+         "taxRateId": "84ddd3ae-3b89-44a6-a588-fd047dcbb6dd",
+         "costPrice": 620
+        }
+       },
+       {
+        "id": "9e191aba-09fb-43ff-a292-007587771c85",
+        "sectionId": "b6c15d39-4ba6-4c61-bffc-656b60d80883",
+        "productId": "a731cd86-6411-4868-8cc0-73d1bda81fa8",
+        "supplement": 0,
+        "sortOrder": 1,
+        "product": {
+         "id": "a731cd86-6411-4868-8cc0-73d1bda81fa8",
+         "name": "Salade tahitienne",
+         "priceTtc": 1600,
+         "isAvailable": true,
+         "isActive": true,
+         "kitchenStationId": "2a4e2c03-3fff-420e-8a9a-bd37df86d9de",
+         "taxRateId": "84ddd3ae-3b89-44a6-a588-fd047dcbb6dd",
+         "costPrice": 450
+        }
+       },
+       {
+        "id": "a1573b3a-c1af-409d-be53-4125601ec193",
+        "sectionId": "b6c15d39-4ba6-4c61-bffc-656b60d80883",
+        "productId": "bc0fc51d-198e-4599-9194-017909fb55f9",
+        "supplement": 0,
+        "sortOrder": 2,
+        "product": {
+         "id": "bc0fc51d-198e-4599-9194-017909fb55f9",
+         "name": "Soupe chinoise",
+         "priceTtc": 1400,
+         "isAvailable": true,
+         "isActive": true,
+         "kitchenStationId": "2a4e2c03-3fff-420e-8a9a-bd37df86d9de",
+         "taxRateId": "84ddd3ae-3b89-44a6-a588-fd047dcbb6dd",
+         "costPrice": 380
+        }
+       }
+      ]
+     },
+     {
+      "id": "db0a237c-3497-43f2-8bc4-989390a50723",
+      "menuId": "cd84ef24-ff39-48ff-8b03-bd5272622ae9",
+      "name": "Plat",
+      "minSelect": 1,
+      "maxSelect": 1,
+      "sortOrder": 1,
+      "items": [
+       {
+        "id": "324f514d-1ff4-41aa-825a-3040b2c0116d",
+        "sectionId": "db0a237c-3497-43f2-8bc4-989390a50723",
+        "productId": "26c5d173-cb64-4d62-9bcf-9e6057189dfb",
+        "supplement": 0,
+        "sortOrder": 0,
+        "product": {
+         "id": "26c5d173-cb64-4d62-9bcf-9e6057189dfb",
+         "name": "Poulet fafa",
+         "priceTtc": 2400,
+         "isAvailable": true,
+         "isActive": true,
+         "kitchenStationId": "2a4e2c03-3fff-420e-8a9a-bd37df86d9de",
+         "taxRateId": "84ddd3ae-3b89-44a6-a588-fd047dcbb6dd",
+         "costPrice": 700
+        }
+       },
+       {
+        "id": "b0b3db58-8c07-461b-9fe0-efb83ea4d9a6",
+        "sectionId": "db0a237c-3497-43f2-8bc4-989390a50723",
+        "productId": "31693696-ab5c-4587-ba75-c68a17d0b7e7",
+        "supplement": 0,
+        "sortOrder": 1,
+        "product": {
+         "id": "31693696-ab5c-4587-ba75-c68a17d0b7e7",
+         "name": "Chow mein poulet",
+         "priceTtc": 1900,
+         "isAvailable": true,
+         "isActive": true,
+         "kitchenStationId": "2a4e2c03-3fff-420e-8a9a-bd37df86d9de",
+         "taxRateId": "84ddd3ae-3b89-44a6-a588-fd047dcbb6dd",
+         "costPrice": 520
+        }
+       },
+       {
+        "id": "ea500633-43db-4c4c-bf5a-f7a5a30496ec",
+        "sectionId": "db0a237c-3497-43f2-8bc4-989390a50723",
+        "productId": "4c3214c1-b0d9-430e-b98d-942b3429cb1e",
+        "supplement": 0,
+        "sortOrder": 2,
+        "product": {
+         "id": "4c3214c1-b0d9-430e-b98d-942b3429cb1e",
+         "name": "Steak frites",
+         "priceTtc": 2500,
+         "isAvailable": true,
+         "isActive": true,
+         "kitchenStationId": "2a4e2c03-3fff-420e-8a9a-bd37df86d9de",
+         "taxRateId": "84ddd3ae-3b89-44a6-a588-fd047dcbb6dd",
+         "costPrice": 850
+        }
+       },
+       {
+        "id": "70880cbd-d847-4824-b5f2-cd621b856c2b",
+        "sectionId": "db0a237c-3497-43f2-8bc4-989390a50723",
+        "productId": "8bb49580-fada-401e-95e8-1ad3f738e553",
+        "supplement": 500,
+        "sortOrder": 3,
+        "product": {
+         "id": "8bb49580-fada-401e-95e8-1ad3f738e553",
+         "name": "Entrecôte 300 g",
+         "priceTtc": 3600,
+         "isAvailable": true,
+         "isActive": true,
+         "kitchenStationId": "2a4e2c03-3fff-420e-8a9a-bd37df86d9de",
+         "taxRateId": "84ddd3ae-3b89-44a6-a588-fd047dcbb6dd",
+         "costPrice": 1400
+        }
+       }
+      ]
+     },
+     {
+      "id": "8c58f77f-3657-458d-9263-00b9a3cd2392",
+      "menuId": "cd84ef24-ff39-48ff-8b03-bd5272622ae9",
+      "name": "Dessert",
+      "minSelect": 1,
+      "maxSelect": 1,
+      "sortOrder": 2,
+      "items": [
+       {
+        "id": "6ff20555-d80b-4bf2-b7d0-d005bfc0cfbf",
+        "sectionId": "8c58f77f-3657-458d-9263-00b9a3cd2392",
+        "productId": "8f20dce8-7c46-405a-a60a-ace55784668c",
+        "supplement": 0,
+        "sortOrder": 0,
+        "product": {
+         "id": "8f20dce8-7c46-405a-a60a-ace55784668c",
+         "name": "Po'e banane",
+         "priceTtc": 900,
+         "isAvailable": true,
+         "isActive": true,
+         "kitchenStationId": "2a4e2c03-3fff-420e-8a9a-bd37df86d9de",
+         "taxRateId": "84ddd3ae-3b89-44a6-a588-fd047dcbb6dd",
+         "costPrice": 220
+        }
+       },
+       {
+        "id": "0fdc1c2f-8a03-460b-a987-c810e5463dcf",
+        "sectionId": "8c58f77f-3657-458d-9263-00b9a3cd2392",
+        "productId": "2eb577c2-6767-4c62-85ab-4f12b0be08eb",
+        "supplement": 0,
+        "sortOrder": 1,
+        "product": {
+         "id": "2eb577c2-6767-4c62-85ab-4f12b0be08eb",
+         "name": "Tarte coco",
+         "priceTtc": 1000,
+         "isAvailable": true,
+         "isActive": true,
+         "kitchenStationId": "2a4e2c03-3fff-420e-8a9a-bd37df86d9de",
+         "taxRateId": "84ddd3ae-3b89-44a6-a588-fd047dcbb6dd",
+         "costPrice": 260
+        }
+       },
+       {
+        "id": "b914a48d-2225-4782-a26c-3c491fb5645f",
+        "sectionId": "8c58f77f-3657-458d-9263-00b9a3cd2392",
+        "productId": "619200b9-2a10-4c6a-9d4e-c3e200940af8",
+        "supplement": 300,
+        "sortOrder": 2,
+        "product": {
+         "id": "619200b9-2a10-4c6a-9d4e-c3e200940af8",
+         "name": "Crème brûlée vanille de Tahiti",
+         "priceTtc": 1100,
+         "isAvailable": true,
+         "isActive": true,
+         "kitchenStationId": "2a4e2c03-3fff-420e-8a9a-bd37df86d9de",
+         "taxRateId": "84ddd3ae-3b89-44a6-a588-fd047dcbb6dd",
+         "costPrice": 300
+        }
+       }
+      ]
+     }
+    ]
+   }
+  ],
+  "taxRates": [
+   {
+    "id": "84ddd3ae-3b89-44a6-a588-fd047dcbb6dd",
+    "establishmentId": "e9fc9c9d-8361-405a-943c-9401ff2c7bae",
+    "name": "TVA restauration",
+    "rateBps": 1300,
+    "isDefault": true,
+    "isActive": true,
+    "createdAt": "2026-11-15T00:17:28.278Z",
+    "updatedAt": "2026-11-15T00:17:28.278Z"
+   },
+   {
+    "id": "c96a96bc-53b2-477f-94e8-327b2f0aef92",
+    "establishmentId": "e9fc9c9d-8361-405a-943c-9401ff2c7bae",
+    "name": "TVA taux normal",
+    "rateBps": 1600,
+    "isDefault": false,
+    "isActive": true,
+    "createdAt": "2026-11-15T00:17:28.278Z",
+    "updatedAt": "2026-11-15T00:17:28.278Z"
+   },
+   {
+    "id": "5e8a7567-44fd-456a-9c07-c1efe05addb4",
+    "establishmentId": "e9fc9c9d-8361-405a-943c-9401ff2c7bae",
+    "name": "TVA taux réduit",
+    "rateBps": 500,
+    "isDefault": false,
+    "isActive": true,
+    "createdAt": "2026-11-15T00:17:28.278Z",
+    "updatedAt": "2026-11-15T00:17:28.278Z"
+   },
+   {
+    "id": "a767813d-4c10-4952-8ebd-34df2546834c",
+    "establishmentId": "e9fc9c9d-8361-405a-943c-9401ff2c7bae",
+    "name": "Exonéré",
+    "rateBps": 0,
+    "isDefault": false,
+    "isActive": true,
+    "createdAt": "2026-11-15T00:17:28.278Z",
+    "updatedAt": "2026-11-15T00:17:28.278Z"
+   }
+  ],
+  "stations": [
+   {
+    "id": "2a4e2c03-3fff-420e-8a9a-bd37df86d9de",
+    "establishmentId": "e9fc9c9d-8361-405a-943c-9401ff2c7bae",
+    "name": "CUISINE",
+    "color": "#F97316",
+    "sortOrder": 1,
+    "warnAfterSec": 600,
+    "alertAfterSec": 900,
+    "isActive": true
+   },
+   {
+    "id": "1e1aa4dd-b52f-47af-b844-6a87d8e13bbb",
+    "establishmentId": "e9fc9c9d-8361-405a-943c-9401ff2c7bae",
+    "name": "BAR",
+    "color": "#3B82F6",
+    "sortOrder": 2,
+    "warnAfterSec": 600,
+    "alertAfterSec": 900,
+    "isActive": true
+   }
+  ],
+  "paymentMethods": [
+   {
+    "id": "4f70ec0c-a23b-42bb-9106-2fe064355104",
+    "establishmentId": "e9fc9c9d-8361-405a-943c-9401ff2c7bae",
+    "method": "CASH",
+    "label": "Espèces",
+    "isEnabled": true,
+    "opensDrawer": true,
+    "provider": null,
+    "providerConfig": {},
+    "sortOrder": 1
+   },
+   {
+    "id": "d660c07f-6dee-454c-ac91-781c1f42b01d",
+    "establishmentId": "e9fc9c9d-8361-405a-943c-9401ff2c7bae",
+    "method": "CARD",
+    "label": "Carte bancaire",
+    "isEnabled": true,
+    "opensDrawer": false,
+    "provider": null,
+    "providerConfig": {},
+    "sortOrder": 2
+   },
+   {
+    "id": "c17ca783-5f15-4dd1-afd9-290a1dbffb93",
+    "establishmentId": "e9fc9c9d-8361-405a-943c-9401ff2c7bae",
+    "method": "CHECK",
+    "label": "Chèque",
+    "isEnabled": true,
+    "opensDrawer": false,
+    "provider": null,
+    "providerConfig": {},
+    "sortOrder": 3
+   },
+   {
+    "id": "36f405b4-ef12-431b-a3d2-29dc196110d1",
+    "establishmentId": "e9fc9c9d-8361-405a-943c-9401ff2c7bae",
+    "method": "TRANSFER",
+    "label": "Virement",
+    "isEnabled": true,
+    "opensDrawer": false,
+    "provider": null,
+    "providerConfig": {},
+    "sortOrder": 4
+   },
+   {
+    "id": "7d713619-0eb2-4ea9-bdc9-10a1d6c18025",
+    "establishmentId": "e9fc9c9d-8361-405a-943c-9401ff2c7bae",
+    "method": "MEAL_VOUCHER",
+    "label": "Ticket restaurant",
+    "isEnabled": true,
+    "opensDrawer": false,
+    "provider": null,
+    "providerConfig": {},
+    "sortOrder": 5
+   },
+   {
+    "id": "488f95cd-2fa7-4129-9be2-083f436d8ba3",
+    "establishmentId": "e9fc9c9d-8361-405a-943c-9401ff2c7bae",
+    "method": "COMPLIMENTARY",
+    "label": "Offert",
+    "isEnabled": true,
+    "opensDrawer": false,
+    "provider": null,
+    "providerConfig": {},
+    "sortOrder": 6
+   },
+   {
+    "id": "fa913972-3763-4798-b61b-fb5a25c99ed1",
+    "establishmentId": "e9fc9c9d-8361-405a-943c-9401ff2c7bae",
+    "method": "OTHER",
+    "label": "Autre",
+    "isEnabled": true,
+    "opensDrawer": false,
+    "provider": null,
+    "providerConfig": {},
+    "sortOrder": 7
+   }
+  ],
+  "printers": []
+ }
+}

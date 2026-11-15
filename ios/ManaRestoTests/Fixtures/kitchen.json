@@ -1,0 +1,238 @@
+{
+ "data": [
+  {
+   "id": "9c1b5026-5045-4cd4-877c-444794f81aac",
+   "orderId": "b1e3b6b4-1654-4282-9268-fce2c61209e1",
+   "courseId": "60a901eb-9169-4eb3-861e-a1e9ab081d78",
+   "stationId": "2a4e2c03-3fff-420e-8a9a-bd37df86d9de",
+   "status": "READY",
+   "isUrgent": true,
+   "createdAt": "2026-11-14T23:24:15.962Z",
+   "acceptedAt": "2026-11-14T23:25:15.962Z",
+   "startedAt": "2026-11-14T23:27:15.962Z",
+   "readyAt": "2026-11-14T23:38:15.962Z",
+   "completedAt": null,
+   "station": {
+    "id": "2a4e2c03-3fff-420e-8a9a-bd37df86d9de",
+    "name": "CUISINE",
+    "color": "#F97316",
+    "warnAfterSec": 600,
+    "alertAfterSec": 900
+   },
+   "course": {
+    "id": "60a901eb-9169-4eb3-861e-a1e9ab081d78",
+    "name": "PLATS",
+    "sortOrder": 2,
+    "status": "READY"
+   },
+   "order": {
+    "id": "b1e3b6b4-1654-4282-9268-fce2c61209e1",
+    "number": "20261114-0058",
+    "type": "DINE_IN",
+    "covers": 5,
+    "customerName": null,
+    "tableLabel": null,
+    "notes": null,
+    "status": "SENT",
+    "openedAt": "2026-11-14T23:20:15.962Z",
+    "serverId": "edda2e3c-7889-40e2-b727-96f178e791f6",
+    "table": {
+     "id": "d5b1e2eb-a569-492d-a88f-26e9b7c5993c",
+     "name": "T17"
+    },
+    "server": {
+     "id": "edda2e3c-7889-40e2-b727-96f178e791f6",
+     "firstName": "Vaiana",
+     "displayName": "Vaiana"
+    }
+   },
+   "items": [
+    {
+     "id": "41c86d95-3308-4c44-9244-4d6987976d1a",
+     "name": "Cheeseburger",
+     "quantity": 1,
+     "seatNumber": 1,
+     "notes": null,
+     "isUrgent": false,
+     "status": "READY",
+     "readyAt": "2026-11-14T23:38:15.962Z",
+     "parentItemId": null,
+     "modifiers": [
+      {
+       "name": "Bien cuit",
+       "groupName": "Cuisson"
+      },
+      {
+       "name": "Riz",
+       "groupName": "Accompagnement"
+      }
+     ],
+     "parentItem": null
+    },
+    {
+     "id": "780a7771-db7d-4e28-975c-81e0ae735370",
+     "name": "Poulet fafa",
+     "quantity": 1,
+     "seatNumber": 2,
+     "notes": null,
+     "isUrgent": false,
+     "status": "READY",
+     "readyAt": "2026-11-14T23:38:15.962Z",
+     "parentItemId": null,
+     "modifiers": [],
+     "parentItem": null
+    },
+    {
+     "id": "bf672487-1f3c-4d80-963c-7af9aa88a805",
+     "name": "Mahi-mahi sauce vanille",
+     "quantity": 1,
+     "seatNumber": 3,
+     "notes": null,
+     "isUrgent": false,
+     "status": "READY",
+     "readyAt": "2026-11-14T23:38:15.962Z",
+     "parentItemId": null,
+     "modifiers": [
+      {
+       "name": "Légumes",
+       "groupName": "Accompagnement"
+      }
+     ],
+     "parentItem": null
+    },
+    {
+     "id": "c3894416-5f7e-4963-8298-d9dfdebe93f8",
+     "name": "Chow mein poulet",
+     "quantity": 1,
+     "seatNumber": 4,
+     "notes": null,
+     "isUrgent": false,
+     "status": "READY",
+     "readyAt": "2026-11-14T23:38:15.962Z",
+     "parentItemId": null,
+     "modifiers": [],
+     "parentItem": null
+    },
+    {
+     "id": "9619a0fd-c871-40e0-b6dd-a12c7629f6ef",
+     "name": "Mahi-mahi sauce vanille",
+     "quantity": 1,
+     "seatNumber": 5,
+     "notes": null,
+     "isUrgent": false,
+     "status": "READY",
+     "readyAt": "2026-11-14T23:38:15.962Z",
+     "parentItemId": null,
+     "modifiers": [
+      {
+       "name": "Riz",
+       "groupName": "Accompagnement"
+      }
+     ],
+     "parentItem": null
+    }
+   ]
+  },
+  {
+   "id": "33d291e6-dad5-4ad9-b03a-7d824315a023",
+   "orderId": "4c3dbbc9-7d78-4fcc-bc3e-bc45e87a0d04",
+   "courseId": "563d5c5c-6fad-46c8-bda8-68970b69f95d",
+   "stationId": "1e1aa4dd-b52f-47af-b844-6a87d8e13bbb",
+   "status": "IN_PROGRESS",
+   "isUrgent": true,
+   "createdAt": "2026-11-15T00:10:15.836Z",
+   "acceptedAt": "2026-11-15T00:11:15.836Z",
+   "startedAt": "2026-11-15T00:13:15.836Z",
+   "readyAt": null,
+   "completedAt": null,
+   "station": {
+    "id": "1e1aa4dd-b52f-47af-b844-6a87d8e13bbb",
+    "name": "BAR",
+    "color": "#3B82F6",
+    "warnAfterSec": 600,
+    "alertAfterSec": 900
+   },
+   "course": {
+    "id": "563d5c5c-6fad-46c8-bda8-68970b69f95d",
+    "name": "APÉRITIFS",
+    "sortOrder": 0,
+    "status": "SENT"
+   },
+   "order": {
+    "id": "4c3dbbc9-7d78-4fcc-bc3e-bc45e87a0d04",
+    "number": "20261114-0055",
+    "type": "DINE_IN",
+    "covers": 3,
+    "customerName": null,
+    "tableLabel": null,
+    "notes": null,
+    "status": "SENT",
+    "openedAt": "2026-11-15T00:06:15.836Z",
+    "serverId": "9c9b0b71-40df-490d-bcd6-734849565b63",
+    "table": {
+     "id": "4d03c47e-b7e3-40b5-a687-5ae22a1a3351",
+     "name": "T04"
+    },
+    "server": {
+     "id": "9c9b0b71-40df-490d-bcd6-734849565b63",
+     "firstName": "Poema",
+     "displayName": "Poema"
+    }
+   },
+   "items": [
+    {
+     "id": "a7496d1a-d348-4bdb-b087-7a17b40745cb",
+     "name": "Café allongé",
+     "quantity": 1,
+     "seatNumber": 1,
+     "notes": null,
+     "isUrgent": false,
+     "status": "PREPARING",
+     "readyAt": null,
+     "parentItemId": null,
+     "modifiers": [],
+     "parentItem": null
+    },
+    {
+     "id": "a4fb2948-5b38-494e-9db5-7c07a0923e5f",
+     "name": "Verre de rosé",
+     "quantity": 1,
+     "seatNumber": 2,
+     "notes": null,
+     "isUrgent": false,
+     "status": "PREPARING",
+     "readyAt": null,
+     "parentItemId": null,
+     "modifiers": [],
+     "parentItem": null
+    },
+    {
+     "id": "1d070b82-b1cc-41f3-a8b7-94295bb9feab",
+     "name": "Thé",
+     "quantity": 1,
+     "seatNumber": 3,
+     "notes": null,
+     "isUrgent": false,
+     "status": "PREPARING",
+     "readyAt": null,
+     "parentItemId": null,
+     "modifiers": [],
+     "parentItem": null
+    },
+    {
+     "id": "b56196af-d786-41fb-b159-0f5b87e0993f",
+     "name": "Domaine Hiva — Vieilles vignes 2020 · verre 12 cl",
+     "quantity": 1,
+     "seatNumber": 1,
+     "notes": null,
+     "isUrgent": false,
+     "status": "PREPARING",
+     "readyAt": null,
+     "parentItemId": null,
+     "modifiers": [],
+     "parentItem": null
+    }
+   ]
+  }
+ ]
+}

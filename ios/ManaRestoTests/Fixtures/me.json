@@ -1,0 +1,216 @@
+{
+ "data": {
+  "subscription": {
+   "plan": "TRIAL",
+   "trialEndsAt": "2026-11-30T00:18:16.834Z",
+   "daysLeft": 15,
+   "expired": false,
+   "label": "Essai gratuit : 15 jours restants"
+  },
+  "isDemo": true,
+  "demoLocked": true,
+  "publicSitePath": "http://localhost:3000/r/le-mana-beach",
+  "options": [
+   "stock",
+   "digital",
+   "team",
+   "stats",
+   "continuity",
+   "ai",
+   "hygiene",
+   "accounts",
+   "marketing",
+   "screens",
+   "catering",
+   "bar",
+   "wine",
+   "advanced"
+  ],
+  "demoVisit": null,
+  "user": {
+   "id": "45c005dd-f6cc-4125-83a6-483f48952d0f",
+   "email": "demo@manaresto.pf",
+   "pinOnly": false,
+   "firstName": "Teiva",
+   "lastName": "Manutahi",
+   "displayName": "Teiva",
+   "color": "#0EA5A4",
+   "isOwner": true,
+   "hasPin": true
+  },
+  "organizationId": "3816d09e-6964-4a59-85aa-602421e51abc",
+  "establishment": {
+   "id": "e9fc9c9d-8361-405a-943c-9401ff2c7bae",
+   "organizationId": "3816d09e-6964-4a59-85aa-602421e51abc",
+   "name": "Le Mana Beach",
+   "slug": "le-mana-beach",
+   "shareSlug": "le-mana-beach",
+   "legalName": "Mana Beach SARL",
+   "tahitiNumber": "A12345",
+   "addressLine1": "PK 18,2 côté mer",
+   "addressLine2": null,
+   "city": "Punaauia",
+   "postalCode": "98718",
+   "island": "Tahiti",
+   "country": "PF",
+   "phone": "+689 40 12 34 56",
+   "email": "contact@manabeach.pf",
+   "currency": "XPF",
+   "currencyExponent": 0,
+   "locale": "fr-PF",
+   "timezone": "Pacific/Tahiti",
+   "tipsEnabled": true,
+   "tipPresetsBps": [
+    500,
+    1000,
+    1500
+   ],
+   "openingHours": {
+    "fri": [
+     "11:00-14:30",
+     "18:00-23:00"
+    ],
+    "mon": [
+     "11:00-14:30",
+     "18:00-22:00"
+    ],
+    "sat": [
+     "11:00-15:00",
+     "18:00-23:00"
+    ],
+    "sun": [
+     "11:00-15:00"
+    ],
+    "thu": [
+     "11:00-14:30",
+     "18:00-22:00"
+    ],
+    "tue": [
+     "11:00-14:30",
+     "18:00-22:00"
+    ],
+    "wed": [
+     "11:00-14:30",
+     "18:00-22:00"
+    ]
+   },
+   "settings": {
+    "bar": {
+     "happyHours": [
+      {
+       "id": "demo-hh",
+       "end": "19:00",
+       "days": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+       ],
+       "name": "Happy hour",
+       "start": "17:00",
+       "enabled": true,
+       "productIds": [
+        "bde1a7a1-0762-43eb-80b1-a9c0feef1b1a",
+        "c36b9660-9bb9-414a-a9bc-d2229981e075",
+        "4693beb5-4946-42c7-b1f8-ee95785ad601",
+        "bfdb3cce-1eea-4709-984d-b7f8889b7c8d",
+        "015df5b9-0a60-47c2-aaad-0ed5be9063cb",
+        "1795226a-4e48-40bc-bc8d-959564997262",
+        "c4e3c16d-8870-4337-afff-380e739c6064",
+        "9eee10f3-e03a-46c6-bfa6-d7e34ca31025",
+        "fe9131bb-16f2-4f42-9ed6-3e0afef1c47e",
+        "c9d62b64-60e7-45eb-8b1f-2c5e92f74d47"
+       ],
+       "categoryIds": [],
+       "discountBps": 3000
+      }
+     ]
+    },
+    "site": {
+     "accent": "#14aaa3",
+     "photos": [
+      "/demo/site/terrasse.webp",
+      "/demo/site/partage.webp",
+      "/demo/site/plage.webp",
+      "/demo/site/bar.webp",
+      "/demo/site/tablee.webp",
+      "/demo/site/lagon.webp"
+     ],
+     "enabled": true,
+     "tagline": "Cuisine du lagon, les pieds dans le sable",
+     "coverUrl": "/demo/site/couverture.webp",
+     "showMenu": true,
+     "showPrices": true,
+     "description": "Depuis 2012, Le Mana Beach vous accueille face au lagon de Punaauia : poisson cru au lait de coco, thon rouge de la criée, grillades au feu de bois et desserts aux fruits du fenua.\nTerrasse sur la plage, parking gratuit, cocktails au coucher du soleil."
+    },
+    "wine": {
+     "listIntro": "Une sélection de vignerons, à la bouteille, au verre ou en carafe.",
+     "listTitle": "Carte des vins",
+     "showOnSite": true,
+     "hideOutOfStock": true
+    },
+    "courses": [
+     "APÉRITIFS",
+     "ENTRÉES",
+     "PLATS",
+     "DESSERTS"
+    ],
+    "digital": {
+     "kiosk": {
+      "dineIn": true,
+      "enabled": true,
+      "takeaway": true
+     },
+     "online": {
+      "pickup": true,
+      "enabled": true,
+      "message": "Commandes en ligne de 11 h à 13 h 30 et de 18 h à 21 h. Paiement sur place.",
+      "delivery": true,
+      "deliveryFee": 500,
+      "deliveryZones": [
+       "Punaauia",
+       "Paea",
+       "Faa'a"
+      ],
+      "pickupLeadMin": 20,
+      "deliveryMinOrder": 3000
+     },
+     "qrMode": "ORDER"
+    },
+    "loyalty": {
+     "enabled": true,
+     "rewardValue": 1000,
+     "pointsPer100": 1,
+     "rewardPoints": 100
+    }
+   },
+   "onboardingStep": 15,
+   "onboardingDone": true,
+   "businessType": "restaurant",
+   "isActive": true,
+   "createdAt": "2026-11-15T00:17:28.274Z",
+   "updatedAt": "2026-11-15T00:18:16.754Z"
+  },
+  "establishments": [
+   {
+    "id": "e9fc9c9d-8361-405a-943c-9401ff2c7bae",
+    "name": "Le Mana Beach",
+    "slug": "le-mana-beach",
+    "roleKey": "owner"
+   }
+  ],
+  "roleKey": "owner",
+  "permissions": [
+   "*"
+  ],
+  "terminal": null,
+  "features": {
+   "email": false
+  },
+  "platformAdmin": false,
+  "impersonation": null
+ }
+}

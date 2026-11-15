@@ -1,0 +1,7 @@
+{
+ "error": {
+  "code": "INSUFFICIENT_CASH",
+  "message": "Espèces reçues insuffisantes",
+  "details": null
+ }
+}
