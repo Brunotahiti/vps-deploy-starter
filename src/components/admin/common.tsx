@@ -47,6 +47,7 @@ const HELP: [string, string][] = [
   ["/admin/ai", "Prévisions de fréquentation (vert, orange, rouge, noir), analyse qualité inspirée de l'ISO 9001 et commande d'achats proposée. Les chiffres viennent de vos ventes et réservations."],
   ["/admin/customers", "Vos clients, leurs visites et leurs points de fidélité."],
   ["/admin/digital", "QR codes à table, commande en ligne et borne : vos clients commandent eux-mêmes, les commandes arrivent en caisse et en cuisine."],
+  ["/admin/staff/shifts", "Saisissez une seule fois votre semaine type (qui travaille quel jour, à quelle heure) : elle remplit toute seule les semaines suivantes. Ensuite, ne touchez qu'aux exceptions : un congé signale les services à remplacer, et un clic sur un service permet de choisir le remplaçant ou de changer l'horaire."],
   ["/admin/staff", "Le personnel, les plannings et les heures pointées, avec le coût de la main d'œuvre."],
   ["/admin/users", "Un compte par personne, avec un PIN de 4 chiffres pour se connecter vite à la caisse. Le profil fixe ce que chacun peut faire."],
   ["/admin/settings", "Les informations de l'établissement (imprimées sur les tickets), les horaires, les services du repas et les moyens de paiement."],

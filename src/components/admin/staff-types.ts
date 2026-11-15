@@ -1,9 +1,12 @@
 import { dateToZonedInput, zonedInputToDate } from "@/lib/dates";
 import type { listEmployees, listShifts, listEntries, staffSummary, presentNow, clockStatus } from "@/server/services/staff";
 import type { PeriodReport } from "@/server/services/reports";
+import type { listShiftTemplates, listAbsences } from "@/server/services/planning";
 
 export type Employee = Awaited<ReturnType<typeof listEmployees>>[number];
 export type Shift = Awaited<ReturnType<typeof listShifts>>[number];
+export type ShiftTemplate = Awaited<ReturnType<typeof listShiftTemplates>>[number];
+export type Absence = Awaited<ReturnType<typeof listAbsences>>[number];
 export type TimeEntry = Awaited<ReturnType<typeof listEntries>>[number];
 export type StaffSummary = Awaited<ReturnType<typeof staffSummary>>;
 export type Present = Awaited<ReturnType<typeof presentNow>>[number];

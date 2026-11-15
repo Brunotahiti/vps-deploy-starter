@@ -5,7 +5,8 @@ import { ApiError } from "@/server/errors";
 import { audit } from "@/server/audit";
 import { publish } from "@/server/realtime/bus";
 import { hashPin, verifyPin } from "@/server/auth/password";
-import { endOfLocalDay, startOfLocalDay } from "@/lib/dates";
+import { endOfLocalDay, localDay, startOfLocalDay } from "@/lib/dates";
+import { ABSENCE_LABEL, absenceLookup, ensurePlanningWeeks } from "./planning";
 import type { Actor } from "./orders";
 import type { TimeEntryKind } from "@/generated/prisma/client";
 
@@ -69,8 +70,22 @@ export async function archiveEmployee(actor: Actor, id: string) {
 }
 
 // ------------------------------------------------------------------ Planning
-export async function listShifts(establishmentId: string, from: Date, to: Date) {
-  return prisma.shift.findMany({ where: { establishmentId, startsAt: { gte: from, lt: to } }, orderBy: { startsAt: "asc" }, include: { employee: { select: { id: true, firstName: true, lastName: true, jobTitle: true, hourlyCost: true } } } });
+const shiftInclude = {
+  employee: { select: { id: true, firstName: true, lastName: true, jobTitle: true, hourlyCost: true } },
+  replacesEmployee: { select: { id: true, firstName: true, lastName: true } },
+} as const;
+
+/**
+ * Services de la période. La semaine type remplit d'abord les semaines qui ne l'ont pas encore été ; chaque service
+ * indique si l'employé est en congé ce jour-là (« à remplacer »).
+ */
+export async function listShifts(establishmentId: string, fromDay: string, toDay: string, timezone = "Pacific/Tahiti") {
+  await ensurePlanningWeeks(establishmentId, fromDay, toDay, timezone);
+  const [rows, absentOn] = await Promise.all([
+    prisma.shift.findMany({ where: { establishmentId, startsAt: { gte: startOfLocalDay(fromDay, timezone), lt: endOfLocalDay(toDay, timezone) } }, orderBy: { startsAt: "asc" }, include: shiftInclude }),
+    absenceLookup(establishmentId, fromDay, toDay),
+  ]);
+  return rows.map((s) => { const a = absentOn(s.employeeId, localDay(s.startsAt, timezone)); return { ...s, absence: a ? { kind: a.kind, label: ABSENCE_LABEL[a.kind] } : null }; });
 }
 
 export async function upsertShift(actor: Actor, input: { id?: string; employeeId: string; startsAt: string; endsAt: string; notes?: string | null }) {
@@ -82,7 +97,10 @@ export async function upsertShift(actor: Actor, input: { id?: string; employeeId
   if (input.id) {
     const existing = await prisma.shift.findFirst({ where: { id: input.id, establishmentId: actor.establishmentId } });
     if (!existing) throw new ApiError(404, "NOT_FOUND", "Service introuvable");
-    return prisma.shift.update({ where: { id: input.id }, data: { employeeId: input.employeeId, startsAt, endsAt, notes: input.notes } });
+    // Remplacement : on garde qui était prévu au départ (et on l'efface si le service lui revient)
+    const original = existing.replacesEmployeeId ?? (existing.employeeId !== input.employeeId ? existing.employeeId : null);
+    const replacesEmployeeId = original && original !== input.employeeId ? original : null;
+    return prisma.shift.update({ where: { id: input.id }, data: { employeeId: input.employeeId, startsAt, endsAt, notes: input.notes, replacesEmployeeId, isEdited: true } });
   }
   return prisma.shift.create({ data: { establishmentId: actor.establishmentId, employeeId: input.employeeId, startsAt, endsAt, notes: input.notes ?? null } });
 }
@@ -217,7 +235,9 @@ export function computeHours(entries: { kind: TimeEntryKind; at: Date }[], perio
 
 export async function staffSummary(establishmentId: string, fromDay: string, toDay: string, timezone: string) {
   const from = startOfLocalDay(fromDay, timezone), to = endOfLocalDay(toDay, timezone);
-  const [employees, entries, shifts, revenue, before] = await Promise.all([
+  await ensurePlanningWeeks(establishmentId, fromDay, toDay, timezone);
+  const absentOn = await absenceLookup(establishmentId, fromDay, toDay);
+  const [employees, entries, allShifts, revenue, before] = await Promise.all([
     // Employés actifs, et archivés qui ont travaillé sur la période (leur coût reste dans les rapports passés)
     prisma.employee.findMany({ where: { establishmentId, OR: [{ isActive: true }, { timeEntries: { some: { at: { gte: from, lt: to } } } }] }, orderBy: [{ lastName: "asc" }, { firstName: "asc" }] }),
     prisma.timeEntry.findMany({ where: { establishmentId, at: { gte: from, lt: to } }, orderBy: { at: "asc" } }),
@@ -226,6 +246,8 @@ export async function staffSummary(establishmentId: string, fromDay: string, toD
     // Dernier pointage de chaque employé dans les 24 h précédant la période (service à cheval sur minuit)
     prisma.timeEntry.findMany({ where: { establishmentId, at: { gte: new Date(from.getTime() - 24 * 3600_000), lt: from } }, orderBy: { at: "desc" }, distinct: ["employeeId"], select: { employeeId: true, kind: true } }),
   ]);
+  // Un service tombé pendant un congé n'est pas compté tant qu'il n'est pas remplacé
+  const shifts = allShifts.filter((s) => !absentOn(s.employeeId, localDay(s.startsAt, timezone)));
   const rows = employees.map((e) => {
     const mine = entries.filter((x) => x.employeeId === e.id);
     const h = computeHours(mine, to, { initial: before.find((b) => b.employeeId === e.id) ?? null, periodStart: from });

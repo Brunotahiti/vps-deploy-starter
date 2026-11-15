@@ -1,0 +1,361 @@
+{
+ "data": {
+  "day": "2026-11-14",
+  "revenue": 213800,
+  "revenueHt": 188548,
+  "tax": 25252,
+  "tickets": 17,
+  "covers": 45,
+  "avgTicket": 12576,
+  "avgPerCover": 4751,
+  "discounts": 500,
+  "cancellations": 0,
+  "tips": 0,
+  "foodCost": 66519,
+  "foodCostPct": 35.3,
+  "openOrders": 10,
+  "byHour": [
+   {
+    "hour": 11,
+    "revenue": 32000,
+    "tickets": 1
+   },
+   {
+    "hour": 12,
+    "revenue": 49150,
+    "tickets": 6
+   },
+   {
+    "hour": 13,
+    "revenue": 120900,
+    "tickets": 9
+   },
+   {
+    "hour": 14,
+    "revenue": 11750,
+    "tickets": 1
+   }
+  ],
+  "byCategory": [
+   {
+    "name": "Plats",
+    "revenue": 106050,
+    "quantity": 45
+   },
+   {
+    "name": "Entrées",
+    "revenue": 45500,
+    "quantity": 25
+   },
+   {
+    "name": "Boissons",
+    "revenue": 34750,
+    "quantity": 55
+   },
+   {
+    "name": "Desserts",
+    "revenue": 17700,
+    "quantity": 18
+   },
+   {
+    "name": "Vins",
+    "revenue": 10300,
+    "quantity": 3
+   }
+  ],
+  "byProduct": [
+   {
+    "name": "Pizza Tahitienne",
+    "revenue": 15400,
+    "revenueHt": 13628,
+    "cost": 4760,
+    "margin": 8868,
+    "marginPct": 65.1,
+    "quantity": 7
+   },
+   {
+    "name": "Ma'a Tinito",
+    "revenue": 12600,
+    "revenueHt": 11150,
+    "cost": 3720,
+    "margin": 7430,
+    "marginPct": 66.6,
+    "quantity": 6
+   },
+   {
+    "name": "Sashimi de thon rouge",
+    "revenue": 11500,
+    "revenueHt": 10177,
+    "cost": 4100,
+    "margin": 6077,
+    "marginPct": 59.7,
+    "quantity": 5
+   },
+   {
+    "name": "Poisson cru au lait de coco",
+    "revenue": 11400,
+    "revenueHt": 10088,
+    "cost": 3720,
+    "margin": 6368,
+    "marginPct": 63.1,
+    "quantity": 6
+   },
+   {
+    "name": "Burger Mana (double steak)",
+    "revenue": 10900,
+    "revenueHt": 9646,
+    "cost": 3400,
+    "margin": 6246,
+    "marginPct": 64.8,
+    "quantity": 4
+   },
+   {
+    "name": "Mahi-mahi sauce vanille",
+    "revenue": 9300,
+    "revenueHt": 8230,
+    "cost": 3300,
+    "margin": 4930,
+    "marginPct": 59.9,
+    "quantity": 3
+   },
+   {
+    "name": "Thon rouge mi-cuit",
+    "revenue": 8700,
+    "revenueHt": 7699,
+    "cost": 3150,
+    "margin": 4549,
+    "marginPct": 59.1,
+    "quantity": 3
+   },
+   {
+    "name": "Pizza Reine",
+    "revenue": 7800,
+    "revenueHt": 6903,
+    "cost": 2160,
+    "margin": 4743,
+    "marginPct": 68.7,
+    "quantity": 4
+   },
+   {
+    "name": "Cheeseburger",
+    "revenue": 7750,
+    "revenueHt": 6858,
+    "cost": 2240,
+    "margin": 4618,
+    "marginPct": 67.3,
+    "quantity": 4
+   },
+   {
+    "name": "Steak frites",
+    "revenue": 7500,
+    "revenueHt": 6637,
+    "cost": 2550,
+    "margin": 4087,
+    "marginPct": 61.6,
+    "quantity": 3
+   },
+   {
+    "name": "Chevrette curry coco",
+    "revenue": 6400,
+    "revenueHt": 5664,
+    "cost": 2300,
+    "margin": 3364,
+    "marginPct": 59.4,
+    "quantity": 2
+   },
+   {
+    "name": "Poisson grillé du jour",
+    "revenue": 5600,
+    "revenueHt": 4956,
+    "cost": 1900,
+    "margin": 3056,
+    "marginPct": 61.7,
+    "quantity": 2
+   },
+   {
+    "name": "Maison Te Vai — Sauvignon 2023",
+    "revenue": 5500,
+    "revenueHt": 4741,
+    "cost": 1900,
+    "margin": 2841,
+    "marginPct": 59.9,
+    "quantity": 1
+   },
+   {
+    "name": "Nems (4 pièces)",
+    "revenue": 5200,
+    "revenueHt": 4602,
+    "cost": 1400,
+    "margin": 3202,
+    "marginPct": 69.6,
+    "quantity": 4
+   },
+   {
+    "name": "Poulet fafa",
+    "revenue": 4800,
+    "revenueHt": 4248,
+    "cost": 1400,
+    "margin": 2848,
+    "marginPct": 67,
+    "quantity": 2
+   }
+  ],
+  "profitability": {
+   "best": [
+    {
+     "name": "Thé",
+     "revenue": 1050,
+     "revenueHt": 929,
+     "cost": 180,
+     "margin": 749,
+     "marginPct": 80.6,
+     "quantity": 3
+    },
+    {
+     "name": "Café allongé",
+     "revenue": 1400,
+     "revenueHt": 1239,
+     "cost": 280,
+     "margin": 959,
+     "marginPct": 77.4,
+     "quantity": 4
+    },
+    {
+     "name": "Café expresso",
+     "revenue": 600,
+     "revenueHt": 531,
+     "cost": 120,
+     "margin": 411,
+     "marginPct": 77.4,
+     "quantity": 2
+    },
+    {
+     "name": "Firi firi (3 pièces)",
+     "revenue": 2100,
+     "revenueHt": 1858,
+     "cost": 450,
+     "margin": 1408,
+     "marginPct": 75.8,
+     "quantity": 3
+    },
+    {
+     "name": "Chocolat chaud",
+     "revenue": 2000,
+     "revenueHt": 1770,
+     "cost": 480,
+     "margin": 1290,
+     "marginPct": 72.9,
+     "quantity": 4
+    }
+   ],
+   "worst": [
+    {
+     "name": "Château Mahana — Rosé 2023 · carafe 50 cl",
+     "revenue": 3200,
+     "revenueHt": 2759,
+     "cost": 1133,
+     "margin": 1626,
+     "marginPct": 58.9,
+     "quantity": 1
+    },
+    {
+     "name": "Tabu blonde 33 cl",
+     "revenue": 3250,
+     "revenueHt": 2802,
+     "cost": 1150,
+     "margin": 1652,
+     "marginPct": 59,
+     "quantity": 5
+    },
+    {
+     "name": "Thon rouge mi-cuit",
+     "revenue": 8700,
+     "revenueHt": 7699,
+     "cost": 3150,
+     "margin": 4549,
+     "marginPct": 59.1,
+     "quantity": 3
+    },
+    {
+     "name": "Chevrette curry coco",
+     "revenue": 6400,
+     "revenueHt": 5664,
+     "cost": 2300,
+     "margin": 3364,
+     "marginPct": 59.4,
+     "quantity": 2
+    },
+    {
+     "name": "Hinano 33 cl",
+     "revenue": 1800,
+     "revenueHt": 1552,
+     "cost": 630,
+     "margin": 922,
+     "marginPct": 59.4,
+     "quantity": 3
+    }
+   ],
+   "unknownCost": 0
+  },
+  "byServer": [
+   {
+    "name": "Moana",
+    "revenue": 88100,
+    "tickets": 4
+   },
+   {
+    "name": "Poema",
+    "revenue": 78200,
+    "tickets": 7
+   },
+   {
+    "name": "Vaiana",
+    "revenue": 21350,
+    "tickets": 3
+   },
+   {
+    "name": "Heimana",
+    "revenue": 13150,
+    "tickets": 1
+   },
+   {
+    "name": "Tamatoa",
+    "revenue": 13000,
+    "tickets": 2
+   }
+  ],
+  "byMethod": [
+   {
+    "method": "CARD",
+    "amount": 104700,
+    "count": 9
+   },
+   {
+    "method": "CASH",
+    "amount": 70000,
+    "count": 6
+   },
+   {
+    "method": "TRANSFER",
+    "amount": 18400,
+    "count": 1
+   },
+   {
+    "method": "MEAL_VOUCHER",
+    "amount": 13100,
+    "count": 1
+   },
+   {
+    "method": "CHECK",
+    "amount": 7600,
+    "count": 1
+   }
+  ],
+  "previous": {
+   "day": "2026-11-07",
+   "revenue": 675800,
+   "tickets": 52,
+   "covers": 133
+  }
+ }
+}

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Sparkles, AlertTriangle, BadgeCheck, Mail } from "lucide-react";
 import { useSession } from "@/hooks/use-session";
+import { useInApp } from "@/hooks/use-in-app";
 import { OFFER } from "@/lib/plan";
 import { formatMoney } from "@/lib/money";
 import { Card } from "@/components/ui/misc";
@@ -12,8 +13,11 @@ const fmt = (v: number) => formatMoney(v, "XPF");
 /** Bandeau discret : jours d'essai restants, ou essai terminé. Rien pendant un abonnement actif. */
 export function SubscriptionBanner() {
   const { me, can } = useSession();
+  const inApp = useInApp();
   const s = me?.subscription;
   if (!s || s.plan === "ACTIVE") return null;
+  // Dans l'app iOS : l'état de l'essai seulement, sans tarif ni lien vers l'offre
+  if (inApp) return <div className="mb-4 flex items-center gap-2 rounded-2xl bg-lagon-500/12 px-4 py-2.5 text-sm text-lagon-800 dark:text-lagon-200" role="status" data-testid="subscription-banner">{s.expired ? <AlertTriangle className="h-4 w-4 shrink-0" /> : <Sparkles className="h-4 w-4 shrink-0" />}<span className="font-bold">{s.label}</span></div>;
   const tone = s.expired ? "bg-red-600 text-white" : (s.daysLeft ?? 99) <= 3 ? "bg-corail-500 text-white" : "bg-lagon-500/12 text-lagon-800 dark:text-lagon-200";
   return (
     <div className={`mb-4 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-2xl px-4 py-2.5 text-sm ${tone}`} role="status" data-testid="subscription-banner">
@@ -28,8 +32,9 @@ export function SubscriptionBanner() {
 /** Carte « Abonnement » des paramètres : état, tarif et contact pour activer. */
 export function SubscriptionCard() {
   const { me } = useSession();
+  const inApp = useInApp();
   const s = me?.subscription;
-  if (!s) return null;
+  if (!s || inApp) return null;
   const subject = encodeURIComponent(`Activation ManaResto — ${me?.establishment?.name ?? ""}`);
   const body = encodeURIComponent(`Bonjour,\n\nJe souhaite activer mon abonnement ManaResto pour ${me?.establishment?.name ?? "mon restaurant"}.\nCompte : ${me?.user?.email ?? ""}\n\nMerci.`);
   return (

@@ -1,0 +1,8 @@
+# Projet généré par XcodeGen (cd ios && xcodegen)
+ManaResto.xcodeproj/
+xcuserdata/
+DerivedData/
+build/
+build.log
+*.ipa
+*.dSYM.zip

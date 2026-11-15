@@ -1,0 +1,64 @@
+name: iOS
+
+# Compile l'app iOS et lance ses tests sur un simulateur, dès que le dossier ios/ change.
+on:
+  # Une seule exécution par modification (les Mac de GitHub coûtent plus cher que Linux) : sur la pull request
+  pull_request:
+    paths: ["ios/**", ".github/workflows/ios.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Compilation et tests (simulateur)
+    runs-on: macos-15
+    timeout-minutes: 40
+    defaults:
+      run:
+        working-directory: ios
+    steps:
+      - uses: actions/checkout@v4
+      - name: Xcode
+        run: |
+          sudo xcode-select -s "$(ls -d /Applications/Xcode_16*.app | sort -V | tail -1)"
+          xcodebuild -version
+      - name: Générer le projet Xcode
+        run: |
+          brew install xcodegen
+          xcodegen generate
+      - name: Choisir un simulateur iPhone
+        id: sim
+        run: |
+          UDID=$(xcrun simctl list devices available -j | python3 -c '
+          import json, sys
+          d = json.load(sys.stdin)["devices"]
+          ios = sorted((k for k in d if "iOS" in k), key=lambda k: [int(x) for x in k.split("iOS-")[-1].split("-")])
+          for rt in reversed(ios):
+              phones = [x for x in d[rt] if x["name"].startswith("iPhone")]
+              if phones:
+                  print(phones[0]["udid"]); break
+          ')
+          echo "udid=$UDID" >> "$GITHUB_OUTPUT"
+          echo "Simulateur : $UDID"
+      - name: Tests sur simulateur
+        run: |
+          set -o pipefail
+          xcodebuild test -project ManaResto.xcodeproj -scheme ManaResto \
+            -destination "id=${{ steps.sim.outputs.udid }}" \
+            CODE_SIGNING_ALLOWED=NO | tee build.log | grep -E "error:|warning: .*(ManaResto|Features|Core)|Test Suite|Executed|\*\* (TEST|BUILD)" || true
+          grep -q "\*\* TEST SUCCEEDED \*\*" build.log
+      - name: Compilation pour appareil (iPhone et iPad)
+        run: |
+          set -o pipefail
+          xcodebuild build -project ManaResto.xcodeproj -scheme ManaResto \
+            -destination "generic/platform=iOS" -configuration Release \
+            CODE_SIGNING_ALLOWED=NO | tail -5
+      - name: Journal de compilation
+        if: failure()
+        run: grep -E "error:" -A3 build.log | head -100 || true

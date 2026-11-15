@@ -1,0 +1,275 @@
+{
+ "data": {
+  "rooms": [
+   {
+    "id": "01986a8e-f85e-4b7b-919c-b1d6bd9c4279",
+    "establishmentId": "e9fc9c9d-8361-405a-943c-9401ff2c7bae",
+    "name": "Salle",
+    "kind": "INDOOR",
+    "sortOrder": 0,
+    "width": 1200,
+    "height": 800,
+    "isActive": true,
+    "createdAt": "2026-11-15T00:17:29.553Z",
+    "updatedAt": "2026-11-15T00:17:29.553Z",
+    "tables": [
+     {
+      "id": "bfb4f63f-0e6f-4519-a235-8d020ec880f4",
+      "establishmentId": "e9fc9c9d-8361-405a-943c-9401ff2c7bae",
+      "roomId": "01986a8e-f85e-4b7b-919c-b1d6bd9c4279",
+      "name": "T01",
+      "seats": 2,
+      "shape": "ROUND",
+      "x": 80,
+      "y": 80,
+      "width": 110,
+      "height": 110,
+      "rotation": 0,
+      "state": "FREE",
+      "qrToken": "9723f358-11e5-42bd-8d27-223585aeaf1f",
+      "callRequestedAt": null,
+      "isActive": true,
+      "createdAt": "2026-11-15T00:17:29.558Z",
+      "updatedAt": "2026-11-15T00:17:29.558Z",
+      "status": "ORDERING",
+      "order": {
+       "id": "416cf2f8-9bb4-44b7-afd1-e48b84db166c",
+       "tableId": "bfb4f63f-0e6f-4519-a235-8d020ec880f4",
+       "status": "OPEN",
+       "covers": 2,
+       "total": 8200,
+       "paidTotal": 0,
+       "openedAt": "2026-11-15T00:14:15.818Z",
+       "serverId": "cfae97f2-9144-4ff9-8e15-46af6b507caf",
+       "server": {
+        "firstName": "Moana",
+        "lastName": "Tefaatau",
+        "displayName": "Moana",
+        "color": "#F97316"
+       },
+       "_count": {
+        "items": 5
+       },
+       "readyCount": 0,
+       "meal": {
+        "steps": [
+         {
+          "name": "APÉRITIFS",
+          "state": "PENDING"
+         },
+         {
+          "name": "ENTRÉES",
+          "state": "PENDING"
+         },
+         {
+          "name": "PLATS",
+          "state": "PENDING"
+         }
+        ],
+        "current": null
+       }
+      },
+      "serverInitials": "MO",
+      "serverColor": "#F97316",
+      "service": {
+       "label": "Accueillir la table et proposer les boissons",
+       "kind": "TAKE_ORDER",
+       "late": true,
+       "waitingMin": 9,
+       "count": 1
+      },
+      "reservation": null
+     },
+     {
+      "id": "7b3fc0c4-75fa-46dc-941c-ff181cf034a3",
+      "establishmentId": "e9fc9c9d-8361-405a-943c-9401ff2c7bae",
+      "roomId": "01986a8e-f85e-4b7b-919c-b1d6bd9c4279",
+      "name": "T02",
+      "seats": 4,
+      "shape": "SQUARE",
+      "x": 340,
+      "y": 80,
+      "width": 110,
+      "height": 110,
+      "rotation": 0,
+      "state": "FREE",
+      "qrToken": "b102225f-81c1-4a03-91ee-b6f0c47738f2",
+      "callRequestedAt": null,
+      "isActive": true,
+      "createdAt": "2026-11-15T00:17:29.561Z",
+      "updatedAt": "2026-11-15T00:17:29.561Z",
+      "status": "FREE",
+      "order": null,
+      "serverInitials": null,
+      "serverColor": null,
+      "service": null,
+      "reservation": null
+     },
+     {
+      "id": "e61e07af-1314-4cfb-a9be-fc60ea79844d",
+      "establishmentId": "e9fc9c9d-8361-405a-943c-9401ff2c7bae",
+      "roomId": "01986a8e-f85e-4b7b-919c-b1d6bd9c4279",
+      "name": "T03",
+      "seats": 6,
+      "shape": "RECT",
+      "x": 600,
+      "y": 80,
+      "width": 180,
+      "height": 110,
+      "rotation": 0,
+      "state": "FREE",
+      "qrToken": "e69add38-5700-429e-b755-74e3d0a58fe8",
+      "callRequestedAt": null,
+      "isActive": true,
+      "createdAt": "2026-11-15T00:17:29.563Z",
+      "updatedAt": "2026-11-15T00:17:29.563Z",
+      "status": "FREE",
+      "order": null,
+      "serverInitials": null,
+      "serverColor": null,
+      "service": null,
+      "reservation": null
+     }
+    ]
+   },
+   {
+    "id": "7333e7dc-307d-49b5-bc73-27e65fb89e0e",
+    "establishmentId": "e9fc9c9d-8361-405a-943c-9401ff2c7bae",
+    "name": "Terrasse",
+    "kind": "TERRACE",
+    "sortOrder": 1,
+    "width": 1200,
+    "height": 700,
+    "isActive": true,
+    "createdAt": "2026-11-15T00:17:29.556Z",
+    "updatedAt": "2026-11-15T00:17:29.556Z",
+    "tables": [
+     {
+      "id": "b49cbf47-cb1b-4e3f-8016-042cb4ec919e",
+      "establishmentId": "e9fc9c9d-8361-405a-943c-9401ff2c7bae",
+      "roomId": "7333e7dc-307d-49b5-bc73-27e65fb89e0e",
+      "name": "T13",
+      "seats": 2,
+      "shape": "ROUND",
+      "x": 80,
+      "y": 100,
+      "width": 110,
+      "height": 110,
+      "rotation": 0,
+      "state": "FREE",
+      "qrToken": "7f5a3441-c62f-42bb-8a87-676a4bd945a8",
+      "callRequestedAt": null,
+      "isActive": true,
+      "createdAt": "2026-11-15T00:17:29.577Z",
+      "updatedAt": "2026-11-15T00:17:29.577Z",
+      "status": "FREE",
+      "order": null,
+      "serverInitials": null,
+      "serverColor": null,
+      "service": null,
+      "reservation": null
+     },
+     {
+      "id": "7ac02fcb-4dc0-4cf1-9d0e-510674cb5918",
+      "establishmentId": "e9fc9c9d-8361-405a-943c-9401ff2c7bae",
+      "roomId": "7333e7dc-307d-49b5-bc73-27e65fb89e0e",
+      "name": "T14",
+      "seats": 4,
+      "shape": "SQUARE",
+      "x": 340,
+      "y": 100,
+      "width": 110,
+      "height": 110,
+      "rotation": 0,
+      "state": "FREE",
+      "qrToken": "79656d90-658a-4b4c-978d-58b566f6ffa3",
+      "callRequestedAt": null,
+      "isActive": true,
+      "createdAt": "2026-11-15T00:17:29.578Z",
+      "updatedAt": "2026-11-15T00:17:29.578Z",
+      "status": "FREE",
+      "order": null,
+      "serverInitials": null,
+      "serverColor": null,
+      "service": null,
+      "reservation": null
+     },
+     {
+      "id": "4c27b2fb-656a-4595-a0cb-fbef67117637",
+      "establishmentId": "e9fc9c9d-8361-405a-943c-9401ff2c7bae",
+      "roomId": "7333e7dc-307d-49b5-bc73-27e65fb89e0e",
+      "name": "T15",
+      "seats": 2,
+      "shape": "ROUND",
+      "x": 600,
+      "y": 100,
+      "width": 110,
+      "height": 110,
+      "rotation": 0,
+      "state": "FREE",
+      "qrToken": "a0ce53c9-82d6-4de0-9456-fa3f9c8c31fa",
+      "callRequestedAt": null,
+      "isActive": true,
+      "createdAt": "2026-11-15T00:17:29.579Z",
+      "updatedAt": "2026-11-15T00:17:29.579Z",
+      "status": "SENT",
+      "order": {
+       "id": "c3d32462-20a8-4841-bad7-4dcd793b1f8e",
+       "tableId": "4c27b2fb-656a-4595-a0cb-fbef67117637",
+       "status": "SENT",
+       "covers": 4,
+       "total": 17900,
+       "paidTotal": 0,
+       "openedAt": "2026-11-14T23:40:15.929Z",
+       "serverId": "3046250d-9ada-4b10-bb57-747d723d8f93",
+       "server": {
+        "firstName": "Heimana",
+        "lastName": "Wong",
+        "displayName": "Heimana",
+        "color": "#EAB308"
+       },
+       "_count": {
+        "items": 11
+       },
+       "readyCount": 10,
+       "meal": {
+        "steps": [
+         {
+          "name": "APÉRITIFS",
+          "state": "READY"
+         },
+         {
+          "name": "ENTRÉES",
+          "state": "READY"
+         },
+         {
+          "name": "PLATS",
+          "state": "READY"
+         },
+         {
+          "name": "DESSERTS",
+          "state": "PENDING"
+         }
+        ],
+        "current": {
+         "name": "APÉRITIFS",
+         "state": "READY"
+        }
+       }
+      },
+      "serverInitials": "HE",
+      "serverColor": "#EAB308",
+      "service": {
+       "label": "Apporter : Chevrette curry coco, Steak frites, Mahi-mahi sauce vanille, Pizza Tahitienne",
+       "kind": "BRING",
+       "late": false,
+       "waitingMin": 0,
+       "count": 3
+      },
+      "reservation": null
+     }
+    ]
+   }
+  ]
+ }
+}

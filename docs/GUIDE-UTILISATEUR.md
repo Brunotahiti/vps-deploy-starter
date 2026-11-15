@@ -13,6 +13,8 @@ ManaResto est une caisse et un back-office pour les restaurants de Polynésie fr
 
 **Administration → Catalogue** : catégories, produits (prix TTC, taux de TVA, coût, variantes, code-barres, photo), groupes d'options (cuisson, suppléments…), formules (entrée + plat…), taux de TVA. **Import CSV** pour charger un catalogue existant.
 
+**Changer la TVA** (`Catalogue → TVA`) : aucun taux n'est figé. « Modifier » change un taux existant (ex. 13 % → 1 %). Pour un changement de règle comme la **TVA des îles à 1 % hors produits sucrés et alcool**, le bouton **« Changer le taux de la carte »** crée le taux, le met par défaut et l'applique à toute la carte (produits et formules) en gardant le taux actuel pour les catégories que vous cochez (desserts, alcools… sont pré-cochés, vérifiez). Les produits exonérés et les ventes déjà faites ne changent pas ; un produit précis se règle ensuite dans `Produits`, colonne TVA.
+
 **Photos des plats** : dans la fiche d'un produit ou d'une formule, « Prendre ou choisir une photo » ouvre l'appareil photo ou la galerie du téléphone ; la photo est réduite automatiquement (1000 px) et stockée avec vos données (incluse dans les sauvegardes). Elle apparaît en grand sur les vignettes de la caisse, sur le menu QR, la commande en ligne, la borne et le site du restaurant. Une URL d'image reste possible.
 
 ## 3. Salle et caisse
@@ -51,6 +53,12 @@ Dans une commande, l'onglet **Service** montre la prochaine action, le serveur r
 ## 6. Personnel
 
 **Personnel** : fiches employés (coût horaire, PIN de pointage), planning hebdomadaire, **pointeuse** `/pos/clock` (arrivée, pause, reprise, départ), corrections manager, heures et coût du personnel, coût matière + personnel sur le tableau de bord.
+
+**Planning saisi une seule fois** (`Personnel → Planning`) :
+- **Semaine type** : onglet « Semaine type », un service par ligne (employé, jour, heures ; une fin avant le début = le lendemain, pour les services de nuit). Plus simple encore : remplissez une semaine normale puis touchez **« Garder cette semaine comme semaine type »**. Chaque nouvelle semaine se remplit ensuite toute seule.
+- **Exceptions seulement** : touchez un service pour changer l'horaire ou l'employé ce jour-là ; ce changement ne vaut que pour ce jour. Un service supprimé à la main ne revient pas.
+- **Congés et absences** : bouton **Congé** (employé, du… au…, motif). Ses services sur la période restent affichés en **orange « à remplacer »** et ne comptent plus dans les heures prévues ; touchez-en un et choisissez le **remplaçant** en un geste (le service indique « remplace Teva »).
+- **Modifier la semaine type** met à jour les semaines à venir, sans toucher aux services déjà retouchés à la main ni au passé.
 
 ## 7. Statistiques, rapports et exports
 

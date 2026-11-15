@@ -115,6 +115,9 @@ model Establishment {
   expenses            Expense[]
   employees           Employee[]
   shifts              Shift[]
+  shiftTemplates      ShiftTemplate[]
+  planningWeeks       PlanningWeek[]
+  staffAbsences       StaffAbsence[]
   timeEntries         TimeEntry[]
   reservations        Reservation[]
   loyaltyAccounts     LoyaltyAccount[]
@@ -1446,28 +1449,100 @@ model Employee {
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
 
-  establishment Establishment @relation(fields: [establishmentId], references: [id], onDelete: Cascade)
-  user          User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
-  shifts        Shift[]
-  timeEntries   TimeEntry[]
+  establishment  Establishment   @relation(fields: [establishmentId], references: [id], onDelete: Cascade)
+  user           User?           @relation(fields: [userId], references: [id], onDelete: SetNull)
+  shifts         Shift[]         @relation("ShiftEmployee")
+  replacedIn     Shift[]         @relation("ShiftReplaces")
+  shiftTemplates ShiftTemplate[]
+  absences       StaffAbsence[]
+  timeEntries    TimeEntry[]
 
   @@index([establishmentId])
   @@map("employees")
 }
 
 model Shift {
+  id                 String   @id @default(uuid()) @db.Uuid
+  establishmentId    String   @map("establishment_id") @db.Uuid
+  employeeId         String   @map("employee_id") @db.Uuid
+  startsAt           DateTime @map("starts_at")
+  endsAt             DateTime @map("ends_at")
+  notes              String?
+  templateId         String?  @map("template_id") @db.Uuid // service issu de la semaine type
+  isEdited           Boolean  @default(false) @map("is_edited") // modifié à la main : la semaine type n'y touche plus
+  replacesEmployeeId String?  @map("replaces_employee_id") @db.Uuid // remplacement : employé prévu au départ
+
+  establishment    Establishment  @relation(fields: [establishmentId], references: [id], onDelete: Cascade)
+  employee         Employee       @relation("ShiftEmployee", fields: [employeeId], references: [id], onDelete: Cascade)
+  template         ShiftTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  replacesEmployee Employee?      @relation("ShiftReplaces", fields: [replacesEmployeeId], references: [id], onDelete: SetNull)
+
+  @@index([establishmentId, startsAt])
+  @@index([templateId])
+  @@map("shifts")
+}
+
+/**
+ * Semaine type : saisie une fois, elle remplit toute seule le planning des semaines suivantes.
+ */
+model ShiftTemplate {
   id              String   @id @default(uuid()) @db.Uuid
   establishmentId String   @map("establishment_id") @db.Uuid
   employeeId      String   @map("employee_id") @db.Uuid
-  startsAt        DateTime @map("starts_at")
-  endsAt          DateTime @map("ends_at")
+  weekday         Int // 0 = lundi … 6 = dimanche
+  startTime       String   @map("start_time") // « HH:MM », heure de l'établissement
+  endTime         String   @map("end_time") // avant ou égale au début = le lendemain (service de nuit)
   notes           String?
+  validFrom       DateTime @map("valid_from") @db.Date // premier jour où la ligne s'applique
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  establishment Establishment @relation(fields: [establishmentId], references: [id], onDelete: Cascade)
+  employee      Employee      @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  shifts        Shift[]
+
+  @@index([establishmentId])
+  @@map("shift_templates")
+}
+
+/**
+ * Semaines déjà remplies depuis la semaine type (pour ne pas recréer un service supprimé à la main).
+ */
+model PlanningWeek {
+  establishmentId String   @map("establishment_id") @db.Uuid
+  monday          DateTime @db.Date
+  generatedAt     DateTime @default(now()) @map("generated_at")
+
+  establishment Establishment @relation(fields: [establishmentId], references: [id], onDelete: Cascade)
+
+  @@id([establishmentId, monday])
+  @@map("planning_weeks")
+}
+
+enum AbsenceKind {
+  LEAVE // congés
+  SICK // maladie
+  OTHER
+}
+
+/**
+ * Congés et absences : les services de l'employé sur la période sont signalés « à remplacer ».
+ */
+model StaffAbsence {
+  id              String      @id @default(uuid()) @db.Uuid
+  establishmentId String      @map("establishment_id") @db.Uuid
+  employeeId      String      @map("employee_id") @db.Uuid
+  startsOn        DateTime    @map("starts_on") @db.Date
+  endsOn          DateTime    @map("ends_on") @db.Date // inclus
+  kind            AbsenceKind @default(LEAVE)
+  notes           String?
+  createdAt       DateTime    @default(now()) @map("created_at")
 
   establishment Establishment @relation(fields: [establishmentId], references: [id], onDelete: Cascade)
   employee      Employee      @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
-  @@index([establishmentId, startsAt])
-  @@map("shifts")
+  @@index([establishmentId, startsOn])
+  @@map("staff_absences")
 }
 
 enum TimeEntryKind {
