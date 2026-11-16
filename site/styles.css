@@ -338,16 +338,33 @@ footer a:hover { color: #9be9e2; }
 
 /* Entrée « wahou » (jouée une fois par session) */
 #intro { position: fixed; inset: 0; z-index: 200; display: grid; place-items: center; background: linear-gradient(160deg, var(--lagon-900), var(--lagon-700) 55%, var(--lagon)); color: #fff; overflow: hidden; }
-#intro .intro-inner { text-align: center; }
+#intro .intro-inner { position: relative; z-index: 2; text-align: center; }
+/* Intro vidéo (survol du lagon, généré avec Higgsfield) : plein écran, le logo apparaît par-dessus */
+#intro .intro-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0; opacity: 0; transition: opacity .5s ease; }
+#intro.playing .intro-video { opacity: 1; }
+/* Pendant la vidéo, le logo se pose sur le lagon, en bas : le paysage se dévoile au-dessus */
+#intro.playing { place-items: end center; padding-bottom: max(70px, 11vh); }
+#intro.playing::before { content: ""; position: absolute; inset: 0; z-index: 1; background: radial-gradient(46% 34% at 50% 82%, rgb(7 60 58 / .55), rgb(7 60 58 / .15) 70%, transparent); opacity: 0; animation: intro-show .8s 1s ease both; pointer-events: none; }
+#intro.playing .intro-wave { display: none; }
+#intro.playing .intro-inner { visibility: hidden; }
+#intro.playing.show-logo .intro-inner { visibility: visible; text-shadow: 0 2px 18px rgb(0 0 0 / .45); }
+#intro.playing.show-logo .intro-inner img { animation: intro-logo-v .7s cubic-bezier(.2, 1.4, .4, 1) both; }
+#intro.playing.show-logo .intro-inner p { animation: intro-text-v .5s .2s ease both; }
+#intro.playing.show-logo .intro-inner span { animation: intro-text-v .5s .35s ease both; color: #fff; }
+#intro .intro-skip { position: absolute; z-index: 2; right: 20px; top: 20px; padding: 8px 16px; border: 1px solid rgb(255 255 255 / .45); border-radius: 999px; background: rgb(7 60 58 / .35); backdrop-filter: blur(6px); color: #fff; font: inherit; font-size: .9rem; font-weight: 700; cursor: pointer; opacity: 0; animation: intro-show .4s .8s ease both; }
+#intro .intro-skip:hover { background: rgb(7 60 58 / .6); }
 #intro img { width: 96px; height: 96px; border-radius: 26px; margin: 0 auto; box-shadow: 0 30px 60px -20px rgb(0 0 0 / .5); animation: intro-logo .6s cubic-bezier(.2, 1.4, .4, 1) both; }
 #intro p { margin: 16px 0 0; font-size: 2.2rem; font-weight: 800; letter-spacing: -0.02em; animation: intro-text .45s .2s ease both; }
 #intro p b { color: #9be9e2; }
-#intro span { display: block; margin-top: 6px; font-size: 1rem; letter-spacing: .28em; text-transform: uppercase; color: rgb(255 255 255 / .75); animation: intro-text .45s .3s ease both; }
+#intro .intro-inner span { display: block; margin-top: 6px; font-size: 1rem; letter-spacing: .28em; text-transform: uppercase; color: rgb(255 255 255 / .75); animation: intro-text .45s .3s ease both; }
 #intro .intro-wave { position: absolute; left: -10%; right: -10%; bottom: -2px; width: 120%; height: 90px; opacity: .18; animation: intro-wave 2.4s linear infinite; }
 #intro.done { animation: intro-out .5s cubic-bezier(.7, 0, .3, 1) both; pointer-events: none; }
 @keyframes intro-logo { from { opacity: 0; transform: scale(.4) rotate(-8deg); } to { opacity: 1; transform: none; } }
 @keyframes intro-text { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
 @keyframes intro-wave { from { transform: translateX(0); } to { transform: translateX(-8%); } }
+@keyframes intro-logo-v { from { opacity: 0; transform: scale(.4) rotate(-8deg); } to { opacity: 1; transform: none; } }
+@keyframes intro-text-v { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+@keyframes intro-show { from { opacity: 0; } to { opacity: 1; } }
 @keyframes intro-out { to { clip-path: inset(0 0 100% 0); } }
 body.intro-on { overflow: hidden; }
 /* Cascade du héros après l'entrée (ou tout de suite si l'entrée est passée) */
