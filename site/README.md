@@ -8,6 +8,10 @@ Pages statiques servies par nginx (voir `docker-compose.yml`, service `site`). A
 - `assets/img/` — captures réelles de l'application (WebP, avec une version légère `-640` pour les petits écrans), refaites par `scripts/site-screenshots.mjs` ; après une mise à jour, augmenter le `?v=` des images dans `index.html`. Chaque capture s'agrandit au clic (visionneuse de `script.js`, attributs `data-zoom`, `data-title`, `data-text`). `banner-iaorana.jpg` (bannière « Iaorana et Maeva ») et `logo.png` (logo officiel) sont à déposer ici : le site les affiche automatiquement s'ils existent.
 - `robots.txt`, `sitemap.xml` — référencement. Ajouter chaque nouvelle page au sitemap.
 
+## Photos d'ambiance des pages par activité
+
+`assets/img/ambiance-<activité>.webp` (1920 px) et `-900.webp` (téléphone) : photos d'ambiance polynésienne derrière le titre des six pages par activité (restaurant, roulotte, snack, bar, commande en ligne, gestion). Ce sont des **illustrations générées par IA avec Higgsfield** (modèle GPT Image 2.6) : elles ne montrent ni de vrais clients ni de vrais restaurants, et ne servent qu'à l'ambiance. L'en-tête de ces pages ne montre que la photo, sans capture posée dessus : les vraies captures de l'application sont présentées plus bas dans chaque page. Les photos s'affichent avec `class="hero page-hero has-photo"` et un élément `<picture class="hero-photo">` (styles en fin de `styles.css`). Pour en changer une, remplacer les deux fichiers sous le même nom.
+
 ## Vidéo
 
 `assets/video/service.mp4` (et son image d'attente `service-poster.webp`) : un vrai service filmé dans le restaurant exemple par `scripts/site-video.mjs` (Playwright + ffmpeg). La vidéo démarre sans le son quand elle devient visible ; rien d'automatique si le visiteur préfère moins d'animations.
