@@ -64,6 +64,9 @@ for (const [name, url, o = {}] of SHOTS) {
   const full = await sharp(png).resize(w, h, { fit: "cover", position: "top" }).toBuffer();
   await sharp(full).webp({ quality: 78 }).toFile(`${OUT}${name}.webp`);
   await sharp(full).resize(w / 2).webp({ quality: 76 }).toFile(`${OUT}${name}-${w / 2}.webp`);
+  // Version AVIF (plus légère), proposée en priorité par les pages
+  await sharp(full).avif({ quality: 60, effort: 6 }).toFile(`${OUT}${name}.avif`);
+  await sharp(full).resize(w / 2).avif({ quality: 60, effort: 6 }).toFile(`${OUT}${name}-${w / 2}.avif`);
   console.log(`✓ ${name}  ${url}`);
   await p.close();
 }

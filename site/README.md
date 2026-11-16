@@ -14,6 +14,16 @@ Pages statiques servies par nginx (voir `docker-compose.yml`, service `site`). A
 
 Sur l'**accueil**, ces mêmes photos illustrent la section « Pour chaque établissement » : une carte par activité, qui mène à sa page, en carrousel horizontal sur téléphone. Deux autres illustrations générées de la même façon complètent l'accueil : `equipe-tahiti.webp` (équipe d'un restaurant polynésien, section « Pensé à Tahiti ») et `lagon-soir.webp` (terrasse sur le lagon au soir, fond de l'appel final).
 
+## Images rapides (AVIF)
+
+Chaque image WebP de `assets/img/` a une version **AVIF** (environ un tiers plus légère). Les pages la proposent en priorité dans un `<picture>` (`class="av"`, sans effet sur la mise en page) et gardent le WebP pour les anciens navigateurs. Les grandes photos d'ambiance ont aussi une taille intermédiaire de 1280 px pour les ordinateurs courants ; le 1920 px ne sert qu'aux écrans haute densité.
+
+- Après avoir ajouté ou remplacé une image WebP : `node scripts/site-avif.mjs` (ne refait que ce qui manque ou a changé ; `--force` refait tout). `scripts/site-screenshots.mjs` produit déjà l'AVIF de ses captures.
+- Une nouvelle `<img>` dans une page : l'envelopper comme les autres, `<picture class="av"><source type="image/avif" srcset="…avif…" sizes="…">` puis l'`<img>` WebP.
+- Image principale de la page (bannière de l'accueil, photo d'en-tête des pages par activité) : chargée en priorité (`fetchpriority="high"`, préchargement de la bannière en AVIF dans l'en-tête de l'accueil). Les autres images ne se chargent qu'à l'approche (`loading="lazy"`).
+- Logo : `logo-192.webp` (affiché en 38 px) et `logo-48.png` pour l'icône d'onglet ; `logo.png` (256 px) ne sert plus qu'aux données structurées.
+- Les images sont gardées 30 jours par le navigateur (`nginx/default.conf`) : pour une mise à jour visible tout de suite, changer le `?v=` ou le nom du fichier.
+
 ## Vidéo
 
 `assets/video/service.mp4` (et son image d'attente `service-poster.webp`) : un vrai service filmé dans le restaurant exemple par `scripts/site-video.mjs` (Playwright + ffmpeg). La vidéo démarre sans le son quand elle devient visible ; rien d'automatique si le visiteur préfère moins d'animations.
