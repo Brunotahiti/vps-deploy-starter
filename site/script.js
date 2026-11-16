@@ -1,15 +1,41 @@
 /* ManaResto — site vitrine : liens vers l'application, menu mobile, configuration, témoignages, formulaire, suivi d'événements. */
 (function () {
-  // Entrée « wahou » : voile lagon avec le logo, une fois par session, puis cascade du héros. Rien si l'utilisateur préfère moins d'animations.
+  // Entrée « wahou » : survol du lagon en vidéo (générée avec Higgsfield), le logo apparaît par-dessus, puis le rideau se lève
+  // sur la cascade du héros. Une fois par session ; rien si l'utilisateur préfère moins d'animations. Connexion lente,
+  // économie de données ou vidéo qui tarde : on garde l'ancienne entrée courte (voile lagon et logo).
   var intro = document.getElementById("intro"), reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches, seen = false;
   try { seen = sessionStorage.getItem("mr-intro") === "1"; } catch { /* stockage indisponible */ }
   if (intro) {
+    var video = intro.querySelector("video");
     if (reduce || seen) { intro.remove(); document.body.classList.add("anim", "anim-fast"); }
     else {
-      document.body.classList.add("anim", "intro-on");
+      document.body.classList.add("intro-on");
       try { sessionStorage.setItem("mr-intro", "1"); } catch { /* stockage indisponible */ }
-      setTimeout(function () { intro.classList.add("done"); document.body.classList.remove("intro-on"); }, 650);
-      setTimeout(function () { intro.remove(); }, 1200);
+      var over = false, started = false;
+      var finish = function () {
+        if (over) return; over = true;
+        document.body.classList.add("anim", "anim-fast");
+        intro.classList.add("done"); document.body.classList.remove("intro-on");
+        setTimeout(function () { if (video) video.pause(); intro.remove(); }, 600);
+      };
+      var shortIntro = function (wait) { if (started || over) return; if (video) { video.pause(); video.remove(); video = null; } setTimeout(finish, wait); };
+      var conn = navigator.connection || {}, light = conn.saveData || /(^|-)2g$/.test(conn.effectiveType || "");
+      if (!video || light) shortIntro(650);
+      else {
+        video.addEventListener("playing", function () {
+          if (started || over) return; started = true;
+          intro.classList.add("playing");
+          setTimeout(function () { intro.classList.add("show-logo"); }, 1300);
+          setTimeout(finish, 5200);
+        });
+        video.addEventListener("ended", finish);
+        var play = video.play(); if (play && play.catch) play.catch(function () { shortIntro(0); });
+        setTimeout(function () { shortIntro(0); }, 1400);
+      }
+      // Toucher, clic, molette, Échap ou « Passer » : on entre tout de suite sur le site
+      intro.addEventListener("click", finish);
+      ["wheel", "touchmove"].forEach(function (t) { window.addEventListener(t, finish, { passive: true, once: true }); });
+      document.addEventListener("keydown", function (e) { if (e.key === "Escape" || e.key === "Enter" || e.key === " ") finish(); }, { once: true });
     }
   }
   var C = window.MANARESTO_CONFIG || {}; var B = C.business || {}; var app = C.app || "https://app.manaresto.com";

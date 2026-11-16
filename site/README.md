@@ -26,6 +26,8 @@ Chaque image WebP de `assets/img/` a une version **AVIF** (environ un tiers plus
 
 ## Vidéo
 
+`assets/video/intro*.mp4` : l'entrée « wahou » de l'accueil, un survol du lagon au coucher du soleil généré avec Higgsfield (Kling 3.0, 5 s, sans son). Quatre versions : paysage 1280 × 720 et portrait 540 × 960 (téléphones), chacune en AV1 (`.av1.mp4`, la plus légère) et en H.264 (repli pour les navigateurs sans AV1). Le logo apparaît sur le lagon, on peut passer d'un toucher, d'un clic, de la molette, d'Échap ou du bouton « Passer ». Une seule fois par session ; en économie de données, sur connexion 2G ou si la vidéo n'a pas démarré en 1,4 s, l'ancienne entrée courte (voile lagon et logo) la remplace. Rien si le visiteur préfère moins d'animations.
+
 `assets/video/service.mp4` (et son image d'attente `service-poster.webp`) : un vrai service filmé dans le restaurant exemple par `scripts/site-video.mjs` (Playwright + ffmpeg). La vidéo démarre sans le son quand elle devient visible ; rien d'automatique si le visiteur préfère moins d'animations.
 
 ## Image de partage
