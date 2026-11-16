@@ -533,3 +533,17 @@ footer a[aria-current="page"] { color: #9be9e2; font-weight: 800; }
 .final .final-photo { position: absolute; inset: 0; z-index: -2; margin: 0; }
 .final .final-photo img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 60%; }
 .final.has-photo::after { content: ""; position: absolute; inset: 0; z-index: -1; background: radial-gradient(70% 80% at 50% 50%, rgb(8 58 56 / .72), rgb(8 58 56 / .5) 70%, rgb(8 58 56 / .35)), linear-gradient(180deg, rgb(8 58 56 / .25), rgb(8 58 56 / .55)); }
+
+/* Accueil : bannière « Iaorana et Maeva » plus grande sur ordinateur (l'en-tête s'élargit, moitié texte, moitié visuel) */
+@media (min-width: 960px) {
+  .hero:not(.page-hero) .hero-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 44px; }
+}
+@media (min-width: 1200px) {
+  /* Le texte reste aligné sur le menu ; seul le visuel déborde vers la droite de l'écran */
+  .hero:not(.page-hero) .hero-grid { grid-template-columns: minmax(0, 520px) minmax(0, 1fr); gap: 48px; }
+  .hero:not(.page-hero) .hero-visual { margin-right: max(-240px, calc((1140px - 100vw) / 2 + 40px)); }
+  .hero:not(.page-hero) .hero-phone { width: 24%; right: -22px; bottom: -48px; }
+}
+
+/* Images proposées en AVIF (repli WebP) : l'enveloppe <picture> ne change pas la mise en page */
+picture.av { display: contents; }
