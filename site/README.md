@@ -10,7 +10,7 @@ Pages statiques servies par nginx (voir `docker-compose.yml`, service `site`). A
 
 ## Photos d'ambiance des pages par activité
 
-`assets/img/ambiance-<activité>.webp` (1920 px) et `-900.webp` (téléphone) : photos d'ambiance polynésienne derrière le titre des six pages par activité (restaurant, roulotte, snack, bar, commande en ligne, gestion). Ce sont des **illustrations générées par IA avec Higgsfield** (modèle GPT Image 2.6) : elles ne montrent ni de vrais clients ni de vrais restaurants, et ne servent qu'à l'ambiance. Les captures de l'application, elles, restent de vraies captures. Elles s'affichent avec `class="hero page-hero has-photo"` et un élément `<picture class="hero-photo">` (styles en fin de `styles.css`). Pour en changer une, remplacer les deux fichiers sous le même nom.
+`assets/img/ambiance-<activité>.webp` (1920 px) et `-900.webp` (téléphone) : photos d'ambiance polynésienne derrière le titre des six pages par activité (restaurant, roulotte, snack, bar, commande en ligne, gestion). Ce sont des **illustrations générées par IA avec Higgsfield** (modèle GPT Image 2.6) : elles ne montrent ni de vrais clients ni de vrais restaurants, et ne servent qu'à l'ambiance. L'en-tête de ces pages ne montre que la photo, sans capture posée dessus : les vraies captures de l'application sont présentées plus bas dans chaque page. Les photos s'affichent avec `class="hero page-hero has-photo"` et un élément `<picture class="hero-photo">` (styles en fin de `styles.css`). Pour en changer une, remplacer les deux fichiers sous le même nom.
 
 ## Vidéo
 
