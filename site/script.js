@@ -14,9 +14,50 @@
       var over = false, started = false;
       var finish = function () {
         if (over) return; over = true;
-        document.body.classList.add("anim", "anim-fast");
-        intro.classList.add("done"); document.body.classList.remove("intro-on");
-        setTimeout(function () { if (video) video.pause(); intro.remove(); }, 600);
+        document.body.classList.remove("intro-on");
+        if (!intro.animate || !window.CSS || !CSS.supports("clip-path", 'path("M0 0H1V1Z")')) {
+          document.body.classList.add("anim", "anim-fast"); intro.classList.add("done");
+          setTimeout(function () { if (video) video.pause(); intro.remove(); }, 600);
+          return;
+        }
+        waveOut();
+      };
+      // Sortie : une vague se retire vers le haut en emportant la vidéo, suivie d'une seconde vague turquoise ; le logo
+      // s'envole vers sa place dans l'en-tête et l'accueil apparaît en cascade derrière.
+      var waveOut = function () {
+        var w = window.innerWidth, h = window.innerHeight, amp = Math.max(22, Math.min(64, Math.min(w, h) * 0.07)), cyc = Math.max(1.1, w / 520), n = 16, pts = 40;
+        var frames = [];
+        for (var k = 0; k <= n; k++) {
+          var t = k / n, base = (h + amp * 1.6) - t * (h + amp * 3.4), a = amp * (0.45 + 0.55 * Math.sin(Math.PI * t)), ph = t * Math.PI * 2.4;
+          var y = function (x) { return (base + a * Math.sin((x / w) * Math.PI * 2 * cyc + ph) + a * 0.25 * Math.sin((x / w) * Math.PI * 4.6 * cyc - ph * 1.6)).toFixed(1); };
+          var d = "M0 0L" + w + " 0L" + w + " " + y(w);
+          for (var i = pts - 1; i >= 0; i--) { var x = (w * i) / (pts - 1); d += "L" + x.toFixed(1) + " " + y(x); }
+          frames.push({ clipPath: 'path("' + d + 'Z")' });
+        }
+        var timing = { duration: 1300, easing: "cubic-bezier(.62, 0, .3, 1)", fill: "forwards" };
+        var wash = document.createElement("div"); wash.className = "intro-wash"; wash.setAttribute("aria-hidden", "true");
+        document.body.appendChild(wash);
+        intro.classList.add("leaving");
+        document.body.classList.add("anim", "anim-reveal");
+        intro.animate(frames, timing);
+        wash.animate(frames, { duration: 1300, delay: 170, easing: timing.easing, fill: "forwards" }).onfinish = function () { wash.remove(); };
+        if (video) video.animate([{ transform: "scale(1)" }, { transform: "scale(1.1)" }], { duration: 1300, easing: "ease-in", fill: "forwards" });
+        var logo = intro.querySelector(".intro-inner img"), target = document.querySelector(".nav .brand img");
+        if (logo && target) {
+          var s = logo.getBoundingClientRect(), r = target.getBoundingClientRect();
+          if (s.width && r.width) {
+            var dx = r.left + r.width / 2 - (s.left + s.width / 2), dy = r.top + r.height / 2 - (s.top + s.height / 2);
+            // Le logo vole au-dessus des vagues (copie hors de l'intro, pour ne pas être emporté avec elle)
+            var fly = document.createElement("img"); fly.className = "intro-fly"; fly.alt = ""; fly.src = logo.currentSrc || logo.src;
+            fly.style.cssText = "left:" + s.left + "px;top:" + s.top + "px;width:" + s.width + "px;height:" + s.height + "px";
+            document.body.appendChild(fly); logo.style.visibility = "hidden";
+            fly.animate([{ transform: "none" }, { transform: "translate(" + dx + "px, " + dy + "px) scale(" + r.width / s.width + ")" }], { duration: 1000, easing: "cubic-bezier(.5, 0, .2, 1)", fill: "forwards" }).onfinish = function () {
+              fly.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 450, delay: 200, fill: "forwards" }).onfinish = function () { fly.remove(); };
+            };
+          }
+        }
+        intro.querySelectorAll(".intro-inner p, .intro-inner span, .intro-skip").forEach(function (el) { el.animate([{ opacity: 1 }, { opacity: 0, transform: "translateY(-10px)" }], { duration: 280, easing: "ease-in", fill: "forwards" }); });
+        setTimeout(function () { if (video) video.pause(); intro.remove(); }, 1350);
       };
       var shortIntro = function (wait) { if (started || over) return; if (video) { video.pause(); video.remove(); video = null; } setTimeout(finish, wait); };
       var conn = navigator.connection || {}, light = conn.saveData || /(^|-)2g$/.test(conn.effectiveType || "");
