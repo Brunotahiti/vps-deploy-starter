@@ -500,7 +500,8 @@ footer a[aria-current="page"] { color: #9be9e2; font-weight: 800; }
 .act-grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); }
 .act-card { position: relative; display: block; overflow: hidden; border-radius: var(--radius); aspect-ratio: 16 / 10; color: #fff; text-decoration: none; isolation: isolate; box-shadow: var(--shadow); background: var(--lagon-800); }
 .act-card img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 70% 50%; z-index: -2; transition: transform .5s ease; }
-.act-card::after { content: ""; position: absolute; inset: 0; z-index: -1; background: linear-gradient(180deg, rgb(8 58 56 / .05) 22%, rgb(8 58 56 / .55) 52%, rgb(8 58 56 / .92) 100%); }
+.act-card::after { content: ""; position: absolute; inset: 0; z-index: -1; background: linear-gradient(180deg, transparent 0, transparent 48%, rgb(6 40 38 / .38) 66%, rgb(6 40 38 / .78) 100%); }
+.act-body { text-shadow: 0 1px 3px rgb(0 0 0 / .55), 0 0 14px rgb(0 0 0 / .35); }
 .act-card:hover img, .act-card:focus-visible img { transform: scale(1.05); }
 .act-card:focus-visible { outline: 3px solid var(--lagon); outline-offset: 3px; }
 .act-body { position: absolute; left: 0; right: 0; bottom: 0; padding: 18px 20px; display: grid; gap: 4px; }
