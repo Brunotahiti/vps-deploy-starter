@@ -1,16 +1,14 @@
 /* ManaResto — site vitrine : liens vers l'application, menu mobile, configuration, témoignages, formulaire, suivi d'événements. */
 (function () {
   // Entrée « wahou » : survol du lagon en vidéo (générée avec Higgsfield), le logo apparaît par-dessus, puis le rideau se lève
-  // sur la cascade du héros. Une fois par session ; rien si l'utilisateur préfère moins d'animations. Connexion lente,
+  // sur la cascade du héros. À chaque arrivée sur l'accueil ; rien si l'utilisateur préfère moins d'animations. Connexion lente,
   // économie de données ou vidéo qui tarde : on garde l'ancienne entrée courte (voile lagon et logo).
-  var intro = document.getElementById("intro"), reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches, seen = false;
-  try { seen = sessionStorage.getItem("mr-intro") === "1"; } catch { /* stockage indisponible */ }
+  var intro = document.getElementById("intro"), reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   if (intro) {
     var video = intro.querySelector("video");
-    if (reduce || seen) { intro.remove(); document.body.classList.add("anim", "anim-fast"); }
+    if (reduce) { intro.remove(); document.body.classList.add("anim", "anim-fast"); }
     else {
       document.body.classList.add("intro-on");
-      try { sessionStorage.setItem("mr-intro", "1"); } catch { /* stockage indisponible */ }
       var over = false, started = false;
       var finish = function () {
         if (over) return; over = true;
@@ -34,14 +32,14 @@
           for (var i = pts - 1; i >= 0; i--) { var x = (w * i) / (pts - 1); d += "L" + x.toFixed(1) + " " + y(x); }
           frames.push({ clipPath: 'path("' + d + 'Z")' });
         }
-        var timing = { duration: 1300, easing: "cubic-bezier(.62, 0, .3, 1)", fill: "forwards" };
+        var timing = { duration: 1500, easing: "cubic-bezier(.62, 0, .3, 1)", fill: "forwards" };
         var wash = document.createElement("div"); wash.className = "intro-wash"; wash.setAttribute("aria-hidden", "true");
         document.body.appendChild(wash);
         intro.classList.add("leaving");
         document.body.classList.add("anim", "anim-reveal");
         intro.animate(frames, timing);
-        wash.animate(frames, { duration: 1300, delay: 170, easing: timing.easing, fill: "forwards" }).onfinish = function () { wash.remove(); };
-        if (video) video.animate([{ transform: "scale(1)" }, { transform: "scale(1.1)" }], { duration: 1300, easing: "ease-in", fill: "forwards" });
+        wash.animate(frames, { duration: 1500, delay: 200, easing: timing.easing, fill: "forwards" }).onfinish = function () { wash.remove(); };
+        if (video) video.animate([{ transform: "scale(1)" }, { transform: "scale(1.1)" }], { duration: 1500, easing: "ease-in", fill: "forwards" });
         var logo = intro.querySelector(".intro-inner img"), target = document.querySelector(".nav .brand img");
         if (logo && target) {
           var s = logo.getBoundingClientRect(), r = target.getBoundingClientRect();
@@ -57,7 +55,12 @@
           }
         }
         intro.querySelectorAll(".intro-inner p, .intro-inner span, .intro-skip").forEach(function (el) { el.animate([{ opacity: 1 }, { opacity: 0, transform: "translateY(-10px)" }], { duration: 280, easing: "ease-in", fill: "forwards" }); });
-        setTimeout(function () { if (video) video.pause(); intro.remove(); }, 1350);
+        // L'accueil « se pose » : il arrive légèrement agrandi et flou, puis se met au point pendant que la vague se retire ;
+        // l'en-tête descend en douceur.
+        var hero = document.querySelector(".hero"), nav = document.querySelector(".nav");
+        if (hero) hero.animate([{ transform: "scale(1.06)", filter: "blur(10px) brightness(1.25)" }, { transform: "none", filter: "none" }], { duration: 1500, easing: "cubic-bezier(.2, .7, .2, 1)" });
+        if (nav) nav.animate([{ transform: "translateY(-100%)", opacity: 0 }, { transform: "none", opacity: 1 }], { duration: 650, delay: 900, easing: "cubic-bezier(.2, .8, .2, 1)", fill: "backwards" });
+        setTimeout(function () { if (video) video.pause(); intro.remove(); }, 1750);
       };
       var shortIntro = function (wait) { if (started || over) return; if (video) { video.pause(); video.remove(); video = null; } setTimeout(finish, wait); };
       var conn = navigator.connection || {}, light = conn.saveData || /(^|-)2g$/.test(conn.effectiveType || "");
