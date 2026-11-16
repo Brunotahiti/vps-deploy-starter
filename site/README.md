@@ -12,6 +12,8 @@ Pages statiques servies par nginx (voir `docker-compose.yml`, service `site`). A
 
 `assets/img/ambiance-<activité>.webp` (1920 px) et `-900.webp` (téléphone) : photos d'ambiance polynésienne derrière le titre des six pages par activité (restaurant, roulotte, snack, bar, commande en ligne, gestion). Ce sont des **illustrations générées par IA avec Higgsfield** (modèle GPT Image 2.6) : elles ne montrent ni de vrais clients ni de vrais restaurants, et ne servent qu'à l'ambiance. L'en-tête de ces pages ne montre que la photo, sans capture posée dessus : les vraies captures de l'application sont présentées plus bas dans chaque page. Les photos s'affichent avec `class="hero page-hero has-photo"` et un élément `<picture class="hero-photo">` (styles en fin de `styles.css`). Pour en changer une, remplacer les deux fichiers sous le même nom.
 
+Sur l'**accueil**, ces mêmes photos illustrent la section « Pour chaque établissement » : une carte par activité, qui mène à sa page, en carrousel horizontal sur téléphone. Deux autres illustrations générées de la même façon complètent l'accueil : `equipe-tahiti.webp` (équipe d'un restaurant polynésien, section « Pensé à Tahiti ») et `lagon-soir.webp` (terrasse sur le lagon au soir, fond de l'appel final).
+
 ## Vidéo
 
 `assets/video/service.mp4` (et son image d'attente `service-poster.webp`) : un vrai service filmé dans le restaurant exemple par `scripts/site-video.mjs` (Playwright + ffmpeg). La vidéo démarre sans le son quand elle devient visible ; rien d'automatique si le visiteur préfère moins d'animations.
