@@ -550,7 +550,8 @@ footer a[aria-current="page"] { color: #9be9e2; font-weight: 800; }
 picture.av { display: contents; }
 
 /* Photos éclaircies : les images elles-mêmes plus lumineuses, le texte posé dessus garde sa lisibilité grâce à une ombre douce */
-.page-hero .hero-photo img, .final .final-photo img, .act-card img { filter: brightness(1.14) saturate(1.06); }
+.page-hero .hero-photo img, .final .final-photo img, .act-card img, .tahiti-photo img { filter: brightness(1.14) saturate(1.06); }
+.hero-banner { filter: brightness(1.18) saturate(1.06); }
 .page-hero.has-photo .hero-text, .final.has-photo .wrap { text-shadow: 0 1px 3px rgb(0 0 0 / .45), 0 0 18px rgb(0 0 0 / .3); }
 .page-hero.has-photo .offer, .page-hero.has-photo .badge { text-shadow: none; background-color: rgb(7 60 58 / .55); backdrop-filter: blur(6px); }
 .page-hero.has-photo .btn, .final.has-photo .btn { text-shadow: none; }
