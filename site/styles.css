@@ -488,12 +488,12 @@ footer a[aria-current="page"] { color: #9be9e2; font-weight: 800; }
 @media (max-width: 959px) {
   .page-hero .hero-photo { bottom: auto; height: 560px; }
   .page-hero .hero-photo img { object-position: 78% 40%; }
-  .page-hero.has-photo::after { background: linear-gradient(180deg, rgb(7 60 58 / .58) 0, rgb(7 60 58 / .74) 240px, rgb(7 60 58 / .94) 440px, var(--lagon-900) 560px); }
+  .page-hero.has-photo::after { background: linear-gradient(180deg, rgb(7 60 58 / .4) 0, rgb(7 60 58 / .55) 240px, rgb(7 60 58 / .86) 440px, var(--lagon-900) 560px); }
 }
 @media (min-width: 960px) {
   /* Sans capture dans l'en-tête : le texte à gauche, la photo bien visible à droite */
   .page-hero.has-photo .hero-grid { grid-template-columns: minmax(0, 640px); min-height: 560px; align-content: center; }
-  .page-hero.has-photo::after { background: linear-gradient(90deg, rgb(7 60 58 / .94) 0%, rgb(7 60 58 / .84) 36%, rgb(7 60 58 / .35) 62%, rgb(7 60 58 / .08) 100%), linear-gradient(180deg, transparent 72%, rgb(13 94 91 / .85)); }
+  .page-hero.has-photo::after { background: linear-gradient(90deg, rgb(7 60 58 / .8) 0%, rgb(7 60 58 / .62) 34%, rgb(7 60 58 / .16) 58%, transparent 80%), linear-gradient(180deg, transparent 78%, rgb(13 94 91 / .7)); }
 }
 
 /* Accueil : une carte photo par activité (photos d'ambiance générées, voir README) */
@@ -533,7 +533,7 @@ footer a[aria-current="page"] { color: #9be9e2; font-weight: 800; }
 .final.has-photo::before { display: none; }
 .final .final-photo { position: absolute; inset: 0; z-index: -2; margin: 0; }
 .final .final-photo img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 60%; }
-.final.has-photo::after { content: ""; position: absolute; inset: 0; z-index: -1; background: radial-gradient(70% 80% at 50% 50%, rgb(8 58 56 / .72), rgb(8 58 56 / .5) 70%, rgb(8 58 56 / .35)), linear-gradient(180deg, rgb(8 58 56 / .25), rgb(8 58 56 / .55)); }
+.final.has-photo::after { content: ""; position: absolute; inset: 0; z-index: -1; background: radial-gradient(60% 70% at 50% 50%, rgb(8 58 56 / .58), rgb(8 58 56 / .3) 70%, rgb(8 58 56 / .12)), linear-gradient(180deg, transparent, rgb(8 58 56 / .35)); }
 
 /* Accueil : bannière « Iaorana et Maeva » plus grande sur ordinateur (l'en-tête s'élargit, moitié texte, moitié visuel) */
 @media (min-width: 960px) {
@@ -548,3 +548,8 @@ footer a[aria-current="page"] { color: #9be9e2; font-weight: 800; }
 
 /* Images proposées en AVIF (repli WebP) : l'enveloppe <picture> ne change pas la mise en page */
 picture.av { display: contents; }
+
+/* Photos éclaircies : le texte posé dessus garde sa lisibilité grâce à une ombre douce */
+.page-hero.has-photo .hero-text, .final.has-photo .wrap { text-shadow: 0 1px 3px rgb(0 0 0 / .45), 0 0 18px rgb(0 0 0 / .3); }
+.page-hero.has-photo .offer, .page-hero.has-photo .badge { text-shadow: none; background-color: rgb(7 60 58 / .55); backdrop-filter: blur(6px); }
+.page-hero.has-photo .btn, .final.has-photo .btn { text-shadow: none; }
