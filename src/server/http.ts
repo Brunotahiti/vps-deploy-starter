@@ -37,9 +37,20 @@ export function errorResponse(err: unknown) {
   if (anyErr?.code === "P2025") {
     return NextResponse.json({ error: { code: "NOT_FOUND", message: "Ressource introuvable" } }, { status: 404 });
   }
+  // Le visiteur a fermé la page ou perdu le réseau pendant l'envoi (balise de fin de visite, onglet fermé) :
+  // ce n'est pas une panne du serveur, rien à signaler à Sentry.
+  if (isClientAbort(err)) return new NextResponse(null, { status: 499 });
   console.error("[api] erreur non gérée", err);
   Sentry.captureException(err);
   return NextResponse.json({ error: { code: "INTERNAL", message: "Erreur interne" } }, { status: 500 });
+}
+
+/** Connexion coupée par le client pendant la lecture de la requête (Node : « aborted », ECONNRESET ; undici : UND_ERR_ABORTED). */
+export function isClientAbort(err: unknown): boolean {
+  for (let e = err as { name?: string; code?: string; message?: string; cause?: unknown } | undefined, depth = 0; e && depth < 4; e = e.cause as typeof e, depth++) {
+    if (e.name === "AbortError" || e.name === "ResponseAborted" || e.code === "ECONNRESET" || e.code === "UND_ERR_ABORTED" || e.message === "aborted") return true;
+  }
+  return false;
 }
 
 export async function parseBody<T extends ZodType>(req: NextRequest, schema: T): Promise<z.infer<T>> {
