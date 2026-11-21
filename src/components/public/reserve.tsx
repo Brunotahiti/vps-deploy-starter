@@ -16,7 +16,7 @@ import { localDay, zonedInputToDate } from "@/lib/dates";
 export function ReserveScreen({ org, est }: { org: string; est: string }) {
   const { toast } = useToast();
   const { lang, setLang, t } = usePublicLang();
-  const q = useQuery({ queryKey: ["public-shop", org, est], queryFn: () => api.get<{ establishment: { name: string; phone: string | null; addressLine1: string | null; city: string | null; timezone?: string } }>(`/api/public/shop/${org}/${est}`) });
+  const q = useQuery({ queryKey: ["public-shop", org, est], queryFn: () => api.get<{ demo?: boolean; online?: { message?: string | null }; establishment: { name: string; phone: string | null; addressLine1: string | null; city: string | null; timezone?: string } }>(`/api/public/shop/${org}/${est}`) });
   const [f, setF] = useState({ name: "", phone: "", email: "", date: localDay(new Date()), time: "19:30", partySize: "2", notes: "", allergies: "", website: "" });
   const [done, setDone] = useState(false);
   const [sending, setSending] = useState(false);
@@ -33,7 +33,7 @@ export function ReserveScreen({ org, est }: { org: string; est: string }) {
   return (
     <div className="mx-auto max-w-lg px-4 pb-10 pt-4">
       <header className="mb-4 flex items-center gap-3"><Logo size={36} withText={false} /><div className="min-w-0 flex-1"><p className="truncate text-lg font-extrabold">{q.data.establishment.name}</p><p className="truncate text-xs text-muted">{[q.data.establishment.addressLine1, q.data.establishment.city, q.data.establishment.phone].filter(Boolean).join(" · ")}</p></div><LangSwitch lang={lang} setLang={setLang} /></header>
-      {done ? <div className="card p-8 text-center"><CheckCircle2 className="mx-auto h-12 w-12 text-green-600" /><p className="mt-3 font-bold">{t("booked")}</p></div> : (
+      {q.data.demo ? <div className="card p-8 text-center" data-testid="reserve-demo"><p className="font-bold">{q.data.online?.message}</p></div> : done ? <div className="card p-8 text-center"><CheckCircle2 className="mx-auto h-12 w-12 text-green-600" /><p className="mt-3 font-bold">{t("booked")}</p></div> : (
         <div className="card space-y-3 p-5">
           <h1 className="text-xl font-extrabold">{t("reserve")}</h1>
           <div className="grid grid-cols-2 gap-3 [&>*]:min-w-0"><Field label={t("date")}><Input type="date" className="min-w-0 appearance-none" value={f.date} min={localDay(new Date())} onChange={(e) => setF({ ...f, date: e.target.value })} /></Field><Field label={t("time")}><Input type="time" className="min-w-0 appearance-none" value={f.time} onChange={(e) => setF({ ...f, time: e.target.value })} /></Field></div>

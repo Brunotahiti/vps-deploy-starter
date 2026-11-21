@@ -1,10 +1,13 @@
 import { route, ok, parseBody } from "@/server/http";
+import { ApiError } from "@/server/errors";
+import { DEMO_PUBLIC_MESSAGE, demoPublicClosed } from "@/lib/platform";
 import { rateLimit, rateLimitIp } from "@/server/rate-limit";
 import { publicReservationSchema } from "@/server/schemas";
 import { resolveEstablishment } from "@/server/services/public";
 import { createPublicReservation } from "@/server/services/reservations";
 
 export const POST = route<{ org: string; est: string }>(async (req, { params }) => {
+  if (demoPublicClosed(params.org)) throw new ApiError(403, "DEMO_PUBLIC_DISABLED", DEMO_PUBLIC_MESSAGE);
   await rateLimitIp(req, "public-reserve", 10);
   await rateLimitIp(req, "public-reserve-hour", 20, 60 * 60_000);
   const est = await resolveEstablishment(params.org, params.est);

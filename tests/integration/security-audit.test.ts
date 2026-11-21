@@ -134,3 +134,20 @@ describe("audit de sécurité : limites et options", () => {
     await prisma.organization.update({ where: { id: T.org.id }, data: { options: T.org.options } });
   });
 });
+
+describe("restaurant exemple partagé : pas de commande en ligne ni de réservation publiques", () => {
+  it("les deux envois sont refusés avant tout enregistrement", async () => {
+    const { POST: order } = await import("@/app/api/public/shop/[org]/[est]/order/route");
+    const { POST: reserve } = await import("@/app/api/public/shop/[org]/[est]/reserve/route");
+    const params = Promise.resolve({ org: "demo-mana-beach", est: "le-mana-beach" });
+    const req = (path: string, body: unknown) => new NextRequest(`http://localhost/api/public/shop/demo-mana-beach/le-mana-beach/${path}`, { method: "POST", body: JSON.stringify(body) });
+    for (const res of [
+      await order(req("order", { id: crypto.randomUUID(), mode: "PICKUP", name: "Visiteur", phone: "87000000", lines: [] }), { params }),
+      await reserve(req("reserve", { name: "Visiteur", phone: "87000000", email: "v@test.pf", startsAt: new Date(Date.now() + 86_400_000).toISOString(), partySize: 2 }), { params }),
+    ]) {
+      expect(res.status).toBe(403);
+      expect((await res.json()).error.code).toBe("DEMO_PUBLIC_DISABLED");
+    }
+    expect(await prisma.reservation.count({ where: { name: "Visiteur" } })).toBe(0);
+  });
+});

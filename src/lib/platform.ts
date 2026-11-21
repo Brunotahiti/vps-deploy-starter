@@ -7,6 +7,15 @@ export type PlatformEmailKind = "WELCOME" | "TRIAL_REMINDER" | "TRIAL_EXPIRED" |
 export const DEMO_ORG_SLUG = "demo-mana-beach";
 export const DEMO_EST_SLUG = "le-mana-beach";
 
+/**
+ * Restaurant exemple partagé par tous les visiteurs : pas de commande en ligne ni de réservation publiques
+ * (les coordonnées laissées seraient visibles des visiteurs suivants).
+ */
+export const DEMO_PUBLIC_MESSAGE = "Restaurant de démonstration : la commande en ligne et la réservation sont désactivées. Créez votre compte ManaResto pour les essayer avec votre restaurant.";
+export const isDemoOrgSlug = (slug: string) => slug === DEMO_ORG_SLUG;
+/** Fermé sur le restaurant exemple, sauf sur le serveur de tests de bout en bout (DEMO_UNLOCKED=1, jamais en production). */
+export const demoPublicClosed = (slug: string) => isDemoOrgSlug(slug) && process.env.DEMO_UNLOCKED !== "1";
+
 export const STATUS_LABEL: Record<AccountStatus, string> = {
   TRIAL: "Essai",
   EXPIRED: "Essai expiré",
