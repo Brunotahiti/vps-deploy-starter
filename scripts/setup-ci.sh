@@ -53,6 +53,8 @@ gh secret set VPS_HOST -b "$VPS_HOST"
 gh secret set VPS_USER -b "$VPS_USER"
 gh secret set VPS_PATH -b "$VPS_PATH"
 gh secret set PUBLIC_HOST -b "$PUBLIC_HOST"
+# Empreinte du serveur, relevée une fois depuis ce Mac : le déploiement n'acceptera que ce serveur (pas un imposteur)
+ssh-keyscan -T 15 "$VPS_HOST" 2>/dev/null | gh secret set VPS_KNOWN_HOSTS
 
 echo ""
 echo "→ Secrets configurés :"

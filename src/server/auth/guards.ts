@@ -38,7 +38,7 @@ export async function assertCanAssign(ctx: Ctx, memberships: { establishmentId: 
   for (const r of roles) assertCanGrant(ctx, r.permissions.map((p) => p.permissionKey));
 }
 
-/** Utilisateur cible : le propriétaire n'est géré que par lui-même ; hors propriétaire, membre de l'établissement courant et pas plus puissant. */
+/** Utilisateur cible : le propriétaire n'est géré que par lui-même ; hors propriétaire, membre de l'établissement courant seulement et pas plus puissant. */
 export async function assertCanManageUser(ctx: Ctx, targetId: string) {
   if (targetId === ctx.user.id) return;
   const target = await prisma.user.findFirst({ where: { id: targetId, organizationId: ctx.organizationId }, include: { memberships: { include: { role: { include: { permissions: true } } } } } });
@@ -47,5 +47,8 @@ export async function assertCanManageUser(ctx: Ctx, targetId: string) {
   if (isPlatformAdminEmail(target.email)) throw new ApiError(403, "FORBIDDEN", "Ce compte est protégé");
   if (ctx.user.isOwner) return;
   if (!ctx.establishment || !target.memberships.some((m) => m.establishmentId === ctx.establishment!.id)) throw new ApiError(403, "FORBIDDEN", "Cet utilisateur n'appartient pas à votre établissement");
+  // Membre aussi d'un autre établissement : un gérant ne peut pas changer son mot de passe, son e-mail ou ses accès
+  // (sinon il prendrait son compte et ses droits dans l'autre établissement). Seul le propriétaire le peut.
+  if (target.memberships.some((m) => m.establishmentId !== ctx.establishment!.id)) throw new ApiError(403, "OTHER_ESTABLISHMENT", "Ce membre travaille aussi dans un autre établissement : seul le propriétaire peut modifier son compte");
   for (const m of target.memberships) assertCanGrant(ctx, m.role.permissions.map((p) => p.permissionKey));
 }

@@ -61,7 +61,7 @@ describe("Notifications « plat prêt » dans l'app iOS (APNs)", () => {
   it("ticket PRÊT : l'iPhone du serveur de la table reçoit la notification, avec la commande à ouvrir", async () => {
     sentApns.length = 0;
     sentPushes.length = 0;
-    await subscribePush(T.actor, { endpoint: "https://push.example.pf/navigateur-serveur", keys: { p256dh: "p", auth: "a" } });
+    await subscribePush(T.actor, { endpoint: "https://fcm.googleapis.com/fcm/send/navigateur-serveur", keys: { p256dh: "p", auth: "a" } });
     const o = await createOrder(T.actor, { type: "DINE_IN", tableId: T.t1.id, covers: 2 });
     await addItem(T.actor, o.id, { productId: T.burger.id, courseId: o.courses[2].id, modifiers: cuisson() });
     await sendCourse(T.actor, o.id, { all: true });
@@ -76,7 +76,7 @@ describe("Notifications « plat prêt » dans l'app iOS (APNs)", () => {
     expect(m.payload.aps.sound).toBe("default");
     expect(m.payload.orderId).toBe(o.id);
     expect(m.collapseId).toBe(`ready-${o.id}`);
-    expect(sentPushes[0].endpoint).toBe("https://push.example.pf/navigateur-serveur"); // le navigateur du serveur aussi
+    expect(sentPushes[0].endpoint).toBe("https://fcm.googleapis.com/fcm/send/navigateur-serveur"); // le navigateur du serveur aussi
     expect(sentPushes[0].payload.orderId).toBe(o.id);
   });
 

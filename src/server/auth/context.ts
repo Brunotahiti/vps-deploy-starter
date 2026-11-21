@@ -1,7 +1,7 @@
 import { cache } from "react";
 import { prisma } from "@/server/db";
 import { ApiError } from "@/server/errors";
-import { ALL_PERMISSIONS, hasPermission, POS_SCOPE_PERMISSIONS, type PermissionKey } from "@/lib/permissions";
+import { ALL_PERMISSIONS, hasPermission, PIN_SESSION_DENIED, POS_SCOPE_PERMISSIONS, type PermissionKey } from "@/lib/permissions";
 import { lockedPermissions, OPTIONS, type OptionKey } from "@/lib/options";
 import { headers } from "next/headers";
 import { findSessionByToken, getSessionToken, getTerminalFromCookie } from "./session";
@@ -48,6 +48,7 @@ async function loadContext(): Promise<AuthContext | null> {
 
 async function buildContext(session: { id: string; userId: string; establishmentId: string | null; impersonatorId: string | null; scope?: string | null; user: User }): Promise<AuthContext> {
   const posOnly = session.scope === "pos";
+  const viaPin = session.scope === "pin";
   const memberships = await prisma.userEstablishment.findMany({
     where: { userId: session.userId, establishment: { isActive: true } },
     include: { establishment: true, role: { include: { permissions: true } } },
@@ -93,6 +94,12 @@ async function buildContext(session: { id: string; userId: string; establishment
     if (establishment && establishment.id !== session.establishmentId) { establishment = null; permissions.clear(); }
   }
 
+  // Session ouverte par PIN : sans les droits d'administration (ni les actions réservées au propriétaire, voir plus bas)
+  if (viaPin) {
+    if (permissions.delete("*")) for (const p of ALL_PERMISSIONS) permissions.add(p);
+    for (const p of PIN_SESSION_DENIED) permissions.delete(p);
+  }
+
   const terminal = await getTerminalFromCookie();
   const ownerEstablishments = user.isOwner
     ? await prisma.establishment.findMany({
@@ -109,7 +116,8 @@ async function buildContext(session: { id: string; userId: string; establishment
 
   return {
     sessionId: session.id,
-    user,
+    // Les actions réservées au propriétaire (boîtiers, rôles système, son propre compte) demandent une connexion par mot de passe
+    user: viaPin && user.isOwner ? { ...user, isOwner: false } : user,
     organizationId: user.organizationId,
     establishment,
     establishments,

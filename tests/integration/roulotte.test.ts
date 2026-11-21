@@ -96,7 +96,7 @@ describe("Mode roulotte : encaissement à la commande puis envoi en cuisine", ()
   });
 
   it("numéro de table : sur le bon cuisine, dans la file (Salle) et dans la notification, qui ouvre le portail Salle", async () => {
-    await subscribePush(T.actor, { endpoint: "https://push.example.pf/tel-caissier", keys: { p256dh: "p", auth: "a" } });
+    await subscribePush(T.actor, { endpoint: "https://fcm.googleapis.com/fcm/send/tel-caissier", keys: { p256dh: "p", auth: "a" } });
     const o = await getOrCreateCounterDraft(T.actor);
     await updateOrder(T.actor, o.id, { tableLabel: " 12 " });
     expect((await getOrder(T.est.id, o.id)).tableLabel).toBe("12");

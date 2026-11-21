@@ -21,7 +21,7 @@ export async function createSession(opts: {
   userAgent?: string | null;
   impersonatorId?: string | null; // console plateforme : « prendre la main »
   ttlMs?: number;
-  scope?: "pos" | null; // session limitée à la caisse de son établissement
+  scope?: "pos" | "pin" | null; // « pos » : caisse de son établissement seulement ; « pin » : ouverte par PIN, sans les droits d'administration
   boxId?: string | null;
   /** Statistiques de fréquentation : mode de connexion (inscription et démo comptées à part). */
   via?: LoginMethod | "signup" | "demo";

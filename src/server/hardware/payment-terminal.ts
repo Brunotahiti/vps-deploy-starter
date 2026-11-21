@@ -3,6 +3,9 @@ import { ApiError } from "@/server/errors";
 import { audit } from "@/server/audit";
 import type { Actor } from "@/server/services/orders";
 import type { PaymentTerminalAdapter } from "./adapter";
+import http from "node:http";
+import https from "node:https";
+import { assertPublicUrlShape, publicOnlyLookup } from "@/server/net/public-url";
 
 /**
  * Phase 7 — Terminal de paiement (TPE).
@@ -22,20 +25,55 @@ export async function terminalSettings(establishmentId: string): Promise<Termina
 }
 
 type Fetcher = typeof fetch;
-let fetcher: Fetcher = fetch;
+
+/**
+ * Appel de la passerelle TPE depuis le serveur : jamais vers une adresse interne (réseau du serveur, services voisins,
+ * métadonnées du cloud), vérifiée à la connexion même ; pas de redirection suivie ; réponse limitée à 64 Ko.
+ * Sur un boîtier du restaurant (BOX_MODE), la passerelle est sur le réseau local : adresses privées permises.
+ */
+const safeFetch = ((input: string | URL, init?: RequestInit) => {
+  const u = new URL(String(input));
+  const lan = process.env.BOX_MODE === "1";
+  if (!lan) assertPublicUrlShape(u.toString());
+  return new Promise<Response>((resolve, reject) => {
+    const req = (u.protocol === "https:" ? https : http).request(u, { method: init?.method ?? "GET", headers: init?.headers as Record<string, string>, lookup: lan ? undefined : publicOnlyLookup, signal: init?.signal ?? undefined }, (res) => {
+      const chunks: Buffer[] = [];
+      let size = 0;
+      res.on("data", (c: Buffer) => { size += c.length; if (size > 65_536) req.destroy(new Error("Réponse de la passerelle trop longue")); else chunks.push(c); });
+      res.on("end", () => { const status = res.statusCode ?? 502; resolve(new Response([101, 204, 205, 304].includes(status) ? null : Buffer.concat(chunks), { status })); });
+      res.on("error", reject);
+    });
+    req.on("error", reject);
+    req.end(typeof init?.body === "string" ? init.body : undefined);
+  });
+}) as Fetcher;
+let fetcher: Fetcher = safeFetch;
 /** Pour les tests : remplace l'appel HTTP à la passerelle. */
-export function setTerminalFetcher(f: Fetcher | null) { fetcher = f ?? fetch; }
+export function setTerminalFetcher(f: Fetcher | null) { fetcher = f ?? safeFetch; }
+
+/** Adresse d'un appel : l'adresse de la passerelle sans fragment ni paramètres, suivie du chemin de l'opération. */
+function bridgeUrl(base: string, path: string) {
+  const u = new URL(base);
+  u.hash = "";
+  u.search = "";
+  u.pathname = u.pathname.replace(/\/+$/, "") + path;
+  return u.toString();
+}
 
 export function bridgeAdapter(s: TerminalSettings): PaymentTerminalAdapter {
   const call = async (path: string, body: Record<string, unknown>) => {
     const ctrl = new AbortController();
     const t = setTimeout(() => ctrl.abort(), s.timeoutMs ?? 90_000);
     try {
-      const res = await fetcher(`${s.url!.replace(/\/$/, "")}${path}`, { method: "POST", headers: { "Content-Type": "application/json", ...(s.apiKey ? { Authorization: `Bearer ${s.apiKey}` } : {}) }, body: JSON.stringify({ ...body, terminalId: s.terminalId ?? null }), signal: ctrl.signal });
+      const res = await fetcher(bridgeUrl(s.url!, path), { method: "POST", headers: { "Content-Type": "application/json", ...(s.apiKey ? { Authorization: `Bearer ${s.apiKey}` } : {}) }, body: JSON.stringify({ ...body, terminalId: s.terminalId ?? null }), signal: ctrl.signal });
       const json = (await res.json().catch(() => ({}))) as { ok?: boolean; providerRef?: string; message?: string };
       if (!res.ok) return { ok: false, message: json.message ?? `Passerelle TPE : HTTP ${res.status}` };
       return { ok: !!json.ok, providerRef: json.providerRef, message: json.message };
-    } catch (e) { return { ok: false, message: (e as Error).name === "AbortError" ? "Délai TPE dépassé" : (e as Error).message }; }
+    } catch (e) {
+      // Message générique : le détail d'une erreur réseau ne doit pas renseigner sur ce qui écoute derrière une adresse
+      if (e instanceof ApiError) return { ok: false, message: e.message };
+      return { ok: false, message: (e as Error).name === "AbortError" ? "Délai TPE dépassé" : (e as { code?: string }).code === "EPRIVATE" ? "Adresse de la passerelle TPE refusée (adresse interne)" : "Passerelle TPE injoignable" };
+    }
     finally { clearTimeout(t); }
   };
   return {

@@ -34,7 +34,7 @@ brew install gh && gh auth login
 bash scripts/setup-ci.sh
 ```
 
-Le script enregistre la clé SSH et les secrets GitHub (`VPS_SSH_KEY`, `VPS_HOST`, `VPS_USER`, `VPS_PATH`, `PUBLIC_HOST`). Ensuite chaque push sur `main` déclenche `.github/workflows/deploy.yml` :
+Le script enregistre la clé SSH et les secrets GitHub (`VPS_SSH_KEY`, `VPS_HOST`, `VPS_USER`, `VPS_PATH`, `PUBLIC_HOST`, et `VPS_KNOWN_HOSTS`, l'empreinte du serveur : le déploiement refuse alors tout autre serveur qui répondrait à sa place). Déjà configuré sans cette empreinte ? Une commande suffit : `ssh-keyscan VOTRE_SERVEUR | gh secret set VPS_KNOWN_HOSTS`. Ensuite chaque push sur `main` déclenche `.github/workflows/deploy.yml` :
 
 1. **tests** (typage, lint, tests automatiques, construction) : si l'un échoue, rien n'est envoyé sur le serveur ;
 2. envoi du code, sauvegarde de la base, conservation de la version en service (étiquette `previous`), reconstruction et redémarrage ;
@@ -217,3 +217,7 @@ Certaines box internet bloquent les noms qui pointent vers une adresse locale (�
 - Changer le mot de passe du compte propriétaire de démo, ou créer votre entreprise via `/signup` et ne pas charger la démo.
 - Le `.env` du VPS contient les secrets : ne jamais le committer ni le copier ailleurs.
 - HTTPS forcé par Traefik, en-têtes de sécurité, cookies `Secure`, base non exposée (réseau interne Docker).
+- Connexion par PIN : jamais les droits d'administration (comptes, rôles, réglages, établissements), même pour le propriétaire. Pour ces écrans, connexion par e-mail et mot de passe.
+- Passerelle TPE : adresse publique en https uniquement (le serveur refuse toute adresse interne).
+- Rejeu des opérations faites hors ligne : reconnu seulement s'il vient du boîtier de secours (sa clé accompagne le rejeu).
+- Clés d'API et webhooks : actifs seulement avec l'option « Avancé ».

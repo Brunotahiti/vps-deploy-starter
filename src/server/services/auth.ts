@@ -5,6 +5,7 @@ import { hashPassword, hashPin, randomToken, sha256, verifyPassword, verifyPin }
 import { createSession, requestMeta, setSessionCookie, setTerminalCookie } from "@/server/auth/session";
 import { hasPermission, type PermissionKey } from "@/lib/permissions";
 import { reserveAttempt } from "@/server/auth/attempts";
+import { ipRateKey } from "@/server/rate-limit";
 import { assertPinAvailable, pinEstablishmentsOfUser } from "./pin-unique";
 import { assertEmailAllowed } from "@/server/auth/guards";
 import { audit } from "@/server/audit";
@@ -26,7 +27,7 @@ let dummyHash: Promise<string> | null = null;
 export async function loginWithPassword(email: string, password: string, establishmentId?: string) {
   const meta = await requestMeta().catch(() => ({ ip: null, userAgent: null })); // hors requête (tests) : pas d'adresse
   // Par adresse IP (essais sur de nombreux comptes) puis par compte
-  const releaseIp = await reserveAttempt(`pw-ip:${meta.ip ?? "?"}`, PASSWORD_IP_LIMIT, WINDOW);
+  const releaseIp = await reserveAttempt(`pw-ip:${ipRateKey(meta.ip)}`, PASSWORD_IP_LIMIT, WINDOW);
   const release = await reserveAttempt(`pw:${email.toLowerCase()}`, PASSWORD_LIMIT, WINDOW);
   const user = await prisma.user.findUnique({ where: { email: email.toLowerCase() }, include: { organization: { select: { blockedAt: true } } } });
   // Même durée de vérification que le compte existe ou non : la réponse ne révèle pas les adresses inscrites
@@ -75,7 +76,8 @@ export async function loginWithPin(establishmentId: string, pin: string, termina
   await release();
   await rememberOfflineKey(matched.id, establishmentId, pin).catch(() => {}); // connexion par PIN possible hors ligne
   const meta = await requestMeta();
-  const { token } = await createSession({ userId: matched.id, establishmentId, terminalId, ...meta, via: "pin" });
+  // Un PIN (4 à 6 chiffres) ne donne jamais la main sur les comptes, les rôles ni les réglages : pour cela, mot de passe
+  const { token } = await createSession({ userId: matched.id, establishmentId, terminalId, ...meta, scope: "pin", via: "pin" });
   await setSessionCookie(token);
   return matched;
 }

@@ -43,8 +43,9 @@ describe("PIN unique par établissement", () => {
     await prisma.employee.create({ data: { establishmentId: T.est.id, firstName: "A", lastName: "Doublon", pinHash: h } });
     await prisma.employee.create({ data: { establishmentId: T.est.id, firstName: "B", lastName: "Doublon", pinHash: h } });
     await expect(identifyEmployee(T.est.id, "5555")).rejects.toMatchObject({ code: "PIN_SHARED" });
-    // Chercher un PIN pris pour deviner celui d'un collègue : 5 conflits par heure au plus
-    for (let i = 0; i < 5; i++) await expect(setUserPin(T.server.id, "2000")).rejects.toMatchObject({ code: "PIN_TAKEN" });
+    // Chercher un PIN pris pour deviner celui d'un collègue : 30 essais par heure au plus, conflit ou non
+    for (let i = 0; i < 29; i++) await expect(setUserPin(T.server.id, "2000")).rejects.toMatchObject({ code: "PIN_TAKEN" });
+    await setUserPin(T.server.id, "8642"); // un PIN libre compte aussi
     await expect(setUserPin(T.server.id, "2000")).rejects.toMatchObject({ code: "RATE_LIMITED" });
     await resetAttempts();
   });

@@ -92,13 +92,20 @@ jobs:
           esac
 
       - name: Setup SSH key
-        uses: webfactory/ssh-agent@v0.9.0
+        # Épinglée par empreinte de version (v0.9.0) : une étiquette déplacée ne peut pas récupérer la clé SSH du serveur
+        uses: webfactory/ssh-agent@dc588b651fe13675774614f8e6a936a468676387
         with:
           ssh-private-key: ${{ secrets.VPS_SSH_KEY }}
 
       - name: Add VPS to known_hosts
+        env:
+          VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
         run: |
           mkdir -p ~/.ssh
+          # Empreinte du serveur enregistrée (secret VPS_KNOWN_HOSTS, sortie de « ssh-keyscan <serveur> ») : seul ce serveur est accepté.
+          # Sans ce secret, l'empreinte est relevée au moment du déploiement (moins sûr : à configurer, voir docs/DEPLOIEMENT.md).
+          if [ -n "$VPS_KNOWN_HOSTS" ]; then printf '%s\n' "$VPS_KNOWN_HOSTS" >> ~/.ssh/known_hosts; exit 0; fi
+          echo "::warning::Secret VPS_KNOWN_HOSTS absent : empreinte du serveur relevée à la volée (voir docs/DEPLOIEMENT.md)"
           # Serveur parfois lent à répondre (juste après un déploiement) : plusieurs essais avant d'abandonner
           for i in 1 2 3 4 5; do
             if ssh-keyscan -T 15 -H "$VPS_HOST" > /tmp/vps_keys 2>/dev/null && [ -s /tmp/vps_keys ]; then cat /tmp/vps_keys >> ~/.ssh/known_hosts; exit 0; fi

@@ -46,6 +46,14 @@ struct LoginView: View {
                 .textFieldStyle(.roundedBorder)
                 .controlSize(.large)
 
+                if !ServerPolicy.isOfficial(APIClient.shared.baseURL) {
+                    // Autre serveur que ManaResto : on montre toujours lequel reçoit l'e-mail et le mot de passe
+                    Label("Connexion au serveur \(APIClient.shared.baseURL.host ?? "inconnu") : vérifiez que c'est bien celui de votre restaurant.", systemImage: "server.rack")
+                        .font(.footnote)
+                        .foregroundStyle(.orange)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+
                 if let error {
                     Label(error, systemImage: "exclamationmark.triangle.fill")
                         .font(.subheadline)
@@ -80,7 +88,7 @@ struct LoginView: View {
 
                 DisclosureGroup("Avancé", isExpanded: $showServer) {
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("Adresse du serveur, si votre restaurant a sa propre installation.")
+                        Text("Adresse du serveur, si votre restaurant a sa propre installation. En https, sauf pour un boîtier sur le réseau du restaurant.")
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                         HStack {
@@ -90,7 +98,7 @@ struct LoginView: View {
                                 .autocorrectionDisabled()
                                 .textFieldStyle(.roundedBorder)
                             Button("Utiliser") { useServer() }
-                                .disabled(URL(string: server)?.scheme?.hasPrefix("http") != true)
+                                .disabled(URL(string: server.trimmingCharacters(in: .whitespaces)).map(ServerPolicy.isAllowed) != true)
                         }
                     }
                     .padding(.top, 8)
@@ -114,7 +122,7 @@ struct LoginView: View {
     }
 
     private func useServer() {
-        guard let url = URL(string: server.trimmingCharacters(in: .whitespaces)) else { return }
+        guard let url = URL(string: server.trimmingCharacters(in: .whitespaces)), ServerPolicy.isAllowed(url) else { return }
         app.setServer(url)
         Task { await app.bootstrap() }
     }

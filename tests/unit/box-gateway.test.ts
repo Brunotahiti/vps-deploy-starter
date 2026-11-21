@@ -152,7 +152,7 @@ describe("passerelle du boîtier : relais, coupure, rejeu", () => {
     await gw.checkCloud();
     const replayed = cloud.seen.slice(before).filter((x) => x.url !== "/api/health" && x.url !== "/api/box/snapshot");
     expect(replayed.map((x) => x.url)).toEqual(["/api/orders", "/api/box/sessions", expect.stringMatching(/\/items$/), expect.stringMatching(/\/payments$/), "/api/conflit"]);
-    for (const x of replayed) expect(x.headers["x-offline-replay"]).toBe("1");
+    for (const x of replayed) { expect(x.headers["x-offline-replay"]).toBe("1"); expect(x.headers["x-box-key"]).toBe("mrbox_test"); }
     expect(replayed[0].headers["idempotency-key"]).toMatch(/^box-/);
     expect(replayed[1].headers.authorization).toBe("Bearer mrbox_test");
     expect(replayed[1].headers.cookie).toBe("mr_terminal=T1"); // le terminal suit
