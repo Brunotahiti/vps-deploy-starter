@@ -33,6 +33,7 @@ export const PERMISSIONS = {
   "reports.view_global": { group: "Rapports", description: "Consulter le CA global multi-établissements" },
   "audit.view": { group: "Rapports", description: "Consulter le journal d'audit" },
   "orders.view_history": { group: "Rapports", description: "Consulter l'historique des commandes" },
+  "accounting.manage": { group: "Rapports", description: "Saisir, modifier et supprimer les dépenses de la comptabilité" },
   // Stock
   "stock.view": { group: "Stock", description: "Consulter les stocks" },
   "stock.manage": { group: "Stock", description: "Gérer stocks, inventaires, fournisseurs" },

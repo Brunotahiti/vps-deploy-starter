@@ -14,7 +14,8 @@ export const GET = route(async (req) => {
   return ok(await listExpenses(ctx.establishment.id, startOfLocalDay(q.from, tz), endOfLocalDay(q.to, tz)));
 });
 export const POST = route(async (req) => {
-  const ctx = await requirePermission("reports.view");
+  // Saisie des dépenses : gérant (la consultation reste ouverte aux profils qui voient les rapports)
+  const ctx = await requirePermission("accounting.manage");
   requireOption(ctx, "stats");
   return created(await upsertExpense(actorFrom(ctx), await parseBody(req, expenseSchema)));
 });
