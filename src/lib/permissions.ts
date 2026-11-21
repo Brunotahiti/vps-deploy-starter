@@ -61,6 +61,12 @@ export const PERMISSIONS = {
 export type PermissionKey = keyof typeof PERMISSIONS;
 export const ALL_PERMISSIONS = Object.keys(PERMISSIONS) as PermissionKey[];
 
+/**
+ * Droits jamais accordés à une session ouverte par PIN, même au propriétaire : comptes et mots de passe, rôles,
+ * réglages (terminaux, clés d'API, intégrations), établissements. Un PIN deviné ou observé ne permet pas de prendre le compte.
+ */
+export const PIN_SESSION_DENIED: PermissionKey[] = ["users.manage", "settings.manage", "establishments.manage"];
+
 /** Session « caisse » (ouverte par un boîtier de secours) : jamais plus que ces droits, même pour le propriétaire. */
 export const POS_SCOPE_PERMISSIONS: PermissionKey[] = [
   "pos.use", "pos.discount", "pos.void_item", "pos.cancel_order", "pos.refund", "pos.open_drawer", "pos.price_override", "pos.transfer_table",

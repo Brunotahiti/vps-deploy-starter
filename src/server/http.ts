@@ -53,10 +53,32 @@ export function isClientAbort(err: unknown): boolean {
   return false;
 }
 
+/** Taille maximale d'un corps JSON (l'import de 5 000 produits tient largement) : au-delà, 413 sans tout lire en mémoire. */
+export const MAX_JSON_BYTES = 4 * 1024 * 1024;
+
+/** Lit le corps en s'arrêtant dès que la limite est dépassée (un envoi géant ne doit pas saturer la mémoire du serveur). */
+export async function readBodyText(req: NextRequest, max = MAX_JSON_BYTES): Promise<string> {
+  const tooLarge = () => new ApiError(413, "BODY_TOO_LARGE", "Envoi trop volumineux");
+  if (Number(req.headers.get("content-length") ?? 0) > max) throw tooLarge();
+  if (!req.body) return "";
+  const reader = req.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.byteLength;
+    if (size > max) { await reader.cancel().catch(() => {}); throw tooLarge(); }
+    chunks.push(value);
+  }
+  return Buffer.concat(chunks).toString("utf8");
+}
+
 export async function parseBody<T extends ZodType>(req: NextRequest, schema: T): Promise<z.infer<T>> {
+  const text = await readBodyText(req);
   let json: unknown;
   try {
-    json = await req.json();
+    json = JSON.parse(text);
   } catch {
     throw new ApiError(400, "BAD_JSON", "Corps JSON invalide");
   }

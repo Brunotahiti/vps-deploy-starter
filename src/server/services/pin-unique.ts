@@ -18,12 +18,12 @@ export async function pinEstablishmentsOfUser(userId: string): Promise<string[]>
 
 /**
  * Refuse un PIN déjà utilisé par quelqu'un d'autre dans ces établissements.
- * Seuls les conflits sont comptés (5 par heure et par personne qui choisit le PIN) : impossible de s'en servir
- * pour découvrir le PIN d'un collègue.
+ * Chaque vérification compte (30 par heure et par personne qui choisit le PIN), qu'elle trouve un conflit ou non :
+ * essayer les 10 000 PIN pour repérer ceux qui sont « déjà pris » (et donc ceux des collègues) prendrait des mois.
  */
 export async function assertPinAvailable(pin: string, opts: { establishmentIds: string[]; userId?: string | null; employeeId?: string | null; guardKey: string }) {
   if (!opts.establishmentIds.length) return;
-  const release = await reserveAttempt(`pinset:${opts.guardKey}`, 5, 60 * 60_000, "Trop de PIN déjà pris essayés : réessayez dans une heure");
+  await reserveAttempt(`pinset:${opts.guardKey}`, 30, 60 * 60_000, "Trop de changements de PIN : réessayez dans une heure");
   const users = await prisma.user.findMany({
     where: {
       isActive: true, pinHash: { not: null }, ...(opts.userId ? { id: { not: opts.userId } } : {}),
@@ -38,5 +38,4 @@ export async function assertPinAvailable(pin: string, opts: { establishmentIds: 
   for (const h of [...users, ...employees]) {
     if (h.pinHash && (await verifyPin(pin, h.pinHash))) throw new ApiError(409, "PIN_TAKEN", "Ce PIN est déjà utilisé par un autre membre de l'équipe : choisissez-en un autre");
   }
-  await release();
 }

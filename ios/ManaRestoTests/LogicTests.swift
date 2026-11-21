@@ -81,4 +81,18 @@ final class PushTests: XCTestCase {
         // Les tests tournent en Debug : jeton de développement (sandbox)
         XCTAssertEqual(PushManager.environment, "sandbox")
     }
+
+    func testServerPolicy() {
+        XCTAssertTrue(ServerPolicy.isAllowed(URL(string: "https://app.manaresto.com")!))
+        XCTAssertTrue(ServerPolicy.isAllowed(URL(string: "https://caisse.monresto.pf")!))
+        XCTAssertTrue(ServerPolicy.isAllowed(URL(string: "http://192.168.1.20:3000")!))
+        XCTAssertTrue(ServerPolicy.isAllowed(URL(string: "http://boitier.local")!))
+        XCTAssertFalse(ServerPolicy.isAllowed(URL(string: "http://app.manaresto.com")!))
+        XCTAssertFalse(ServerPolicy.isAllowed(URL(string: "http://8.8.8.8")!))
+        XCTAssertFalse(ServerPolicy.isAllowed(URL(string: "ftp://192.168.1.20")!))
+        XCTAssertFalse(ServerPolicy.isAllowed(URL(string: "https://user:pw@exemple.com")!))
+        XCTAssertTrue(ServerPolicy.isOfficial(URL(string: "https://app.manaresto.com")!))
+        XCTAssertFalse(ServerPolicy.isOfficial(URL(string: "https://manaresto-support.com")!))
+        XCTAssertFalse(ServerPolicy.isOfficial(URL(string: "https://app.manaresto.com.evil.io")!))
+    }
 }

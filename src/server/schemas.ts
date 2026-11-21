@@ -165,7 +165,7 @@ export const reservationSettingsSchema = z.object({
 export const customerSchema = z.object({ firstName: z.string().max(80).nullable().optional(), lastName: z.string().max(80).nullable().optional(), phone: z.string().max(30).nullable().optional(), email: z.string().email().max(160).nullable().optional().or(z.literal("")), notes: z.string().max(1000).nullable().optional(), allergies: z.string().max(300).nullable().optional(), birthday: z.string().regex(/^(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/, "Anniversaire au format MM-JJ").nullable().optional().or(z.literal("")), marketingConsent: z.boolean().optional() });
 export const attachCustomerSchema = z.object({ customerId: uuid.nullable() });
 export const redeemSchema = z.object({ rewards: z.number().int().min(1).max(10).optional() });
-export const adjustPointsSchema = z.object({ points: z.number().int().min(-100000).max(100000), reason: z.string().min(1).max(200) });
+export const adjustPointsSchema = z.object({ points: z.number().int().min(-100000).max(100000), reason: z.string().min(1).max(200), managerPin: pin.optional() });
 export const rejectSchema = z.object({ reason: z.string().min(1).max(200) });
 const httpUrl = z.string().max(500).refine((v) => v === "" || /^https?:\/\//.test(v), "Adresse web attendue (https://…)");
 // Photo : adresse web, ou photo enregistrée dans ManaResto (/api/uploads/…, photos de démonstration /demo/…) ; jamais « //hôte »
@@ -249,7 +249,7 @@ export const settlementSchema = z.object({ amount: z.number().int().min(1).max(1
 export const giftCardSaleSchema = z.object({
   amount: z.number().int().min(100).max(10_000_000), method: z.enum(["CASH", "CARD", "CHECK", "TRANSFER", "OFFERED"]), reference: z.string().trim().max(80).nullable().optional(),
   buyerName: z.string().trim().max(120).nullable().optional(), recipientName: z.string().trim().max(120).nullable().optional(), message: z.string().trim().max(300).nullable().optional(),
-  expiresOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+  expiresOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(), managerPin: pin.optional(),
 });
 export const giftCardCancelSchema = z.object({ reason: z.string().trim().min(1).max(200) });
 export const campaignSegment = z.enum(["ALL", "INACTIVE", "BIRTHDAY_MONTH", "NEW"]);

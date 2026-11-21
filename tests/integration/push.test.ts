@@ -7,7 +7,7 @@ import { setItemReady, setTicketStatus } from "@/server/services/kitchen";
 import { isPushConfigured, notifyDishReady, sentPushes, setPushTransport, subscribePush, unsubscribePush } from "@/server/push";
 
 let T: Awaited<ReturnType<typeof makeTenant>>;
-const sub = (n: string) => ({ endpoint: `https://push.example.pf/${n}`, keys: { p256dh: "p256dh-" + n, auth: "auth-" + n } });
+const sub = (n: string) => ({ endpoint: `https://fcm.googleapis.com/fcm/send/${n}`, keys: { p256dh: "p256dh-" + n, auth: "auth-" + n } });
 const waitFor = (fn: () => boolean) => vi.waitFor(() => { if (!fn()) throw new Error("pas encore"); }, { timeout: 3000, interval: 25 });
 
 beforeAll(async () => {

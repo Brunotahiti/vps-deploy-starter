@@ -107,7 +107,8 @@ export async function testWebhook(actor: Actor, id: string) {
 
 /** Diffusion asynchrone à tous les webhooks abonnés d'un établissement (jamais bloquant pour l'appelant). */
 export function dispatch(type: RealtimeEventType, establishmentId: string, payload: Record<string, unknown>) {
-  prisma.webhook.findMany({ where: { establishmentId, isActive: true }, select: { id: true, events: true } })
+  // Webhooks : option « Avancé » active (sinon plus aucun envoi, comme pour l'API)
+  prisma.webhook.findMany({ where: { establishmentId, isActive: true, establishment: { organization: { options: { has: "advanced" } } } }, select: { id: true, events: true } })
     .then((hooks) => { for (const h of hooks) if (h.events.includes("*") || h.events.includes(type)) deliver(h.id, type, payload).catch(() => {}); })
     .catch(() => {});
 }

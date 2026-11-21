@@ -62,6 +62,19 @@ export async function requireBox(req: NextRequest) {
   return { id: row.id, establishmentId: row.establishmentId };
 }
 
+/**
+ * Rejeu d'une opération faite pendant une coupure, par le boîtier de secours : certaines règles sont alors assouplies
+ * (espèces déjà dans le tiroir, client déjà parti). L'en-tête seul ne suffit pas, n'importe quel appareil pourrait l'envoyer :
+ * le boîtier joint sa clé (`x-box-key`), qui doit être celle d'un boîtier actif de cet établissement.
+ */
+export async function isTrustedOfflineReplay(req: NextRequest, establishmentId: string) {
+  if (req.headers.get("x-offline-replay") !== "1") return false;
+  const key = req.headers.get("x-box-key") ?? "";
+  if (!key.startsWith("mrbox_")) return false;
+  const row = await prisma.localBox.findUnique({ where: { tokenHash: hash(key) }, select: { establishmentId: true, revokedAt: true } });
+  return !!row && !row.revokedAt && row.establishmentId === establishmentId;
+}
+
 /** Boîtier : l'application tourne sur le mini-PC du restaurant (et non sur le cloud). */
 export const isBoxMode = () => process.env.BOX_MODE === "1";
 

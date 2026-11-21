@@ -6,6 +6,7 @@ import { paymentsSchema } from "@/server/schemas";
 import { addPayments } from "@/server/services/payments";
 import { withIdempotency } from "@/server/idempotency";
 import { openDrawerAfterPayment } from "@/server/hardware/printers";
+import { isTrustedOfflineReplay } from "@/server/box/boxes";
 
 export const POST = route<{ id: string }>(async (req, { params }) => {
   const ctx = await requirePermission("pos.use");
@@ -15,7 +16,8 @@ export const POST = route<{ id: string }>(async (req, { params }) => {
   // "Offert" est une remise à 100 % : nécessite la permission remise ou un PIN manager
   const actor = body.payments.some((p) => p.method === "COMPLIMENTARY") ? await authorizeSensitive(ctx, "pos.discount", body.managerPin) : actorFrom(ctx);
   return withIdempotency(req, ctx.establishment.id, async () => {
-    const offlineReplay = req.headers.get("x-offline-replay") === "1";
+    // Rejeu hors ligne prouvé par la clé du boîtier : sinon, toutes les règles s'appliquent (plafond, compte fermé, caisse ouverte)
+    const offlineReplay = await isTrustedOfflineReplay(req, ctx.establishment.id);
     const result = await addPayments(actor, params.id, body.payments, { offlineReplay });
     // Tiroir-caisse : ouvert pour les moyens qui le demandent (espèces par défaut), seulement pour les paiements réellement créés.
     // Jamais au rejeu d'un encaissement fait hors ligne : le tiroir s'est ouvert à ce moment-là (agent local), pas au retour du réseau.

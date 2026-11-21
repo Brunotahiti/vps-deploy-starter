@@ -48,10 +48,22 @@ const defaultTransport: Transport = (sub, payload) => (process.env.PUSH_TRANSPOR
 let transport: Transport = defaultTransport;
 export function setPushTransport(t: Transport | null) { transport = t ?? defaultTransport; }
 
+/**
+ * Services de notification des navigateurs (Chrome/Edge, Firefox, Safari, Windows) : le serveur n'envoie jamais
+ * de requête vers une autre adresse (sinon un abonnement piégé lui ferait appeler une machine interne).
+ */
+const PUSH_HOSTS = [/^fcm\.googleapis\.com$/, /^android\.googleapis\.com$/, /^([a-z0-9-]+\.)*push\.services\.mozilla\.com$/, /^([a-z0-9-]+\.)*push\.apple\.com$/, /^([a-z0-9-]+\.)*notify\.windows\.com$/];
+export function isKnownPushService(endpoint: string) {
+  try {
+    const u = new URL(endpoint);
+    return u.protocol === "https:" && !u.port && PUSH_HOSTS.some((re) => re.test(u.hostname));
+  } catch { return false; }
+}
+
 /** Abonnement d'un appareil au nom de la personne connectée (un endpoint n'appartient qu'à une personne à la fois). */
 export async function subscribePush(actor: Actor, sub: Subscription, userAgent?: string | null) {
   if (!isPushConfigured()) throw new ApiError(503, "PUSH_DISABLED", "Notifications push non configurées sur ce serveur");
-  if (!/^https:\/\//.test(sub.endpoint)) throw new ApiError(400, "BAD_ENDPOINT", "Abonnement invalide");
+  if (!isKnownPushService(sub.endpoint)) throw new ApiError(400, "BAD_ENDPOINT", "Abonnement invalide");
   const row = await prisma.pushSubscription.upsert({
     where: { endpoint: sub.endpoint },
     create: { establishmentId: actor.establishmentId, userId: actor.userId, endpoint: sub.endpoint, p256dh: sub.keys.p256dh, auth: sub.keys.auth, userAgent: userAgent?.slice(0, 200) ?? null },

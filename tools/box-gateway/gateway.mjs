@@ -353,7 +353,8 @@ export function createGateway(options) {
     try {
       while (store.outbox.length) {
         const e = store.outbox[0];
-        const headers = { ...e.headers, host: cloud.host, "x-offline-replay": "1", "x-forwarded-proto": "https" };
+        // Clé du boîtier : prouve au cloud que le rejeu vient bien du boîtier (règles assouplies pour les opérations faites hors ligne)
+        const headers = { ...e.headers, host: cloud.host, "x-offline-replay": "1", "x-box-key": c.boxToken, "x-forwarded-proto": "https" };
         headers["idempotency-key"] ??= `box-${e.id}`;
         const mapped = mappedCookie(headers.cookie);
         if (mapped) headers.cookie = mapped.cookie;

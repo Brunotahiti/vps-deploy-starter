@@ -12,6 +12,8 @@ import { publicEstablishment } from "@/server/services/establishments";
 export const GET = route(async () => {
   const terminal = await getTerminalFromCookie();
   if (!terminal) throw new ApiError(400, "NO_TERMINAL", "Cet appareil n'est pas enregistré comme terminal");
+  // Caisses et tablettes de gestion seulement : jamais la borne en libre-service ni l'écran cuisine
+  if (terminal.kind !== "POS" && terminal.kind !== "MANAGER") throw new ApiError(403, "TERMINAL_KIND", "Connexion hors ligne réservée aux caisses");
   const establishment = await prisma.establishment.findUniqueOrThrow({ where: { id: terminal.establishmentId }, include: { organization: { select: { options: true } } } });
   // Connexion sans internet : option Continuité de service
   if (!establishment.organization.options.includes("continuity")) throw new ApiError(403, "OPTION_REQUIRED", "Option « Continuité de service » à débloquer dans Gestion → Options");

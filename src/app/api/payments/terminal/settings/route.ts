@@ -5,6 +5,9 @@ import { audit } from "@/server/audit";
 import { actorFrom } from "@/server/auth/authorize";
 import { terminalSettingsSchema } from "@/server/schemas";
 import { terminalSettings } from "@/server/hardware/payment-terminal";
+import { assertNotDemoAccount } from "@/server/services/demo";
+import { assertPublicUrlShape } from "@/server/net/public-url";
+import { ApiError } from "@/server/errors";
 
 export const GET = route(async () => {
   const ctx = await requirePermission("pos.use");
@@ -13,7 +16,13 @@ export const GET = route(async () => {
 });
 export const PATCH = route(async (req) => {
   const ctx = await requirePermission("settings.manage");
+  await assertNotDemoAccount(ctx.organizationId);
   const body = await parseBody(req, terminalSettingsSchema);
+  // Passerelle du prestataire : adresse publique en https (sur un boîtier du restaurant, le réseau local est permis)
+  if (body.url && process.env.BOX_MODE !== "1") {
+    if (!body.url.startsWith("https://")) throw new ApiError(400, "BAD_URL", "L'adresse de la passerelle TPE doit commencer par https://");
+    assertPublicUrlShape(body.url);
+  }
   const est = await prisma.establishment.findUniqueOrThrow({ where: { id: ctx.establishment.id }, select: { settings: true } });
   const current = (est.settings ?? {}) as Record<string, unknown>;
   const payments = (current.payments ?? {}) as Record<string, unknown>;

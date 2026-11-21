@@ -249,7 +249,10 @@ export async function acceptOnlineOrder(actor: Actor, orderId: string) {
   return getOrder(actor.establishmentId, orderId);
 }
 
+/** Refus d'une commande en ligne ou de borne pas encore acceptée. Toute autre annulation passe par /orders/[id]/cancel (droit ou PIN manager). */
 export async function rejectOnlineOrder(actor: Actor, orderId: string, reason: string) {
+  const order = await getOrder(actor.establishmentId, orderId);
+  if (!["ONLINE", "DELIVERY", "KIOSK"].includes(order.type) || order.acceptedAt) throw new ApiError(409, "NOT_REJECTABLE", "Seule une commande en ligne pas encore acceptée peut être refusée : pour annuler, utilisez « Annuler la commande »");
   return cancelOrder(actor, orderId, reason);
 }
 
