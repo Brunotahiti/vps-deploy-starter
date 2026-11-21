@@ -151,3 +151,27 @@ describe("restaurant exemple partagé : pas de commande en ligne ni de réservat
     expect(await prisma.reservation.count({ where: { name: "Visiteur" } })).toBe(0);
   });
 });
+
+describe("dépenses de la comptabilité : saisie réservée au gérant", () => {
+  it("le responsable caisse et le comptable consultent, le gérant saisit", async () => {
+    const { createSession } = await import("@/server/auth/session");
+    const { GET, POST } = await import("@/app/api/accounting/expenses/route");
+    const roles = await prisma.role.findMany({ where: { organizationId: T.org.id, key: { in: ["manager", "cashier", "accountant"] } }, include: { permissions: true } });
+    const has = (key: string, p: string) => roles.find((r) => r.key === key)!.permissions.some((x) => x.permissionKey === p);
+    expect(has("manager", "accounting.manage")).toBe(true);
+    expect(has("cashier", "accounting.manage")).toBe(false);
+    expect(has("accountant", "accounting.manage")).toBe(false);
+
+    const cashier = await prisma.user.create({ data: { organizationId: T.org.id, email: "caisse-compta@test.pf", passwordHash: "x", firstName: "Caisse", lastName: "Compta", memberships: { create: { establishmentId: T.est.id, roleId: roles.find((r) => r.key === "cashier")!.id } } } });
+    const as = async (userId: string) => { jar.clear(); const { token } = await createSession({ userId, establishmentId: T.est.id }); jar.set("mr_session", token); };
+    const body = { date: "2026-11-20", label: "Loyer", category: "RENT", amountTtc: 150000 };
+    const post = () => POST(new NextRequest("http://localhost/api/accounting/expenses", { method: "POST", body: JSON.stringify(body) }), { params: Promise.resolve({}) });
+
+    await as(cashier.id);
+    expect((await GET(new NextRequest("http://localhost/api/accounting/expenses?from=2026-11-01&to=2026-11-30"), { params: Promise.resolve({}) })).status).toBe(200);
+    expect((await post()).status).toBe(403);
+    await as(T.manager.id);
+    expect((await post()).status).toBe(201);
+    jar.clear();
+  });
+});

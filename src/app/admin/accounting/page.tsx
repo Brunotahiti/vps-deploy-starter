@@ -40,6 +40,8 @@ export default function AccountingPage() {
   const [from, setFrom] = useState(today.slice(0, 8) + "01");
   const [to, setTo] = useState(today);
   const allowed = can("reports.view") && hasOption("stats");
+  // Saisie des dépenses : gérant ; les autres profils les consultent seulement
+  const canEdit = can("accounting.manage");
   const sum = useList<AccountingSummary>(["accounting", "summary", from, to], `/api/accounting/summary?from=${from}&to=${to}`, allowed);
   const expenses = useList<Expense[]>(["accounting", "expenses", from, to], `/api/accounting/expenses?from=${from}&to=${to}`, allowed);
   const suppliers = useList<Supplier[]>(["stock", "suppliers"], "/api/suppliers", allowed && hasOption("stock"));
@@ -101,7 +103,7 @@ export default function AccountingPage() {
             </Card>
           </div>
 
-          <Card title={`Dépenses (${d.expenses.count})`} action={<div className="flex items-center gap-3"><Toggle checked={onlyUnpaid} onChange={setOnlyUnpaid} label="À payer seulement" /><Button size="sm" onClick={() => setEdit(blank())} data-testid="expense-new"><Plus className="h-4 w-4" />Nouvelle dépense</Button></div>}>
+          <Card title={`Dépenses (${d.expenses.count})`} action={<div className="flex items-center gap-3"><Toggle checked={onlyUnpaid} onChange={setOnlyUnpaid} label="À payer seulement" />{canEdit ? <Button size="sm" onClick={() => setEdit(blank())} data-testid="expense-new"><Plus className="h-4 w-4" />Nouvelle dépense</Button> : null}</div>}>
             {d.expenses.byCategory.length ? <div className="mb-4"><HBars data={d.expenses.byCategory.map((c) => ({ label: c.label, value: c.ttc, hint: `HT ${formatMoney(c.ht, currency)} · TVA ${formatMoney(c.tax, currency)}` }))} currency={currency} color="#f97316" /></div> : null}
             {expenses.isLoading ? <div className="flex justify-center py-6"><Spinner /></div> : rows.length === 0 ? (
               <p className="py-6 text-center text-sm text-muted">{d.expenses.count ? "Toutes les dépenses de la période sont payées." : "Aucune dépense saisie sur la période. Loyer, électricité, factures de fournisseurs hors bons de commande, assurances… : saisissez-les ici pour un résultat et une TVA complets."}</p>
@@ -115,7 +117,7 @@ export default function AccountingPage() {
                     <Td className="text-xs">{e.supplierName ?? e.supplier?.name ?? "—"}</Td>
                     <Td className="font-semibold tabular-nums"><Money amount={e.amountTtc} /></Td><Td className="tabular-nums"><Money amount={e.taxAmount} /></Td><Td className="tabular-nums"><Money amount={e.amountHt} /></Td>
                     <Td>{e.method ? <Badge color="green">{PAYMENT_LABEL[e.method] ?? e.method}</Badge> : <Badge color="orange">à payer</Badge>}</Td>
-                    <Td className="space-x-3 whitespace-nowrap"><button onClick={() => setEdit(toForm(e))} className="text-xs font-semibold text-lagon-600">Modifier</button><button onClick={() => remove(e)} className="text-xs font-semibold text-red-600">Supprimer</button></Td>
+                    <Td className="space-x-3 whitespace-nowrap">{canEdit ? <><button onClick={() => setEdit(toForm(e))} className="text-xs font-semibold text-lagon-600">Modifier</button><button onClick={() => remove(e)} className="text-xs font-semibold text-red-600">Supprimer</button></> : null}</Td>
                   </Tr>
                 ))}
               </Table>
